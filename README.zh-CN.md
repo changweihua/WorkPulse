@@ -1,5 +1,7 @@
 # 拾光 (WorkPulse)
 
+[English](./README.md) | [中文](./README.zh-CN.md)
+
 一款轻量桌面应用，几秒钟记录你的每日工作——写下做了什么、用看板管理任务、用 AI 生成工作报告。
 
 为每一个想轻松回顾"今天干了啥"的打工人而生。
@@ -44,6 +46,18 @@ npm run dist:mac    # macOS (DMG + ZIP, x64 + arm64)
 npm run dist:win    # Windows (NSIS 安装包)
 npm run dist:linux  # Linux (AppImage)
 ```
+
+## 安装说明
+
+### macOS
+
+由于安装包未签名，macOS 在首次打开时会提示"已损坏"。把 `WorkPulse.app` 拖到 `/Applications` 之后，在终端执行一次以下命令以清除隔离属性：
+
+```bash
+xattr -cr /Applications/WorkPulse.app
+```
+
+然后正常打开应用即可。
 
 ## 快捷键
 

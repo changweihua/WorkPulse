@@ -1,5 +1,7 @@
 # WorkPulse (拾光)
 
+[English](./README.md) | [中文](./README.zh-CN.md)
+
 A lightweight desktop app that captures your daily work in seconds — log what you did, track tasks on a kanban board, and generate AI-powered reports.
 
 Built for individual contributors who want a frictionless way to remember what they accomplished each day.
@@ -48,6 +50,18 @@ npm run dist:mac    # macOS (DMG + ZIP, x64 + arm64)
 npm run dist:win    # Windows (NSIS installer)
 npm run dist:linux  # Linux (AppImage)
 ```
+
+## Installation
+
+### macOS
+
+Because the build is unsigned, macOS Gatekeeper will mark the app as "damaged" on first launch. After dragging `WorkPulse.app` to `/Applications`, run this once in Terminal to clear the quarantine attribute:
+
+```bash
+xattr -cr /Applications/WorkPulse.app
+```
+
+Then open the app normally.
 
 ## Release Builds
 
