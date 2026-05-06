@@ -6,6 +6,16 @@
 
 为每一个想轻松回顾"今天干了啥"的打工人而生。
 
+## 截图
+
+| 工作日志 | 看板 |
+|---------|------|
+| ![工作日志](docs/screenshots/workpulse-worklog.png) | ![看板](docs/screenshots/workpulse-kanban.png) |
+
+| AI 报告 | 统计 |
+|---------|------|
+| ![AI 报告](docs/screenshots/workpulse-report.png) | ![统计](docs/screenshots/workpulse-stats.png) |
+
 ## 功能
 
 **工作日志** — 输入你刚做了什么，按回车，完成。支持 `#标签` 自动分类、全文搜索、撤销删除，以及带分类信息的 CSV/Markdown 导出。
