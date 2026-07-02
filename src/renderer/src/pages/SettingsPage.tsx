@@ -12,7 +12,8 @@ import {
   RefreshCw,
   Download,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  FolderOpen
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useThemeStore } from '../stores/themeStore'
@@ -483,6 +484,7 @@ function SettingsPage({ onBack }: Props): JSX.Element {
               >
                 <option value="openai">OpenAI</option>
                 <option value="anthropic">Anthropic (Claude)</option>
+                <option value="deepseek">DeepSeek</option>
               </select>
             </div>
 
@@ -497,7 +499,7 @@ function SettingsPage({ onBack }: Props): JSX.Element {
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
                 onBlur={handleBaseUrlBlur}
-                placeholder={provider === 'openai' ? 'https://api.openai.com' : 'https://api.anthropic.com'}
+                placeholder={provider === 'openai' ? 'https://api.openai.com' : provider === 'deepseek' ? 'https://api.deepseek.com' : 'https://api.anthropic.com'}
                 className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100 font-mono"
               />
             </div>
@@ -512,7 +514,7 @@ function SettingsPage({ onBack }: Props): JSX.Element {
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 onBlur={handleModelBlur}
-                placeholder={provider === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-20250514'}
+                placeholder={provider === 'openai' ? 'gpt-4o-mini' : provider === 'deepseek' ? 'deepseek-chat' : 'claude-sonnet-4-20250514'}
                 className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100 font-mono"
               />
             </div>
@@ -747,6 +749,15 @@ function SettingsPage({ onBack }: Props): JSX.Element {
             <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
             <p className="text-sm text-zinc-500 dark:text-zinc-400">WorkPulse v{currentVersion}</p>
             <p className="text-xs text-zinc-400 mt-1">{t('settings.aboutText')}</p>
+            <button
+              onClick={async () => {
+                await window.api.app.openBackupDir()
+              }}
+              className="flex items-center gap-1.5 mt-3 px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <FolderOpen className="w-4 h-4" />
+              {t('settings.openBackupDir')}
+            </button>
           </section>
         </div>
       </main>

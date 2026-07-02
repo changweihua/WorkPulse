@@ -56,6 +56,7 @@ interface API {
     getUpdateState: () => Promise<AppUpdateState>
     checkForUpdates: () => Promise<AppUpdateState>
     installUpdate: () => Promise<boolean>
+    openBackupDir: () => Promise<string>
   }
   on: {
     quickCreate: (cb: (type: QuickCreateType) => void) => () => void
@@ -77,6 +78,7 @@ interface API {
     search: (keyword: string) => Promise<WorkLog[]>
     categories: () => Promise<string[]>
     setCategory: (id: number, category: string) => Promise<void>
+    update: (id: number, content: string, category: string, created_at?: string) => Promise<WorkLog | null>
     delete: (id: number) => Promise<boolean>
     restore: (log: Pick<WorkLog, 'content' | 'category' | 'created_at' | 'task_id'>) => Promise<WorkLog>
   }

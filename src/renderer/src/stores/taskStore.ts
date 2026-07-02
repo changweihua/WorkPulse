@@ -21,6 +21,7 @@ interface TaskStore {
   updateTask: (id: number, updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'position' | 'due_date'>>) => Promise<void>
   deleteTask: (id: number) => Promise<void>
   completeTask: (id: number, logContent: string) => Promise<void>
+  completeTaskOnly: (id: number) => Promise<void>
   reorderTasks: (taskIds: number[], status: string) => Promise<void>
   getByStatus: (status: Task['status']) => Task[]
 }
@@ -59,6 +60,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   completeTask: async (id, logContent) => {
     const updated = await window.api.task.complete(id, logContent)
+    if (updated) {
+      set({ tasks: get().tasks.map((t) => (t.id === id ? updated : t)) })
+    }
+  },
+
+  completeTaskOnly: async (id) => {
+    const updated = await window.api.task.completeOnly(id)
     if (updated) {
       set({ tasks: get().tasks.map((t) => (t.id === id ? updated : t)) })
     }

@@ -273,7 +273,21 @@ function registerShortcutIpc(): void {
 
 // --- Bootstrap ---
 
-app.whenReady().then(() => {
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const win = getMainWindow()
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
+    }
+  })
+
+  app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.workpulse')
 
   app.on('browser-window-created', (_, window) => {
@@ -313,3 +327,4 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+}

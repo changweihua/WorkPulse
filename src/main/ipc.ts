@@ -1,5 +1,6 @@
-import { ipcMain, dialog } from 'electron'
-import { writeFileSync } from 'fs'
+import { ipcMain, dialog, app, shell } from 'electron'
+import { writeFileSync, readFileSync } from 'fs'
+import { join } from 'path'
 import {
   addWorkLog,
   getWorkLogs,
@@ -9,6 +10,7 @@ import {
   getStats,
   getCategories,
   updateWorkLogCategory,
+  updateWorkLog,
   deleteWorkLog,
   restoreWorkLog,
   saveReport,
@@ -22,6 +24,7 @@ import {
   updateTask,
   deleteTask,
   reorderTasks,
+  workLogExists,
   type Task
 } from './db'
 import { generateReport } from './ai'
@@ -53,6 +56,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('worklog:setCategory', (_event, id: number, category: string) => {
     updateWorkLogCategory(id, category)
+  })
+
+  ipcMain.handle('worklog:update', (_event, id: number, content: string, category: string, created_at?: string) => {
+    return updateWorkLog(id, content, category, created_at)
   })
 
   ipcMain.handle('worklog:delete', (_event, id: number) => {
@@ -138,6 +145,10 @@ export function registerIpcHandlers(): void {
       return task
     }
   )
+
+  ipcMain.handle('task:completeOnly', (_event, id: number) => {
+    return updateTask(id, { status: 'done' })
+  })
 
   // --- Settings ---
 
@@ -225,4 +236,110 @@ export function registerIpcHandlers(): void {
     writeFileSync(result.filePath, reportContent, 'utf-8')
     return result.filePath
   })
+
+  // --- Import ---
+
+  ipcMain.handle('import:logs', async (_event) => {
+    const result = await dialog.showOpenDialog({
+      title: '导入工作日志',
+      filters: [
+        { name: 'CSV / Markdown', extensions: ['csv', 'md'] }
+      ],
+      properties: ['openFile']
+    })
+
+    if (result.canceled || result.filePaths.length === 0) return null
+
+    const filePath = result.filePaths[0]
+    const content = readFileSync(filePath, 'utf-8')
+    const ext = filePath.toLowerCase().endsWith('.csv') ? 'csv' : 'md'
+
+    let imported = 0
+    let skipped = 0
+    if (ext === 'csv') {
+      const lines = content.split('\n').filter(l => l.trim())
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim()
+        if (!line) continue
+        const parts = parseCSVLine(line)
+        if (parts.length >= 3) {
+          const [time, category, logContent] = parts
+          const cat = category || ''
+          if (logContent && !workLogExists(logContent, cat)) {
+            addWorkLog(logContent, cat, null, time || undefined)
+            imported++
+          } else {
+            skipped++
+          }
+        }
+      }
+    } else {
+      const sections = content.split('\n## ')
+      for (const section of sections) {
+        const lines = section.split('\n')
+        let dateStr = ''
+        const headerLine = lines[0].replace(/^#+\s*/, '').trim()
+        if (/^\d{4}-\d{2}-\d{2}$/.test(headerLine)) {
+          dateStr = headerLine
+        }
+        for (const line of lines) {
+          const match = line.match(/^-\s*(\d{2}:\d{2}(:\d{2})?)\s*(?:\[([^\]]+)\]\s*)?(.+)$/)
+          if (match) {
+            const time = match[1]
+            const category = match[3] || ''
+            const logContent = match[4].trim()
+            const createdAt = dateStr ? `${dateStr} ${time}` : undefined
+            const cat = category
+            if (logContent && !workLogExists(logContent, cat, createdAt || undefined)) {
+              addWorkLog(logContent, cat, null, createdAt)
+              imported++
+            } else {
+              skipped++
+            }
+          }
+        }
+      }
+    }
+
+    return { imported, skipped, filePath }
+  })
+
+  // --- App ---
+
+  ipcMain.handle('app:open-backup-dir', async () => {
+    const backupDir = join(app.getPath('userData'), 'backups')
+    return shell.openPath(backupDir)
+  })
+}
+
+function parseCSVLine(line: string): string[] {
+  const result: string[] = []
+  let current = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"'
+          i++
+        } else {
+          inQuotes = false
+        }
+      } else {
+        current += ch
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true
+      } else if (ch === ',') {
+        result.push(current)
+        current = ''
+      } else {
+        current += ch
+      }
+    }
+  }
+  result.push(current)
+  return result
 }
