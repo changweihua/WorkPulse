@@ -137,7 +137,6 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@electron-uikit/core": "^1.1.0",
     "@electron-uikit/titlebar": "^1.4.0",
-    "@fontsource/maple-mono": "^5.2.6",
     "better-sqlite3": "^12.11.1",
     "date-fns": "^4.4.0",
     "electron-updater": "^6.8.9",
