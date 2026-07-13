@@ -29,6 +29,9 @@
       "buildResources": "resources",
       "output": "dist"
     },
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    },
     "publish": [
       {
         "provider": "github",
@@ -135,28 +138,38 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "better-sqlite3": "^11.0.0",
+    "@electron-uikit/core": "^1.1.0",
+    "@electron-uikit/titlebar": "^1.4.0",
+    "@jshafto/custom-electron-titlebar-update": "^4.2.9",
+    "better-sqlite3": "^11.10.0",
+    "custom-electron-titlebar": "4.2.7",
     "date-fns": "^3.6.0",
-    "electron-updater": "^6.8.3",
+    "electron-updater": "^6.8.9",
     "lucide-react": "^0.400.0",
-    "react-markdown": "^9.0.0",
-    "zustand": "^5.0.0"
+    "react-markdown": "^9.1.0",
+    "talex-mica-electron": "^1.0.2",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@electron-toolkit/preload": "^3.0.0",
-    "@electron-toolkit/utils": "^3.0.0",
-    "@types/better-sqlite3": "^7.6.0",
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.0",
-    "autoprefixer": "^10.4.0",
-    "electron": "^31.0.0",
-    "electron-builder": "^24.0.0",
-    "electron-vite": "^2.3.0",
-    "postcss": "^8.4.0",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "tailwindcss": "^3.4.0",
-    "typescript": "^5.5.0"
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^6.0.3",
+    "autoprefixer": "^10.5.2",
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "postcss": "^8.5.18",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3"
+  },
+  "allowScripts": {
+    "electron@43.1.0": true,
+    "esbuild@0.21.5": true,
+    "better-sqlite3@11.10.0": true
   }
 }

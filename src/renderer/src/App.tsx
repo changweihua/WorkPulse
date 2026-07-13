@@ -7,6 +7,7 @@ import StatsPage from './pages/StatsPage'
 import SettingsPage from './pages/SettingsPage'
 import { QuickCreate } from './components/QuickCreate'
 import { useToast } from './components/Toast'
+import { TitleBar } from './components/TitleBar'
 import { useThemeStore } from './stores/themeStore'
 import { useI18n, useLanguageStore } from './stores/languageStore'
 
@@ -112,10 +113,12 @@ function App(): JSX.Element {
 
   return (
     <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
+        {/* ===== 新增：系统标题栏 ===== */}
+      <TitleBar />
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
         <div className="flex items-center gap-1">
-          <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4">WorkPulse</h1>
+          <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4">工作台</h1>
           <nav className="flex gap-1">
             {navBtn('worklog', <ClipboardList className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.worklog'))}
             {navBtn('kanban', <Columns3 className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.kanban'))}

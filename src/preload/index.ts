@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { exposeUIKit } from '@electron-uikit/core/preload'
 
 type QuickCreateType = 'log' | 'task'
 type NavigatePage = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings'
@@ -78,6 +79,12 @@ const api = {
     report: (content: string, dateRange: string) =>
       ipcRenderer.invoke('export:report', content, dateRange)
   },
+  // 新增：窗口控制
+  window: {
+    minimize: () => ipcRenderer.send('window-control', 'minimize'),
+    maximize: () => ipcRenderer.send('window-control', 'maximize'),
+    close: () => ipcRenderer.send('window-control', 'close'),
+  },
   on: {
     quickCreate: (cb: (type: QuickCreateType) => void) => {
       const logHandler = (): void => cb('log')
@@ -125,3 +132,5 @@ if (process.contextIsolated) {
   // @ts-ignore
   window.api = api
 }
+
+exposeUIKit()

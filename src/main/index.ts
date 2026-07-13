@@ -1,11 +1,20 @@
 import { app, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain } from 'electron'
-import { join } from 'path'
+import path, { join } from 'path'
 import { readFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, getSetting, setSetting } from './db'
 import { registerIpcHandlers } from './ipc'
 import { tMain, type AppLanguage } from './i18n'
 import { configureAutoUpdater, registerUpdateIpc, startUpdateCheck } from './updater'
+import {
+  MicaBrowserWindow,
+  // @ts-ignore
+  useMicaElectron
+} from 'talex-mica-electron';
+import {
+  registerTitleBarListener,
+  attachTitleBarToWindow
+} from '@electron-uikit/titlebar'
 
 let tray: Tray | null = null
 let isQuitting = false
@@ -65,21 +74,21 @@ function buildMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(isMac
       ? ([
-          {
-            label: app.name,
-            submenu: [
-              { role: 'about' },
-              { type: 'separator' },
-              { role: 'services' },
-              { type: 'separator' },
-              { role: 'hide' },
-              { role: 'hideOthers' },
-              { role: 'unhide' },
-              { type: 'separator' },
-              { role: 'quit' }
-            ]
-          }
-        ] as Electron.MenuItemConstructorOptions[])
+        {
+          label: app.name,
+          submenu: [
+            { role: 'about' },
+            { type: 'separator' },
+            { role: 'services' },
+            { type: 'separator' },
+            { role: 'hide' },
+            { role: 'hideOthers' },
+            { role: 'unhide' },
+            { type: 'separator' },
+            { role: 'quit' }
+          ]
+        }
+      ] as Electron.MenuItemConstructorOptions[])
       : []),
     {
       label: tMain('create'),
@@ -205,19 +214,31 @@ function createWindow(): void {
   const iconPath = is.dev
     ? join(__dirname, '../../resources/icon.png')
     : join(process.resourcesPath, 'icon.png')
-  const mainWindow = new BrowserWindow({
+  const mainWindow = new MicaBrowserWindow({
     width: 800,
     height: 600,
     minWidth: 400,
     minHeight: 500,
     show: false,
     title: 'WorkPulse',
+    frame: false,                    // ← 完全移除默认标题栏
+    transparent: true,               // ← 允许圆角/透明效果
+    titleBarStyle: 'hidden',
     icon: iconPath,
+    //frame: false, // needed if process.versions.electron < 14
+    /* You can use *titleBarOverlay: true* to use the original Windows controls */
+    titleBarOverlay: false,
+    backgroundMaterial: 'mica',  // Windows 11 云母效果
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
   })
+
+  // 2. 应用 Windows 11 云母效果
+  mainWindow.setMicaEffect();           // 标准云母效果
+  // win.setMicaTabbedEffect();  // 备选：带选项卡的云母效果 (Mica Alt)
+  // win.setMicaAcrylicEffect(); // 备选：亚克力效果
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -272,12 +293,17 @@ function registerShortcutIpc(): void {
 }
 
 // --- Bootstrap ---
-
+useMicaElectron()
 app.whenReady().then(() => {
+  // Register title bar IPC listeners
+  registerTitleBarListener()
+
   electronApp.setAppUserModelId('com.workpulse')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
+    // Attach a title bar to the window
+    attachTitleBarToWindow(window)
   })
 
   initDatabase()
@@ -311,5 +337,16 @@ app.on('will-quit', () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
+  }
+})
+
+// 监听窗口控制事件
+ipcMain.on('window-control', (event, action) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win) return
+  switch (action) {
+    case 'minimize': win.minimize(); break
+    case 'maximize': win.maximize(); break
+    case 'close': win.close(); break
   }
 })
