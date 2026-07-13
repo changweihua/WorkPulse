@@ -14,6 +14,7 @@ import {
   Save
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { getDateRange, type DatePreset } from '../lib/dateUtils'
 import { useToast } from '../components/Toast'
 import { useI18n } from '../stores/languageStore'
@@ -316,7 +317,7 @@ function ReportPage(): JSX.Element {
           ) : (
             <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-6 bg-white dark:bg-zinc-900 mb-4">
               <div className="prose prose-zinc dark:prose-invert prose-sm max-w-none" role="article">
-                <ReactMarkdown>{reportContent}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportContent}</ReactMarkdown>
               </div>
             </div>
           )}

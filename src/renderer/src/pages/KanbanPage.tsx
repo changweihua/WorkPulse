@@ -703,7 +703,7 @@ function KanbanPage(): JSX.Element {
                     placeholder={t('kanban.draftPlaceholder')}
                     className="flex-1 px-2 py-1.5 border border-zinc-200 dark:border-zinc-600 rounded text-xs outline-none focus:border-zinc-400 bg-white dark:bg-zinc-800 dark:text-zinc-100"
                   />
-                  <button
+                  <button title='Remove'
                     onClick={handleAddDraft}
                     className="px-2 py-1.5 bg-zinc-100 text-zinc-600 text-xs rounded hover:bg-zinc-200 transition-colors"
                   >

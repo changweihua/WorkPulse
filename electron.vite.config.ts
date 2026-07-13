@@ -20,6 +20,12 @@ export default defineConfig({
     }
   },
   renderer: {
+    // build: {
+    //   // ✅ 关键：Vite 8 实际认这个
+    //   rolldownOptions: {
+    //     input: 'src/renderer/index.html'
+    //   }
+    // },
     resolve: {
       alias: {
         '@': resolve('src/renderer/src')
