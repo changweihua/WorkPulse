@@ -29,6 +29,9 @@
       "buildResources": "resources",
       "output": "dist"
     },
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    },
     "publish": [
       {
         "provider": "github",
@@ -138,7 +141,7 @@
     "@electron-uikit/core": "^1.1.0",
     "@electron-uikit/titlebar": "^1.4.0",
     "@jshafto/custom-electron-titlebar-update": "^4.2.9",
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "^11.10.0",
     "custom-electron-titlebar": "4.2.7",
     "date-fns": "^3.6.0",
     "electron-updater": "^6.8.9",
@@ -162,13 +165,11 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwindcss": "^3.4.19",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.6"
+    "typescript": "^5.9.3"
   },
   "allowScripts": {
-    "electron": true,
-    "electron-winstaller": true,
-    "esbuild": true,
-    "better-sqlite3": true
+    "electron@43.1.0": true,
+    "esbuild@0.21.5": true,
+    "better-sqlite3@11.10.0": true
   }
 }
