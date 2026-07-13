@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, ReactNode } from 'react'
 import {
   ArrowLeft,
   Eye,
@@ -48,7 +48,7 @@ function ShortcutCapture({
   value: string
   onChange: (v: string) => void
   capturingLabel: string
-}): JSX.Element {
+}): ReactNode {
   const [capturing, setCapturing] = useState(false)
   const ref = useRef<HTMLButtonElement>(null)
 
@@ -150,7 +150,7 @@ function getDefaultReportTemplate(language: ResolvedLanguage): string {
   return language === 'zh' ? DEFAULT_REPORT_TEMPLATE : DEFAULT_REPORT_TEMPLATE_EN
 }
 
-function SettingsPage({ onBack }: Props): JSX.Element {
+function SettingsPage({ onBack }: Props): ReactNode {
   const isMac = navigator.userAgent.includes('Mac')
   const modifierLabel = isMac ? 'Cmd' : 'Ctrl'
   const { language: appLanguage, resolvedLanguage, t } = useI18n()

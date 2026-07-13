@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from 'react'
+import { createContext, useCallback, useContext, useState, ReactNode } from 'react'
 import { CheckCircle2, AlertCircle, X } from 'lucide-react'
 
 interface Toast {
@@ -17,7 +17,7 @@ const ToastContext = createContext<ToastContextValue | null>(null)
 
 let nextId = 0
 
-export function ToastProvider({ children }: { children: React.ReactNode }): JSX.Element {
+export function ToastProvider({ children }: { children: React.ReactNode }): ReactNode {
   const [toasts, setToasts] = useState<Toast[]>([])
 
   const remove = useCallback((id: number) => {

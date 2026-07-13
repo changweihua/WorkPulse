@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Settings, FileText, ClipboardList, Columns3, BarChart3 } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef, ReactNode } from 'react'
+import { Settings, FileText, ClipboardList, Columns3, BarChart3, Calendar } from 'lucide-react'
 import WorkLogPage from './pages/WorkLogPage'
 import ReportPage from './pages/ReportPage'
 import KanbanPage from './pages/KanbanPage'
@@ -10,11 +10,12 @@ import { useToast } from './components/Toast'
 import { TitleBar } from './components/TitleBar'
 import { useThemeStore } from './stores/themeStore'
 import { useI18n, useLanguageStore } from './stores/languageStore'
+import CalendarPage from './pages/CalendarPage'
 
-type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings'
+type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings' | 'calendar'
 type QuickCreateMode = 'log' | 'task' | null
 
-function App(): JSX.Element {
+function App(): ReactNode {
   const [currentPage, setCurrentPage] = useState<Page>('worklog')
   const [quickCreate, setQuickCreate] = useState<QuickCreateMode>(null)
   const initTheme = useThemeStore((s) => s.init)
@@ -54,6 +55,8 @@ function App(): JSX.Element {
         e.preventDefault(); setCurrentPage('report')
       } else if (isMod && e.key === '4') {
         e.preventDefault(); setCurrentPage('stats')
+      } else if (isMod && e.key === '5') {
+        e.preventDefault(); setCurrentPage('calendar')
       } else if (isMod && e.key === ',') {
         e.preventDefault(); setCurrentPage('settings')
       } else if (e.key === 'Escape' && currentPage === 'settings') {
@@ -97,14 +100,13 @@ function App(): JSX.Element {
     return <SettingsPage onBack={() => setCurrentPage('worklog')} />
   }
 
-  const navBtn = (page: Page, icon: JSX.Element, label: string): JSX.Element => (
+  const navBtn = (page: Page, icon: ReactNode, label: string): ReactNode => (
     <button
       onClick={() => setCurrentPage(page)}
-      className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${
-        currentPage === page
+      className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${currentPage === page
           ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 tab-active'
           : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:scale-[1.02]'
-      }`}
+        }`}
     >
       {icon}
       {label}
@@ -113,7 +115,7 @@ function App(): JSX.Element {
 
   return (
     <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
-        {/* ===== 新增：系统标题栏 ===== */}
+      {/* ===== 新增：系统标题栏 ===== */}
       <TitleBar />
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
@@ -124,6 +126,7 @@ function App(): JSX.Element {
             {navBtn('kanban', <Columns3 className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.kanban'))}
             {navBtn('report', <FileText className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.report'))}
             {navBtn('stats', <BarChart3 className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.stats'))}
+            {navBtn('calendar', <Calendar className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.calendar'))}
           </nav>
         </div>
         <button
@@ -137,11 +140,12 @@ function App(): JSX.Element {
 
       {/* Content with page transition */}
       <main className="flex-1 overflow-auto">
-        <div key={pageKey} className={`px-4 py-6 page-enter ${currentPage === 'kanban' ? '' : 'max-w-3xl mx-auto'}`}>
+          <div key={pageKey} className={`px-4 py-6 page-enter ${currentPage === 'kanban'|| currentPage === 'calendar' ? '' : 'max-w-3xl mx-auto'}`}>
           {currentPage === 'worklog' && <WorkLogPage />}
           {currentPage === 'kanban' && <KanbanPage />}
           {currentPage === 'report' && <ReportPage />}
           {currentPage === 'stats' && <StatsPage />}
+          {currentPage === 'calendar' && <CalendarPage />}
         </div>
       </main>
 

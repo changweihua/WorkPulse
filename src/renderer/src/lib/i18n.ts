@@ -23,6 +23,7 @@ export const translations = {
     'nav.report': '报告',
     'nav.stats': '统计',
     'nav.settings': '设置',
+    'nav.calendar': '日程',
 
     'quick.log': '记录日志',
     'quick.task': '添加任务',

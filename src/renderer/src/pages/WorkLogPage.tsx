@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, ReactNode } from 'react'
 import { Trash2, ClipboardEdit, Search, X, Download, Undo2 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useWorkLogStore } from '../stores/worklogStore'
 import { formatDate, formatTime, groupLogsByDate } from '../lib/dateUtils'
 import { useI18n } from '../stores/languageStore'
 
-function WorkLogPage(): JSX.Element {
+function WorkLogPage(): ReactNode {
   const { logs, fetchLogs, loadMore, hasMore, addLog, deleteLog, undoDelete, lastDeleted, searchLogs, clearSearch, searchKeyword, loading } =
     useWorkLogStore()
   const [input, setInput] = useState('')
@@ -14,7 +14,7 @@ function WorkLogPage(): JSX.Element {
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const searchTimerRef = useRef<number>(0)
   const toast = useToast()
   const { resolvedLanguage, t } = useI18n()
 
@@ -67,7 +67,7 @@ function WorkLogPage(): JSX.Element {
       clearSearch()
       return
     }
-    searchTimerRef.current = setTimeout(() => {
+    searchTimerRef.current = window.setTimeout(() => {
       searchLogs(value.trim())
     }, 300)
   }

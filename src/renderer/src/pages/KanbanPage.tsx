@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   DndContext,
@@ -24,6 +24,8 @@ import { Plus, Trash2, GripVertical, Archive, ChevronRight, ChevronLeft, Calenda
 import { useTaskStore } from '../stores/taskStore'
 import { useToast } from '../components/Toast'
 import { useI18n } from '../stores/languageStore'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface Task {
   id: number
@@ -53,13 +55,13 @@ function DroppableColumn({
 }: {
   id: string
   children: React.ReactNode
-}): JSX.Element {
+}): ReactNode {
   const { setNodeRef, isOver } = useDroppable({ id })
 
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[100px] rounded-lg transition-colors ${isOver ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
+      className={`min-h-25 rounded-lg transition-colors ${isOver ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
     >
       {children}
     </div>
@@ -94,7 +96,7 @@ function DatePickerPortal({
   defaultValue: string
   onChange: (value: string) => void
   onClose: () => void
-}): JSX.Element {
+}): ReactNode {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -117,7 +119,7 @@ function DatePickerPortal({
   const left = anchorRect.left
 
   return createPortal(
-    <div className="fixed z-[100]" style={{ top, left }}>
+    <div className="fixed z-100" style={{ top, left }}>
       <input
         ref={inputRef}
         type="date"
@@ -145,7 +147,7 @@ function SortableTaskCard({
   onDelete: (id: number) => void
   onSetDue?: (id: number, date: string | null) => void
   onUpdate?: (id: number, updates: { title?: string; description?: string }) => void
-}): JSX.Element {
+}): ReactNode {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id })
   const [pickerRect, setPickerRect] = useState<DOMRect | null>(null)
@@ -231,6 +233,7 @@ function SortableTaskCard({
       <div className="flex-1 min-w-0">
         {editing ? (
           <div className="space-y-1.5" onKeyDown={handleEditKeyDown}>
+            {/* 标题输入 */}
             <input
               ref={titleInputRef}
               type="text"
@@ -239,6 +242,8 @@ function SortableTaskCard({
               className="w-full px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
               placeholder={t('kanban.taskTitle')}
             />
+
+            {/* 描述输入 */}
             <textarea
               value={editDesc}
               onChange={(e) => setEditDesc(e.target.value)}
@@ -246,6 +251,20 @@ function SortableTaskCard({
               placeholder={t('kanban.descriptionPlaceholder')}
               rows={2}
             />
+
+            {/* 新增：Markdown 预览 */}
+            {editDesc && (
+              <div className="mt-1.5 p-2 border border-zinc-200 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-800/50">
+                <p className="text-[10px] text-zinc-400 mb-0.5">预览：</p>
+                <div className="text-xs prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {editDesc}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            )}
+
+            {/* 操作按钮 */}
             <div className="flex items-center gap-1">
               <button
                 onClick={saveEdit}
@@ -266,13 +285,17 @@ function SortableTaskCard({
         ) : (
           <>
             <p
-              className={`text-sm text-zinc-800 dark:text-zinc-200 break-words ${canEdit ? 'cursor-pointer' : ''}`}
+              className={`text-sm text-zinc-800 dark:text-zinc-200 wrap-break-word ${canEdit ? 'cursor-pointer' : ''}`}
               onDoubleClick={startEdit}
             >
               {task.title}
             </p>
             {task.description && (
-              <p className="text-xs text-zinc-400 mt-1 break-words">{task.description}</p>
+              <div className="text-xs text-zinc-400 mt-1 prose prose-sm max-w-none dark:prose-invert">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {task.description}
+                </ReactMarkdown>
+              </div>
             )}
           </>
         )}
@@ -332,7 +355,7 @@ function SortableTaskCard({
 }
 
 // --- Overlay Card (while dragging) ---
-function TaskCardOverlay({ task }: { task: Task }): JSX.Element {
+function TaskCardOverlay({ task }: { task: Task }): ReactNode {
   return (
     <div className="p-3 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg shadow-lg rotate-2 scale-105">
       <p className="text-sm text-zinc-800 dark:text-zinc-200">{task.title}</p>
@@ -349,7 +372,7 @@ function CompleteDialog({
   task: Task
   onConfirm: (logContent: string) => void
   onCancel: () => void
-}): JSX.Element {
+}): ReactNode {
   const { t } = useI18n()
   const [logContent, setLogContent] = useState(() => t('kanban.completeLogDefault', { title: task.title }))
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -403,7 +426,7 @@ function CompleteDialog({
 }
 
 // --- Main Kanban Page ---
-function KanbanPage(): JSX.Element {
+function KanbanPage(): ReactNode {
   const { tasks, fetchTasks, addTask, updateTask, deleteTask, completeTask, reorderTasks } =
     useTaskStore()
   const toast = useToast()
@@ -419,6 +442,7 @@ function KanbanPage(): JSX.Element {
     const saved = localStorage.getItem('kanban:draftOpen')
     return saved !== null ? saved === 'true' : true
   })
+  const [previewDesc, setPreviewDesc] = useState(false)
 
   useEffect(() => {
     fetchTasks()
@@ -594,14 +618,27 @@ function KanbanPage(): JSX.Element {
               </button>
             </div>
             {showDescInput && (
-              <input
-                type="text"
-                value={newTaskDesc}
-                onChange={(e) => setNewTaskDesc(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
-                placeholder={t('kanban.newDescription')}
-                className="mt-2 w-full px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100 animate-slide-up"
-              />
+              <div className="mt-2">
+                <textarea
+                  value={newTaskDesc}
+                  onChange={(e) => setNewTaskDesc(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
+                  placeholder={t('kanban.newDescription')}
+                  className="w-full px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 bg-white dark:bg-zinc-800 dark:text-zinc-100 animate-slide-up"
+                  rows={2}
+                />
+                {/* 预览 */}
+                {newTaskDesc && (
+                  <div className="mt-1 p-2 border border-zinc-200 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-800/50">
+                    <p className="text-xs text-zinc-400 mb-0.5">预览：</p>
+                    <div className="text-xs prose prose-sm max-w-none dark:prose-invert">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {newTaskDesc}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -610,7 +647,7 @@ function KanbanPage(): JSX.Element {
             {COLUMNS.map((col) => {
               const columnTasks = getColumnTasks(col.id)
               return (
-                <div key={col.id} className="min-h-[200px]">
+                <div key={col.id} className="min-h-50">
                   <div className={`flex items-center gap-2 mb-3 pb-2 border-b-2 ${col.color}`}>
                     <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t(col.labelKey)}</h3>
                     <span className="text-xs text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
@@ -648,9 +685,8 @@ function KanbanPage(): JSX.Element {
 
         {/* Draft Box Sidebar */}
         <div
-          className={`shrink-0 border-l border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/50 rounded-lg transition-all flex flex-col ${
-            draftOpen ? 'w-56' : 'w-10'
-          }`}
+          className={`shrink-0 border-l border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/50 rounded-lg transition-all flex flex-col ${draftOpen ? 'w-56' : 'w-10'
+            }`}
         >
           {/* Toggle Button */}
           <button

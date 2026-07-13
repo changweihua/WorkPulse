@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, ReactNode } from 'react'
 import { Flame, FileText, CheckCircle2, ListTodo } from 'lucide-react'
 import { useI18n } from '../stores/languageStore'
 
@@ -64,7 +64,7 @@ function StatCard({
   suffix?: string
   color: string
   delay?: number
-}): JSX.Element {
+}): ReactNode {
   const displayValue = useCountUp(value)
 
   return (
@@ -85,7 +85,7 @@ function StatCard({
   )
 }
 
-function BarChart({ data }: { data: DailyStats[] }): JSX.Element {
+function BarChart({ data }: { data: DailyStats[] }): ReactNode {
   const maxVal = Math.max(...data.map((d) => d.log_count + d.task_completed), 1)
   const [visible, setVisible] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -164,7 +164,7 @@ function BarChart({ data }: { data: DailyStats[] }): JSX.Element {
   )
 }
 
-function HeatMap({ data }: { data: DailyStats[] }): JSX.Element {
+function HeatMap({ data }: { data: DailyStats[] }): ReactNode {
   // Build last 12 weeks of data
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -223,7 +223,7 @@ function HeatMap({ data }: { data: DailyStats[] }): JSX.Element {
   )
 }
 
-function StatsPage(): JSX.Element {
+function StatsPage(): ReactNode {
   const [stats, setStats] = useState<Stats | null>(null)
   const { t } = useI18n()
 

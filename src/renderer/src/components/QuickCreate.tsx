@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, ReactNode } from 'react'
 import { ClipboardList, Columns3 } from 'lucide-react'
 import { useWorkLogStore } from '../stores/worklogStore'
 import { useTaskStore } from '../stores/taskStore'
@@ -12,7 +12,7 @@ interface Props {
   onClose: () => void
 }
 
-export function QuickCreate({ initialMode, onClose }: Props): JSX.Element {
+export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
   const [mode, setMode] = useState<Mode>(initialMode)
   const [value, setValue] = useState('')
   const [submitting, setSubmitting] = useState(false)

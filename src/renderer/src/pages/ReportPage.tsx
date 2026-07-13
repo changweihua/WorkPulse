@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, ReactNode } from 'react'
 import {
   Copy,
   RefreshCw,
@@ -30,7 +30,7 @@ interface Report {
 
 type Status = 'idle' | 'no_key' | 'generating' | 'success' | 'error' | 'no_data'
 
-function ReportPage(): JSX.Element {
+function ReportPage(): ReactNode {
   const [preset, setPreset] = useState<DatePreset>('this_week')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -312,7 +312,7 @@ function ReportPage(): JSX.Element {
             <textarea
               value={reportContent}
               onChange={(e) => setReportContent(e.target.value)}
-              className="w-full min-h-[300px] px-4 py-3 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 dark:text-zinc-100 text-sm font-mono leading-relaxed outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 resize-y mb-4"
+              className="w-full min-h-75 px-4 py-3 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 dark:text-zinc-100 text-sm font-mono leading-relaxed outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 resize-y mb-4"
             />
           ) : (
             <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-6 bg-white dark:bg-zinc-900 mb-4">
