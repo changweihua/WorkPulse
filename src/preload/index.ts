@@ -23,6 +23,10 @@ interface AppUpdateState {
 
 const api = {
   app: {
+    // 获取开机启动状态
+    getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch'),
+    // 设置开机启动
+    setAutoLaunch: (enable: boolean) => ipcRenderer.invoke('set-auto-launch', enable),
     setLanguage: (language: AppLanguage) => ipcRenderer.invoke('app:language:update', language),
     getVersion: () => ipcRenderer.invoke('app:get-version') as Promise<string>,
     getUpdateState: () => ipcRenderer.invoke('app:updates:get-state') as Promise<AppUpdateState>,

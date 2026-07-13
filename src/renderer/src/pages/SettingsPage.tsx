@@ -12,7 +12,8 @@ import {
   RefreshCw,
   Download,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Power
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useThemeStore } from '../stores/themeStore'
@@ -21,13 +22,11 @@ import type { AppLanguage, ResolvedLanguage } from '../lib/i18n'
 
 // Convert a KeyboardEvent to an Electron-style accelerator string
 function eventToAccelerator(e: KeyboardEvent): string | null {
-  // Ignore modifier-only keydowns
   if (['Meta', 'Control', 'Alt', 'Shift'].includes(e.key)) return null
   const parts: string[] = []
   if (e.metaKey || e.ctrlKey) parts.push('CmdOrCtrl')
   if (e.altKey) parts.push('Alt')
   if (e.shiftKey) parts.push('Shift')
-  // Map special keys
   const keyMap: Record<string, string> = {
     ' ': 'Space', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
     Backspace: 'Backspace', Delete: 'Delete', Escape: 'Escape', Enter: 'Return',
@@ -35,7 +34,6 @@ function eventToAccelerator(e: KeyboardEvent): string | null {
   }
   const key = keyMap[e.key] ?? (e.key.length === 1 ? e.key.toUpperCase() : e.key)
   parts.push(key)
-  // Need at least a modifier + key for a global shortcut
   if (parts.length < 2) return null
   return parts.join('+')
 }
@@ -182,12 +180,24 @@ function SettingsPage({ onBack }: Props): ReactNode {
     t('settings.styleCasual')
   ]
 
+  // 开机启动状态
+  const [autoLaunch, setAutoLaunch] = useState(false)
+  const [loadingAutoLaunch, setLoadingAutoLaunch] = useState(true)
+
   useEffect(() => {
     loadSettings()
 
     void window.api.app.getVersion().then(setAppVersion)
     void window.api.app.getUpdateState().then(setUpdateState)
     const unsubscribeUpdateStatus = window.api.on.updateStatus(setUpdateState)
+
+    // 加载开机启动状态
+    void window.api.app.getAutoLaunch()
+      .then((enabled: boolean) => {
+        setAutoLaunch(enabled)
+        setLoadingAutoLaunch(false)
+      })
+      .catch(() => setLoadingAutoLaunch(false))
 
     return () => {
       unsubscribeUpdateStatus()
@@ -262,7 +272,6 @@ function SettingsPage({ onBack }: Props): ReactNode {
       toast.error(t('settings.shortcutTaken'))
       return
     }
-
     setter(value)
     toast.success(t('settings.shortcutSaved'))
   }
@@ -385,6 +394,20 @@ function SettingsPage({ onBack }: Props): ReactNode {
       case 'idle':
       default:
         return t('settings.updateIdle')
+    }
+  }
+
+  // 切换开机启动
+  const handleToggleAutoLaunch = async (): Promise<void> => {
+    const newState = !autoLaunch
+    setAutoLaunch(newState) // 乐观更新
+    try {
+      await window.api.app.setAutoLaunch(newState)
+      toast.success(newState ? '✅ 开机启动已启用' : '✅ 开机启动已禁用')
+    } catch (error) {
+      setAutoLaunch(!newState) // 回滚
+      toast.error('❌ 操作失败，请重试')
+      console.error('Toggle auto-launch error:', error)
     }
   }
 
@@ -674,11 +697,10 @@ function SettingsPage({ onBack }: Props): ReactNode {
                 <button
                   key={value}
                   onClick={() => setTheme(value)}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors ${
-                    theme === value
+                  className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors ${theme === value
                       ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
                       : 'border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                  }`}
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                   {label}
@@ -687,7 +709,33 @@ function SettingsPage({ onBack }: Props): ReactNode {
             </div>
           </section>
 
-          {/* About */}
+          {/* 开机启动 */}
+          <section>
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">开机启动</h2>
+            <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">登录时自动启动 WorkPulse</p>
+                <p className="text-xs text-zinc-400">在系统启动后自动运行应用</p>
+              </div>
+              {loadingAutoLaunch ? (
+                <div className="w-12 h-6 bg-zinc-200 dark:bg-zinc-700 rounded-full animate-pulse" />
+              ) : (
+                <button
+                  onClick={handleToggleAutoLaunch}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-2 ${autoLaunch ? 'bg-zinc-900 dark:bg-zinc-100' : 'bg-zinc-300 dark:bg-zinc-600'
+                    }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoLaunch ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                  />
+                </button>
+              )}
+            </div>
+          </section>
+
+          {/* About / Updates */}
           <section>
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.updates')}</h2>
             <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
@@ -696,13 +744,12 @@ function SettingsPage({ onBack }: Props): ReactNode {
                 <p className="text-sm text-zinc-600 dark:text-zinc-300">
                   {t('settings.currentVersion', { version: currentVersion })}
                 </p>
-                <p className={`text-xs mt-1 flex items-center gap-1.5 ${
-                  updateState.status === 'error'
+                <p className={`text-xs mt-1 flex items-center gap-1.5 ${updateState.status === 'error'
                     ? 'text-red-500'
                     : updateState.status === 'downloaded' || updateState.status === 'not_available'
                       ? 'text-green-600 dark:text-green-400'
                       : 'text-zinc-400'
-                }`}
+                  }`}
                 >
                   {updateState.status === 'downloaded' || updateState.status === 'not_available' ? (
                     <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />

@@ -26,6 +26,7 @@ import { useToast } from '../components/Toast'
 import { useI18n } from '../stores/languageStore'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import confetti from 'canvas-confetti' // ✅ 导入彩纸屑
 
 interface Task {
   id: number
@@ -538,6 +539,7 @@ function KanbanPage(): ReactNode {
     // If moved to done, show complete dialog
     const originalTask = tasks.find((t) => t.id === activeId)
     if (targetColumn === 'done' && originalTask?.status !== 'done') {
+      // 只弹出对话框，不触发彩纸屑
       setPendingComplete({ ...task, status: 'done' })
       return
     }
@@ -559,13 +561,24 @@ function KanbanPage(): ReactNode {
     }
   }
 
+  // ✅ 确认完成 → 触发彩纸屑
   const handleComplete = async (logContent: string): Promise<void> => {
     if (!pendingComplete) return
     await completeTask(pendingComplete.id, logContent)
+
+    // 🎊 彩纸屑庆祝
+    confetti({
+      particleCount: 120,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff6fd8']
+    })
+
     setPendingComplete(null)
     toast.success(t('kanban.completedToast'))
   }
 
+  // 跳过 → 不触发纸屑
   const handleCancelComplete = async (): Promise<void> => {
     setPendingComplete(null)
     await fetchTasks()
@@ -739,7 +752,7 @@ function KanbanPage(): ReactNode {
                     placeholder={t('kanban.draftPlaceholder')}
                     className="flex-1 px-2 py-1.5 border border-zinc-200 dark:border-zinc-600 rounded text-xs outline-none focus:border-zinc-400 bg-white dark:bg-zinc-800 dark:text-zinc-100"
                   />
-                  <button title='Remove'
+                  <button
                     onClick={handleAddDraft}
                     className="px-2 py-1.5 bg-zinc-100 text-zinc-600 text-xs rounded hover:bg-zinc-200 transition-colors"
                   >

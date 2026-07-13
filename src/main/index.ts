@@ -240,9 +240,11 @@ function createWindow(): void {
   // win.setMicaTabbedEffect();  // 备选：带选项卡的云母效果 (Mica Alt)
   // win.setMicaAcrylicEffect(); // 备选：亚克力效果
 
+  // 当窗口准备就绪后，最大化并显示
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
+    mainWindow.maximize(); // 最大化窗口
+    mainWindow.show();     // 显示窗口
+  });
 
   if (process.platform !== 'darwin') {
     mainWindow.on('close', (event) => {
@@ -298,6 +300,8 @@ app.whenReady().then(() => {
   // Register title bar IPC listeners
   registerTitleBarListener()
 
+  registerAutoLaunchIpc();
+
   electronApp.setAppUserModelId('com.workpulse')
 
   app.on('browser-window-created', (_, window) => {
@@ -350,3 +354,34 @@ ipcMain.on('window-control', (event, action) => {
     case 'close': win.close(); break
   }
 })
+
+/**
+ * 设置开机启动状态
+ * @param enable - true 启用，false 禁用
+ */
+export function setAutoLaunch(enable: boolean): void {
+  app.setLoginItemSettings({
+    openAtLogin: enable,
+    // 可选：如果你希望在开机启动时隐藏主窗口（只显示托盘），可以传递自定义参数
+    args: enable ? ['--hidden'] : []
+  });
+}
+
+/**
+ * 获取当前开机启动状态
+ */
+export function getAutoLaunch(): boolean {
+  return app.getLoginItemSettings().openAtLogin;
+}
+
+// 在 app ready 后注册 IPC 处理器
+export function registerAutoLaunchIpc(): void {
+  ipcMain.handle('set-auto-launch', (event, enable: boolean) => {
+    setAutoLaunch(enable);
+    return { success: true };
+  });
+
+  ipcMain.handle('get-auto-launch', () => {
+    return getAutoLaunch();
+  });
+}

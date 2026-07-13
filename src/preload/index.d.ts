@@ -51,6 +51,8 @@ interface AppUpdateState {
 
 interface API {
   app: {
+    getAutoLaunch: () => Promise<boolean>;   // 新增
+    setAutoLaunch: (enable: boolean) => Promise<void>; // 新增
     setLanguage: (language: AppLanguage) => Promise<void>
     getVersion: () => Promise<string>
     getUpdateState: () => Promise<AppUpdateState>
