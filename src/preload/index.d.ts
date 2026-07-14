@@ -114,5 +114,16 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: API
+    ai: {
+      invoke: (channel: string, ...args: any[]) => Promise<any>;
+      on: (channel: string, listener: (...args: any[]) => void) => void;
+      removeAllListeners: (channel: string) => void;
+    };
   }
+}
+
+// CSS 模块声明，让 TS 识别所有 .css 导入
+declare module '*.css' {
+  const content: string;
+  export default content;
 }

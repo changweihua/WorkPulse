@@ -24,6 +24,8 @@ export const translations = {
     'nav.stats': '统计',
     'nav.settings': '设置',
     'nav.calendar': '日程',
+    'nav.chat': 'AI',
+    'nav.xray': 'XRay',
 
     'quick.log': '记录日志',
     'quick.task': '添加任务',

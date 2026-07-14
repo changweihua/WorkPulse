@@ -1,13 +1,21 @@
 @import "tailwindcss";
 @import "tw-prose";
 
-@import "./MapleMono.css";
+@theme {
+  /* 字体族 */
+  --font-sans: "JetBrains Maple Mono", "Maple Mono NF CN", "Source Han Serif SC", "思源宋体", sans-serif;
+  --font-serif: "JetBrains Maple Mono", "Maple Mono NF CN", "Source Han Serif SC", "思源宋体", serif;
+  --font-mono: "JetBrains Maple Mono", monospace;
+
+  /* 如果还有其他自定义（颜色、间距等），也在这里添加 */
+  /* 例如：--color-primary: #0ea5e9; */
+}
 
 @layer base {
-  body {
+  /* body {
     font-family: "Maple Mono NF CN", "Source Han Serif SC", "思源宋体", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', Roboto, 'Helvetica Neue', Arial,
     sans-serif;
-  }
+  } */
 }
 
 body {
@@ -22,6 +30,15 @@ body {
 :root.dark body {
   background-color: #0a0a0a;
   color: #fafafa;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 /* ===== Keyframes ===== */

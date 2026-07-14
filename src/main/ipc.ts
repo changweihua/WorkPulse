@@ -27,6 +27,7 @@ import {
 import { generateReport } from './ai'
 import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey } from './secureSettings'
 import { tMain } from './i18n'
+import OpenAI from 'openai';
 
 export function registerIpcHandlers(): void {
   // --- Work Logs ---
@@ -225,4 +226,130 @@ export function registerIpcHandlers(): void {
     writeFileSync(result.filePath, reportContent, 'utf-8')
     return result.filePath
   })
+
+  // ---------- IPC 流式聊天 ----------
+  // ipcMain.handle('ai-chat-stream', async (event, params) => {
+  //   const { userMessage, history, config } = params;
+  //   const controller = new AbortController();
+  //   // 删除下面这一行（不再监听 'cancelled'）
+  //   // event.sender.on('cancelled', () => controller.abort());
+
+  //   try {
+  //     // 优先使用配置中的 token，否则使用环境变量
+  //     const apiKey = config.token || process.env.API_KEY;
+  //     if (!apiKey) {
+  //       throw new Error('未提供 API Key，请在配置中设置或设置环境变量 API_KEY');
+  //     }
+
+  //     const response = await fetch(`${config.baseURL}`, {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'Authorization': `Bearer ${apiKey}`,
+  //       },
+  //       body: JSON.stringify({
+  //         model: config.model,
+  //         messages: [...history, { role: 'user', content: userMessage }],
+  //         stream: true,
+  //         temperature: config.temperature,
+  //         max_tokens: config.max_tokens,
+  //         top_p: config.top_p,
+  //       }),
+  //       signal: controller.signal,
+  //     });
+
+  //     const reader = response.body?.getReader();
+  //     if (!reader) throw new Error('No reader');
+
+  //     const decoder = new TextDecoder();
+  //     let buffer = '';
+
+  //     while (true) {
+  //       const { done, value } = await reader.read();
+  //       if (done) break;
+
+  //       buffer += decoder.decode(value, { stream: true });
+  //       const lines = buffer.split('\n');
+  //       buffer = lines.pop() || '';
+
+  //       for (const line of lines) {
+  //         if (line.startsWith('data: ')) {
+  //           const payload = line.slice(6);
+  //           if (payload === '[DONE]') continue;
+  //           try {
+  //             const json = JSON.parse(payload);
+  //             const content = json.choices?.[0]?.delta?.content || '';
+  //             if (content) {
+  //               event.sender.send('ai-stream-chunk', content);
+  //             }
+  //           } catch (e) { /* ignore */ }
+  //         }
+  //       }
+  //     }
+  //     event.sender.send('ai-stream-done');
+  //   } catch (error) {
+  //     event.sender.send('ai-stream-error', String(error));
+  //   }
+  // });
+
+  ipcMain.handle('ai-chat-stream', async (event, params) => {
+    const { userMessage, history, config } = params;
+    const controller = new AbortController();
+
+    try {
+      const apiKey = config.token || process.env.API_KEY;
+      if (!apiKey) {
+        throw new Error('未提供 API Key');
+      }
+
+      let defaultHeaders: Record<string, string> = {};
+      if (config.headers) {
+        try {
+          defaultHeaders = JSON.parse(config.headers);
+        } catch (e) {
+          console.warn('解析 headers 失败');
+        }
+      }
+
+      const client = new OpenAI({
+        baseURL: config.baseURL,
+        apiKey: apiKey,
+        defaultHeaders: defaultHeaders,
+      });
+
+      const requestParams: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
+        model: config.model,
+        messages: [...history, { role: 'user', content: userMessage }],
+        stream: true,
+        temperature: config.temperature ?? 0.7,
+        max_tokens: config.max_tokens ?? 2048,
+        top_p: config.top_p ?? 0.9,
+      };
+
+      // ✅ 添加类型断言，让 TypeScript 知道返回的是可迭代流
+      const stream = (await client.chat.completions.create(
+        requestParams,
+        { signal: controller.signal }
+      )) as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+
+      for await (const chunk of stream) {
+        if (chunk.choices.length === 0) continue;
+        const delta = chunk.choices[0].delta;
+
+        if ('reasoning_content' in delta && delta.reasoning_content) {
+          event.sender.send('ai-stream-reasoning', delta.reasoning_content);
+        }
+        if (delta.content) {
+          event.sender.send('ai-stream-chunk', delta.content);
+        }
+      }
+      event.sender.send('ai-stream-done');
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        event.sender.send('ai-stream-done');
+        return;
+      }
+      event.sender.send('ai-stream-error', String(error));
+    }
+  });
 }

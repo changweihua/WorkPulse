@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, ReactNode } from 'react'
-import { Settings, FileText, ClipboardList, Columns3, BarChart3, Calendar } from 'lucide-react'
+import { Settings, FileText, ClipboardList, Columns3, BarChart3, Calendar, Bot, Zap } from 'lucide-react'
 import WorkLogPage from './pages/WorkLogPage'
 import ReportPage from './pages/ReportPage'
 import KanbanPage from './pages/KanbanPage'
@@ -11,8 +11,10 @@ import { TitleBar } from './components/TitleBar'
 import { useThemeStore } from './stores/themeStore'
 import { useI18n, useLanguageStore } from './stores/languageStore'
 import CalendarPage from './pages/CalendarPage'
+import ChatPage from './pages/ChatPage'
+import XrayProcessor from './pages/XrayProcessor'
 
-type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings' | 'calendar'
+type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings' | 'calendar' | 'chat' | 'xray'
 type QuickCreateMode = 'log' | 'task' | null
 
 function App(): ReactNode {
@@ -127,6 +129,8 @@ function App(): ReactNode {
             {navBtn('report', <FileText className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.report'))}
             {navBtn('stats', <BarChart3 className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.stats'))}
             {navBtn('calendar', <Calendar className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.calendar'))}
+            {navBtn('chat', <Bot className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.chat'))}
+            {navBtn('xray', <Zap className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.xray'))}
           </nav>
         </div>
         <button
@@ -140,12 +144,14 @@ function App(): ReactNode {
 
       {/* Content with page transition */}
       <main className="flex-1 overflow-auto">
-          <div key={pageKey} className={`px-4 py-6 page-enter ${currentPage === 'kanban'|| currentPage === 'calendar' ? '' : 'max-w-3xl mx-auto'}`}>
+        <div key={pageKey} className={`px-4 py-6 page-enter ${currentPage === 'kanban' || currentPage === 'xray' || currentPage === 'calendar' ? '' : 'max-w-3xl mx-auto'}`}>
           {currentPage === 'worklog' && <WorkLogPage />}
           {currentPage === 'kanban' && <KanbanPage />}
           {currentPage === 'report' && <ReportPage />}
           {currentPage === 'stats' && <StatsPage />}
           {currentPage === 'calendar' && <CalendarPage />}
+          {currentPage === 'chat' && <ChatPage />}
+          {currentPage === 'xray' && <XrayProcessor />}
         </div>
       </main>
 

@@ -4,17 +4,20 @@ export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false)
 
   const handleMinimize = () => {
-    ;(window.api as any).window.minimize()
+    ; (window.api as any).window.minimize()
   }
 
   const handleMaximize = () => {
-    ;(window.api as any).window.maximize()
+    ; (window.api as any).window.maximize()
     setIsMaximized(!isMaximized)
   }
 
   const handleClose = () => {
-    ;(window.api as any).window.close()
+    ; (window.api as any).window.close()
   }
+  console.log('所有环境变量:', import.meta.env)
+  // 从环境变量读取应用标题，如果未定义则使用 'WorkPulse' 作为后备
+  const appTitle = import.meta.env.VITE_APP_TITLE || 'WorkPulseD'
 
   return (
     <div
@@ -91,7 +94,7 @@ export function TitleBar() {
           letterSpacing: '0.3px',
         }}
       >
-        WorkPulse
+        {appTitle}
       </span>
 
       <div style={{ width: '56px' }} />

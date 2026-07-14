@@ -16,6 +16,9 @@ import {
   attachTitleBarToWindow
 } from '@electron-uikit/titlebar'
 
+// 或者显式指定环境文件
+// dotenv.config({ path: path.resolve(__dirname, '../.env.development') })
+
 let tray: Tray | null = null
 let isQuitting = false
 
@@ -308,6 +311,10 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
     // Attach a title bar to the window
     attachTitleBarToWindow(window)
+
+    if (process.env.NODE_ENV === 'development') {
+      window.webContents.openDevTools();
+    }
   })
 
   initDatabase()
@@ -328,6 +335,7 @@ app.whenReady().then(() => {
   if (!results.log || !results.task) {
     console.warn('One or more global shortcuts could not be registered')
   }
+
 })
 
 app.on('before-quit', () => {

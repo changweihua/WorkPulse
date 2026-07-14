@@ -1,5 +1,10 @@
 {
+  "compilerOptions": {
+    "strict": true,
+    "forceConsistentCasingInFileNames": true
+  },
   "files": [],
+  "types": ["vite/client", "node", "./types/openai.d.ts"],
   "references": [
     { "path": "./tsconfig.node.json" },
     { "path": "./tsconfig.web.json" }

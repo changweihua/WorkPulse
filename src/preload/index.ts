@@ -127,6 +127,26 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
+
+    // 暴露给渲染进程的 API，封装在 `ai` 命名空间下
+    contextBridge.exposeInMainWorld('ai', {
+      invoke: (channel: string, ...args: any[]) => {
+        const validChannels = ['ai-chat-stream'];
+        if (validChannels.includes(channel)) {
+          return ipcRenderer.invoke(channel, ...args);
+        }
+        throw new Error(`Invalid channel: ${channel}`);
+      },
+      on: (channel: string, listener: (...args: any[]) => void) => {
+        const validChannels = ['ai-stream-chunk', 'ai-stream-done', 'ai-stream-error', 'ai-stream-reasoning',];
+        if (validChannels.includes(channel)) {
+          ipcRenderer.on(channel, listener);
+        }
+      },
+      removeAllListeners: (channel: string) => {
+        ipcRenderer.removeAllListeners(channel);
+      },
+    });
   } catch (error) {
     console.error(error)
   }
