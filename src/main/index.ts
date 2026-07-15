@@ -16,9 +16,6 @@ import {
   attachTitleBarToWindow
 } from '@electron-uikit/titlebar'
 
-// 或者显式指定环境文件
-// dotenv.config({ path: path.resolve(__dirname, '../.env.development') })
-
 let tray: Tray | null = null
 let isQuitting = false
 

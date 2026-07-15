@@ -2,8 +2,6 @@ import { resolve } from 'path'
 import { defineConfig, loadEnv } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import wasm from 'vite-plugin-wasm';
-import topLevelAwait from 'vite-plugin-top-level-await';
 
 export default defineConfig(({ mode }) => {
   // 加载 .env 文件
@@ -21,14 +19,15 @@ export default defineConfig(({ mode }) => {
   return {
     main: {
       build: {
-        rollupOptions: {
+        outDir: 'dist/main',      // v6 推荐显式指定
+        rolldownOptions: {
           input: { index: resolve(__dirname, 'src/main/index.ts') }
         }
       }
     },
     preload: {
       build: {
-        rollupOptions: {
+        rolldownOptions: {
           input: { index: resolve(__dirname, 'src/preload/index.ts') }
         }
       }
@@ -60,8 +59,7 @@ export default defineConfig(({ mode }) => {
           '@': resolve('src/renderer/src')
         }
       },
-      plugins: [react(), tailwindcss(), wasm(),
-      topLevelAwait()]
+      plugins: [react(), tailwindcss()]
     }
   }
 })
