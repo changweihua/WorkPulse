@@ -13,19 +13,22 @@ export default defineConfig(({ mode }) => {
   for (const key in env) {
     if (key.startsWith('VITE_')) {
       define[`import.meta.env.${key}`] = JSON.stringify(env[key])
+      // ✅ 也注入到 process.env，使主进程和预加载能访问
+      define[`process.env.${key}`] = JSON.stringify(env[key])
     }
   }
 
   return {
     main: {
+      define,  // ✅ 主进程可以读取 process.env.VITE_XXX
       build: {
-        outDir: 'dist/main',      // v6 推荐显式指定
         rolldownOptions: {
           input: { index: resolve(__dirname, 'src/main/index.ts') }
         }
       }
     },
     preload: {
+      define,  // ✅ 预加载进程也能读取
       build: {
         rolldownOptions: {
           input: { index: resolve(__dirname, 'src/preload/index.ts') }
@@ -35,7 +38,7 @@ export default defineConfig(({ mode }) => {
     renderer: {
       // 可选项：配置环境文件目录（默认根目录）
       envDir: './',  // 默认就是根目录
-      define, // 注入所有 VITE_ 开头的变量
+      define,  // ✅ 渲染进程通过 import.meta.env 读取
       // define: {
       //   'import.meta.env.VITE_APP_TITLE': JSON.stringify('WorkPulseX')
       // },

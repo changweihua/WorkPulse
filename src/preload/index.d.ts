@@ -119,6 +119,9 @@ declare global {
       on: (channel: string, listener: (...args: any[]) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
+    sys: {
+      onAccentColorUpdate: (callback: (color: string) => void) => () => void;
+    };
   }
 }
 

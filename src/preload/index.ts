@@ -147,6 +147,19 @@ if (process.contextIsolated) {
         ipcRenderer.removeAllListeners(channel);
       },
     });
+
+    contextBridge.exposeInMainWorld('sys', {
+      // 监听强调色更新
+      onAccentColorUpdate: (callback: (color: string) => void) => {
+        const listener = (_event: any, color: string) => callback(color);
+        ipcRenderer.on('accent-color-updated', listener);
+        // 返回取消监听的函数
+        return () => {
+          ipcRenderer.removeListener('accent-color-updated', listener);
+        };
+      },
+      // 如果你还需要其他系统相关功能，也可以放这里
+    });
   } catch (error) {
     console.error(error)
   }

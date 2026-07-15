@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, systemPreferences } from 'electron'
 import path, { join } from 'path'
 import { readFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -15,6 +15,8 @@ import {
   registerTitleBarListener,
   attachTitleBarToWindow
 } from '@electron-uikit/titlebar'
+
+console.log('[Main] 🟢 主进程已启动！');
 
 let tray: Tray | null = null
 let isQuitting = false
@@ -260,6 +262,60 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+
+  // ========== 🆕 强调色处理 + 详细日志 ==========
+  console.log('[Main] 🚀 Setting up accent color handler...');
+
+  const getCleanColor = () => {
+    const raw = systemPreferences.getAccentColor();
+    console.log('[Main] 📦 Raw accent color from system:', raw);
+    if (!raw) {
+      console.warn('[Main] ⚠️ systemPreferences.getAccentColor() returned null/undefined');
+      return null;
+    }
+    // 1. 去掉可能的 '#' 前缀
+    let hex = raw.startsWith('#') ? raw.slice(1) : raw;
+
+    // 2. 如果长度是 8，说明是 ARGB，取后 6 位作为 RGB
+    if (hex.length === 8) {
+      hex = hex.slice(2); // 去掉前两位 (Alpha)
+    }
+
+    // 3. 确保是 6 位，加上 '#' 返回
+    return hex.length === 6 ? `#${hex}` : null;
+  };
+
+  const sendColor = () => {
+    console.log('[Main] 📤 sendColor() called');
+    const color = getCleanColor();
+    if (color) {
+      console.log('[Main] 📨 Sending to renderer via IPC:', color);
+      mainWindow.webContents.send('accent-color-updated', color);
+    } else {
+      console.warn('[Main] ❌ No color to send, skipping');
+    }
+  };
+
+  // 监听系统强调色变化
+  systemPreferences.on('accent-color-changed', () => {
+    console.log('[Main] 🔔 System accent color changed!');
+    sendColor();
+  });
+
+  // 页面加载完成后立即发送（必须在 loadURL 之前注册！）
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[Main] 🌐 Page did-finish-load');
+    sendColor();
+  });
+
+  // 在 win 创建后，添加这一行
+  mainWindow.on('focus', () => {
+    console.log('[Main] Window focused, re-sending accent color');
+    sendColor();
+  });
+
+  console.log('[Main] 📋 Loading URL...');
+
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -309,9 +365,9 @@ app.whenReady().then(() => {
     // Attach a title bar to the window
     attachTitleBarToWindow(window)
 
-    if (process.env.NODE_ENV === 'development') {
-      window.webContents.openDevTools();
-    }
+    // if (process.env.NODE_ENV === 'development') {
+    //   window.webContents.openDevTools();
+    // }
   })
 
   initDatabase()
