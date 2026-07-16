@@ -272,7 +272,7 @@ function setupContextMenu(window: BrowserWindow): void {
       const items: Electron.MenuItemConstructorOptions[] = []
 
       // 开发环境信息
-      if (is.dev) {
+      if (!is.dev) {
         items.push({ type: 'separator' })
         items.push({
           label: `⚡ 开发模式 v${app.getVersion()}`,
@@ -392,6 +392,8 @@ function createTray(): void {
 
 // +++++ 新增：创建启动窗口 +++++
 function createSplashWindow(): void {
+  console.log('[Splash] 🟢 开始创建启动窗口...')
+
   splashWindow = new BrowserWindow({
     width: 380,
     height: 280,
@@ -412,6 +414,8 @@ function createSplashWindow(): void {
     },
   })
 
+  console.log('[Splash] ✅ 窗口已创建')
+
   // 显式设置背景为透明
   splashWindow.setBackgroundColor('#00000000')
 
@@ -419,13 +423,20 @@ function createSplashWindow(): void {
   const splashPath = is.dev
     ? join(__dirname, '../../resources/splash.html')
     : join(process.resourcesPath, 'splash.html')
+  console.log('[Splash] 📁 加载路径:', splashPath)
 
   console.log('[Splash] Loading from:', splashPath)  // 调试日志
 
-  splashWindow.loadFile(splashPath)
+  splashWindow.loadFile(splashPath).then(() => {
+    console.log('[Splash] ✅ HTML 加载成功')
+  }).catch((err) => {
+    console.error('[Splash] ❌ HTML 加载失败:', err)
+  })
+
   splashWindow.center()
   splashWindow.once('ready-to-show', () => {
     if (splashWindow) {
+      console.log('[Splash] 🟢 窗口已准备显示')
       splashWindow.show()
       // 可选：淡入效果
       splashWindow.setOpacity(0)

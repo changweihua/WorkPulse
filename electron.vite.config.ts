@@ -26,7 +26,16 @@ export default defineConfig(({ mode }) => {
           input: {
             index: resolve(__dirname, 'src/main/index.ts'),
             splash: resolve(__dirname, 'src/preload/splash.ts'), // 编译 preload
-          }
+          },
+          output: {
+            entryFileNames: (chunkInfo) => {
+              if (chunkInfo.name === 'preload') {
+                return 'preload/splash.js'
+              }
+              return '[name].js'
+            },
+            format: 'cjs',
+          },
         }
       }
     },

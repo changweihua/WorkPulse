@@ -41,6 +41,7 @@
       "!out/renderer/assets/*.map"
     ],
     "extraResources": [
+      { "from": "resources/splash.html", "to": "splash.html" },
       {
         "from": "resources/tray-icon.png",
         "to": "tray-icon.png"
