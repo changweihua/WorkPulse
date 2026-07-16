@@ -1,0 +1,41 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Bridge/1.0.0": {
+        "dependencies": {
+          "Microsoft.JavaScript.NodeApi": "0.9.21"
+        },
+        "runtime": {
+          "Bridge.dll": {}
+        }
+      },
+      "Microsoft.JavaScript.NodeApi/0.9.21": {
+        "runtime": {
+          "lib/net10.0/Microsoft.JavaScript.NodeApi.dll": {
+            "assemblyVersion": "0.9.0.0",
+            "fileVersion": "0.9.21.1190"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Bridge/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Microsoft.JavaScript.NodeApi/0.9.21": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-vCoKb5DPma7BKprAmTjE3GgSl+3+UmE/Y0k5qodrs2C1g9HXrPynkSilGA4TvuMfQjR+V0W04zHA+36d0sBBfQ==",
+      "path": "microsoft.javascript.nodeapi/0.9.21",
+      "hashPath": "microsoft.javascript.nodeapi.0.9.21.nupkg.sha512"
+    }
+  }
+}

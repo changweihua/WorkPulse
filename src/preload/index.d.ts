@@ -122,6 +122,18 @@ declare global {
     sys: {
       onAccentColorUpdate: (callback: (color: string) => void) => () => void;
     };
+
+    nativeAPI: {
+      sayHello: (name: string) => void
+    };
+    __splash_env__: {
+      MODE: string
+      DEV: boolean
+      PROD: boolean
+      BASE_URL: string
+      VITE_APP_VERSION?: string
+      VITE_APP_TITLE?: string
+    }
   }
 }
 

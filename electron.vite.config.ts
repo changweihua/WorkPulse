@@ -23,7 +23,10 @@ export default defineConfig(({ mode }) => {
       define,  // ✅ 主进程可以读取 process.env.VITE_XXX
       build: {
         rolldownOptions: {
-          input: { index: resolve(__dirname, 'src/main/index.ts') }
+          input: {
+            index: resolve(__dirname, 'src/main/index.ts'),
+            splash: resolve(__dirname, 'src/preload/splash.ts'), // 编译 preload
+          }
         }
       }
     },

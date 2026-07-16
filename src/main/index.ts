@@ -1,5 +1,5 @@
 import { app, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, systemPreferences } from 'electron'
-import path, { join } from 'path'
+import { join } from 'path'
 import { readFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, getSetting, setSetting } from './db'
@@ -15,11 +15,54 @@ import {
   registerTitleBarListener,
   attachTitleBarToWindow
 } from '@electron-uikit/titlebar'
+import contextMenu from 'electron-context-menu'
 
+const appTitle = process.env.VITE_APP_TITLE || 'WorkPulse'
 console.log('[Main] 🟢 主进程已启动！');
+
+// // JavaScript
+// const Console = require('node-api-dotnet/net10.0').System.Console;
+// Console.WriteLine('Hello from .NET!'); // JS writes to the .NET console API
+
+// // 用 import 加载 node-api-dotnet（它本身是 CommonJS，但可以用 import 兼容）
+// const dotnet = require('node-api-dotnet/net10.0');
+// import fs from 'fs'; // 用于检查文件是否存在
+
+// // 加载 .NET 程序集
+// // 构建绝对路径
+// const dllPath = path.join(__dirname, '../../native/Bridge.dll');
+
+// // 1️⃣ 检查文件是否存在
+// if (!fs.existsSync(dllPath)) {
+//   console.error(`❌ DLL 文件不存在: ${dllPath}`);
+//   process.exit(1);
+// }
+// console.log(`✅ DLL 文件存在: ${dllPath}`);
+
+// // 2️⃣ 加载 DLL 并捕获异常
+// try {
+//   // ✅ 使用 dotnet.require，并传入绝对路径
+//   const lib = dotnet.load(path.join(__dirname, '../../native/Bridge.dll'));
+//   console.log('✅ 程序集加载成功', Object.keys(lib));
+//   if (!lib) {
+//     console.error('❌ dotnet.load() 返回了 undefined/null');
+//     process.exit(1);
+//   }
+//   console.log('✅ .NET 程序集加载成功', Object.keys(lib));
+
+//   // 3️⃣ 现在安全访问 NativeBridge
+//   console.log(lib.NativeBridge.SayHello('test')); // 测试调用
+// } catch (err) {
+//   console.error('❌ 加载 .NET DLL 失败:', err);
+//   process.exit(1);
+// }
+
 
 let tray: Tray | null = null
 let isQuitting = false
+
+// +++++ 新增：启动窗口引用 +++++
+let splashWindow: BrowserWindow | null = null
 
 // --- Helpers ---
 
@@ -141,6 +184,141 @@ function buildMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
+// --- ContextMenu
+// ===== 新增：右键菜单配置 =====
+function setupContextMenu(window: BrowserWindow): void {
+  contextMenu({
+    window,
+    showCopyImage: true,
+    showCopyImageAddress: true,
+    showSaveImage: true,
+    showInspectElement: is.dev,
+    showSelectAll: true,
+    showCopyLink: true,
+    // showCopy: true,
+    // showCut: true,
+    // showPaste: true,
+    showSaveLinkAs: true,
+    showServices: process.platform === 'darwin',
+    prepend: (defaultActions, parameters) => {
+      const items: Electron.MenuItemConstructorOptions[] = []
+
+      // 选中文本 → 搜索
+      if (parameters.selectionText) {
+        const text = parameters.selectionText.trim()
+        if (text.length > 0) {
+          items.push({
+            label: `🔍 搜索 "${text.substring(0, 20)}${text.length > 20 ? '…' : ''}"`,
+            click: () => {
+              shell.openExternal(`https://www.google.com/search?q=${encodeURIComponent(text)}`)
+            }
+          })
+          items.push({
+            label: `📋 复制 "${text.substring(0, 20)}${text.length > 20 ? '…' : ''}"`,
+            click: () => {
+              // clipboard.writeText(text)
+            }
+          })
+          items.push({ type: 'separator' })
+        }
+      }
+
+      // 链接 → 在浏览器打开
+      if (parameters.linkURL) {
+        items.push({
+          label: '🌐 在浏览器中打开链接',
+          click: () => {
+            shell.openExternal(parameters.linkURL)
+          }
+        })
+        items.push({ type: 'separator' })
+      }
+
+      // 图片 → 复制图片（需要额外处理）
+      if (parameters.mediaType === 'image' && parameters.srcURL) {
+        items.push({
+          label: '🖼️ 复制图片到剪贴板',
+          click: async () => {
+            // try {
+            //   const response = await fetch(parameters.srcURL)
+            //   const buffer = await response.arrayBuffer()
+            //   const image = nativeImage.createFromBuffer(Buffer.from(buffer))
+            //   clipboard.writeImage(image)
+            // } catch (error) {
+            //   console.error('复制图片失败:', error)
+            // }
+          }
+        })
+        items.push({ type: 'separator' })
+      }
+
+      // 应用内导航
+      items.push({
+        label: '🏠 返回工作台',
+        click: () => {
+          window.webContents.send('navigate:worklog')
+        }
+      })
+      items.push({
+        label: '⚙️ 打开设置',
+        click: () => {
+          window.webContents.send('navigate:settings')
+        }
+      })
+
+      return items
+    },
+    append: (defaultActions, parameters) => {
+      const items: Electron.MenuItemConstructorOptions[] = []
+
+      // 开发环境信息
+      if (is.dev) {
+        items.push({ type: 'separator' })
+        items.push({
+          label: `⚡ 开发模式 v${app.getVersion()}`,
+          enabled: false,
+        })
+        // 快速重载
+        items.push({
+          label: '🔄 重载页面',
+          click: () => {
+            window.webContents.reload()
+          }
+        })
+        // 打开 DevTools
+        items.push({
+          label: '🔧 打开开发者工具',
+          click: () => {
+            window.webContents.openDevTools()
+          }
+        })
+      }
+
+      // 显示页面信息（可选）
+      items.push({ type: 'separator' })
+      items.push({
+        label: `📄 WorkPulse v${app.getVersion()}`,
+        enabled: false,
+      })
+
+      return items
+    },
+    labels: {
+      cut: '剪切',
+      copy: '复制',
+      paste: '粘贴',
+      copyLink: '复制链接地址',
+      copyImage: '复制图片',
+      copyImageAddress: '复制图片地址',
+      saveImage: '保存图片…',
+      saveLinkAs: '链接另存为…',
+      selectAll: '全选',
+      inspect: '检查元素',
+    }
+  })
+}
+
+
 // --- Tray ---
 
 function buildTrayMenu(): Electron.Menu {
@@ -212,6 +390,68 @@ function createTray(): void {
 
 // --- Window ---
 
+// +++++ 新增：创建启动窗口 +++++
+function createSplashWindow(): void {
+  splashWindow = new BrowserWindow({
+    width: 380,
+    height: 280,
+    frame: false,
+    roundedCorners: true,           // ← 开启圆角（Windows 11）
+    hasShadow: false,                // 可保留阴影
+    transparent: true,                    // ← 关键：启用透明
+    backgroundColor: '#00000000',         // ← 完全透明（8位十六进制，最后两位是 Alpha）
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    titleBarStyle: 'hidden',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      // +++++ 关键：加载 splash 专用 preload +++++
+      preload: join(__dirname, '../preload/splash.js'),  // 注意是 .js（编译后）
+    },
+  })
+
+  // 显式设置背景为透明
+  splashWindow.setBackgroundColor('#00000000')
+
+  // 加载启动页 HTML（开发/生产路径不同）
+  const splashPath = is.dev
+    ? join(__dirname, '../../resources/splash.html')
+    : join(process.resourcesPath, 'splash.html')
+
+  console.log('[Splash] Loading from:', splashPath)  // 调试日志
+
+  splashWindow.loadFile(splashPath)
+  splashWindow.center()
+  splashWindow.once('ready-to-show', () => {
+    if (splashWindow) {
+      splashWindow.show()
+      // 可选：淡入效果
+      splashWindow.setOpacity(0)
+      let opacity = 0
+      const interval = setInterval(() => {
+        opacity += 0.1
+        if (splashWindow) {
+          splashWindow.setOpacity(Math.min(opacity, 1))
+          if (opacity >= 1) clearInterval(interval)
+        } else {
+          clearInterval(interval)
+        }
+      }, 30)
+    }
+  })
+}
+
+// +++++ 新增：关闭启动窗口 +++++
+function closeSplashWindow(): void {
+  if (splashWindow) {
+    splashWindow.close()
+    splashWindow = null
+  }
+}
+
+// 原有的 createWindow 函数需要修改 ready-to-show 事件
 function createWindow(): void {
   const iconPath = is.dev
     ? join(__dirname, '../../resources/icon.png')
@@ -222,7 +462,7 @@ function createWindow(): void {
     minWidth: 400,
     minHeight: 500,
     show: false,
-    title: 'WorkPulse',
+    title: appTitle, 
     frame: false,                    // ← 完全移除默认标题栏
     transparent: true,               // ← 允许圆角/透明效果
     titleBarStyle: 'hidden',
@@ -243,11 +483,12 @@ function createWindow(): void {
   // win.setMicaAcrylicEffect(); // 备选：亚克力效果
 
   // 当窗口准备就绪后，最大化并显示
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.maximize(); // 最大化窗口
-    mainWindow.show();     // 显示窗口
-  });
-
+  // +++++ 修改 ready-to-show：先关闭启动窗口，再显示主窗口 +++++
+  mainWindow.once('ready-to-show', () => {
+    closeSplashWindow()        // 关闭启动窗口
+    mainWindow.maximize()
+    mainWindow.show()
+  })
   if (process.platform !== 'darwin') {
     mainWindow.on('close', (event) => {
       if (!isQuitting) {
@@ -350,6 +591,25 @@ function registerShortcutIpc(): void {
   })
 }
 
+// ===== 单实例锁 =====
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  // 如果未获得锁，说明已有实例在运行，退出当前进程
+  app.quit()
+} else {
+  // 获得锁，监听第二个实例启动事件
+  app.on('second-instance', (_event, commandLine, workingDirectory) => {
+    // 当另一个实例启动时，聚焦到已有窗口
+    const win = getMainWindow()
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.focus()
+      win.show()
+    }
+  })
+}
+
 // --- Bootstrap ---
 useMicaElectron()
 app.whenReady().then(() => {
@@ -364,7 +624,8 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
     // Attach a title bar to the window
     attachTitleBarToWindow(window)
-
+    // ===== 初始化右键菜单 =====
+    setupContextMenu(window)
     // if (process.env.NODE_ENV === 'development') {
     //   window.webContents.openDevTools();
     // }
@@ -377,6 +638,10 @@ app.whenReady().then(() => {
   registerUpdateIpc()
   buildMenu()
   createTray()
+
+  // +++++ 在创建主窗口之前，先创建并显示启动窗口 +++++
+  createSplashWindow()
+
   createWindow()
   startUpdateCheck()
 

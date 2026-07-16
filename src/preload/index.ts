@@ -160,6 +160,10 @@ if (process.contextIsolated) {
       },
       // 如果你还需要其他系统相关功能，也可以放这里
     });
+
+    contextBridge.exposeInMainWorld('nativeAPI', {
+      sayHello: (name: string) => ipcRenderer.invoke('say-hello', name),
+    });
   } catch (error) {
     console.error(error)
   }

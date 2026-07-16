@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WorkPulse · 启动中</title>
+    <style>
+        /* ===== 全局重置 ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            overflow: hidden;
+        }
+
+        /* ===== 卡片本身充当背景，铺满全屏 ===== */
+        .splash-card {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 0;
+            border-radius: 8px;        /* 圆角 */
+
+            /* 动态背景：径向渐变 + 脉冲动画 */
+            background: radial-gradient(circle at 30% 40%, #1a2332, #0b0e14 70%);
+            animation: bgPulse 6s ease-in-out infinite alternate;
+
+            /* 毛玻璃效果（非必要，但保留设计） */
+            backdrop-filter: blur(0px);
+            /* 因为背景已经是渐变，不需要模糊，但可以保留装饰 */
+
+            /* 内容居中 */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+
+            /* 字体 */
+            font-family: "JetBrains Maple Mono", "Maple Mono NF CN", "Source Han Serif SC", "思源宋体", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+            /* 其他装饰（无边框，因为背景已经填充） */
+            padding: 40px;
+            text-align: center;
+        }
+
+        @keyframes bgPulse {
+            0% {
+                opacity: 0.8;
+                transform: scale(1);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1.02);
+            }
+        }
+
+        /* ===== 可选：使用伪元素制作光晕装饰 ===== */
+        .splash-card::before,
+        .splash-card::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            animation: orbFloat 12s infinite alternate ease-in-out;
+            pointer-events: none;
+        }
+
+        .splash-card::before {
+            width: 400px;
+            height: 400px;
+            background: #4f46e5;
+            top: -100px;
+            left: -100px;
+            animation-delay: 0s;
+        }
+
+        .splash-card::after {
+            width: 350px;
+            height: 350px;
+            background: #7c3aed;
+            bottom: -80px;
+            right: -80px;
+            animation-delay: -4s;
+        }
+
+        @keyframes orbFloat {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            33% {
+                transform: translate(30px, -40px) scale(1.1);
+            }
+
+            66% {
+                transform: translate(-20px, 20px) scale(0.9);
+            }
+
+            100% {
+                transform: translate(10px, -10px) scale(1.05);
+            }
+        }
+
+        /* ===== 卡片内容（在 flex 中居中） ===== */
+        .brand-icon {
+            font-size: 64px;
+            line-height: 1;
+            display: block;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 8px 24px rgba(79, 70, 229, 0.4));
+            animation: iconFloat 3s ease-in-out infinite;
+            position: relative;
+            z-index: 1;
+        }
+
+        @keyframes iconFloat {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-6px);
+            }
+        }
+
+        .brand-name {
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #f0f4ff 0%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 40px rgba(79, 70, 229, 0.15);
+            margin-bottom: 2px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .brand-version {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.25);
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+            margin-bottom: 16px;
+            font-weight: 300;
+            min-height: 18px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .brand-sub {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.35);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-weight: 400;
+            margin-bottom: 28px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .loader {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #818cf8;
+            animation: dotWave 1.4s ease-in-out infinite;
+        }
+
+        .dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes dotWave {
+
+            0%,
+            60%,
+            100% {
+                transform: translateY(0) scale(0.8);
+                opacity: 0.3;
+            }
+
+            30% {
+                transform: translateY(-12px) scale(1.2);
+                opacity: 1;
+                background: #a5b4fc;
+            }
+        }
+
+        .status-text {
+            margin-top: 20px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.2);
+            letter-spacing: 0.5px;
+            font-weight: 300;
+            animation: statusPulse 2s ease-in-out infinite;
+            min-height: 18px;
+            position: relative;
+            z-index: 1;
+        }
+
+        @keyframes statusPulse {
+
+            0%,
+            100% {
+                opacity: 0.2;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        /* ===== 装饰旋转环（可选，使用伪元素或额外元素） ===== */
+        .ring-decoration {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 50%;
+            animation: spinSlow 20s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .ring-decoration::after {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            bottom: 8px;
+            border: 1px dashed rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
+        }
+
+        @keyframes spinSlow {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* 响应式 */
+        @media (max-width: 480px) {
+            .brand-icon {
+                font-size: 48px;
+            }
+
+            .brand-name {
+                font-size: 28px;
+            }
+
+            .brand-sub {
+                font-size: 12px;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 只有一个卡片，它本身就是背景 -->
+    <div class="splash-card" id="splashCard">
+        <!-- 装饰环（保留） -->
+        <div class="ring-decoration"></div>
+
+        <!-- 内容 -->
+        <span class="brand-icon">📋</span>
+        <div class="brand-name">WorkPulse</div>
+        <div class="brand-version" id="version">加载中…</div>
+        <div class="brand-sub">工作脉搏 · 高效协同</div>
+        <div class="loader">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+        <div class="status-text" id="status">正在唤醒工作空间…</div>
+    </div>
+
+    <script>
+        const env = window.__splash_env__ || {};
+        if (env.DEV) console.log('[Splash]', env);
+
+        const appTitle = env.VITE_APP_TITLE || 'WorkPulse';
+        const appVersion = env.VITE_APP_VERSION || '1.0.0';
+        const isDev = env.DEV === true;
+        const isProd = env.PROD === true;
+
+        document.title = `${appTitle} v${appVersion} · 启动中`;
+
+        const versionEl = document.getElementById('version');
+        if (versionEl) versionEl.textContent = `v${appVersion}`;
+
+        const statusEl = document.getElementById('status');
+        if (statusEl) {
+            if (isDev) statusEl.textContent = '⚡ 开发模式 · 正在启动…';
+            else if (isProd) statusEl.textContent = '🚀 正在唤醒工作空间…';
+            else statusEl.textContent = '✨ 正在唤醒工作空间…';
+        }
+
+        const card = document.getElementById('splashCard');
+        if (card && isProd) card.classList.add('production');
+    </script>
+</body>
+
+</html>
