@@ -124,7 +124,7 @@ declare global {
     };
 
     nativeAPI: {
-      sayHello: (name: string) => void
+      sayHello: (name: string) => string
     };
     __splash_env__: {
       MODE: string

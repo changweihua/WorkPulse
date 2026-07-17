@@ -49,6 +49,18 @@ const CalendarPage: React.FC = () => {
         };
     }, []);
 
+    const [result, setResult] = useState<string>('');
+
+    const handleClick = async () => {
+        try {
+            // 假设通过预加载暴露了 window.api.sayHello
+            const response = await window.nativeAPI.sayHello('Electron');
+            setResult(response);
+        } catch (error) {
+            setResult('Error: ' + error);
+        }
+    };
+
     useEffect(() => {
         const today = new Date();
         const year = today.getFullYear();
@@ -90,6 +102,10 @@ const CalendarPage: React.FC = () => {
                                     selectedDate.info.isWorkday ? '💼 调休上班' : '📅 普通日'
                             ) : '\u00A0'}
                         </p>
+                    </div>
+                    <div>
+                        <button onClick={handleClick}>调用 SayHello</button>
+                        <p>结果: {result}</p>
                     </div>
 
                     {/* 历史记录 */}

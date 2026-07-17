@@ -604,21 +604,24 @@ if (!gotTheLock) {
 
 // --- Bootstrap ---
 useMicaElectron()
+let dotnetLib: any = null;
 app.whenReady().then(async () => {
+  // 加载 .NET
   try {
-    const lib = await loadDotNet();
-    // 测试调用
-    if (lib && lib.NativeBridge) {
-      const result = lib.NativeBridge.sayHello('Electron');
-      console.log(result);
-    }
+    dotnetLib = await loadDotNet();
+    console.log('✅ .NET 已加载');
   } catch (err) {
-    // console.error('加载失败，请查看日志文件:',
-    //   path.join(os.homedir(), 'AppData', 'Roaming', 'WorkPulse', 'dotnet-loader.log')
-    // );
-    // app.quit();
+    console.error('⚠️ .NET 加载失败', err);
   }
 
+  // 注册 IPC
+  ipcMain.handle('say-hello', async (_, name: string) => {
+    if (!dotnetLib || !dotnetLib.NativeBridge) {
+      throw new Error('.NET 未就绪');
+    }
+    // 方法名是小写开头的 sayHello（由 Generator 自动转换）
+    return dotnetLib.NativeBridge.sayHello(name);
+  });
   // Register title bar IPC listeners
   registerTitleBarListener()
 
