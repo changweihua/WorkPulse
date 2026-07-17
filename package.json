@@ -14,9 +14,10 @@
     "preview": "electron-vite preview",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
-    "dist:win": "npm run build && electron-builder --win",
+    "dist:win": "npm run build && cross-env ELECTRON_MIRROR=\"https://npmmirror.com/mirrors/electron/\" electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
-    "postinstall": "electron-builder install-app-deps",
+    "prebuild": "npx tsx scripts/fix-dotnet-runtime.ts",
+    "postinstall": "electron-builder install-app-deps && npx tsx scripts/fix-dotnet-runtime.ts",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web"
@@ -38,10 +39,14 @@
     ],
     "files": [
       "out/**/*",
-      "!out/renderer/assets/*.map"
+      "!out/renderer/assets/*.map",
+      "!node_modules/node-api-dotnet/**/*"
     ],
     "extraResources": [
-      { "from": "resources/splash.html", "to": "splash.html" },
+      {
+        "from": "resources/splash.html",
+        "to": "splash.html"
+      },
       {
         "from": "resources/tray-icon.png",
         "to": "tray-icon.png"
@@ -49,6 +54,19 @@
       {
         "from": "resources/icon.png",
         "to": "icon.png"
+      },
+      {
+        "from": "./native/",
+        "to": "native/",
+        "filter": [
+          "**/*.dll",
+          "**/*.deps.json",
+          "**/*.runtimeconfig.json"
+        ]
+      },
+      {
+        "from": "node_modules/node-api-dotnet",
+        "to": "node-api-dotnet"
       }
     ],
     "mac": {
@@ -147,7 +165,7 @@
     "lucide-react": "^1.24.0",
     "lunar-typescript": "^1.8.6",
     "node-api-dotnet": "^0.9.21",
-    "openai": "^6.47.0",
+    "openai": "^6.48.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "talex-mica-electron": "^1.0.2",
@@ -156,24 +174,25 @@
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
-    "@tailwindcss/vite": "^4.3.2",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "cross-env": "^10.1.0",
     "electron": "^43.1.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0-beta.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "tailwindcss": "^4.3.2",
+    "tailwindcss": "^4.3.3",
     "ts-morph": "^28.0.0",
     "tsx": "^4.23.1",
     "tw-prose": "^0.0.10",
     "typescript": "^7.0.2",
-    "vite": "^8.1.4",
+    "vite": "^8.1.5",
     "vite-plugin-env-parse": "^1.0.15"
   },
   "allowScripts": {

@@ -1,5 +1,5 @@
 import { app, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, systemPreferences } from 'electron'
-import { join } from 'path'
+import path, { join } from 'path'
 import { readFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, getSetting, setSetting } from './db'
@@ -16,47 +16,10 @@ import {
   attachTitleBarToWindow
 } from '@electron-uikit/titlebar'
 import contextMenu from 'electron-context-menu'
+import { loadDotNet } from './dotnet-loader';
 
 const appTitle = process.env.VITE_APP_TITLE || 'WorkPulse'
 console.log('[Main] 🟢 主进程已启动！');
-
-// // JavaScript
-// const Console = require('node-api-dotnet/net10.0').System.Console;
-// Console.WriteLine('Hello from .NET!'); // JS writes to the .NET console API
-
-// // 用 import 加载 node-api-dotnet（它本身是 CommonJS，但可以用 import 兼容）
-// const dotnet = require('node-api-dotnet/net10.0');
-// import fs from 'fs'; // 用于检查文件是否存在
-
-// // 加载 .NET 程序集
-// // 构建绝对路径
-// const dllPath = path.join(__dirname, '../../native/Bridge.dll');
-
-// // 1️⃣ 检查文件是否存在
-// if (!fs.existsSync(dllPath)) {
-//   console.error(`❌ DLL 文件不存在: ${dllPath}`);
-//   process.exit(1);
-// }
-// console.log(`✅ DLL 文件存在: ${dllPath}`);
-
-// // 2️⃣ 加载 DLL 并捕获异常
-// try {
-//   // ✅ 使用 dotnet.require，并传入绝对路径
-//   const lib = dotnet.load(path.join(__dirname, '../../native/Bridge.dll'));
-//   console.log('✅ 程序集加载成功', Object.keys(lib));
-//   if (!lib) {
-//     console.error('❌ dotnet.load() 返回了 undefined/null');
-//     process.exit(1);
-//   }
-//   console.log('✅ .NET 程序集加载成功', Object.keys(lib));
-
-//   // 3️⃣ 现在安全访问 NativeBridge
-//   console.log(lib.NativeBridge.SayHello('test')); // 测试调用
-// } catch (err) {
-//   console.error('❌ 加载 .NET DLL 失败:', err);
-//   process.exit(1);
-// }
-
 
 let tray: Tray | null = null
 let isQuitting = false
@@ -389,11 +352,14 @@ function createTray(): void {
 }
 
 // --- Window ---
+const MIN_SPLASH_DISPLAY = 1500 // 最少显示 1.5 秒
+const MAX_SPLASH_DISPLAY = 5000 // 最多显示 5 秒（防止卡死）
 
+let splashCreatedAt = 0
 // +++++ 新增：创建启动窗口 +++++
 function createSplashWindow(): void {
   console.log('[Splash] 🟢 开始创建启动窗口...')
-
+  splashCreatedAt = Date.now()
   splashWindow = new BrowserWindow({
     width: 380,
     height: 280,
@@ -452,14 +418,29 @@ function createSplashWindow(): void {
       }, 30)
     }
   })
+
+  // 最大时间保护：5 秒后强制关闭
+  setTimeout(() => {
+    if (splashWindow) {
+      console.warn('[Splash] 强制关闭（超时）')
+      closeSplashWindow()
+    }
+  }, MAX_SPLASH_DISPLAY)
 }
 
 // +++++ 新增：关闭启动窗口 +++++
 function closeSplashWindow(): void {
-  if (splashWindow) {
-    splashWindow.close()
-    splashWindow = null
-  }
+  if (!splashWindow) return
+
+  const elapsed = Date.now() - splashCreatedAt
+  const remaining = Math.max(0, MIN_SPLASH_DISPLAY - elapsed)
+
+  setTimeout(() => {
+    if (splashWindow) {
+      splashWindow.close()
+      splashWindow = null
+    }
+  }, remaining)
 }
 
 // 原有的 createWindow 函数需要修改 ready-to-show 事件
@@ -623,7 +604,21 @@ if (!gotTheLock) {
 
 // --- Bootstrap ---
 useMicaElectron()
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  try {
+    const lib = await loadDotNet();
+    // 测试调用
+    if (lib && lib.NativeBridge) {
+      const result = lib.NativeBridge.sayHello('Electron');
+      console.log(result);
+    }
+  } catch (err) {
+    // console.error('加载失败，请查看日志文件:',
+    //   path.join(os.homedir(), 'AppData', 'Roaming', 'WorkPulse', 'dotnet-loader.log')
+    // );
+    // app.quit();
+  }
+
   // Register title bar IPC listeners
   registerTitleBarListener()
 

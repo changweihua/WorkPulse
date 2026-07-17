@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackAsTool>true</PackAsTool>
+    <UserSecretsId>Bridge-3ea16261bf66053888619a7c082059c98b71f44a924a3ab00a663cc957c256c4</UserSecretsId>
+    <PublishAot>false</PublishAot>
+    <UseAppHost>false</UseAppHost>
+    <OutputPath>../native</OutputPath>
+    <OutputType>library</OutputType>
+    <GenerateDependencyFile>true</GenerateDependencyFile>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.9.21" />
+    <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.9.21" />
+  </ItemGroup>
+
+</Project>

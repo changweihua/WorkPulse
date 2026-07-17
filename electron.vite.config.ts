@@ -25,17 +25,7 @@ export default defineConfig(({ mode }) => {
         rolldownOptions: {
           input: {
             index: resolve(__dirname, 'src/main/index.ts'),
-            splash: resolve(__dirname, 'src/preload/splash.ts'), // 编译 preload
-          },
-          output: {
-            entryFileNames: (chunkInfo) => {
-              if (chunkInfo.name === 'preload') {
-                return 'preload/splash.js'
-              }
-              return '[name].js'
-            },
-            format: 'cjs',
-          },
+          }
         }
       }
     },
@@ -43,7 +33,8 @@ export default defineConfig(({ mode }) => {
       define,  // ✅ 预加载进程也能读取
       build: {
         rolldownOptions: {
-          input: { index: resolve(__dirname, 'src/preload/index.ts') }
+          input: { index: resolve(__dirname, 'src/preload/index.ts') },
+          splash: resolve(__dirname, 'src/preload/splash.ts'), // 编译 preload
         }
       }
     },
