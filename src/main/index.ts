@@ -16,7 +16,7 @@ import {
   attachTitleBarToWindow
 } from '@electron-uikit/titlebar'
 import contextMenu from 'electron-context-menu'
-import { loadDotNet } from './dotnet-loader';
+import { loadDotNet } from './asar-dotnet-loader';
 
 const appTitle = process.env.VITE_APP_TITLE || 'WorkPulse'
 console.log('[Main] 🟢 主进程已启动！');
@@ -355,6 +355,18 @@ function createTray(): void {
 const MIN_SPLASH_DISPLAY = 1500 // 最少显示 1.5 秒
 const MAX_SPLASH_DISPLAY = 5000 // 最多显示 5 秒（防止卡死）
 
+
+function getSplashPath(): string {
+  // 优先使用 app.isPackaged 判断
+  if (app.isPackaged) {
+    // 生产环境：resourcesPath 直接包含 splash.html
+    return join(process.resourcesPath, 'splash.html');
+  } else {
+    // 开发环境：项目根目录 resources/splash.html
+    return join(app.getAppPath(), 'resources', 'splash.html');
+  }
+}
+
 let splashCreatedAt = 0
 // +++++ 新增：创建启动窗口 +++++
 function createSplashWindow(): void {
@@ -385,10 +397,7 @@ function createSplashWindow(): void {
   // 显式设置背景为透明
   splashWindow.setBackgroundColor('#00000000')
 
-  // 加载启动页 HTML（开发/生产路径不同）
-  const splashPath = is.dev
-    ? join(__dirname, '../../resources/splash.html')
-    : join(process.resourcesPath, 'splash.html')
+  const splashPath = getSplashPath();
   console.log('[Splash] 📁 加载路径:', splashPath)
 
   console.log('[Splash] Loading from:', splashPath)  // 调试日志

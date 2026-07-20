@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => {
         rolldownOptions: {
           input: {
             index: resolve(__dirname, 'src/main/index.ts'),
+            splash: resolve(__dirname, 'src/preload/splash.ts'), // 编译 preload
           }
         }
       }

@@ -26,6 +26,7 @@
     "appId": "com.workpulse.app",
     "productName": "WorkPulse",
     "copyright": "Copyright © 2026",
+    "asar": true,
     "directories": {
       "buildResources": "resources",
       "output": "dist"
@@ -162,7 +163,7 @@
     "date-fns": "^4.4.0",
     "electron-context-menu": "^4.1.2",
     "electron-updater": "^6.8.9",
-    "lucide-react": "^1.24.0",
+    "lucide-react": "^1.25.0",
     "lunar-typescript": "^1.8.6",
     "node-api-dotnet": "^0.9.21",
     "openai": "^6.48.0",
