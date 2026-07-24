@@ -13,8 +13,9 @@ import { useI18n, useLanguageStore } from './stores/languageStore'
 import CalendarPage from './pages/CalendarPage'
 import ChatPage from './pages/ChatPage'
 import XrayProcessor from './pages/XrayProcessor'
+import OnnxPage from './pages/OnnxPage'
 
-type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings' | 'calendar' | 'chat' | 'xray'
+type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings' | 'calendar' | 'chat' | 'xray' | 'onnx'
 type QuickCreateMode = 'log' | 'task' | null
 
 function App(): ReactNode {
@@ -131,6 +132,7 @@ function App(): ReactNode {
             {navBtn('calendar', <Calendar className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.calendar'))}
             {navBtn('chat', <Bot className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.chat'))}
             {navBtn('xray', <Zap className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.xray'))}
+            {navBtn('onnx', <Zap className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.onnx'))}
           </nav>
         </div>
         <button
@@ -152,6 +154,7 @@ function App(): ReactNode {
           {currentPage === 'calendar' && <CalendarPage />}
           {currentPage === 'chat' && <ChatPage />}
           {currentPage === 'xray' && <XrayProcessor />}
+          {currentPage === 'onnx' && <OnnxPage />}
         </div>
       </main>
 

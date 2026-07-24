@@ -26,6 +26,7 @@ export const translations = {
     'nav.calendar': '日程',
     'nav.chat': 'AI',
     'nav.xray': 'XRay',
+    'nav.onnx': 'ONNX',
 
     'quick.log': '记录日志',
     'quick.task': '添加任务',
