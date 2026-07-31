@@ -56,6 +56,7 @@ interface API {
     getUpdateState: () => Promise<AppUpdateState>
     checkForUpdates: () => Promise<AppUpdateState>
     installUpdate: () => Promise<boolean>
+    openBackupDir: () => Promise<string>
   }
   on: {
     quickCreate: (cb: (type: QuickCreateType) => void) => () => void
@@ -69,6 +70,7 @@ interface API {
     delete: (id: number) => Promise<boolean>
     reorder: (taskIds: number[], status: string) => Promise<void>
     complete: (id: number, logContent: string) => Promise<Task | null>
+    completeOnly: (id: number) => Promise<Task | null>
   }
   worklog: {
     add: (content: string, category?: string) => Promise<WorkLog>
@@ -77,6 +79,7 @@ interface API {
     search: (keyword: string) => Promise<WorkLog[]>
     categories: () => Promise<string[]>
     setCategory: (id: number, category: string) => Promise<void>
+    update: (id: number, content: string, category: string, created_at?: string) => Promise<WorkLog | null>
     delete: (id: number) => Promise<boolean>
     restore: (log: Pick<WorkLog, 'content' | 'category' | 'created_at' | 'task_id'>) => Promise<WorkLog>
   }
@@ -105,6 +108,9 @@ interface API {
   export: {
     logs: (format: 'csv' | 'markdown') => Promise<string | null>
     report: (content: string, dateRange: string) => Promise<string | null>
+  }
+  import: {
+    logs: () => Promise<{ imported: number; skipped: number; filePath: string } | null>
   }
 }
 

@@ -344,11 +344,13 @@ function TaskCardOverlay({ task }: { task: Task }): JSX.Element {
 function CompleteDialog({
   task,
   onConfirm,
-  onCancel
+  onCancel,
+  onOnlyComplete
 }: {
   task: Task
   onConfirm: (logContent: string) => void
   onCancel: () => void
+  onOnlyComplete: () => void
 }): JSX.Element {
   const { t } = useI18n()
   const [logContent, setLogContent] = useState(() => t('kanban.completeLogDefault', { title: task.title }))
@@ -396,6 +398,12 @@ function CompleteDialog({
           >
             {t('kanban.completeSubmit')}
           </button>
+          <button
+            onClick={onOnlyComplete}
+            className="px-4 py-2 text-sm border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          >
+            {t('kanban.completeOnly')}
+          </button>
         </div>
       </div>
     </div>
@@ -404,7 +412,7 @@ function CompleteDialog({
 
 // --- Main Kanban Page ---
 function KanbanPage(): JSX.Element {
-  const { tasks, fetchTasks, addTask, updateTask, deleteTask, completeTask, reorderTasks } =
+  const { tasks, fetchTasks, addTask, updateTask, deleteTask, completeTask, completeTaskOnly, reorderTasks } =
     useTaskStore()
   const toast = useToast()
   const { t } = useI18n()
@@ -540,6 +548,13 @@ function KanbanPage(): JSX.Element {
     await completeTask(pendingComplete.id, logContent)
     setPendingComplete(null)
     toast.success(t('kanban.completedToast'))
+  }
+
+  const handleCompleteOnly = async (): Promise<void> => {
+    if (!pendingComplete) return
+    await completeTaskOnly(pendingComplete.id)
+    setPendingComplete(null)
+    toast.success(t('kanban.completedOnlyToast'))
   }
 
   const handleCancelComplete = async (): Promise<void> => {
@@ -750,6 +765,7 @@ function KanbanPage(): JSX.Element {
           task={pendingComplete}
           onConfirm={handleComplete}
           onCancel={handleCancelComplete}
+          onOnlyComplete={handleCompleteOnly}
         />
       )}
     </DndContext>

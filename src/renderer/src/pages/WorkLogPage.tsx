@@ -1,18 +1,33 @@
 import { useEffect, useRef, useState } from 'react'
-import { Trash2, ClipboardEdit, Search, X, Download, Undo2, PenLine } from 'lucide-react'
+import {
+  Check,
+  ClipboardEdit,
+  Download,
+  PenLine,
+  Pencil,
+  Search,
+  Trash2,
+  Undo2,
+  Upload,
+  X
+} from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useWorkLogStore } from '../stores/worklogStore'
 import { formatDate, formatTime, groupLogsByDate } from '../lib/dateUtils'
 import { useI18n } from '../stores/languageStore'
 
 function WorkLogPage(): JSX.Element {
-  const { logs, fetchLogs, loadMore, hasMore, addLog, deleteLog, undoDelete, lastDeleted, searchLogs, clearSearch, searchKeyword, loading } =
+  const { logs, fetchLogs, loadMore, hasMore, addLog, deleteLog, undoDelete, dismissUndo, lastDeleted, searchLogs, clearSearch, searchKeyword, loading, updateLog } =
     useWorkLogStore()
   const [input, setInput] = useState('')
   const [search, setSearch] = useState('')
   const [shaking, setShaking] = useState(false)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+  const [editDate, setEditDate] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const toast = useToast()
@@ -88,6 +103,22 @@ function WorkLogPage(): JSX.Element {
     toast.success(t('worklog.restored'))
   }
 
+  const handleEditSave = async (): Promise<void> => {
+    if (!editingId) return
+    const trimmedContent = editContent.trim()
+    if (!trimmedContent) return
+    const log = logs.find((l) => l.id === editingId)
+    const timePart = log ? log.created_at.slice(10) : ''
+    const newCreatedAt = editDate ? editDate + timePart : undefined
+    await updateLog(editingId, trimmedContent, editCategory.trim(), newCreatedAt)
+    setEditingId(null)
+    toast.success(t('worklog.editSave'))
+  }
+
+  const handleEditCancel = (): void => {
+    setEditingId(null)
+  }
+
   const grouped = groupLogsByDate(logs)
 
   return (
@@ -130,30 +161,49 @@ function WorkLogPage(): JSX.Element {
             </button>
           )}
         </div>
-        <div className="relative group export-menu">
-          <button className="export-button btn-bounce">
-            <Download className="w-4 h-4" />
-            {t('common.export')}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              const result = await window.api.import.logs()
+              if (result) {
+                const msg = result.skipped > 0
+                  ? t('worklog.importedSkipped', { imported: result.imported, skipped: result.skipped })
+                  : t('worklog.imported', { count: result.imported })
+                toast.success(msg)
+                await fetchLogs()
+              }
+            }}
+            className="export-button btn-bounce"
+            title={t('worklog.import')}
+          >
+            <Upload />
+            {t('common.import')}
           </button>
-          <div className="absolute right-0 top-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-            <button
-              onClick={async () => {
-                const path = await window.api.export.logs('csv')
-                if (path) toast.success(t('worklog.exportedCsv'))
-              }}
-              className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-t-lg whitespace-nowrap"
-            >
-              {t('worklog.exportCsv')}
+          <div className="relative group export-menu">
+            <button className="export-button btn-bounce">
+              <Download />
+              {t('common.export')}
             </button>
-            <button
-              onClick={async () => {
-                const path = await window.api.export.logs('markdown')
-                if (path) toast.success(t('worklog.exportedMarkdown'))
-              }}
-              className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-b-lg whitespace-nowrap"
-            >
-              {t('worklog.exportMarkdown')}
-            </button>
+            <div className="absolute right-0 top-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+              <button
+                onClick={async () => {
+                  const path = await window.api.export.logs('csv')
+                  if (path) toast.success(t('worklog.exportedCsv'))
+                }}
+                className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-t-lg whitespace-nowrap"
+              >
+                {t('worklog.exportCsv')}
+              </button>
+              <button
+                onClick={async () => {
+                  const path = await window.api.export.logs('markdown')
+                  if (path) toast.success(t('worklog.exportedMarkdown'))
+                }}
+                className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-b-lg whitespace-nowrap"
+              >
+                {t('worklog.exportMarkdown')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -199,41 +249,108 @@ function WorkLogPage(): JSX.Element {
                     className="log-row group"
                   >
                     <span className="log-dot" aria-hidden="true" />
-                    <div className="log-content">
-                      <span className="log-content-text">{log.content}</span>
-                      {log.category && (
-                        <span className="log-category">
-                          {log.category}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-zinc-400">{formatTime(log.created_at)}</span>
-                      {deletingId === log.id ? (
-                        <div className="flex items-center gap-1">
+                    {editingId === log.id ? (
+                      <>
+                        <div className="log-content flex-wrap">
+                          <input
+                            type="text"
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleEditSave()
+                              if (e.key === 'Escape') handleEditCancel()
+                            }}
+                            className="w-full sm:min-w-[180px] sm:flex-1 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                            autoFocus
+                          />
+                          <input
+                            type="text"
+                            value={editCategory}
+                            onChange={(e) => setEditCategory(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleEditSave()
+                              if (e.key === 'Escape') handleEditCancel()
+                            }}
+                            placeholder="#tag"
+                            className="w-full sm:w-28 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                          />
+                          <input
+                            type="date"
+                            value={editDate}
+                            onChange={(e) => setEditDate(e.target.value)}
+                            className="w-full sm:w-36 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
-                            onClick={() => handleDelete(log.id)}
-                            className="text-xs text-red-500 hover:text-red-700 px-1"
+                            onClick={handleEditSave}
+                            className="p-1 text-green-500 hover:text-green-600"
+                            title={t('worklog.editSave')}
                           >
-                            {t('common.confirm')}
+                            <Check className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => setDeletingId(null)}
-                            className="text-xs text-zinc-400 hover:text-zinc-600 px-1"
+                            onClick={handleEditCancel}
+                            className="p-1 text-zinc-400 hover:text-zinc-600"
+                            title={t('worklog.editCancel')}
                           >
-                            {t('common.cancel')}
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                      ) : (
-                        <button
-                          onClick={() => setDeletingId(log.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 transition-all"
-                          aria-label={t('worklog.deleteAria')}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="log-content">
+                          <span className="log-content-text">{log.content}</span>
+                          {log.category && (
+                            <span className="log-category">
+                              {log.category}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-zinc-400">{formatTime(log.created_at)}</span>
+                          {deletingId === log.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleDelete(log.id)}
+                                className="text-xs text-red-500 hover:text-red-700 px-1"
+                              >
+                                {t('common.confirm')}
+                              </button>
+                              <button
+                                onClick={() => setDeletingId(null)}
+                                className="text-xs text-zinc-400 hover:text-zinc-600 px-1"
+                              >
+                                {t('common.cancel')}
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingId(log.id)
+                                  setEditContent(log.content)
+                                  setEditCategory(log.category)
+                                  setEditDate(log.created_at.slice(0, 10))
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-blue-500 transition-all"
+                                aria-label={t('worklog.editAria')}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setDeletingId(log.id)}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 transition-all"
+                                aria-label={t('worklog.deleteAria')}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -264,6 +381,13 @@ function WorkLogPage(): JSX.Element {
           >
             <Undo2 className="w-3.5 h-3.5" />
             {t('worklog.undo')}
+          </button>
+          <button
+            onClick={dismissUndo}
+            className="ml-1 p-0.5 text-zinc-400 dark:text-zinc-500 hover:text-white dark:hover:text-zinc-900"
+            title={t('common.confirm')}
+          >
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}

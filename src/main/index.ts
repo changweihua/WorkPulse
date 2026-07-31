@@ -276,47 +276,64 @@ function registerShortcutIpc(): void {
 
 // --- Bootstrap ---
 
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.workpulse')
+const gotTheLock = app.requestSingleInstanceLock()
 
-  if (process.platform === 'darwin' && app.dock) {
-    app.dock.setIcon(getAppIconPath())
-  }
-
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const win = getMainWindow()
+    if (!win) {
+      createWindow()
+      return
+    }
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
   })
 
-  initDatabase()
-  configureAutoUpdater()
-  registerIpcHandlers()
-  registerShortcutIpc()
-  registerUpdateIpc()
-  buildMenu()
-  createTray()
-  createWindow()
-  startUpdateCheck()
+  app.whenReady().then(() => {
+    electronApp.setAppUserModelId('com.workpulse')
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (process.platform === 'darwin' && app.dock) {
+      app.dock.setIcon(getAppIconPath())
+    }
+
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
+
+    initDatabase()
+    configureAutoUpdater()
+    registerIpcHandlers()
+    registerShortcutIpc()
+    registerUpdateIpc()
+    buildMenu()
+    createTray()
+    createWindow()
+    startUpdateCheck()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+
+    const results = reregisterGlobalShortcuts()
+    if (!results.log || !results.task) {
+      console.warn('One or more global shortcuts could not be registered')
+    }
   })
 
-  const results = reregisterGlobalShortcuts()
-  if (!results.log || !results.task) {
-    console.warn('One or more global shortcuts could not be registered')
-  }
-})
+  app.on('before-quit', () => {
+    isQuitting = true
+  })
 
-app.on('before-quit', () => {
-  isQuitting = true
-})
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll()
+  })
 
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll()
-})
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
-})
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
+  })
+}

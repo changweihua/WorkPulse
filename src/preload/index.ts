@@ -20,13 +20,27 @@ interface AppUpdateState {
   canInstall?: boolean
 }
 
+interface Task {
+  id: number
+  title: string
+  description: string
+  status: 'todo' | 'in_progress' | 'done' | 'draft'
+  board_column: string
+  position: number
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+  due_date: string | null
+}
+
 const api = {
   app: {
     setLanguage: (language: AppLanguage) => ipcRenderer.invoke('app:language:update', language),
     getVersion: () => ipcRenderer.invoke('app:get-version') as Promise<string>,
     getUpdateState: () => ipcRenderer.invoke('app:updates:get-state') as Promise<AppUpdateState>,
     checkForUpdates: () => ipcRenderer.invoke('app:updates:check') as Promise<AppUpdateState>,
-    installUpdate: () => ipcRenderer.invoke('app:updates:install') as Promise<boolean>
+    installUpdate: () => ipcRenderer.invoke('app:updates:install') as Promise<boolean>,
+    openBackupDir: () => ipcRenderer.invoke('app:open-backup-dir') as Promise<string>
   },
   worklog: {
     add: (content: string, category?: string) =>
@@ -39,6 +53,8 @@ const api = {
     categories: () => ipcRenderer.invoke('worklog:categories') as Promise<string[]>,
     setCategory: (id: number, category: string) =>
       ipcRenderer.invoke('worklog:setCategory', id, category),
+    update: (id: number, content: string, category: string, created_at?: string) =>
+      ipcRenderer.invoke('worklog:update', id, content, category, created_at),
     delete: (id: number) => ipcRenderer.invoke('worklog:delete', id),
     restore: (log: { content: string; category: string; created_at: string; task_id: number | null }) =>
       ipcRenderer.invoke('worklog:restore', log)
@@ -53,7 +69,9 @@ const api = {
     reorder: (taskIds: number[], status: string) =>
       ipcRenderer.invoke('task:reorder', taskIds, status),
     complete: (id: number, logContent: string) =>
-      ipcRenderer.invoke('task:complete', id, logContent)
+      ipcRenderer.invoke('task:complete', id, logContent),
+    completeOnly: (id: number) =>
+      ipcRenderer.invoke('task:completeOnly', id) as Promise<Task | null>
   },
   stats: {
     get: (days?: number) => ipcRenderer.invoke('stats:get', days)
@@ -77,6 +95,14 @@ const api = {
     logs: (format: 'csv' | 'markdown') => ipcRenderer.invoke('export:logs', format),
     report: (content: string, dateRange: string) =>
       ipcRenderer.invoke('export:report', content, dateRange)
+  },
+  import: {
+    logs: () =>
+      ipcRenderer.invoke('import:logs') as Promise<{
+        imported: number
+        skipped: number
+        filePath: string
+      } | null>
   },
   on: {
     quickCreate: (cb: (type: QuickCreateType) => void) => {
