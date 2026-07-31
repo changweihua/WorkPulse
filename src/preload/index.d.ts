@@ -70,6 +70,7 @@ interface API {
     delete: (id: number) => Promise<boolean>
     reorder: (taskIds: number[], status: string) => Promise<void>
     complete: (id: number, logContent: string) => Promise<Task | null>
+    completeOnly: (id: number) => Promise<Task | null>
   }
   worklog: {
     add: (content: string, category?: string) => Promise<WorkLog>
@@ -107,6 +108,9 @@ interface API {
   export: {
     logs: (format: 'csv' | 'markdown') => Promise<string | null>
     report: (content: string, dateRange: string) => Promise<string | null>
+  }
+  import: {
+    logs: () => Promise<{ imported: number; skipped: number; filePath: string } | null>
   }
 }
 

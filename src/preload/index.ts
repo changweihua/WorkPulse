@@ -20,6 +20,19 @@ interface AppUpdateState {
   canInstall?: boolean
 }
 
+interface Task {
+  id: number
+  title: string
+  description: string
+  status: 'todo' | 'in_progress' | 'done' | 'draft'
+  board_column: string
+  position: number
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+  due_date: string | null
+}
+
 const api = {
   app: {
     setLanguage: (language: AppLanguage) => ipcRenderer.invoke('app:language:update', language),
@@ -58,7 +71,7 @@ const api = {
     complete: (id: number, logContent: string) =>
       ipcRenderer.invoke('task:complete', id, logContent),
     completeOnly: (id: number) =>
-      ipcRenderer.invoke('task:completeOnly', id) as Promise<any>,
+      ipcRenderer.invoke('task:completeOnly', id) as Promise<Task | null>
   },
   stats: {
     get: (days?: number) => ipcRenderer.invoke('stats:get', days)
@@ -84,7 +97,12 @@ const api = {
       ipcRenderer.invoke('export:report', content, dateRange)
   },
   import: {
-    logs: () => ipcRenderer.invoke('import:logs') as Promise<{ imported: number; skipped: number; filePath: string } | null>,
+    logs: () =>
+      ipcRenderer.invoke('import:logs') as Promise<{
+        imported: number
+        skipped: number
+        filePath: string
+      } | null>
   },
   on: {
     quickCreate: (cb: (type: QuickCreateType) => void) => {

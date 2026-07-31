@@ -257,7 +257,7 @@ export function registerIpcHandlers(): void {
     let imported = 0
     let skipped = 0
     if (ext === 'csv') {
-      const lines = content.split('\n').filter(l => l.trim())
+      const lines = content.split('\n').filter((line) => line.trim())
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim()
         if (!line) continue
@@ -265,7 +265,7 @@ export function registerIpcHandlers(): void {
         if (parts.length >= 3) {
           const [time, category, logContent] = parts
           const cat = category || ''
-          if (logContent && !workLogExists(logContent, cat)) {
+          if (logContent && !workLogExists(logContent, cat, time || undefined)) {
             addWorkLog(logContent, cat, null, time || undefined)
             imported++
           } else {

@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { Trash2, Pencil, Upload, ClipboardEdit, Search, X, Download, Undo2, Check } from 'lucide-react'
+import {
+  Check,
+  ClipboardEdit,
+  Download,
+  PenLine,
+  Pencil,
+  Search,
+  Trash2,
+  Undo2,
+  Upload,
+  X
+} from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useWorkLogStore } from '../stores/worklogStore'
 import { formatDate, formatTime, groupLogsByDate } from '../lib/dateUtils'
@@ -111,10 +122,11 @@ function WorkLogPage(): JSX.Element {
   const grouped = groupLogsByDate(logs)
 
   return (
-    <div>
+    <div className="worklog-page">
       {/* Input */}
-      <div className="mb-4">
-        <div className="relative">
+      <div className="quick-entry-section">
+        <div className={`quick-entry ${shaking ? 'animate-shake is-error' : ''}`}>
+          <PenLine className="quick-entry-icon" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
@@ -123,26 +135,22 @@ function WorkLogPage(): JSX.Element {
             onKeyDown={handleKeyDown}
             placeholder={t('worklog.inputPlaceholder')}
             aria-label={t('worklog.inputAria')}
-            className={`w-full px-4 py-3 text-base border rounded-lg outline-none transition-all bg-white dark:bg-zinc-900 dark:text-zinc-100 ${
-              shaking
-                ? 'animate-shake border-red-400 ring-2 ring-red-200'
-                : 'border-zinc-300 dark:border-zinc-700 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700'
-            }`}
+            className="quick-entry-input"
           />
         </div>
-        {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+        {error && <p className="quick-entry-error">{error}</p>}
       </div>
 
       {/* Search + Export */}
-      <div className="mb-4 flex gap-2">
-        <div className="relative flex-1">
+      <div className="worklog-toolbar">
+        <div className="worklog-search">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder={t('worklog.searchPlaceholder')}
-            className="w-full pl-9 pr-8 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-900 dark:text-zinc-100"
+            className="worklog-search-input"
           />
           {search && (
             <button
@@ -153,47 +161,49 @@ function WorkLogPage(): JSX.Element {
             </button>
           )}
         </div>
-        <button
-          onClick={async () => {
-            const result = await window.api.import.logs()
-            if (result) {
-              const msg = result.skipped > 0
-                ? t('worklog.importedSkipped', { imported: result.imported, skipped: result.skipped })
-                : t('worklog.imported', { count: result.imported })
-              toast.success(msg)
-              fetchLogs()
-            }
-          }}
-          className="flex items-center gap-1 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce"
-          title={t('worklog.import')}
-        >
-          <Upload className="w-4 h-4" />
-          {t('common.import')}
-        </button>
-        <div className="relative group">
-          <button className="flex items-center gap-1 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce">
-            <Download className="w-4 h-4" />
-            {t('common.export')}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              const result = await window.api.import.logs()
+              if (result) {
+                const msg = result.skipped > 0
+                  ? t('worklog.importedSkipped', { imported: result.imported, skipped: result.skipped })
+                  : t('worklog.imported', { count: result.imported })
+                toast.success(msg)
+                await fetchLogs()
+              }
+            }}
+            className="export-button btn-bounce"
+            title={t('worklog.import')}
+          >
+            <Upload />
+            {t('common.import')}
           </button>
-          <div className="absolute right-0 top-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-            <button
-              onClick={async () => {
-                const path = await window.api.export.logs('csv')
-                if (path) toast.success(t('worklog.exportedCsv'))
-              }}
-              className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-t-lg whitespace-nowrap"
-            >
-              {t('worklog.exportCsv')}
+          <div className="relative group export-menu">
+            <button className="export-button btn-bounce">
+              <Download />
+              {t('common.export')}
             </button>
-            <button
-              onClick={async () => {
-                const path = await window.api.export.logs('markdown')
-                if (path) toast.success(t('worklog.exportedMarkdown'))
-              }}
-              className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-b-lg whitespace-nowrap"
-            >
-              {t('worklog.exportMarkdown')}
-            </button>
+            <div className="absolute right-0 top-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+              <button
+                onClick={async () => {
+                  const path = await window.api.export.logs('csv')
+                  if (path) toast.success(t('worklog.exportedCsv'))
+                }}
+                className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-t-lg whitespace-nowrap"
+              >
+                {t('worklog.exportCsv')}
+              </button>
+              <button
+                onClick={async () => {
+                  const path = await window.api.export.logs('markdown')
+                  if (path) toast.success(t('worklog.exportedMarkdown'))
+                }}
+                className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-b-lg whitespace-nowrap"
+              >
+                {t('worklog.exportMarkdown')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -226,21 +236,22 @@ function WorkLogPage(): JSX.Element {
         </div>
       ) : (
         <>
-        <div role="list" className="space-y-6">
+        <div role="list" className="log-timeline">
           {Array.from(grouped.entries()).map(([dateKey, dateLogs]) => (
-            <div key={dateKey} role="group">
-              <h3 className="text-sm font-medium text-zinc-400 mb-2">
+            <section key={dateKey} role="group" className="log-day">
+              <h3 className="log-day-title">
                 {formatDate(dateKey + 'T00:00:00', resolvedLanguage)}
               </h3>
-              <div className="space-y-1 stagger-children">
+              <div className="log-day-items stagger-children">
                 {dateLogs.map((log) => (
                   <div
                     key={log.id}
-                    className="group flex items-center justify-between py-2 px-3 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                    className="log-row group"
                   >
+                    <span className="log-dot" aria-hidden="true" />
                     {editingId === log.id ? (
                       <>
-                        <div className="flex-1 mr-2 flex items-center gap-2">
+                        <div className="log-content flex-wrap">
                           <input
                             type="text"
                             value={editContent}
@@ -249,7 +260,7 @@ function WorkLogPage(): JSX.Element {
                               if (e.key === 'Enter') handleEditSave()
                               if (e.key === 'Escape') handleEditCancel()
                             }}
-                            className="flex-1 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                            className="w-full sm:min-w-[180px] sm:flex-1 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
                             autoFocus
                           />
                           <input
@@ -261,13 +272,13 @@ function WorkLogPage(): JSX.Element {
                               if (e.key === 'Escape') handleEditCancel()
                             }}
                             placeholder="#tag"
-                            className="w-24 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                            className="w-full sm:w-28 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
                           />
                           <input
                             type="date"
                             value={editDate}
                             onChange={(e) => setEditDate(e.target.value)}
-                            className="w-32 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                            className="w-full sm:w-36 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
                           />
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -289,10 +300,10 @@ function WorkLogPage(): JSX.Element {
                       </>
                     ) : (
                       <>
-                        <div className="flex-1 mr-4 flex items-center gap-2">
-                          <span className="text-zinc-800 dark:text-zinc-200">{log.content}</span>
+                        <div className="log-content">
+                          <span className="log-content-text">{log.content}</span>
                           {log.category && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                            <span className="log-category">
                               {log.category}
                             </span>
                           )}
@@ -343,7 +354,7 @@ function WorkLogPage(): JSX.Element {
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           ))}
         </div>
         {hasMore && !searchKeyword && (

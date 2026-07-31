@@ -110,7 +110,14 @@ export const useWorkLogStore = create<WorkLogStore>((set, get) => ({
   updateLog: async (id: number, content: string, category: string, created_at?: string) => {
     const updated = await window.api.worklog.update(id, content, category, created_at)
     if (updated) {
-      set({ logs: get().logs.map((l) => (l.id === id ? updated : l)) })
+      if (get().searchKeyword) {
+        await get().searchLogs(get().searchKeyword)
+        return
+      }
+      const logs = get()
+        .logs.map((log) => (log.id === id ? updated : log))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      set({ logs })
     }
   }
 }))

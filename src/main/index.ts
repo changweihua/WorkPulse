@@ -201,10 +201,13 @@ function createTray(): void {
 
 // --- Window ---
 
+function getAppIconPath(): string {
+  return is.dev
+    ? join(__dirname, '../../resources/icon-hallmark-master.png')
+    : join(process.resourcesPath, 'icon-hallmark.png')
+}
+
 function createWindow(): void {
-  const iconPath = is.dev
-    ? join(__dirname, '../../resources/icon.png')
-    : join(process.resourcesPath, 'icon.png')
   const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
@@ -212,7 +215,7 @@ function createWindow(): void {
     minHeight: 500,
     show: false,
     title: 'WorkPulse',
-    icon: iconPath,
+    icon: getAppIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -280,51 +283,57 @@ if (!gotTheLock) {
 } else {
   app.on('second-instance', () => {
     const win = getMainWindow()
-    if (win) {
-      if (win.isMinimized()) win.restore()
-      win.show()
-      win.focus()
+    if (!win) {
+      createWindow()
+      return
     }
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
   })
 
   app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.workpulse')
+    electronApp.setAppUserModelId('com.workpulse')
 
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+    if (process.platform === 'darwin' && app.dock) {
+      app.dock.setIcon(getAppIconPath())
+    }
+
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
+
+    initDatabase()
+    configureAutoUpdater()
+    registerIpcHandlers()
+    registerShortcutIpc()
+    registerUpdateIpc()
+    buildMenu()
+    createTray()
+    createWindow()
+    startUpdateCheck()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+
+    const results = reregisterGlobalShortcuts()
+    if (!results.log || !results.task) {
+      console.warn('One or more global shortcuts could not be registered')
+    }
   })
 
-  initDatabase()
-  configureAutoUpdater()
-  registerIpcHandlers()
-  registerShortcutIpc()
-  registerUpdateIpc()
-  buildMenu()
-  createTray()
-  createWindow()
-  startUpdateCheck()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  app.on('before-quit', () => {
+    isQuitting = true
   })
 
-  const results = reregisterGlobalShortcuts()
-  if (!results.log || !results.task) {
-    console.warn('One or more global shortcuts could not be registered')
-  }
-})
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll()
+  })
 
-app.on('before-quit', () => {
-  isQuitting = true
-})
-
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll()
-})
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
-})
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
+  })
 }

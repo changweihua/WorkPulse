@@ -9,6 +9,7 @@ import { QuickCreate } from './components/QuickCreate'
 import { useToast } from './components/Toast'
 import { useThemeStore } from './stores/themeStore'
 import { useI18n, useLanguageStore } from './stores/languageStore'
+import brandSeal from './assets/brand-seal.png'
 
 type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings'
 type QuickCreateMode = 'log' | 'task' | null
@@ -99,11 +100,7 @@ function App(): JSX.Element {
   const navBtn = (page: Page, icon: JSX.Element, label: string): JSX.Element => (
     <button
       onClick={() => setCurrentPage(page)}
-      className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${
-        currentPage === page
-          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 tab-active'
-          : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:scale-[1.02]'
-      }`}
+      className={`app-nav-button ${currentPage === page ? 'is-active' : ''}`}
     >
       {icon}
       {label}
@@ -111,12 +108,15 @@ function App(): JSX.Element {
   )
 
   return (
-    <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
+    <div className="hallmark-app h-screen flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-        <div className="flex items-center gap-1">
-          <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4">WorkPulse</h1>
-          <nav className="flex gap-1">
+      <header className="app-header">
+        <div className="app-header-main">
+          <div className="app-brand" aria-label="WorkPulse">
+            <img src={brandSeal} alt="" className="app-brand-mark" />
+            <h1>WorkPulse</h1>
+          </div>
+          <nav className="app-nav" aria-label="Primary navigation">
             {navBtn('worklog', <ClipboardList className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.worklog'))}
             {navBtn('kanban', <Columns3 className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.kanban'))}
             {navBtn('report', <FileText className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.report'))}
@@ -125,7 +125,7 @@ function App(): JSX.Element {
         </div>
         <button
           onClick={() => setCurrentPage('settings')}
-          className="p-2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors settings-spin"
+          className="app-settings-button settings-spin"
           aria-label={t('nav.settings')}
         >
           <Settings className="w-5 h-5" />
@@ -133,8 +133,8 @@ function App(): JSX.Element {
       </header>
 
       {/* Content with page transition */}
-      <main className="flex-1 overflow-auto">
-        <div key={pageKey} className={`px-4 py-6 page-enter ${currentPage === 'kanban' ? '' : 'max-w-3xl mx-auto'}`}>
+      <main className="app-main flex-1 overflow-auto">
+        <div key={pageKey} className={`page-container page-enter ${currentPage === 'kanban' ? 'page-container-wide' : ''}`}>
           {currentPage === 'worklog' && <WorkLogPage />}
           {currentPage === 'kanban' && <KanbanPage />}
           {currentPage === 'report' && <ReportPage />}
