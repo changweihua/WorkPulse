@@ -203,8 +203,8 @@ function createTray(): void {
 
 function createWindow(): void {
   const iconPath = is.dev
-    ? join(__dirname, '../../resources/icon.png')
-    : join(process.resourcesPath, 'icon.png')
+    ? join(__dirname, '../../resources/icon-hallmark-master.png')
+    : join(process.resourcesPath, 'icon-hallmark.png')
   const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,

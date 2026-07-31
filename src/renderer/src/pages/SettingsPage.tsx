@@ -392,7 +392,7 @@ function SettingsPage({ onBack }: Props): JSX.Element {
   const isCheckingUpdate = updateState.status === 'checking' || updateState.status === 'downloading'
 
   return (
-    <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
+    <div className="hallmark-app h-screen flex flex-col">
       {/* Header */}
       <header className="flex items-center px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
         <button

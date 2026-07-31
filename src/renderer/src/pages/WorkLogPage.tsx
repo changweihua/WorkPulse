@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Trash2, ClipboardEdit, Search, X, Download, Undo2 } from 'lucide-react'
+import { Trash2, ClipboardEdit, Search, X, Download, Undo2, PenLine } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useWorkLogStore } from '../stores/worklogStore'
 import { formatDate, formatTime, groupLogsByDate } from '../lib/dateUtils'
@@ -91,10 +91,11 @@ function WorkLogPage(): JSX.Element {
   const grouped = groupLogsByDate(logs)
 
   return (
-    <div>
+    <div className="worklog-page">
       {/* Input */}
-      <div className="mb-4">
-        <div className="relative">
+      <div className="quick-entry-section">
+        <div className={`quick-entry ${shaking ? 'animate-shake is-error' : ''}`}>
+          <PenLine className="quick-entry-icon" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
@@ -103,26 +104,22 @@ function WorkLogPage(): JSX.Element {
             onKeyDown={handleKeyDown}
             placeholder={t('worklog.inputPlaceholder')}
             aria-label={t('worklog.inputAria')}
-            className={`w-full px-4 py-3 text-base border rounded-lg outline-none transition-all bg-white dark:bg-zinc-900 dark:text-zinc-100 ${
-              shaking
-                ? 'animate-shake border-red-400 ring-2 ring-red-200'
-                : 'border-zinc-300 dark:border-zinc-700 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700'
-            }`}
+            className="quick-entry-input"
           />
         </div>
-        {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+        {error && <p className="quick-entry-error">{error}</p>}
       </div>
 
       {/* Search + Export */}
-      <div className="mb-4 flex gap-2">
-        <div className="relative flex-1">
+      <div className="worklog-toolbar">
+        <div className="worklog-search">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder={t('worklog.searchPlaceholder')}
-            className="w-full pl-9 pr-8 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-900 dark:text-zinc-100"
+            className="worklog-search-input"
           />
           {search && (
             <button
@@ -133,8 +130,8 @@ function WorkLogPage(): JSX.Element {
             </button>
           )}
         </div>
-        <div className="relative group">
-          <button className="flex items-center gap-1 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce">
+        <div className="relative group export-menu">
+          <button className="export-button btn-bounce">
             <Download className="w-4 h-4" />
             {t('common.export')}
           </button>
@@ -189,22 +186,23 @@ function WorkLogPage(): JSX.Element {
         </div>
       ) : (
         <>
-        <div role="list" className="space-y-6">
+        <div role="list" className="log-timeline">
           {Array.from(grouped.entries()).map(([dateKey, dateLogs]) => (
-            <div key={dateKey} role="group">
-              <h3 className="text-sm font-medium text-zinc-400 mb-2">
+            <section key={dateKey} role="group" className="log-day">
+              <h3 className="log-day-title">
                 {formatDate(dateKey + 'T00:00:00', resolvedLanguage)}
               </h3>
-              <div className="space-y-1 stagger-children">
+              <div className="log-day-items stagger-children">
                 {dateLogs.map((log) => (
                   <div
                     key={log.id}
-                    className="group flex items-center justify-between py-2 px-3 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                    className="log-row group"
                   >
-                    <div className="flex-1 mr-4 flex items-center gap-2">
-                      <span className="text-zinc-800 dark:text-zinc-200">{log.content}</span>
+                    <span className="log-dot" aria-hidden="true" />
+                    <div className="log-content">
+                      <span className="log-content-text">{log.content}</span>
                       {log.category && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                        <span className="log-category">
                           {log.category}
                         </span>
                       )}
@@ -239,7 +237,7 @@ function WorkLogPage(): JSX.Element {
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           ))}
         </div>
         {hasMore && !searchKeyword && (
