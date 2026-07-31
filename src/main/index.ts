@@ -201,10 +201,13 @@ function createTray(): void {
 
 // --- Window ---
 
-function createWindow(): void {
-  const iconPath = is.dev
+function getAppIconPath(): string {
+  return is.dev
     ? join(__dirname, '../../resources/icon-hallmark-master.png')
     : join(process.resourcesPath, 'icon-hallmark.png')
+}
+
+function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
@@ -212,7 +215,7 @@ function createWindow(): void {
     minHeight: 500,
     show: false,
     title: 'WorkPulse',
-    icon: iconPath,
+    icon: getAppIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -275,6 +278,10 @@ function registerShortcutIpc(): void {
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.workpulse')
+
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(getAppIconPath())
+  }
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
