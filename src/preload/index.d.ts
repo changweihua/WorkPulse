@@ -64,7 +64,7 @@ interface API {
     updateStatus: (cb: (state: AppUpdateState) => void) => () => void
   }
   task: {
-    add: (title: string, description?: string, status?: 'todo' | 'draft') => Promise<Task>
+    add: (title: string, description?: string, status?: 'todo' | 'draft', createdAt?: string) => Promise<Task>
     list: () => Promise<Task[]>
     update: (id: number, updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'position' | 'due_date'>>) => Promise<Task | null>
     delete: (id: number) => Promise<boolean>

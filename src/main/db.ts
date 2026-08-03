@@ -298,10 +298,17 @@ export interface Task {
   due_date: string | null
 }
 
-export function addTask(title: string, description = '', status: 'todo' | 'draft' = 'todo'): Task {
+export function addTask(title: string, description = '', status: 'todo' | 'draft' = 'todo', createdAt?: string): Task {
   const maxPos = db.prepare(
     'SELECT COALESCE(MAX(position), -1) + 1 as next FROM tasks WHERE status = ?'
   ).get(status) as { next: number }
+
+  if (createdAt) {
+    const stmt = db.prepare(
+      'INSERT INTO tasks (title, description, status, board_column, position, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *'
+    )
+    return stmt.get(title, description, status, status, maxPos.next, createdAt) as Task
+  }
 
   const stmt = db.prepare(
     'INSERT INTO tasks (title, description, status, board_column, position) VALUES (?, ?, ?, ?, ?) RETURNING *'

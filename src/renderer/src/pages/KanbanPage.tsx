@@ -370,7 +370,7 @@ function CompleteDialog({
     }
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-fade-in">
       <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 animate-scale-in">
         <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('kanban.completeTitle')}</h3>
@@ -406,7 +406,8 @@ function CompleteDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -418,6 +419,7 @@ function KanbanPage(): JSX.Element {
   const { t } = useI18n()
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDesc, setNewTaskDesc] = useState('')
+  const [newTaskDate, setNewTaskDate] = useState('')
   const [showDescInput, setShowDescInput] = useState(false)
   const [draftInput, setDraftInput] = useState('')
   const [activeTask, setActiveTask] = useState<Task | null>(null)
@@ -450,9 +452,11 @@ function KanbanPage(): JSX.Element {
 
   const handleAddTask = async (): Promise<void> => {
     if (!newTaskTitle.trim()) return
-    await addTask(newTaskTitle.trim(), newTaskDesc.trim() || undefined)
+    const createdAt = newTaskDate ? `${newTaskDate} ${new Date().toTimeString().slice(0, 8)}` : undefined
+    await addTask(newTaskTitle.trim(), newTaskDesc.trim() || undefined, undefined, createdAt)
     setNewTaskTitle('')
     setNewTaskDesc('')
+    setNewTaskDate('')
     setShowDescInput(false)
   }
 
@@ -609,14 +613,22 @@ function KanbanPage(): JSX.Element {
               </button>
             </div>
             {showDescInput && (
-              <input
-                type="text"
-                value={newTaskDesc}
-                onChange={(e) => setNewTaskDesc(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
-                placeholder={t('kanban.newDescription')}
-                className="mt-2 w-full px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100 animate-slide-up"
-              />
+              <div className="mt-2 flex gap-2 animate-slide-up">
+                <input
+                  type="text"
+                  value={newTaskDesc}
+                  onChange={(e) => setNewTaskDesc(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
+                  placeholder={t('kanban.newDescription')}
+                  className="flex-1 px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                />
+                <input
+                  type="date"
+                  value={newTaskDate}
+                  onChange={(e) => setNewTaskDate(e.target.value)}
+                  className="px-2 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                />
+              </div>
             )}
           </div>
 
@@ -759,7 +771,6 @@ function KanbanPage(): JSX.Element {
         {activeTask ? <TaskCardOverlay task={activeTask} /> : null}
       </DragOverlay>
 
-      {/* Complete Dialog */}
       {pendingComplete && (
         <CompleteDialog
           task={pendingComplete}

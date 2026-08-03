@@ -17,7 +17,7 @@ interface TaskStore {
   tasks: Task[]
   loading: boolean
   fetchTasks: () => Promise<void>
-  addTask: (title: string, description?: string, status?: 'todo' | 'draft') => Promise<Task>
+  addTask: (title: string, description?: string, status?: 'todo' | 'draft', createdAt?: string) => Promise<Task>
   updateTask: (id: number, updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'position' | 'due_date'>>) => Promise<void>
   deleteTask: (id: number) => Promise<void>
   completeTask: (id: number, logContent: string) => Promise<void>
@@ -40,8 +40,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  addTask: async (title, description, status) => {
-    const task = await window.api.task.add(title, description, status)
+  addTask: async (title, description, status, createdAt?) => {
+    const task = await window.api.task.add(title, description, status, createdAt)
     set({ tasks: [...get().tasks, task] })
     return task
   },

@@ -107,8 +107,8 @@ export function registerIpcHandlers(): void {
 
   // --- Tasks ---
 
-  ipcMain.handle('task:add', (_event, title: string, description?: string, status?: 'todo' | 'draft') => {
-    return addTask(title, description, status)
+  ipcMain.handle('task:add', (_event, title: string, description?: string, status?: 'todo' | 'draft', createdAt?: string) => {
+    return addTask(title, description, status, createdAt)
   })
 
   ipcMain.handle('task:list', () => {

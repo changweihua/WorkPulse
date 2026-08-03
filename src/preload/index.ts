@@ -60,8 +60,8 @@ const api = {
       ipcRenderer.invoke('worklog:restore', log)
   },
   task: {
-    add: (title: string, description?: string, status?: 'todo' | 'draft') =>
-      ipcRenderer.invoke('task:add', title, description, status),
+    add: (title: string, description?: string, status?: 'todo' | 'draft', createdAt?: string) =>
+      ipcRenderer.invoke('task:add', title, description, status, createdAt),
     list: () => ipcRenderer.invoke('task:list'),
     update: (id: number, updates: Record<string, unknown>) =>
       ipcRenderer.invoke('task:update', id, updates),
