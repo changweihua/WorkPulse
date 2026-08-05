@@ -1,11 +1,16 @@
-// src/renderer/src/pages/OnnxPage.tsx
-import { useState, useCallback, useMemo } from 'react';
-import { useONNXModel, getModelsByGroup, MODEL_GROUPS, ModelGroupId } from '../hooks/useONNXModel';
+// src/renderer/src/pages/OcrPage.tsx
+import { useState, useRef, useCallback, useEffect } from 'react';
+import {
+    useOCRModel,
+    OCR_MODEL_GROUPS,
+    getOCRModelsByGroup,
+    OCRModelGroupId,
+} from '../hooks/useOCRModel';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const IS_WEBGPU_AVAILABLE = !!(navigator as any).gpu;
 
-// ---------- 子组件 ----------
+// ---------- 子组件（复用部分） ----------
 function MirrorToggle({ enabled, onToggle }: { enabled: boolean; onToggle: (val: boolean) => void }) {
     return (
         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg mb-4">
@@ -25,7 +30,7 @@ function MirrorToggle({ enabled, onToggle }: { enabled: boolean; onToggle: (val:
     );
 }
 
-function ModelSelector({
+function OCRModelSelector({
     groups,
     selectedGroup,
     onGroupChange,
@@ -34,9 +39,9 @@ function ModelSelector({
     onModelChange,
     disabled,
 }: {
-    groups: readonly { id: ModelGroupId; label: string }[];
-    selectedGroup: ModelGroupId;
-    onGroupChange: (group: ModelGroupId) => void;
+    groups: readonly { id: OCRModelGroupId; label: string }[];
+    selectedGroup: OCRModelGroupId;
+    onGroupChange: (group: OCRModelGroupId) => void;
     models: { id: string; label: string }[];
     currentModel: string;
     onModelChange: (model: string) => void;
@@ -45,13 +50,13 @@ function ModelSelector({
     return (
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <div className="flex-1">
-                <label htmlFor="model-group" className="block text-sm font-medium text-gray-700 mb-1">
-                    量级分组
+                <label htmlFor="ocr-group" className="block text-sm font-medium text-gray-700 mb-1">
+                    识别类型
                 </label>
                 <select
-                    id="model-group"
+                    id="ocr-group"
                     value={selectedGroup}
-                    onChange={(e) => onGroupChange(e.target.value as ModelGroupId)}
+                    onChange={(e) => onGroupChange(e.target.value as OCRModelGroupId)}
                     disabled={disabled}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                 >
@@ -63,11 +68,11 @@ function ModelSelector({
                 </select>
             </div>
             <div className="flex-1">
-                <label htmlFor="model-select" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="ocr-model" className="block text-sm font-medium text-gray-700 mb-1">
                     具体模型
                 </label>
                 <select
-                    id="model-select"
+                    id="ocr-model"
                     value={currentModel}
                     onChange={(e) => onModelChange(e.target.value)}
                     disabled={disabled}
@@ -118,48 +123,44 @@ function ProgressDisplay({
     );
 }
 
-function ChatInput({
-    value,
-    onChange,
-    onSubmit,
+function ImageUploader({
+    onFileChange,
+    imageUrl,
     disabled,
-    isGenerating,
 }: {
-    value: string;
-    onChange: (v: string) => void;
-    onSubmit: () => void;
+    onFileChange: (file: File) => void;
+    imageUrl: string | null;
     disabled: boolean;
-    isGenerating: boolean;
 }) {
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSubmit();
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) onFileChange(file);
     };
 
     return (
-        <form onSubmit={handleSubmit} className="mb-4">
-            <textarea
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                rows={3}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder="输入你的问题..."
+        <div className="mb-4">
+            <label htmlFor="image-upload" className="block text-sm font-medium text-gray-700 mb-2">
+                选择图片
+            </label>
+            <input
+                id="image-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleChange}
                 disabled={disabled}
-                aria-label="输入问题"
+                className="w-full p-2 border border-gray-300 rounded-lg"
             />
-            <button
-                type="submit"
-                disabled={disabled || !value.trim()}
-                className="mt-2 w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50 hover:bg-blue-700 transition"
-            >
-                {isGenerating ? '生成中...' : '发送'}
-            </button>
-        </form>
+            {imageUrl && (
+                <div className="mt-2">
+                    <img src={imageUrl} alt="待识别" className="max-h-60 rounded-lg border border-gray-200 object-contain" />
+                </div>
+            )}
+        </div>
     );
 }
 
 // ---------- 主页面 ----------
-function OnnxPageContent() {
+function OcrPageContent() {
     const {
         status,
         error,
@@ -170,26 +171,49 @@ function OnnxPageContent() {
         pendingModel,
         mirrorEnabled,
         toggleMirror,
-        generate,
+        recognize,
         switchModel,
         isLoading,
         isReady,
         isGenerating,
         isError,
-    } = useONNXModel();
+    } = useOCRModel();
 
-    const [input, setInput] = useState('');
-    const [output, setOutput] = useState('');
-    const [selectedGroup, setSelectedGroup] = useState<ModelGroupId>(MODEL_GROUPS[0].id);
+    const [selectedGroup, setSelectedGroup] = useState<OCRModelGroupId>(OCR_MODEL_GROUPS[0].id);
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [ocrResult, setOcrResult] = useState<string>('');
+    const imgRef = useRef<HTMLImageElement>(null);
 
-    const modelsInGroup = useMemo(() => getModelsByGroup(selectedGroup), [selectedGroup]);
+    // 释放图片 URL（防止内存泄漏）[reference:10]
+    const releaseImageUrl = useCallback(() => {
+        if (imageUrl) {
+            URL.revokeObjectURL(imageUrl);
+        }
+    }, [imageUrl]);
+
+    // 组件卸载时释放
+    useEffect(() => {
+        return releaseImageUrl;
+    }, [releaseImageUrl]);
+
+    const handleFileChange = useCallback(
+        (file: File) => {
+            releaseImageUrl();
+            const url = URL.createObjectURL(file);
+            setImageFile(file);
+            setImageUrl(url);
+            setOcrResult('');
+        },
+        [releaseImageUrl]
+    );
 
     const handleGroupChange = useCallback(
-        (groupId: ModelGroupId) => {
+        (groupId: OCRModelGroupId) => {
             setSelectedGroup(groupId);
-            const first = getModelsByGroup(groupId)[0];
+            const first = getOCRModelsByGroup(groupId)[0];
             if (first && first.id !== currentModel) {
-                switchModel(first.id).catch((err) => setOutput(`切换失败：${err.message}`));
+                switchModel(first.id).catch((err) => setOcrResult(`切换失败：${err.message}`));
             }
         },
         [currentModel, switchModel]
@@ -198,36 +222,40 @@ function OnnxPageContent() {
     const handleModelChange = useCallback(
         (modelId: string) => {
             if (modelId === currentModel) return;
-            switchModel(modelId).catch((err) => setOutput(`切换失败：${err.message}`));
+            switchModel(modelId).catch((err) => setOcrResult(`切换失败：${err.message}`));
         },
         [currentModel, switchModel]
     );
 
-    const handleSubmit = useCallback(async () => {
-        if (!input.trim()) return;
-        setOutput('⏳ 推理中，请稍候...');
-        try {
-            const result = await generate(input);
-            setOutput(result);
-        } catch (err) {
-            setOutput(`推理失败：${(err as Error).message}`);
+    const handleRecognize = useCallback(async () => {
+        if (!imageFile || !imgRef.current) return;
+        if (!imgRef.current.complete) {
+            setOcrResult('⏳ 图片加载中，请稍候...');
+            return;
         }
-    }, [input, generate]);
+        try {
+            const result = await recognize(imgRef.current);
+            setOcrResult(result);
+        } catch (err) {
+            setOcrResult(`识别失败：${(err as Error).message}`);
+        }
+    }, [imageFile, recognize]);
 
     const displayModel = pendingModel || currentModel;
+    const modelsInGroup = getOCRModelsByGroup(selectedGroup);
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50">
             <div className="flex-1 flex items-center justify-center p-4">
                 <div className="w-full max-w-2xl bg-white rounded-xl shadow-lg p-6">
                     <h1 className="text-3xl font-bold mb-4 text-center text-gray-800">
-                        🚀 本地 AI 推理 (ONNX + WebGPU)
+                        📷 本地 OCR 识别 (ONNX + WebGPU)
                     </h1>
 
                     <MirrorToggle enabled={mirrorEnabled} onToggle={toggleMirror} />
 
-                    <ModelSelector
-                        groups={MODEL_GROUPS}
+                    <OCRModelSelector
+                        groups={OCR_MODEL_GROUPS}
                         selectedGroup={selectedGroup}
                         onGroupChange={handleGroupChange}
                         models={modelsInGroup}
@@ -239,9 +267,7 @@ function OnnxPageContent() {
                     {!IS_WEBGPU_AVAILABLE && (
                         <div className="mb-4 p-4 bg-yellow-100 text-yellow-800 rounded-lg border border-yellow-300">
                             <p className="font-semibold">⚠️ 您的浏览器不支持 WebGPU</p>
-                            <p className="text-sm mt-1">
-                                请使用最新版 Chrome/Edge (113+) 或 Firefox，并确保硬件支持。
-                            </p>
+                            <p className="text-sm mt-1">请使用最新版 Chrome/Edge (113+) 或 Firefox。</p>
                         </div>
                     )}
 
@@ -254,22 +280,27 @@ function OnnxPageContent() {
                     {isError && (
                         <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-lg">
                             <strong>❌ 错误：</strong> {error}
-                            <p className="text-sm mt-1">提示：可尝试关闭镜像开关或切换其他模型。</p>
                         </div>
                     )}
 
-                    <ChatInput
-                        value={input}
-                        onChange={setInput}
-                        onSubmit={handleSubmit}
+                    <ImageUploader
+                        onFileChange={handleFileChange}
+                        imageUrl={imageUrl}
                         disabled={!isReady || isGenerating}
-                        isGenerating={isGenerating}
                     />
 
-                    {output && (
+                    <button
+                        onClick={handleRecognize}
+                        disabled={!isReady || isGenerating || !imageFile}
+                        className="w-full py-2 bg-green-600 text-white rounded-lg disabled:opacity-50 hover:bg-green-700 transition mb-4"
+                    >
+                        {isGenerating ? '识别中...' : '🔍 识别文字'}
+                    </button>
+
+                    {ocrResult && (
                         <div className="p-4 bg-gray-50 rounded-lg">
-                            <h3 className="font-semibold text-gray-700 mb-2">回复：</h3>
-                            <p className="whitespace-pre-wrap text-gray-800">{output}</p>
+                            <h3 className="font-semibold text-gray-700 mb-2">识别结果：</h3>
+                            <p className="whitespace-pre-wrap text-gray-800">{ocrResult}</p>
                         </div>
                     )}
                 </div>
@@ -283,10 +314,10 @@ function OnnxPageContent() {
 }
 
 // ---------- 带错误边界的导出 ----------
-export default function OnnxPage() {
+export default function OcrPage() {
     return (
         <ErrorBoundary>
-            <OnnxPageContent />
+            <OcrPageContent />
         </ErrorBoundary>
     );
 }

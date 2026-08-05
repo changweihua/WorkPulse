@@ -27,6 +27,8 @@ export const translations = {
     'nav.chat': 'AI',
     'nav.xray': 'XRay',
     'nav.onnx': 'ONNX',
+    'nav.ocr': 'OCR',
+    'nav.pp': 'PaddleOCR',
 
     'quick.log': '记录日志',
     'quick.task': '添加任务',

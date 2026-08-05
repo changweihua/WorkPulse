@@ -122,7 +122,11 @@ declare global {
     sys: {
       onAccentColorUpdate: (callback: (color: string) => void) => () => void;
     };
-
+    pp: {
+      ipcRenderer: {
+        invoke(channel: string, ...args: any[]): Promise<any>;
+      };
+    };
     nativeAPI: {
       sayHello: (name: string) => string
     };

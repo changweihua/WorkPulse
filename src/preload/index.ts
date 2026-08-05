@@ -164,6 +164,20 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('nativeAPI', {
       sayHello: (name: string) => ipcRenderer.invoke('say-hello', name),
     });
+
+    // 暴露安全的 API 给渲染进程
+    contextBridge.exposeInMainWorld('pp', {
+      ipcRenderer: {
+        invoke: (channel: string, ...args: any[]) => {
+          // 只允许特定通道
+          const validChannels = ['read-model-file'];
+          if (!validChannels.includes(channel)) {
+            throw new Error(`不允许的 IPC 通道: ${channel}`);
+          }
+          return ipcRenderer.invoke(channel, ...args);
+        },
+      },
+    });
   } catch (error) {
     console.error(error)
   }

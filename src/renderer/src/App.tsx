@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, ReactNode } from 'react'
-import { Settings, FileText, ClipboardList, Columns3, BarChart3, Calendar, Bot, Zap } from 'lucide-react'
+import { Settings, FileText, ClipboardList, Columns3, BarChart3, Calendar, Bot, Zap, OrbitIcon, OctagonXIcon } from 'lucide-react'
 import WorkLogPage from './pages/WorkLogPage'
 import ReportPage from './pages/ReportPage'
 import KanbanPage from './pages/KanbanPage'
@@ -14,8 +14,10 @@ import CalendarPage from './pages/CalendarPage'
 import ChatPage from './pages/ChatPage'
 import XrayProcessor from './pages/XrayProcessor'
 import OnnxPage from './pages/OnnxPage'
+import OcrPage from './pages/OcrPage'
+import OcrPagePP from './pages/OcrPagePP'
 
-type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings' | 'calendar' | 'chat' | 'xray' | 'onnx'
+type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings' | 'calendar' | 'chat' | 'xray' | 'onnx' | 'ocr' | 'pp'
 type QuickCreateMode = 'log' | 'task' | null
 
 function App(): ReactNode {
@@ -132,7 +134,9 @@ function App(): ReactNode {
             {navBtn('calendar', <Calendar className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.calendar'))}
             {navBtn('chat', <Bot className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.chat'))}
             {navBtn('xray', <Zap className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.xray'))}
-            {navBtn('onnx', <Zap className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.onnx'))}
+            {navBtn('onnx', <OctagonXIcon className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.onnx'))}
+            {navBtn('ocr', <OrbitIcon className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.ocr'))}
+            {navBtn('pp', <OrbitIcon className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.pp'))}
           </nav>
         </div>
         <button
@@ -155,6 +159,8 @@ function App(): ReactNode {
           {currentPage === 'chat' && <ChatPage />}
           {currentPage === 'xray' && <XrayProcessor />}
           {currentPage === 'onnx' && <OnnxPage />}
+          {currentPage === 'ocr' && <OcrPage />}
+          {currentPage === 'pp' && <OcrPagePP />}
         </div>
       </main>
 

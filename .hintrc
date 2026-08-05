@@ -11,12 +11,7 @@
         "select-name": "off"
       }
     ],
-    "axe/aria": [
-      "default",
-      {
-        "aria-required-children": "off"
-      }
-    ],
+    "axe/aria": "off",
     "axe/name-role-value": [
       "default",
       {

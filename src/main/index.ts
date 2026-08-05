@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, systemPreferences } from 'electron'
+import { app, protocol, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, systemPreferences } from 'electron'
 import path, { join } from 'path'
 import { readFileSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -17,6 +17,7 @@ import {
 } from '@electron-uikit/titlebar'
 import contextMenu from 'electron-context-menu'
 import { loadDotNet } from './asar-dotnet-loader';
+import fs from 'fs/promises';
 
 const appTitle = process.env.VITE_APP_TITLE || 'WorkPulse'
 console.log('[Main] 🟢 主进程已启动！');
@@ -622,6 +623,30 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.error('⚠️ .NET 加载失败', err);
   }
+
+  // 注册 IPC 处理：读取模型文件
+  ipcMain.handle('read-model-file', async (event, fileName: string) => {
+    // 开发环境：文件在项目根目录 resources/models
+    // 生产环境：文件在 extraResources 目录（process.resourcesPath/models）
+    let basePath: string;
+    if (app.isPackaged) {
+      // 打包后，extraResources 中的文件位于 process.resourcesPath
+      basePath = path.join(process.resourcesPath, 'models');
+    } else {
+      // 开发时，从项目根目录读取
+      basePath = path.join(app.getAppPath(), 'resources', 'models');
+    }
+
+    const filePath = path.join(basePath, fileName);
+    try {
+      const buffer = await fs.readFile(filePath);
+      // 返回 ArrayBuffer
+      return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    } catch (error) {
+      console.error(`读取模型文件失败: ${filePath}`, error);
+      throw error;
+    }
+  });
 
   // 注册 IPC
   ipcMain.handle('say-hello', async (_, name: string) => {
