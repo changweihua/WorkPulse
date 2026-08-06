@@ -53,6 +53,13 @@
         "to": "tray-icon.png"
       },
       {
+        "from": "resources/models",
+        "to": "models",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
         "from": "resources/icon.png",
         "to": "icon.png"
       },
@@ -169,6 +176,7 @@
     "node-api-dotnet": "^0.9.21",
     "onnxruntime-web": "^1.27.0",
     "openai": "^7.4.0",
+    "react-icons": "^5.7.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "talex-mica-electron": "^1.0.2",
@@ -192,7 +200,7 @@
     "react-dom": "^19.2.8",
     "tailwindcss": "^4.3.3",
     "ts-morph": "^28.0.0",
-    "tsx": "^4.23.7",
+    "tsx": "^4.23.8",
     "tw-prose": "^0.0.10",
     "typescript": "^7.0.2",
     "vite": "^8.2.0",

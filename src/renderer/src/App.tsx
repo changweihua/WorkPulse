@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, ReactNode } from 'react'
 import { Settings, FileText, ClipboardList, Columns3, BarChart3, Calendar, Bot, Zap, OrbitIcon, OctagonXIcon } from 'lucide-react'
+import { SiOnnx, SiPaddle, SiPaddlepaddle } from "react-icons/si";
 import WorkLogPage from './pages/WorkLogPage'
 import ReportPage from './pages/ReportPage'
 import KanbanPage from './pages/KanbanPage'
@@ -133,10 +134,10 @@ function App(): ReactNode {
             {navBtn('stats', <BarChart3 className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.stats'))}
             {navBtn('calendar', <Calendar className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.calendar'))}
             {navBtn('chat', <Bot className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.chat'))}
+            {navBtn('pp', <SiPaddlepaddle className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.pp'))}
             {navBtn('xray', <Zap className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.xray'))}
-            {navBtn('onnx', <OctagonXIcon className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.onnx'))}
-            {navBtn('ocr', <OrbitIcon className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.ocr'))}
-            {navBtn('pp', <OrbitIcon className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.pp'))}
+            {navBtn('onnx', <SiOnnx className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.onnx'))}
+            {navBtn('ocr', <SiPaddle className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.ocr'))}
           </nav>
         </div>
         <button
