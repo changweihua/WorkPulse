@@ -368,11 +368,13 @@ function TaskCardOverlay({ task }: { task: Task }): ReactNode {
 function CompleteDialog({
   task,
   onConfirm,
-  onCancel
+  onCancel,
+  onOnlyComplete
 }: {
   task: Task
   onConfirm: (logContent: string) => void
-  onCancel: () => void
+    onCancel: () => void
+    onOnlyComplete: () => void
 }): ReactNode {
   const { t } = useI18n()
   const [logContent, setLogContent] = useState(() => t('kanban.completeLogDefault', { title: task.title }))
@@ -392,7 +394,7 @@ function CompleteDialog({
     }
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-fade-in">
       <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 animate-scale-in">
         <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('kanban.completeTitle')}</h3>
@@ -420,20 +422,28 @@ function CompleteDialog({
           >
             {t('kanban.completeSubmit')}
           </button>
+          <button
+            onClick={onOnlyComplete}
+            className="px-4 py-2 text-sm border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          >
+            {t('kanban.completeOnly')}
+          </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
 // --- Main Kanban Page ---
 function KanbanPage(): ReactNode {
-  const { tasks, fetchTasks, addTask, updateTask, deleteTask, completeTask, reorderTasks } =
+  const { tasks, fetchTasks, addTask, updateTask, deleteTask, completeTask,completeTaskOnly,reorderTasks } =
     useTaskStore()
   const toast = useToast()
   const { t } = useI18n()
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [newTaskDesc, setNewTaskDesc] = useState('')
+  const [newTaskDate, setNewTaskDate] = useState('')
   const [showDescInput, setShowDescInput] = useState(false)
   const [draftInput, setDraftInput] = useState('')
   const [activeTask, setActiveTask] = useState<Task | null>(null)
@@ -467,9 +477,11 @@ function KanbanPage(): ReactNode {
 
   const handleAddTask = async (): Promise<void> => {
     if (!newTaskTitle.trim()) return
-    await addTask(newTaskTitle.trim(), newTaskDesc.trim() || undefined)
+    const createdAt = newTaskDate ? `${newTaskDate} ${new Date().toTimeString().slice(0, 8)}` : undefined
+    await addTask(newTaskTitle.trim(), newTaskDesc.trim() || undefined, undefined, createdAt)
     setNewTaskTitle('')
     setNewTaskDesc('')
+    setNewTaskDate('')
     setShowDescInput(false)
   }
 
@@ -578,6 +590,13 @@ function KanbanPage(): ReactNode {
     toast.success(t('kanban.completedToast'))
   }
 
+  const handleCompleteOnly = async (): Promise<void> => {
+    if (!pendingComplete) return
+    await completeTaskOnly(pendingComplete.id)
+    setPendingComplete(null)
+    toast.success(t('kanban.completedOnlyToast'))
+  }
+
   // 跳过 → 不触发纸屑
   const handleCancelComplete = async (): Promise<void> => {
     setPendingComplete(null)
@@ -631,26 +650,21 @@ function KanbanPage(): ReactNode {
               </button>
             </div>
             {showDescInput && (
-              <div className="mt-2">
-                <textarea
+              <div className="mt-2 flex gap-2 animate-slide-up">
+                <input
+                  type="text"
                   value={newTaskDesc}
                   onChange={(e) => setNewTaskDesc(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
                   placeholder={t('kanban.newDescription')}
-                  className="w-full px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 bg-white dark:bg-zinc-800 dark:text-zinc-100 animate-slide-up"
-                  rows={2}
+                  className="flex-1 px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100"
                 />
-                {/* 预览 */}
-                {newTaskDesc && (
-                  <div className="mt-1 p-2 border border-zinc-200 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-800/50">
-                    <p className="text-xs text-zinc-400 mb-0.5">预览：</p>
-                    <div className="text-xs prose prose-sm max-w-none dark:prose-invert">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {newTaskDesc}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-                )}
+                <input
+                  type="date"
+                  value={newTaskDate}
+                  onChange={(e) => setNewTaskDate(e.target.value)}
+                  className="px-2 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                />
               </div>
             )}
           </div>
@@ -799,7 +813,10 @@ function KanbanPage(): ReactNode {
           task={pendingComplete}
           onConfirm={handleComplete}
           onCancel={handleCancelComplete}
+
+          onOnlyComplete={handleCompleteOnly}
         />
+
       )}
     </DndContext>
   )

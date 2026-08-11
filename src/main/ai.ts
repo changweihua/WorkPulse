@@ -103,6 +103,9 @@ export async function generateReport(
   if (provider === 'anthropic') {
     return callAnthropic(apiKey, baseUrl, model, messages)
   }
+  if (provider === 'deepseek') {
+    return callDeepSeek(apiKey, baseUrl, model, messages)
+  }
   return callOpenAI(apiKey, baseUrl, model, messages)
 }
 
@@ -203,6 +206,39 @@ async function callAnthropic(
 
   const data = await response.json()
   return data.content[0]?.text || tMain('noGeneratedContent')
+}
+
+async function callDeepSeek(
+  apiKey: string,
+  baseUrl: string,
+  model: string,
+  messages: Message[]
+): Promise<string> {
+  const url = baseUrl
+    ? `${baseUrl.replace(/\/+$/, '')}/chat/completions`
+    : 'https://api.deepseek.com/chat/completions'
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: model || 'deepseek-chat',
+      messages,
+      temperature: 0.7,
+      max_tokens: 2000
+    })
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`DeepSeek API error: ${response.status} - ${error}`)
+  }
+
+  const data = await response.json()
+  return data.choices[0]?.message?.content || 'Generation failed: empty response'
 }
 
 export { DEFAULT_SYSTEM_PROMPT, DEFAULT_REPORT_TEMPLATE, DEFAULT_SYSTEM_PROMPT_EN, DEFAULT_REPORT_TEMPLATE_EN }

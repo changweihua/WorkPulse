@@ -21,6 +21,8 @@ interface WorkLogStore {
   addLog: (content: string, category?: string) => Promise<WorkLog>
   deleteLog: (id: number) => Promise<void>
   undoDelete: () => Promise<void>
+  dismissUndo: () => void
+  updateLog: (id: number, content: string, category: string, created_at?: string) => Promise<void>
 }
 
 const PAGE_SIZE = 50
@@ -98,6 +100,17 @@ export const useWorkLogStore = create<WorkLogStore>((set, get) => ({
       await get().searchLogs(get().searchKeyword)
     } else {
       await get().fetchLogs()
+    }
+  },
+
+  dismissUndo: () => {
+    set({ lastDeleted: null })
+  },
+
+  updateLog: async (id: number, content: string, category: string, created_at?: string) => {
+    const updated = await window.api.worklog.update(id, content, category, created_at)
+    if (updated) {
+      set({ logs: get().logs.map((l) => (l.id === id ? updated : l)) })
     }
   }
 }))

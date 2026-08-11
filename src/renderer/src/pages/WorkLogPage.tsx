@@ -1,18 +1,22 @@
 import { useEffect, useRef, useState, ReactNode } from 'react'
-import { Trash2, ClipboardEdit, Search, X, Download, Undo2 } from 'lucide-react'
+import { Trash2, ClipboardEdit, Search, X, Download, Undo2, Pencil, Check, Upload } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useWorkLogStore } from '../stores/worklogStore'
 import { formatDate, formatTime, groupLogsByDate } from '../lib/dateUtils'
 import { useI18n } from '../stores/languageStore'
 
 function WorkLogPage(): ReactNode {
-  const { logs, fetchLogs, loadMore, hasMore, addLog, deleteLog, undoDelete, lastDeleted, searchLogs, clearSearch, searchKeyword, loading } =
+  const { logs, fetchLogs, loadMore, hasMore, addLog, deleteLog, undoDelete, dismissUndo, lastDeleted, searchLogs, clearSearch, searchKeyword, loading, updateLog } =
     useWorkLogStore()
   const [input, setInput] = useState('')
   const [search, setSearch] = useState('')
   const [shaking, setShaking] = useState(false)
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+  const [editDate, setEditDate] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const searchTimerRef = useRef<number>(0)
   const toast = useToast()
@@ -88,6 +92,23 @@ function WorkLogPage(): ReactNode {
     toast.success(t('worklog.restored'))
   }
 
+  const handleEditSave = async (): Promise<void> => {
+    if (!editingId) return
+    const trimmedContent = editContent.trim()
+    if (!trimmedContent) return
+    const log = logs.find((l) => l.id === editingId)
+    const timePart = log ? log.created_at.slice(10) : ''
+    const newCreatedAt = editDate ? editDate + timePart : undefined
+    await updateLog(editingId, trimmedContent, editCategory.trim(), newCreatedAt)
+    setEditingId(null)
+    toast.success(t('worklog.editSave'))
+  }
+
+  const handleEditCancel = (): void => {
+    setEditingId(null)
+  }
+
+
   const grouped = groupLogsByDate(logs)
 
   return (
@@ -133,6 +154,23 @@ function WorkLogPage(): ReactNode {
             </button>
           )}
         </div>
+        <button
+          onClick={async () => {
+            const result = await window.api.import.logs()
+            if (result) {
+              const msg = result.skipped > 0
+                ? t('worklog.importedSkipped', { imported: result.imported, skipped: result.skipped })
+                : t('worklog.imported', { count: result.imported })
+              toast.success(msg)
+              fetchLogs()
+            }
+          }}
+          className="flex items-center gap-1 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce"
+          title={t('worklog.import')}
+        >
+          <Upload className="w-4 h-4" />
+          {t('common.import')}
+        </button>
         <div className="relative group">
           <button className="flex items-center gap-1 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce">
             <Download className="w-4 h-4" />
@@ -201,41 +239,108 @@ function WorkLogPage(): ReactNode {
                     key={log.id}
                     className="group flex items-center justify-between py-2 px-3 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
                   >
-                    <div className="flex-1 mr-4 flex items-center gap-2">
-                      <span className="text-zinc-800 dark:text-zinc-200">{log.content}</span>
-                      {log.category && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 whitespace-nowrap">
-                          {log.category}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-zinc-400">{formatTime(log.created_at)}</span>
-                      {deletingId === log.id ? (
-                        <div className="flex items-center gap-1">
+                    {editingId === log.id ? (
+                      <>
+                        <div className="flex-1 mr-2 flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleEditSave()
+                              if (e.key === 'Escape') handleEditCancel()
+                            }}
+                            className="flex-1 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                            autoFocus
+                          />
+                          <input
+                            type="text"
+                            value={editCategory}
+                            onChange={(e) => setEditCategory(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleEditSave()
+                              if (e.key === 'Escape') handleEditCancel()
+                            }}
+                            placeholder="#tag"
+                            className="w-24 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                          />
+                          <input
+                            type="date"
+                            value={editDate}
+                            onChange={(e) => setEditDate(e.target.value)}
+                            className="w-32 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
-                            onClick={() => handleDelete(log.id)}
-                            className="text-xs text-red-500 hover:text-red-700 px-1"
+                            onClick={handleEditSave}
+                            className="p-1 text-green-500 hover:text-green-600"
+                            title={t('worklog.editSave')}
                           >
-                            {t('common.confirm')}
+                            <Check className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => setDeletingId(null)}
-                            className="text-xs text-zinc-400 hover:text-zinc-600 px-1"
+                            onClick={handleEditCancel}
+                            className="p-1 text-zinc-400 hover:text-zinc-600"
+                            title={t('worklog.editCancel')}
                           >
-                            {t('common.cancel')}
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                      ) : (
-                        <button
-                          onClick={() => setDeletingId(log.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 transition-all"
-                          aria-label={t('worklog.deleteAria')}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex-1 mr-4 flex items-center gap-2">
+                          <span className="text-zinc-800 dark:text-zinc-200">{log.content}</span>
+                          {log.category && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                              {log.category}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-zinc-400">{formatTime(log.created_at)}</span>
+                          {deletingId === log.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleDelete(log.id)}
+                                className="text-xs text-red-500 hover:text-red-700 px-1"
+                              >
+                                {t('common.confirm')}
+                              </button>
+                              <button
+                                onClick={() => setDeletingId(null)}
+                                className="text-xs text-zinc-400 hover:text-zinc-600 px-1"
+                              >
+                                {t('common.cancel')}
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingId(log.id)
+                                  setEditContent(log.content)
+                                  setEditCategory(log.category)
+                                  setEditDate(log.created_at.slice(0, 10))
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-blue-500 transition-all"
+                                aria-label={t('worklog.editAria')}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setDeletingId(log.id)}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 transition-all"
+                                aria-label={t('worklog.deleteAria')}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -266,6 +371,13 @@ function WorkLogPage(): ReactNode {
           >
             <Undo2 className="w-3.5 h-3.5" />
             {t('worklog.undo')}
+          </button>
+          <button
+            onClick={dismissUndo}
+            className="ml-1 p-0.5 text-zinc-400 dark:text-zinc-500 hover:text-white dark:hover:text-zinc-900"
+            title={t('common.confirm')}
+          >
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}

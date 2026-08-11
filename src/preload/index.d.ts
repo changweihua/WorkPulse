@@ -58,6 +58,7 @@ interface API {
     getUpdateState: () => Promise<AppUpdateState>
     checkForUpdates: () => Promise<AppUpdateState>
     installUpdate: () => Promise<boolean>
+    openBackupDir: () => Promise<string>
   }
   on: {
     quickCreate: (cb: (type: QuickCreateType) => void) => () => void
@@ -65,12 +66,13 @@ interface API {
     updateStatus: (cb: (state: AppUpdateState) => void) => () => void
   }
   task: {
-    add: (title: string, description?: string, status?: 'todo' | 'draft') => Promise<Task>
+    add: (title: string, description?: string, status?: 'todo' | 'draft', createdAt?: string) => Promise<Task>
     list: () => Promise<Task[]>
     update: (id: number, updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'position' | 'due_date'>>) => Promise<Task | null>
     delete: (id: number) => Promise<boolean>
     reorder: (taskIds: number[], status: string) => Promise<void>
     complete: (id: number, logContent: string) => Promise<Task | null>
+    completeOnly: (id: number) => Promise<Task | null>
   }
   worklog: {
     add: (content: string, category?: string) => Promise<WorkLog>
@@ -79,8 +81,12 @@ interface API {
     search: (keyword: string) => Promise<WorkLog[]>
     categories: () => Promise<string[]>
     setCategory: (id: number, category: string) => Promise<void>
+    update: (id: number, content: string, category: string, created_at?: string) => Promise<WorkLog | null>
     delete: (id: number) => Promise<boolean>
     restore: (log: Pick<WorkLog, 'content' | 'category' | 'created_at' | 'task_id'>) => Promise<WorkLog>
+  }
+  import: {
+    logs: () => Promise<{ imported: number; skipped: number; filePath: string } | null>
   }
   stats: {
     get: (days?: number) => Promise<{

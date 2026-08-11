@@ -227,10 +227,32 @@ export function searchWorkLogs(keyword: string, limit = 200): WorkLog[] {
   return stmt.all(`%${keyword}%`, limit) as WorkLog[]
 }
 
+export function workLogExists(content: string, category: string, dateStr?: string): boolean {
+  if (dateStr) {
+    const stmt = db.prepare(
+      'SELECT 1 FROM work_logs WHERE content = ? AND category = ? AND date(created_at) = date(?) LIMIT 1'
+    )
+    return !!stmt.get(content, category, dateStr)
+  }
+  const stmt = db.prepare(
+    'SELECT 1 FROM work_logs WHERE content = ? AND category = ? LIMIT 1'
+  )
+  return !!stmt.get(content, category)
+}
+
 export function deleteWorkLog(id: number): boolean {
   const stmt = db.prepare('DELETE FROM work_logs WHERE id = ?')
   const result = stmt.run(id)
   return result.changes > 0
+}
+
+export function updateWorkLog(id: number, content: string, category: string, created_at?: string): WorkLog | null {
+  if (created_at) {
+    const stmt = db.prepare('UPDATE work_logs SET content = ?, category = ?, created_at = ? WHERE id = ? RETURNING *')
+    return stmt.get(content, category, created_at, id) as WorkLog | null
+  }
+  const stmt = db.prepare('UPDATE work_logs SET content = ?, category = ? WHERE id = ? RETURNING *')
+  return stmt.get(content, category, id) as WorkLog | null
 }
 
 export function restoreWorkLog(log: Pick<WorkLog, 'content' | 'category' | 'created_at' | 'task_id'>): WorkLog {
@@ -285,10 +307,17 @@ export interface Task {
   due_date: string | null
 }
 
-export function addTask(title: string, description = '', status: 'todo' | 'draft' = 'todo'): Task {
+export function addTask(title: string, description = '', status: 'todo' | 'draft' = 'todo', createdAt?: string): Task {
   const maxPos = db.prepare(
     'SELECT COALESCE(MAX(position), -1) + 1 as next FROM tasks WHERE status = ?'
   ).get(status) as { next: number }
+
+  if (createdAt) {
+    const stmt = db.prepare(
+      'INSERT INTO tasks (title, description, status, board_column, position, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *'
+    )
+    return stmt.get(title, description, status, status, maxPos.next, createdAt) as Task
+  }
 
   const stmt = db.prepare(
     'INSERT INTO tasks (title, description, status, board_column, position) VALUES (?, ?, ?, ?, ?) RETURNING *'
