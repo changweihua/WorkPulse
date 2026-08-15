@@ -22,6 +22,10 @@ interface AppUpdateState {
 }
 
 const api = {
+  // 新增：发送 IPC 消息到主进程
+  send: (channel: string, ...args: any[]) => {
+    ipcRenderer.send(channel, ...args);
+  },
   app: {
     // 获取开机启动状态
     getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch'),
@@ -154,6 +158,36 @@ if (process.contextIsolated) {
       removeAllListeners: (channel: string) => {
         ipcRenderer.removeAllListeners(channel);
       },
+    });
+
+    // ---- 新增 DSH API ----
+    contextBridge.exposeInMainWorld('dsh', {
+      /**
+       * 获取 DSH 状态和端口
+       */
+      getStatus: () => ipcRenderer.invoke('dsh:getStatus'),
+
+      /**
+       * 启动 DSH 服务
+       * @param apiKey - 可选，传入则使用方式一（通过环境变量注入）
+       *                 不传则使用方式三（用户在 UI 中配置）
+       */
+      start: (apiKey?: string) => ipcRenderer.invoke('dsh:start', apiKey),
+
+      /**
+       * 停止 DSH 服务
+       */
+      stop: () => ipcRenderer.invoke('dsh:stop'),
+
+      /**
+       * 健康检查
+       */
+      checkHealth: () => ipcRenderer.invoke('dsh:checkHealth'),
+      // 新增 BrowserView 相关 API
+      createView: (url: string) => ipcRenderer.invoke('dsh:createView', url),
+      // 新增
+      resizeView: (offsetTop: number) => ipcRenderer.invoke('dsh:resizeView', offsetTop),
+      destroyView: () => ipcRenderer.invoke('dsh:destroyView'),
     });
 
     contextBridge.exposeInMainWorld('sys', {

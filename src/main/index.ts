@@ -18,6 +18,11 @@ import {
 import contextMenu from 'electron-context-menu'
 import { loadDotNet } from './asar-dotnet-loader';
 import fs from 'fs/promises';
+import log from 'electron-log/main';
+import { dshManager } from './dsh-manager'
+log.initialize(); // 只需调用一次
+log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'info';
+log.transports.file.level = 'info';
 
 const appTitle = process.env.VITE_APP_TITLE || 'WorkPulse'
 console.log('[Main] 🟢 主进程已启动！');
@@ -388,6 +393,7 @@ function createSplashWindow(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      webviewTag: true, // 允许使用 <webview>
       // +++++ 关键：加载 splash 专用 preload +++++
       preload: join(__dirname, '../preload/splash.js'),  // 注意是 .js（编译后）
     },
@@ -703,7 +709,8 @@ app.on('before-quit', () => {
   isQuitting = true
 })
 
-app.on('will-quit', () => {
+app.on('will-quit', async () => {
+  await dshManager.stop();
   globalShortcut.unregisterAll()
 })
 

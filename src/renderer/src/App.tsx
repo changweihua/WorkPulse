@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, ReactNode } from 'react'
 import { Settings, FileText, ClipboardList, Columns3, BarChart3, Calendar, Bot, Zap, OrbitIcon, OctagonXIcon } from 'lucide-react'
-import { SiOnnx, SiPaddle, SiPaddlepaddle } from "react-icons/si";
+import { SiDeepseek, SiOnnx, SiPaddle, SiPaddlepaddle } from "react-icons/si";
 import WorkLogPage from './pages/WorkLogPage'
 import ReportPage from './pages/ReportPage'
 import KanbanPage from './pages/KanbanPage'
@@ -17,8 +17,9 @@ import XrayProcessor from './pages/XrayProcessor'
 import OnnxPage from './pages/OnnxPage'
 import OcrPage from './pages/OcrPage'
 import OcrPagePP from './pages/OcrPagePP'
+import DSHPage from './pages/DSHPage';
 
-type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings' | 'calendar' | 'chat' | 'xray' | 'onnx' | 'ocr' | 'pp'
+type Page = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings' | 'calendar' | 'chat' | 'xray' | 'onnx' | 'ocr' | 'pp' | 'dsh'
 type QuickCreateMode = 'log' | 'task' | null
 
 function App(): ReactNode {
@@ -138,6 +139,7 @@ function App(): ReactNode {
             {navBtn('xray', <Zap className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.xray'))}
             {navBtn('onnx', <SiOnnx className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.onnx'))}
             {navBtn('ocr', <SiPaddle className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.ocr'))}
+            {navBtn('dsh', <SiDeepseek className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.dsh'))}
           </nav>
         </div>
         <button
@@ -162,6 +164,7 @@ function App(): ReactNode {
           {currentPage === 'onnx' && <OnnxPage />}
           {currentPage === 'ocr' && <OcrPage />}
           {currentPage === 'pp' && <OcrPagePP />}
+          {currentPage === 'dsh' && <DSHPage />}
         </div>
       </main>
 

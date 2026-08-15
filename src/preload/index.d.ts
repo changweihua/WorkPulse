@@ -50,6 +50,7 @@ interface AppUpdateState {
 }
 
 interface API {
+  send: (channel: string, ...args: any[]) => void;
   app: {
     getAutoLaunch: () => Promise<boolean>;   // 新增
     setAutoLaunch: (enable: boolean) => Promise<void>; // 新增
@@ -124,6 +125,17 @@ declare global {
       invoke: (channel: string, ...args: any[]) => Promise<any>;
       on: (channel: string, listener: (...args: any[]) => void) => void;
       removeAllListeners: (channel: string) => void;
+    };
+    dsh: {
+      getStatus: () => Promise<{ status: string; port: number }>;
+      start: (apiKey?: string) => Promise<{ success: boolean; port: number; mode?: string }>;
+      stop: () => Promise<{ success: boolean }>;
+      checkHealth: () => Promise<{ healthy: boolean }>;
+
+      // BrowserView 管理
+      createView: (url: string) => Promise<{ viewId: number }>;
+      resizeView: (offsetTop: number) => Promise<{ success: boolean }>;
+      destroyView: () => Promise<{ success: boolean }>;
     };
     sys: {
       onAccentColorUpdate: (callback: (color: string) => void) => () => void;
