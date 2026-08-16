@@ -20,6 +20,7 @@ import { useToast } from '../components/Toast'
 import { useThemeStore } from '../stores/themeStore'
 import { useI18n, useLanguageStore } from '../stores/languageStore'
 import type { AppLanguage, ResolvedLanguage } from '../lib/i18n'
+import { useNavigate } from 'react-router-dom'
 
 // Convert a KeyboardEvent to an Electron-style accelerator string
 function eventToAccelerator(e: KeyboardEvent): string | null {
@@ -149,7 +150,8 @@ function getDefaultReportTemplate(language: ResolvedLanguage): string {
   return language === 'zh' ? DEFAULT_REPORT_TEMPLATE : DEFAULT_REPORT_TEMPLATE_EN
 }
 
-function SettingsPage({ onBack }: Props): ReactNode {
+function SettingsPage(): ReactNode {
+  const navigate = useNavigate();
   const isMac = navigator.userAgent.includes('Mac')
   const modifierLabel = isMac ? 'Cmd' : 'Ctrl'
   const { language: appLanguage, resolvedLanguage, t } = useI18n()
@@ -420,7 +422,7 @@ function SettingsPage({ onBack }: Props): ReactNode {
       {/* Header */}
       <header className="flex items-center px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
         <button
-          onClick={onBack}
+          onClick={() => navigate('/worklog')}
           className="p-2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors mr-2"
           aria-label={t('settings.back')}
         >

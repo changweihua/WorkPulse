@@ -1,7 +1,10 @@
-// src/renderer/pages/DSHPage.tsx
+// src/renderer/src/pages/DSHPage.tsx
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react'; // 使用与 SettingsPage 相同的图标库
 
 export default function DSHPage() {
+    const navigate = useNavigate();
     const [status, setStatus] = useState<'idle' | 'starting' | 'running' | 'error' | 'stopped'>('idle');
     const [port, setPort] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -9,7 +12,6 @@ export default function DSHPage() {
     const [viewCreated, setViewCreated] = useState(false);
     const [offsetTop, setOffsetTop] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
-    const webviewRef = useRef<HTMLWebViewElement>(null);
     const [showTip, setShowTip] = useState(false);
 
     // ---- 计算偏移量（标题栏 + 导航栏 + 调试栏高度） ----
@@ -34,52 +36,18 @@ export default function DSHPage() {
         const newOffset = total + 1;
         if (newOffset !== offsetTop) {
             setOffsetTop(newOffset);
-            console.log('📍 计算偏移量:', newOffset);
         }
         return newOffset;
     }, [offsetTop]);
 
-    // ---- DOM 布局完成后计算偏移 ----
-    useLayoutEffect(() => {
-        const doCalc = () => {
-            const off = calculateOffset();
-            if (off > 0 && viewCreated) {
-                window.dsh.resizeView(off);
-            }
-        };
-        requestAnimationFrame(doCalc);
-        let retries = 0;
-        const retryInterval = setInterval(() => {
-            if (offsetTop > 0 || retries >= 5) {
-                clearInterval(retryInterval);
-                return;
-            }
-            retries++;
-            calculateOffset();
-        }, 100);
-        return () => clearInterval(retryInterval);
-    }, [calculateOffset, viewCreated, offsetTop]);
-
-    // ---- 窗口变化时重新计算 ----
-    useEffect(() => {
-        const handleResize = () => {
-            calculateOffset();
-            if (viewCreated && offsetTop > 0) {
-                window.dsh.resizeView(offsetTop);
-            }
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, [calculateOffset, viewCreated, offsetTop]);
-
-    // ---- 偏移量变化时调整 BrowserView ----
-    useEffect(() => {
+    // ---- 调整 BrowserView ----
+    const resizeView = useCallback(() => {
         if (viewCreated && offsetTop > 0) {
             window.dsh.resizeView(offsetTop);
         }
     }, [viewCreated, offsetTop]);
 
-    // ---- DSH 服务操作 ----
+    // ---- DSH 管理 ----
     const fetchStatus = useCallback(async () => {
         try {
             const result = await window.dsh.getStatus();
@@ -118,12 +86,8 @@ export default function DSHPage() {
     const goBack = useCallback(async () => {
         await window.dsh.destroyView();
         setViewCreated(false);
-        if (window.api?.send) {
-            window.api.send('navigate', 'worklog');
-        } else {
-            window.history.back();
-        }
-    }, []);
+        navigate('/worklog');
+    }, [navigate]);
 
     // ---- 生命周期 ----
     useEffect(() => {
@@ -136,25 +100,52 @@ export default function DSHPage() {
         }
     }, [status, loading, startDSH]);
 
-    // ---- 创建 BrowserView ----
     useEffect(() => {
         if (status === 'running' && port && !viewCreated) {
             window.dsh.createView(`http://127.0.0.1:${port}`)
                 .then(() => {
                     setViewCreated(true);
-                    setTimeout(() => {
-                        if (offsetTop > 0) {
-                            window.dsh.resizeView(offsetTop);
-                        } else {
-                            calculateOffset();
-                        }
-                    }, 100);
+                    setTimeout(() => resizeView(), 100);
                 })
                 .catch(console.error);
         }
-    }, [status, port, viewCreated, offsetTop, calculateOffset]);
+    }, [status, port, viewCreated, resizeView]);
 
-    // ---- 组件卸载时销毁 ----
+    useEffect(() => {
+        resizeView();
+    }, [offsetTop, resizeView]);
+
+    useLayoutEffect(() => {
+        const doCalc = () => {
+            const off = calculateOffset();
+            if (off > 0 && viewCreated) {
+                window.dsh.resizeView(off);
+            }
+        };
+        requestAnimationFrame(doCalc);
+        let retries = 0;
+        const interval = setInterval(() => {
+            if (offsetTop > 0 || retries >= 5) {
+                clearInterval(interval);
+                return;
+            }
+            retries++;
+            calculateOffset();
+        }, 100);
+        return () => clearInterval(interval);
+    }, [calculateOffset, viewCreated, offsetTop]);
+
+    useEffect(() => {
+        const handleResize = () => {
+            calculateOffset();
+            if (viewCreated && offsetTop > 0) {
+                window.dsh.resizeView(offsetTop);
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [calculateOffset, viewCreated, offsetTop]);
+
     useEffect(() => {
         return () => {
             window.dsh.destroyView();
@@ -172,49 +163,29 @@ export default function DSHPage() {
         }
     }, [status]);
 
-    // ---- webview 事件监听（调试） ----
-    useEffect(() => {
-        const webview = webviewRef.current;
-        if (!webview) return;
-
-        const onFail = (e: any) => console.error('❌ webview 加载失败:', e);
-        const onCrashed = () => console.error('💥 webview 崩溃');
-        const onConsole = (e: any) => console.log('🖥️ webview console:', e.message);
-        const onStartLoading = () => console.log('⏳ webview 开始加载');
-        const onStopLoading = () => console.log('✅ webview 加载完成');
-
-        webview.addEventListener('did-fail-load', onFail);
-        webview.addEventListener('crashed', onCrashed);
-        webview.addEventListener('console-message', onConsole);
-        webview.addEventListener('did-start-loading', onStartLoading);
-        webview.addEventListener('did-stop-loading', onStopLoading);
-
-        return () => {
-            webview.removeEventListener('did-fail-load', onFail);
-            webview.removeEventListener('crashed', onCrashed);
-            webview.removeEventListener('console-message', onConsole);
-            webview.removeEventListener('did-start-loading', onStartLoading);
-            webview.removeEventListener('did-stop-loading', onStopLoading);
-        };
-    }, [webviewRef.current]);
-
     // ---- 渲染 ----
     return (
         <div className="flex flex-col h-full w-full bg-white" ref={containerRef}>
-            {/* 调试栏（含返回按钮） */}
+            {/* 调试栏（含返回按钮 - 与 SettingsPage 风格一致） */}
             <div className="debug-bar shrink-0 bg-gray-200 p-1 text-xs text-gray-700 flex gap-2 flex-wrap items-center" style={{ height: '30px' }}>
-                <button onClick={goBack} className="px-2 py-0.5 bg-purple-500 text-white rounded hover:bg-purple-600">← 返回</button>
+                <button
+                    onClick={goBack}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-purple-500 text-white rounded hover:bg-purple-600 transition"
+                >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>返回</span>
+                </button>
                 <span>状态: {status}</span>
                 <span>端口: {port || '无'}</span>
                 <span>视图: {viewCreated ? '已创建' : '未创建'}</span>
                 <span>偏移: {offsetTop}px</span>
-                <button onClick={fetchStatus} className="px-2 py-0.5 bg-blue-500 text-white rounded">刷新</button>
-                <button onClick={startDSH} className="px-2 py-0.5 bg-green-500 text-white rounded">启动</button>
-                <button onClick={stopDSH} className="px-2 py-0.5 bg-red-500 text-white rounded">停止</button>
+                <button onClick={fetchStatus} className="px-2 py-0.5 bg-blue-500 text-white rounded hover:bg-blue-600">刷新</button>
+                <button onClick={startDSH} className="px-2 py-0.5 bg-green-500 text-white rounded hover:bg-green-600">启动</button>
+                <button onClick={stopDSH} className="px-2 py-0.5 bg-red-500 text-white rounded hover:bg-red-600">停止</button>
             </div>
 
-            {/* 内容区域 */}
-            <div className="flex-1 relative bg-gray-50 overflow-hidden">
+            {/* 内容区 */}
+            <div className="flex-1 relative bg-gray-50">
                 {status === 'starting' || loading ? (
                     <div className="flex items-center justify-center h-full">
                         <div className="text-center">
@@ -228,32 +199,21 @@ export default function DSHPage() {
                         <button onClick={startDSH} className="px-4 py-2 bg-blue-500 text-white rounded">重试</button>
                     </div>
                 ) : status === 'running' && port ? (
-                    <>
-                        {/* ✅ webview 渲染 */}
-                        <webview
-                            ref={webviewRef}
-                            src={`http://127.0.0.1:${port}`}
-                            style={{ width: '100%', height: '100%', display: 'block' }}
-                            webpreferences="webSecurity=no, allowRunningInsecureContent=yes, javascript=yes"
-                            partition="persist:dsh"
-                        />
-                        {/* ✅ 引导提示浮层（在 webview 之上） */}
-                        {showTip && (
-                            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white border border-blue-300 shadow-lg rounded-lg p-4 max-w-md z-10">
-                                <div className="flex items-start gap-3">
-                                    <span className="text-2xl">💡</span>
-                                    <div>
-                                        <h3 className="font-semibold text-gray-800">首次使用 DeepSeek Harness</h3>
-                                        <p className="text-sm text-gray-600 mt-1">
-                                            请在界面右上角点击 <strong>设置</strong>，进入 <strong>模型</strong> 页面，
-                                            输入 DeepSeek API Key 后即可使用。
-                                        </p>
-                                    </div>
-                                    <button onClick={() => setShowTip(false)} className="shrink-0 text-gray-400 hover:text-gray-600">✕</button>
+                    showTip && (
+                        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white border border-blue-300 shadow-lg rounded-lg p-4 max-w-md z-10">
+                            <div className="flex items-start gap-3">
+                                <span className="text-2xl">💡</span>
+                                <div>
+                                    <h3 className="font-semibold text-gray-800">首次使用 DeepSeek Harness</h3>
+                                    <p className="text-sm text-gray-600 mt-1">
+                                        请在界面右上角点击 <strong>设置</strong>，进入 <strong>模型</strong> 页面，
+                                        输入 DeepSeek API Key 后即可使用。
+                                    </p>
                                 </div>
+                                <button onClick={() => setShowTip(false)} className="shrink-0 text-gray-400 hover:text-gray-600">✕</button>
                             </div>
-                        )}
-                    </>
+                        </div>
+                    )
                 ) : (
                     <div className="flex items-center justify-center h-full text-gray-500">DSH 未启动</div>
                 )}
