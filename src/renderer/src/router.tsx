@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createHashRouter } from 'react-router-dom';
 import Layout from './Layout';
 import WorkLogPage from './pages/WorkLogPage';
 import ReportPage from './pages/ReportPage';
@@ -13,26 +13,43 @@ import OcrPage from './pages/OcrPage';
 import OcrPagePP from './pages/OcrPagePP';
 import DSHPage from './pages/DSHPage';
 
-export const router = createBrowserRouter([
+const NotFound = () => (
+    <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="text-center">
+            <h1 className="text-4xl font-bold text-zinc-800 dark:text-zinc-200">404</h1>
+            <p className="text-zinc-600 dark:text-zinc-400 mt-2">页面未找到</p>
+        </div>
+    </div>
+);
+
+export const router = createHashRouter([
+    // 1. 主布局（包含标题栏和导航栏），常规页面 + DSH 在此
     {
         path: '/',
         element: <Layout />,
         children: [
-            // 需要居中的页面（设置 maxWidth: true）
-            { index: true, element: <WorkLogPage />, handle: { maxWidth: false } },
-            { path: 'worklog', element: <WorkLogPage />, handle: { maxWidth: false } },
+            { index: true, element: <WorkLogPage /> },
+            { path: 'worklog', element: <WorkLogPage /> },
             { path: 'kanban', element: <KanbanPage />, handle: { maxWidth: true } },
-            { path: 'report', element: <ReportPage />, handle: { maxWidth: false } },
-            { path: 'stats', element: <StatsPage />, handle: { maxWidth: false } },
+            { path: 'report', element: <ReportPage /> },
+            { path: 'stats', element: <StatsPage />},
             { path: 'calendar', element: <CalendarPage />, handle: { maxWidth: true } },
-            { path: 'chat', element: <ChatPage />, handle: { maxWidth: false } },
+            { path: 'chat', element: <ChatPage /> },
             { path: 'xray', element: <XrayProcessor />, handle: { maxWidth: true } },
             { path: 'onnx', element: <OnnxPage />, handle: { maxWidth: true } },
             { path: 'ocr', element: <OcrPage />, handle: { maxWidth: true } },
             { path: 'pp', element: <OcrPagePP />, handle: { maxWidth: true } },
-            // 全宽页面（不设置 handle 或显式设置 maxWidth: false）
-            { path: 'dsh', element: <DSHPage /> }, // 默认全宽
-            { path: 'settings', element: <SettingsPage /> }, // 默认全宽
+            { path: 'dsh', element: <DSHPage />, handle: { maxWidth: true } },
         ],
+    },
+    // 2. 独立的全屏路由（无 Layout 包裹）—— 仅 SettingsPage
+    {
+        path: '/settings',
+        element: <SettingsPage />,
+    },
+    // 3. 404 兜底
+    {
+        path: '*',
+        element: <NotFound />,
     },
 ]);

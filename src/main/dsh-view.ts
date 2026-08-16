@@ -1,15 +1,23 @@
-import { BrowserView, BrowserWindow, Rectangle } from 'electron';
+/**
+ * dsh-view.ts
+ * 使用 WebContentsView 在 BrowserWindow 中嵌入 DSH。
+ * WebContentsView 是 Electron 43 的推荐方案，替代已弃用的 BrowserView。
+ */
+
+import { WebContentsView, BrowserWindow } from 'electron';
 import log from 'electron-log/main';
 
-let dshView: BrowserView | null = null;
+let dshView: WebContentsView | null = null;
 let parentWindow: BrowserWindow | null = null;
-let currentBounds: Rectangle = { x: 0, y: 0, width: 0, height: 0 };
 
+/**
+ * 创建 DSH WebContentsView
+ */
 export function createDSHView(parent: BrowserWindow, url: string): number {
     if (dshView) destroyDSHView();
     parentWindow = parent;
 
-    dshView = new BrowserView({
+    dshView = new WebContentsView({
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -20,81 +28,84 @@ export function createDSHView(parent: BrowserWindow, url: string): number {
     });
 
     dshView.setBackgroundColor('#f0f0f0');
+    parent.contentView.addChildView(dshView);
 
-    // 设置初始尺寸为窗口大小（避免 0x0）
-    const size = parent.getSize();
-    const initBounds = {
-        x: 0,
-        y: 0,
-        width: Math.max(100, size[0]),
-        height: Math.max(100, size[1]),
-    };
+    const initBounds = { x: 0, y: 0, width: 100, height: 100 };
     dshView.setBounds(initBounds);
-    parent.addBrowserView(dshView);
 
     dshView.webContents.loadURL(url).catch(err => {
         log.error('DSH 加载失败', err);
     });
 
     dshView.webContents.on('did-finish-load', () => {
-        log.info('DSH BrowserView 加载完成');
+        log.info('DSH WebContentsView 加载完成');
     });
 
     dshView.webContents.on('did-fail-load', (_, code, desc) => {
         log.error('DSH 加载失败', { code, desc });
     });
 
-    // 延迟调整，等待窗口布局完成
-    setTimeout(() => {
-        resizeDSHView(30);
-    }, 100);
+    dshView.webContents.on('console-message', (event, level, message, line, sourceId) => {
+        log.debug(`DSH console: ${message} (${sourceId}:${line})`);
+    });
 
-    log.info('DSH BrowserView 创建成功', { id: dshView.webContents.id });
+    log.info('DSH WebContentsView 创建成功', { id: dshView.webContents.id });
     return dshView.webContents.id;
 }
 
-export function resizeDSHView(offsetTop = 0): void {
+/**
+ * 调整 WebContentsView 的大小和位置
+ */
+export function resizeDSHView(offsetTop: number): void {
     if (!dshView || !parentWindow || parentWindow.isDestroyed()) {
-        log.warn('无法调整 BrowserView：窗口或视图不存在');
+        log.warn('resizeDSHView: 窗口或视图无效');
         return;
     }
 
-    let contentBounds = parentWindow.getContentBounds();
+    const contentBounds = parentWindow.getContentBounds();
     let width = contentBounds.width;
-    let height = contentBounds.height - offsetTop;
-
-    // 如果尺寸异常，使用窗口整体尺寸
+    let height = contentBounds.height;
     if (width < 100 || height < 100) {
-        const size = parentWindow.getSize();
-        width = Math.max(size[0], 800);
-        height = Math.max(size[1] - offsetTop, 600);
-        log.warn('getContentBounds 异常，使用 getSize', { original: contentBounds, used: { width, height } });
+        const winBounds = parentWindow.getBounds();
+        width = Math.max(100, winBounds.width);
+        height = Math.max(100, winBounds.height);
     }
 
     const bounds = {
         x: 0,
         y: offsetTop,
-        width: Math.max(10, width),
-        height: Math.max(10, height),
+        width: width,
+        height: Math.max(0, height - offsetTop),
     };
 
-    log.debug('调整 BrowserView 到', bounds);
+    log.debug('调整 WebContentsView 到', bounds);
     dshView.setBounds(bounds);
-    currentBounds = bounds;
 }
 
+/**
+ * 销毁 WebContentsView
+ */
 export function destroyDSHView(): void {
     if (dshView) {
         if (parentWindow && !parentWindow.isDestroyed()) {
-            parentWindow.removeBrowserView(dshView);
+            parentWindow.contentView.removeChildView(dshView);
         }
-        try { (dshView as any).destroy?.(); } catch (e) { }
+        // 关闭 WebContents（触发清理），但不会立即销毁
+        try {
+            dshView.webContents.close();
+        } catch (e) {
+            log.warn('关闭 DSH WebContents 时出错', e);
+        }
+        // 置空以便垃圾回收
         dshView = null;
         parentWindow = null;
-        log.info('DSH BrowserView 已销毁');
+        log.info('DSH WebContentsView 已销毁');
     }
 }
 
+/**
+ * 获取当前 WebContentsView 的 ID
+ */
 export function getDSHViewId(): number | null {
     return dshView?.webContents.id ?? null;
 }

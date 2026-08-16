@@ -1,10 +1,6 @@
-// src/renderer/src/pages/DSHPage.tsx
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react'; // 使用与 SettingsPage 相同的图标库
 
 export default function DSHPage() {
-    const navigate = useNavigate();
     const [status, setStatus] = useState<'idle' | 'starting' | 'running' | 'error' | 'stopped'>('idle');
     const [port, setPort] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -12,42 +8,88 @@ export default function DSHPage() {
     const [viewCreated, setViewCreated] = useState(false);
     const [offsetTop, setOffsetTop] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
-    const [showTip, setShowTip] = useState(false);
+    const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // ---- 计算偏移量（标题栏 + 导航栏 + 调试栏高度） ----
     const calculateOffset = useCallback(() => {
         let total = 0;
+        // 1. 标题栏（可能有 .title-bar 或 data-titlebar）
         const titleBar = document.querySelector('.title-bar') || document.querySelector('[data-titlebar]');
         if (titleBar) {
             const rect = titleBar.getBoundingClientRect();
             total += rect.height;
         }
+        // 2. 导航栏（header）
         const header = document.querySelector('header');
         if (header) {
             const rect = header.getBoundingClientRect();
             total += rect.height;
         }
+        // 3. 当前组件的调试栏（本组件内的 .debug-bar）
         const debugBar = containerRef.current?.querySelector('.debug-bar');
         if (debugBar) {
             const rect = debugBar.getBoundingClientRect();
             total += rect.height;
         }
-        if (total === 0) total = 80;
+        // 如果 total 仍为 0，用默认值（例如 80px）
+        if (total === 0) {
+            total = 80;
+        }
+        // 加 1px 间隙
         const newOffset = total + 1;
         if (newOffset !== offsetTop) {
             setOffsetTop(newOffset);
+            console.log('📍 计算偏移量:', newOffset);
         }
         return newOffset;
     }, [offsetTop]);
 
-    // ---- 调整 BrowserView ----
-    const resizeView = useCallback(() => {
+    // ---- 使用 useLayoutEffect 确保 DOM 已更新，并加入重试 ----
+    useLayoutEffect(() => {
+        // 首次计算
+        const doCalc = () => {
+            const off = calculateOffset();
+            if (off > 0 && viewCreated) {
+                window.dsh.resizeView(off);
+            }
+        };
+        // 延迟一帧确保布局完成
+        requestAnimationFrame(() => {
+            doCalc();
+        });
+        // 如果第一次计算为 0，每 100ms 重试一次，最多 5 次
+        let retries = 0;
+        const retryInterval = setInterval(() => {
+            if (offsetTop > 0 || retries >= 5) {
+                clearInterval(retryInterval);
+                return;
+            }
+            retries++;
+            calculateOffset();
+        }, 100);
+        return () => clearInterval(retryInterval);
+    }, [calculateOffset, viewCreated, offsetTop]);
+
+    // ---- 窗口变化时重新计算 ----
+    useEffect(() => {
+        const handleResize = () => {
+            calculateOffset();
+            if (viewCreated && offsetTop > 0) {
+                window.dsh.resizeView(offsetTop);
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [calculateOffset, viewCreated, offsetTop]);
+
+    // ---- 偏移量变化时调整 BrowserView ----
+    useEffect(() => {
         if (viewCreated && offsetTop > 0) {
             window.dsh.resizeView(offsetTop);
         }
     }, [viewCreated, offsetTop]);
 
-    // ---- DSH 管理 ----
+    // ---- 其余功能函数（fetchStatus, startDSH, stopDSH, goBack） ----
     const fetchStatus = useCallback(async () => {
         try {
             const result = await window.dsh.getStatus();
@@ -86,8 +128,13 @@ export default function DSHPage() {
     const goBack = useCallback(async () => {
         await window.dsh.destroyView();
         setViewCreated(false);
-        navigate('/worklog');
-    }, [navigate]);
+        // 通过 IPC 切换页面
+        if (window.api && window.api.send) {
+            window.api.send('navigate', 'worklog');
+        } else {
+            window.history.back();
+        }
+    }, []);
 
     // ---- 生命周期 ----
     useEffect(() => {
@@ -100,52 +147,27 @@ export default function DSHPage() {
         }
     }, [status, loading, startDSH]);
 
+    // ---- 创建 BrowserView ----
     useEffect(() => {
         if (status === 'running' && port && !viewCreated) {
             window.dsh.createView(`http://127.0.0.1:${port}`)
                 .then(() => {
                     setViewCreated(true);
-                    setTimeout(() => resizeView(), 100);
+                    // 创建后立即调整一次
+                    setTimeout(() => {
+                        if (offsetTop > 0) {
+                            window.dsh.resizeView(offsetTop);
+                        } else {
+                            // 如果偏移量还没算出来，强制计算
+                            calculateOffset();
+                        }
+                    }, 100);
                 })
                 .catch(console.error);
         }
-    }, [status, port, viewCreated, resizeView]);
+    }, [status, port, viewCreated, offsetTop, calculateOffset]);
 
-    useEffect(() => {
-        resizeView();
-    }, [offsetTop, resizeView]);
-
-    useLayoutEffect(() => {
-        const doCalc = () => {
-            const off = calculateOffset();
-            if (off > 0 && viewCreated) {
-                window.dsh.resizeView(off);
-            }
-        };
-        requestAnimationFrame(doCalc);
-        let retries = 0;
-        const interval = setInterval(() => {
-            if (offsetTop > 0 || retries >= 5) {
-                clearInterval(interval);
-                return;
-            }
-            retries++;
-            calculateOffset();
-        }, 100);
-        return () => clearInterval(interval);
-    }, [calculateOffset, viewCreated, offsetTop]);
-
-    useEffect(() => {
-        const handleResize = () => {
-            calculateOffset();
-            if (viewCreated && offsetTop > 0) {
-                window.dsh.resizeView(offsetTop);
-            }
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, [calculateOffset, viewCreated, offsetTop]);
-
+    // ---- 组件卸载时销毁 ----
     useEffect(() => {
         return () => {
             window.dsh.destroyView();
@@ -153,6 +175,7 @@ export default function DSHPage() {
     }, []);
 
     // ---- 引导提示 ----
+    const [showTip, setShowTip] = useState(false);
     useEffect(() => {
         if (status === 'running') {
             const hasShown = localStorage.getItem('dsh_setup_tip_shown');
@@ -166,25 +189,19 @@ export default function DSHPage() {
     // ---- 渲染 ----
     return (
         <div className="flex flex-col h-full w-full bg-white" ref={containerRef}>
-            {/* 调试栏（含返回按钮 - 与 SettingsPage 风格一致） */}
+            {/* 调试栏（含返回按钮） - 添加 class="debug-bar" 以便计算高度 */}
             <div className="debug-bar shrink-0 bg-gray-200 p-1 text-xs text-gray-700 flex gap-2 flex-wrap items-center" style={{ height: '30px' }}>
-                <button
-                    onClick={goBack}
-                    className="flex items-center gap-1 px-2 py-0.5 bg-purple-500 text-white rounded hover:bg-purple-600 transition"
-                >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>返回</span>
-                </button>
+                <button onClick={goBack} className="px-2 py-0.5 bg-purple-500 text-white rounded hover:bg-purple-600">← 返回</button>
                 <span>状态: {status}</span>
                 <span>端口: {port || '无'}</span>
                 <span>视图: {viewCreated ? '已创建' : '未创建'}</span>
                 <span>偏移: {offsetTop}px</span>
-                <button onClick={fetchStatus} className="px-2 py-0.5 bg-blue-500 text-white rounded hover:bg-blue-600">刷新</button>
-                <button onClick={startDSH} className="px-2 py-0.5 bg-green-500 text-white rounded hover:bg-green-600">启动</button>
-                <button onClick={stopDSH} className="px-2 py-0.5 bg-red-500 text-white rounded hover:bg-red-600">停止</button>
+                <button onClick={fetchStatus} className="px-2 py-0.5 bg-blue-500 text-white rounded">刷新</button>
+                <button onClick={startDSH} className="px-2 py-0.5 bg-green-500 text-white rounded">启动</button>
+                <button onClick={stopDSH} className="px-2 py-0.5 bg-red-500 text-white rounded">停止</button>
             </div>
 
-            {/* 内容区 */}
+            {/* 内容区（BrowserView 覆盖） */}
             <div className="flex-1 relative bg-gray-50">
                 {status === 'starting' || loading ? (
                     <div className="flex items-center justify-center h-full">
