@@ -1,5 +1,6 @@
-import { createHashRouter } from 'react-router-dom';
-import Layout from './Layout';
+import { createHashRouter, Navigate } from 'react-router-dom';
+import TitleBarLayout from './layout/TitleBarLayout';
+import NavLayout from './layout/NavLayout';
 import WorkLogPage from './pages/WorkLogPage';
 import ReportPage from './pages/ReportPage';
 import KanbanPage from './pages/KanbanPage';
@@ -23,33 +24,32 @@ const NotFound = () => (
 );
 
 export const router = createHashRouter([
-    // 1. 主布局（包含标题栏和导航栏），常规页面 + DSH 在此
     {
         path: '/',
-        element: <Layout />,
+        element: <TitleBarLayout />, // 根布局：始终显示 TitleBar
         children: [
-            { index: true, element: <WorkLogPage /> },
-            { path: 'worklog', element: <WorkLogPage /> },
-            { path: 'kanban', element: <KanbanPage />, handle: { maxWidth: true } },
-            { path: 'report', element: <ReportPage /> },
-            { path: 'stats', element: <StatsPage />},
-            { path: 'calendar', element: <CalendarPage />, handle: { maxWidth: true } },
-            { path: 'chat', element: <ChatPage /> },
-            { path: 'xray', element: <XrayProcessor />, handle: { maxWidth: true } },
-            { path: 'onnx', element: <OnnxPage />, handle: { maxWidth: true } },
-            { path: 'ocr', element: <OcrPage />, handle: { maxWidth: true } },
-            { path: 'pp', element: <OcrPagePP />, handle: { maxWidth: true } },
-            { path: 'dsh', element: <DSHPage />, handle: { maxWidth: true } },
+            // 所有需要导航栏的页面放在 NavLayout 下
+            {
+                element: <NavLayout />,
+                children: [
+                    { index: true, element: <Navigate to="/worklog" replace /> },
+                    { path: 'worklog', element: <WorkLogPage /> },
+                    { path: 'kanban', element: <KanbanPage />, handle: { maxWidth: true } },
+                    { path: 'report', element: <ReportPage /> },
+                    { path: 'stats', element: <StatsPage /> },
+                    { path: 'calendar', element: <CalendarPage />, handle: { maxWidth: true } },
+                    { path: 'chat', element: <ChatPage /> },
+                    { path: 'xray', element: <XrayProcessor />, handle: { maxWidth: true } },
+                    { path: 'onnx', element: <OnnxPage />, handle: { maxWidth: true } },
+                    { path: 'ocr', element: <OcrPage />, handle: { maxWidth: true } },
+                    { path: 'pp', element: <OcrPagePP />, handle: { maxWidth: true } },
+                    { path: 'dsh', element: <DSHPage />, handle: { maxWidth: false } },
+                ],
+            },
+            // 设置页直接挂在 TitleBarLayout 下，没有导航栏
+            { path: 'settings', element: <SettingsPage /> },
+            // 404
+            { path: '*', element: <NotFound /> },
         ],
-    },
-    // 2. 独立的全屏路由（无 Layout 包裹）—— 仅 SettingsPage
-    {
-        path: '/settings',
-        element: <SettingsPage />,
-    },
-    // 3. 404 兜底
-    {
-        path: '*',
-        element: <NotFound />,
     },
 ]);

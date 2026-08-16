@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Outlet, Link, useNavigate, useLocation, useMatches } from 'react-router-dom';
+import React from 'react';
+import { Outlet, Link, useLocation, useMatches } from 'react-router-dom';
 import {
     Settings,
     FileText,
@@ -11,80 +11,18 @@ import {
     Zap,
 } from 'lucide-react';
 import { SiDeepseek, SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
-import { TitleBar } from './components/TitleBar';
-import { useToast } from './components/Toast';
-import { useI18n } from './stores/languageStore';
-import { QuickCreate } from './components/QuickCreate';
+import { useI18n } from '../stores/languageStore';
 
-export default function Layout() {
-    const navigate = useNavigate();
+export default function NavLayout() {
     const location = useLocation();
     const matches = useMatches();
     const { t } = useI18n();
-    const toast = useToast();
-    const updateDownloadedNotifiedRef = useRef(false);
-    const [quickCreate, setQuickCreate] = useState<'log' | 'task' | null>(null);
+
 
     // 关键：从路由 handle 读取 maxWidth，默认为 false（全宽）
     const maxWidth =
         (matches[matches.length - 1]?.handle as { maxWidth?: boolean })?.maxWidth ?? false;
 
-    // 调试日志（可删除）
-    console.log(`[Layout] 当前路径: ${location.pathname}, maxWidth: ${maxWidth}`);
-
-    // ---- 监听 IPC 事件 ----
-    useEffect(() => {
-        const unsubCreate = window.api.on.quickCreate((type) => {
-            setQuickCreate(type);
-        });
-        const unsubNav = window.api.on.navigate((page) => {
-            navigate(`/${page}`);
-        });
-        const unsubUpdate = window.api.on.updateStatus?.((state) => {
-            if (state.status === 'downloaded' && !updateDownloadedNotifiedRef.current) {
-                updateDownloadedNotifiedRef.current = true;
-                toast.success(t('settings.updateDownloaded'));
-            }
-        });
-        return () => {
-            unsubCreate();
-            unsubNav();
-            unsubUpdate?.();
-        };
-    }, [navigate, toast, t]);
-
-    // ---- 键盘快捷键 ----
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (quickCreate) return;
-            const isMod = e.metaKey || e.ctrlKey;
-            if (isMod && e.key === '1') {
-                e.preventDefault();
-                navigate('/worklog');
-            } else if (isMod && e.key === '2') {
-                e.preventDefault();
-                navigate('/kanban');
-            } else if (isMod && e.key === '3') {
-                e.preventDefault();
-                navigate('/report');
-            } else if (isMod && e.key === '4') {
-                e.preventDefault();
-                navigate('/stats');
-            } else if (isMod && e.key === '5') {
-                e.preventDefault();
-                navigate('/calendar');
-            } else if (isMod && e.key === ',') {
-                e.preventDefault();
-                navigate('/settings');
-            } else if (e.key === 'Escape' && location.pathname === '/settings') {
-                navigate('/worklog');
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [navigate, location, quickCreate]);
-
-    // ---- 导航按钮 ----
     const navLink = (path: string, icon: React.ReactNode, label: string) => {
         const isActive =
             location.pathname === `/${path}` || (path === 'worklog' && location.pathname === '/');
@@ -103,9 +41,9 @@ export default function Layout() {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
-            <TitleBar />
-            <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <div className="flex flex-col h-full">
+            {/* 导航栏 */}
+            <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
                 <div className="flex items-center gap-1">
                     <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4">工作台</h1>
                     <nav className="flex gap-1">
@@ -131,15 +69,12 @@ export default function Layout() {
                 </Link>
             </header>
 
-            <main className="flex-1 overflow-auto">
+            {/* 内容区域 */}
+            <div className="flex-1 overflow-auto">
                 <div className={`px-4 py-6 ${maxWidth ? '' : 'max-w-3xl mx-auto'}`}>
-                    <Outlet />
-                </div>
-            </main>
-
-            {quickCreate && (
-                <QuickCreate initialMode={quickCreate} onClose={() => setQuickCreate(null)} />
-            )}
+                                    <Outlet />
+                                </div>
+            </div>
         </div>
     );
 }
