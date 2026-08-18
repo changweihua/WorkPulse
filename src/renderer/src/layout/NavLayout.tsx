@@ -18,8 +18,6 @@ export default function NavLayout() {
     const matches = useMatches();
     const { t } = useI18n();
 
-
-    // 关键：从路由 handle 读取 maxWidth，默认为 false（全宽）
     const maxWidth =
         (matches[matches.length - 1]?.handle as { maxWidth?: boolean })?.maxWidth ?? false;
 
@@ -42,8 +40,12 @@ export default function NavLayout() {
 
     return (
         <div className="flex flex-col h-full">
-            {/* 导航栏 */}
-            <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
+            {/* 导航栏 - 增强毛玻璃效果 */}
+            <header
+                className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/30 dark:border-zinc-800/30 
+                           bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl backdrop-saturate-150 shrink-0 
+                           shadow-sm"
+            >
                 <div className="flex items-center gap-1">
                     <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4">工作台</h1>
                     <nav className="flex gap-1">
@@ -72,8 +74,8 @@ export default function NavLayout() {
             {/* 内容区域 */}
             <div className="flex-1 overflow-auto">
                 <div className={`px-4 py-6 ${maxWidth ? '' : 'max-w-3xl mx-auto'}`}>
-                                    <Outlet />
-                                </div>
+                    <Outlet />
+                </div>
             </div>
         </div>
     );
