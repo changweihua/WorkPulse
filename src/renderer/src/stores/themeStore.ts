@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 
-type Theme = 'light' | 'dark' | 'system'
+export type Theme = 'light' | 'dark' | 'system'
 
 interface ThemeStore {
   theme: Theme
-  setTheme: (theme: Theme) => void
-  init: () => void
+  setTheme: (theme: Theme) => Promise<void>
+  init: () => Promise<void>
 }
 
 function applyTheme(theme: Theme): void {
@@ -19,10 +19,10 @@ function applyTheme(theme: Theme): void {
 export const useThemeStore = create<ThemeStore>((set) => ({
   theme: 'system',
 
-  setTheme: (theme: Theme) => {
-    window.api.settings.set('theme', theme)
+  setTheme: async (theme: Theme) => {
     applyTheme(theme)
     set({ theme })
+    await window.api.settings.set('theme', theme)
   },
 
   init: async () => {

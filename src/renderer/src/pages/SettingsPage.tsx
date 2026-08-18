@@ -17,7 +17,7 @@ import {
   FolderOpen
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
-import { useThemeStore } from '../stores/themeStore'
+import { useThemeStore, type Theme } from '../stores/themeStore'
 import { useI18n, useLanguageStore } from '../stores/languageStore'
 import type { AppLanguage, ResolvedLanguage } from '../lib/i18n'
 import { useNavigate } from 'react-router-dom'
@@ -333,6 +333,11 @@ function SettingsPage(): ReactNode {
 
   const handleAppLanguageChange = async (value: AppLanguage): Promise<void> => {
     await setAppLanguage(value)
+  }
+
+  const handleThemeChange = async (value: Theme): Promise<void> => {
+    await setTheme(value)
+    toast.success(t('settings.themeChanged'))
   }
 
   const handleSystemPromptBlur = async (): Promise<void> => {
@@ -700,7 +705,7 @@ function SettingsPage(): ReactNode {
               ] as const).map(({ value, label, Icon }) => (
                 <button
                   key={value}
-                  onClick={() => setTheme(value)}
+                  onClick={() => handleThemeChange(value)}
                   className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors ${theme === value
                       ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
                       : 'border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'

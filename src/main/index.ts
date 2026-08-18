@@ -738,7 +738,7 @@ ipcMain.on('window-control', (event, action) => {
 export function setAutoLaunch(enable: boolean): void {
   app.setLoginItemSettings({
     openAtLogin: enable,
-    // 可选：如果你希望在开机启动时隐藏主窗口（只显示托盘），可以传递自定义参数
+    path: app.getPath('exe'),
     args: enable ? ['--hidden'] : []
   });
 }

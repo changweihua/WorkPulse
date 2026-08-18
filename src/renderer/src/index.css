@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-prose";
 
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* 字体族 */
   --font-sans: "JetBrains Maple Mono", "Maple Mono NF CN", "Source Han Serif SC", "思源宋体", sans-serif;
