@@ -11,3 +11,4 @@ dist/
 md/
 
 */obj
+.opencode/opencode.json
