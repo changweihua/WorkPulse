@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { Outlet, Link, useLocation, useMatches } from 'react-router-dom';
 import {
     Settings,
@@ -9,6 +9,7 @@ import {
     Calendar,
     Bot,
     Zap,
+    ArrowUp,
 } from 'lucide-react';
 import { SiDeepseek, SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
 import { useI18n } from '../stores/languageStore';
@@ -17,9 +18,20 @@ export default function NavLayout() {
     const location = useLocation();
     const matches = useMatches();
     const { t } = useI18n();
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [showTopBtn, setShowTopBtn] = useState(false);
 
-    const maxWidth =
-        (matches[matches.length - 1]?.handle as { maxWidth?: boolean })?.maxWidth ?? false;
+    const fluid =
+        (matches[matches.length - 1]?.handle as { fluid?: boolean })?.fluid ?? false;
+
+    const handleScroll = useCallback(() => {
+        const el = scrollRef.current;
+        if (el) setShowTopBtn(el.scrollTop > 300);
+    }, []);
+
+    const scrollToTop = () => {
+        scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     const navLink = (path: string, icon: React.ReactNode, label: string) => {
         const isActive =
@@ -72,11 +84,23 @@ export default function NavLayout() {
             </header>
 
             {/* 内容区域 */}
-            <div className="flex-1 overflow-auto">
-                <div className={`px-4 py-6 ${maxWidth ? '' : 'max-w-3xl mx-auto'}`}>
+            <div ref={scrollRef} className="flex-1 overflow-auto" onScroll={handleScroll}>
+                <div className={fluid ? 'h-full' : 'max-w-3xl mx-auto px-4 py-6'}>
                     <Outlet />
                 </div>
             </div>
+
+            {/* 返回顶部按钮 */}
+            {showTopBtn && (
+                <button
+                    onClick={scrollToTop}
+                    className="fixed bottom-6 right-6 z-50 p-3 rounded-full bg-zinc-900 dark:bg-zinc-100 
+                               text-white dark:text-zinc-900 shadow-lg hover:scale-110 transition-all duration-200"
+                    aria-label="返回顶部"
+                >
+                    <ArrowUp className="w-5 h-5" />
+                </button>
+            )}
         </div>
     );
 }

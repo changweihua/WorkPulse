@@ -39,7 +39,7 @@ function OcrPageContent() {
 
             for (const r of boxes) {
                 const conf = typeof r.confidence === 'number' && isFinite(r.confidence) ? r.confidence : 0.05;
-                const color = conf > 0.04 ? '#00ff88' : conf > 0.02 ? '#ffcc00' : '#ff9900';
+                const color = conf > 0.04 ? '#00aa55' : conf > 0.02 ? '#cc8800' : '#cc6600';
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 3;
                 ctx.font = 'bold 14px "Microsoft YaHei", sans-serif';
@@ -168,19 +168,19 @@ function OcrPageContent() {
     const hasImage = imageUrl !== null;
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-900 text-gray-200">
-            <header className="flex items-center gap-4 px-6 py-4 border-b border-gray-700 bg-gray-800">
+        <div className="flex flex-col h-full bg-gray-50 text-gray-800 overflow-hidden">
+            <header className="flex items-center gap-4 px-6 py-3 border-b border-gray-200 bg-white shrink-0">
                 <h1 className="text-xl font-semibold">浏览器端 OCR</h1>
-                <span className="px-3 py-1 text-xs border border-blue-400/30 bg-blue-400/10 text-blue-400 rounded-full">
+                <span className="px-3 py-1 text-xs border border-blue-300 bg-blue-50 text-blue-600 rounded-full">
                     PP-OCRv6 tiny + onnxruntime-web
                 </span>
             </header>
 
-            <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6">
+            <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 min-h-0 overflow-hidden">
                 {/* 左侧：图片上传 + Canvas */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 flex flex-col min-h-0">
                     <div
-                        className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-500/5 transition"
+                        className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition shrink-0"
                         onClick={() => fileInputRef.current?.click()}
                         onDragOver={handleDragOver}
                         onDragEnter={handleDragEnter}
@@ -188,8 +188,8 @@ function OcrPageContent() {
                         onDrop={handleDrop}
                     >
                         <div className="text-4xl mb-2 opacity-60">📷</div>
-                        <div className="text-sm text-gray-400">点击或拖拽图片到此处</div>
-                        <div className="text-xs text-gray-500 mt-1">支持 PNG / JPG</div>
+                        <div className="text-sm text-gray-500">点击或拖拽图片到此处</div>
+                        <div className="text-xs text-gray-400 mt-1">支持 PNG / JPG</div>
                         <input
                             ref={fileInputRef}
                             type="file"
@@ -199,13 +199,13 @@ function OcrPageContent() {
                         />
                     </div>
 
-                    <div className="mt-4 bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                    <div className="mt-4 bg-white rounded-lg border border-gray-200 overflow-hidden flex-1 min-h-0 flex items-center justify-center">
                         <canvas
                             ref={canvasRef}
-                            className="w-full h-auto max-h-[600px] object-contain"
+                            className="max-w-full max-h-full object-contain"
                         />
                         {!hasImage && (
-                            <div className="py-8 text-center text-gray-500">
+                            <div className="absolute py-8 text-center text-gray-400">
                                 上传图片后，点击「开始识别」运行 OCR
                             </div>
                         )}
@@ -213,14 +213,14 @@ function OcrPageContent() {
                 </div>
 
                 {/* 右侧：状态、进度、结果 */}
-                <div className="w-full lg:w-96 flex-shrink-0 space-y-4">
+                <div className="w-full lg:w-96 flex-shrink-0 space-y-4 flex flex-col min-h-0 overflow-hidden">
                     {/* 模型状态 */}
-                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4 shrink-0">
+                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             模型状态
                         </div>
                         <div className="mt-2 flex items-center justify-between">
-                            <span className="text-sm text-gray-400">状态</span>
+                            <span className="text-sm text-gray-600">状态</span>
                             <span className="flex items-center gap-2 text-sm">
                                 {statusDot()}
                                 {statusLabel}
@@ -228,7 +228,7 @@ function OcrPageContent() {
                         </div>
                         {status === 'loading' && (
                             <div className="mt-2">
-                                <div className="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
                                         style={{ width: `${progress.percent}%` }}
@@ -241,18 +241,18 @@ function OcrPageContent() {
                             </div>
                         )}
                         {status === 'error' && (
-                            <div className="mt-2 text-sm text-red-400">❌ {error}</div>
+                            <div className="mt-2 text-sm text-red-500">❌ {error}</div>
                         )}
                     </div>
 
                     {/* OCR 进度（运行时） */}
                     {isRunning && (
-                        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        <div className="bg-white border border-gray-200 rounded-lg p-4 shrink-0">
+                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                 OCR 进度
                             </div>
                             <div className="mt-2">
-                                <div className="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
                                         style={{ width: `${progress.percent}%` }}
@@ -267,50 +267,50 @@ function OcrPageContent() {
                     )}
 
                     {/* 操作按钮 */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                         <button
                             onClick={handleOCR}
                             disabled={!isReady || isRunning || !hasImage}
-                            className="flex-1 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 rounded-md font-medium transition"
+                            className="flex-1 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-md font-medium transition"
                         >
                             {isRunning ? '识别中...' : '开始识别'}
                         </button>
                         <button
                             onClick={handleClear}
                             disabled={!hasImage}
-                            className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 rounded-md font-medium transition"
+                            className="flex-1 py-2 bg-gray-200 hover:bg-gray-300 disabled:opacity-40 text-gray-700 rounded-md font-medium transition"
                         >
                             清除
                         </button>
                     </div>
 
                     {/* 识别结果 */}
-                    <div className="bg-gray-800 border border-gray-700 rounded-lg flex-1 overflow-hidden">
-                        <div className="flex justify-between items-center px-4 py-2 border-b border-gray-700">
-                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    <div className="bg-white border border-gray-200 rounded-lg flex-1 min-h-0 overflow-hidden flex flex-col">
+                        <div className="flex justify-between items-center px-4 py-2 border-b border-gray-200 shrink-0">
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                 识别结果
                             </span>
-                            <span className="text-xs text-blue-400">
+                            <span className="text-xs text-blue-500">
                                 {displayResults.length > 0 ? `${displayResults.length} 个文本块` : '等待识别'}
                             </span>
                         </div>
-                        <div className="p-4 max-h-[300px] overflow-y-auto font-mono text-sm space-y-2">
+                        <div className="p-4 overflow-y-auto font-mono text-sm space-y-2 flex-1">
                             {displayResults.length === 0 ? (
-                                <div className="text-gray-500 text-sm">
+                                <div className="text-gray-400 text-sm">
                                     {status === 'idle' ? '加载模型后，上传图片开始识别...' : '上传图片并识别'}
                                 </div>
                             ) : (
                                 displayResults.map((r, i) => {
                                     const conf = r.confidence || 0.05;
                                     const color =
-                                        conf > 0.04 ? '#00ff88' : conf > 0.02 ? '#ffcc00' : '#ff9900';
+                                        conf > 0.04 ? '#00aa55' : conf > 0.02 ? '#cc8800' : '#cc6600';
                                     return (
                                         <div
                                             key={i}
-                                            className="pl-3 border-l-4 rounded-r bg-gray-700/30"
+                                            className="pl-3 border-l-4 rounded-r bg-gray-50"
                                             style={{ borderLeftColor: color }}
                                         >
-                                            <div className="text-xs text-gray-400">
+                                            <div className="text-xs text-gray-500">
                                                 #{i + 1} conf {(conf * 100).toFixed(2)}% {r.charCount}字
                                             </div>
                                             <div className="text-sm" style={{ color }}>
@@ -321,9 +321,9 @@ function OcrPageContent() {
                                 })
                             )}
                             {displayResults.length > 0 && (
-                                <div className="border-t border-gray-700 mt-2 pt-2">
-                                    <div className="text-xs text-gray-400 mb-1">全文：</div>
-                                    <div className="text-sm text-gray-200 whitespace-pre-wrap">
+                                <div className="border-t border-gray-200 mt-2 pt-2">
+                                    <div className="text-xs text-gray-500 mb-1">全文：</div>
+                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">
                                         {displayResults.map((r) => r.text).join('\n')}
                                     </div>
                                 </div>
@@ -334,7 +334,7 @@ function OcrPageContent() {
             </div>
 
             {/* 底部状态栏 */}
-            <div className="text-xs text-gray-500 text-center py-2 border-t border-gray-700">
+            <div className="text-xs text-gray-400 text-center py-2 border-t border-gray-200 bg-white shrink-0">
                 WebGPU 未启用 ｜ 状态：{status}
             </div>
         </div>

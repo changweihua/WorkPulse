@@ -11,6 +11,7 @@ const env = {
     BASE_URL: import.meta.env.BASE_URL,
     // 自定义环境变量（需要以 VITE_ 开头）
     VITE_APP_TITLE: import.meta.env.VITE_APP_TITLE,
+    VITE_APP_VERSION: import.meta.env.VITE_APP_VERSION,
     // 也可以从 process.env 读取（但需经过构建工具处理）
     // 建议用 Vite 的 import.meta.env
 }

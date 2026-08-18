@@ -626,7 +626,7 @@ function KanbanPage(): ReactNode {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 overflow-hidden">
+      <div className="flex gap-4 overflow-hidden p-4">
         {/* Main Board Area */}
         <div className="flex-1 min-w-0">
           {/* Add task */}

@@ -523,15 +523,15 @@ function ProcessorCore() {
 
     // ---- 渲染 ----
     return (
-        <div className="flex flex-col lg:flex-row gap-8 p-6 min-h-screen bg-gray-50">
+        <div className="flex flex-col lg:flex-row gap-8 p-6 h-full bg-gray-50 overflow-hidden">
             {/* 左侧：原图预览 + 控制 */}
-            <div className="flex-1 flex flex-col bg-white p-6 rounded-xl shadow-md">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold text-gray-800">📷 原图</h3>
+            <div className="flex-1 flex flex-col bg-white p-4 rounded-xl shadow-md min-h-0 min-w-0 overflow-hidden">
+                <div className="flex justify-between items-center mb-3 shrink-0">
+                    <h3 className="text-lg font-bold text-gray-800">📷 原图</h3>
                     <button
                         onClick={() => setIsEditorOpen(true)}
                         disabled={!imageLoaded}
-                        className={`px-4 py-2 rounded-lg shadow-sm transition ${imageLoaded
+                        className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded
                                 ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
                                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
@@ -540,15 +540,15 @@ function ProcessorCore() {
                     </button>
                 </div>
 
-                <div className="w-full border border-gray-300 rounded-lg overflow-hidden bg-black">
+                <div className="flex-1 min-h-0 border border-gray-300 rounded-lg overflow-hidden bg-black flex items-center justify-center">
                     <canvas
                         ref={previewCanvasRef}
-                        className="w-full h-auto block max-h-[600px]"
+                        className="max-w-full max-h-full block"
                     />
                 </div>
 
-                {/* 操作按钮 */}
-                <div className="mt-4 flex flex-wrap gap-3 justify-center">
+                {/* 操作按钮 - 合并为一行 */}
+                <div className="mt-3 flex flex-wrap gap-2 justify-center shrink-0">
                     <input
                         type="file"
                         accept="image/*"
@@ -556,127 +556,120 @@ function ProcessorCore() {
                         className="hidden"
                         id="fileInput"
                     />
-                    <label htmlFor="fileInput" className="px-5 py-2.5 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition shadow-sm">
+                    <label htmlFor="fileInput" className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition shadow-sm">
                         📁 选择原图
                     </label>
-
                     <button
                         onClick={() => setPreviewTrigger(prev => prev + 1)}
                         disabled={!imageLoaded || isPreviewing}
-                        className={`px-5 py-2.5 rounded-lg shadow-sm transition ${imageLoaded && !isPreviewing
+                        className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded && !isPreviewing
                                 ? 'bg-green-600 hover:bg-green-700 text-white'
                                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
                     >
                         {isPreviewing ? '⏳ 处理中...' : '👁️ 预览'}
                     </button>
-
                     <button
                         onClick={handleResetEditor}
                         disabled={!imageLoaded}
-                        className={`px-5 py-2.5 rounded-lg shadow-sm transition ${imageLoaded
+                        className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded
                                 ? 'bg-red-600 hover:bg-red-700 text-white'
                                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
                     >
-                        🔄 重置编辑
+                        🔄 重置
                     </button>
-                </div>
-
-                {/* 导出按钮 */}
-                <div className="mt-3 flex flex-wrap gap-3 justify-center">
                     <button
                         onClick={() => exportCanvas(previewCanvasRef.current, 'composite')}
                         disabled={!imageLoaded}
-                        className={`px-4 py-2 rounded-lg shadow-sm transition ${imageLoaded
+                        className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded
                                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
                     >
-                        ⬇️ 合成图
+                        ⬇️ 合成
                     </button>
                     <button
                         onClick={() => exportProcessed('light')}
                         disabled={!imageLoaded}
-                        className={`px-4 py-2 rounded-lg shadow-sm transition ${imageLoaded
+                        className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded
                                 ? 'bg-amber-500 hover:bg-amber-600 text-white'
                                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
                     >
-                        ⬇️ 加亮图
+                        ⬇️ 加亮
                     </button>
                     <button
                         onClick={() => exportProcessed('dark')}
                         disabled={!imageLoaded}
-                        className={`px-4 py-2 rounded-lg shadow-sm transition ${imageLoaded
+                        className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded
                                 ? 'bg-cyan-600 hover:bg-cyan-700 text-white'
                                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
                     >
-                        ⬇️ 加暗图
+                        ⬇️ 加暗
                     </button>
                 </div>
 
-                {/* 全局参数 */}
-                <div className="w-full max-w-md mt-4 pt-4 border-t border-gray-200 space-y-3">
-                    <div className="text-sm font-medium text-gray-600">全局参数</div>
-                    <label className="block text-sm">
-                        <span className="flex justify-between">饱和度补偿 <span className="font-mono">{Math.round(saturationBoost * 100)}%</span></span>
-                        <input type="range" min="0" max="0.5" step="0.01" value={saturationBoost} onChange={(e) => setSaturationBoost(parseFloat(e.target.value))} className="w-full mt-1" />
+                {/* 全局参数 - 紧凑行布局 */}
+                <div className="mt-2 pt-2 border-t border-gray-200 flex gap-4 shrink-0">
+                    <label className="flex-1 text-xs">
+                        <span className="flex justify-between text-gray-600">饱和度 <span className="font-mono">{Math.round(saturationBoost * 100)}%</span></span>
+                        <input type="range" min="0" max="0.5" step="0.01" value={saturationBoost} onChange={(e) => setSaturationBoost(parseFloat(e.target.value))} className="w-full mt-0.5" />
                     </label>
-                    <label className="block text-sm">
-                        <span className="flex justify-between">细节增强 <span className="font-mono">{Math.round(detailBoost * 100)}%</span></span>
-                        <input type="range" min="0" max="1.5" step="0.01" value={detailBoost} onChange={(e) => setDetailBoost(parseFloat(e.target.value))} className="w-full mt-1" />
+                    <label className="flex-1 text-xs">
+                        <span className="flex justify-between text-gray-600">细节 <span className="font-mono">{Math.round(detailBoost * 100)}%</span></span>
+                        <input type="range" min="0" max="1.5" step="0.01" value={detailBoost} onChange={(e) => setDetailBoost(parseFloat(e.target.value))} className="w-full mt-0.5" />
                     </label>
                 </div>
             </div>
 
             {/* 右侧：预览区 */}
-            <div className="flex-1 flex flex-col bg-white p-6 rounded-xl shadow-md min-w-0">
-                <h3 className="text-xl font-bold text-gray-800 text-center mb-4">📊 预览</h3>
+            <div className="flex-1 flex flex-col bg-white p-4 rounded-xl shadow-md min-w-0 min-h-0 overflow-hidden">
+                <div className="flex-1 flex flex-col items-center min-h-0 overflow-y-auto">
+                    <div className="flex flex-col items-center mb-4 w-full">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-1">☀️ 加亮</h4>
+                        <div
+                            className="w-full max-w-md border border-gray-300 rounded-lg overflow-hidden bg-black cursor-pointer relative"
+                            onClick={() => {
+                                const canvas = brightPreviewRef.current;
+                                if (canvas) setFullscreenPreview(canvas.toDataURL('image/png'));
+                            }}
+                        >
+                            <canvas ref={brightPreviewRef} className="w-full h-auto block max-h-[300px]" />
+                            <div className="absolute bottom-1 right-1 text-white bg-black bg-opacity-50 px-2 py-0.5 text-xs rounded">点击全屏</div>
+                        </div>
+                        <div className="w-full max-w-md mt-1.5">
+                            <label className="block text-xs">
+                                <span className="flex justify-between text-gray-600">加亮强度 <span className="font-mono">{Math.round(brightStrength * 100)}%</span></span>
+                                <input type="range" min="0" max="1" step="0.01" value={brightStrength} onChange={(e) => setBrightStrength(parseFloat(e.target.value))} className="w-full mt-0.5" />
+                            </label>
+                        </div>
+                    </div>
 
-                <div className="flex flex-col items-center mb-6">
-                    <h4 className="text-md font-semibold text-gray-700 mb-1">☀️ 加亮</h4>
-                    <div
-                        className="w-full max-w-md border border-gray-300 rounded-lg overflow-hidden bg-black cursor-pointer relative"
-                        onClick={() => {
-                            const canvas = brightPreviewRef.current;
-                            if (canvas) setFullscreenPreview(canvas.toDataURL('image/png'));
-                        }}
-                    >
-                        <canvas ref={brightPreviewRef} className="w-full h-auto block max-h-[350px]" />
-                        <div className="absolute bottom-1 right-1 text-white bg-black bg-opacity-50 px-2 py-0.5 text-xs rounded">点击全屏</div>
+                    <div className="flex flex-col items-center w-full">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-1">🌙 加暗</h4>
+                        <div
+                            className="w-full max-w-md border border-gray-300 rounded-lg overflow-hidden bg-black cursor-pointer relative"
+                            onClick={() => {
+                                const canvas = darkPreviewRef.current;
+                                if (canvas) setFullscreenPreview(canvas.toDataURL('image/png'));
+                            }}
+                        >
+                            <canvas ref={darkPreviewRef} className="w-full h-auto block max-h-[300px]" />
+                            <div className="absolute bottom-1 right-1 text-white bg-black bg-opacity-50 px-2 py-0.5 text-xs rounded">点击全屏</div>
+                        </div>
+                        <div className="w-full max-w-md mt-1.5">
+                            <label className="block text-xs">
+                                <span className="flex justify-between text-gray-600">加暗强度 <span className="font-mono">{Math.round(darkStrength * 100)}%</span></span>
+                                <input type="range" min="0" max="1" step="0.01" value={darkStrength} onChange={(e) => setDarkStrength(parseFloat(e.target.value))} className="w-full mt-0.5" />
+                            </label>
+                        </div>
                     </div>
-                    <div className="w-full max-w-md mt-2">
-                        <label className="block text-sm">
-                            <span className="flex justify-between">加亮强度 <span className="font-mono">{Math.round(brightStrength * 100)}%</span></span>
-                            <input type="range" min="0" max="1" step="0.01" value={brightStrength} onChange={(e) => setBrightStrength(parseFloat(e.target.value))} className="w-full mt-1" />
-                        </label>
-                    </div>
-                </div>
 
-                <div className="flex flex-col items-center">
-                    <h4 className="text-md font-semibold text-gray-700 mb-1">🌙 加暗</h4>
-                    <div
-                        className="w-full max-w-md border border-gray-300 rounded-lg overflow-hidden bg-black cursor-pointer relative"
-                        onClick={() => {
-                            const canvas = darkPreviewRef.current;
-                            if (canvas) setFullscreenPreview(canvas.toDataURL('image/png'));
-                        }}
-                    >
-                        <canvas ref={darkPreviewRef} className="w-full h-auto block max-h-[350px]" />
-                        <div className="absolute bottom-1 right-1 text-white bg-black bg-opacity-50 px-2 py-0.5 text-xs rounded">点击全屏</div>
+                    <div className="mt-2 text-center text-xs text-gray-400 border-t border-gray-100 pt-2 w-full">
+                        点击预览图全屏查看 · 点击「预览」更新效果
                     </div>
-                    <div className="w-full max-w-md mt-2">
-                        <label className="block text-sm">
-                            <span className="flex justify-between">加暗强度 <span className="font-mono">{Math.round(darkStrength * 100)}%</span></span>
-                            <input type="range" min="0" max="1" step="0.01" value={darkStrength} onChange={(e) => setDarkStrength(parseFloat(e.target.value))} className="w-full mt-1" />
-                        </label>
-                    </div>
-                </div>
-
-                <div className="mt-4 text-center text-xs text-gray-400 border-t border-gray-100 pt-3">
-                    点击预览图全屏查看 · 点击「预览」更新效果
                 </div>
             </div>
 

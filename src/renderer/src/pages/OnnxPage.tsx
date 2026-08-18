@@ -217,8 +217,8 @@ function OnnxPageContent() {
     const displayModel = pendingModel || currentModel;
 
     return (
-        <div className="flex flex-col min-h-screen bg-gray-50">
-            <div className="flex-1 flex items-center justify-center p-4">
+        <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
+            <div className="flex-1 flex items-center justify-center p-4 overflow-y-auto">
                 <div className="w-full max-w-2xl bg-white rounded-xl shadow-lg p-6">
                     <h1 className="text-3xl font-bold mb-4 text-center text-gray-800">
                         🚀 本地 AI 推理 (ONNX + WebGPU)

@@ -83,7 +83,7 @@ const CalendarPage: React.FC = () => {
     const clearRecords = () => setRecords([]);
 
     return (
-        <div className="flex-1 flex flex-col bg-gray-50 px-4 md:px-6 pt-6 md:pt-10 pb-6 md:pb-10 overflow-hidden">
+        <div className="h-full flex flex-col bg-gray-50 px-4 md:px-6 pt-6 md:pt-10 pb-6 md:pb-10 overflow-hidden">
             <div className="flex flex-1 flex-col lg:flex-row gap-6 w-full lg:w-[80vw] mx-auto min-h-0">
                 <div className="lg:w-2/3 xl:w-3/5 flex-1 flex flex-col overflow-hidden rounded-xl">
                     <ChineseLunarCalendar onDateClick={handleDateClick} />

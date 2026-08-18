@@ -25,12 +25,12 @@ export default function Layout() {
     const updateDownloadedNotifiedRef = useRef(false);
     const [quickCreate, setQuickCreate] = useState<'log' | 'task' | null>(null);
 
-    // 关键：从路由 handle 读取 maxWidth，默认为 false（全宽）
-    const maxWidth =
-        (matches[matches.length - 1]?.handle as { maxWidth?: boolean })?.maxWidth ?? false;
+    // 关键：从路由 handle 读取 fluid，默认为 false（受限宽度）
+    const fluid =
+        (matches[matches.length - 1]?.handle as { fluid?: boolean })?.fluid ?? false;
 
     // 调试日志（可删除）
-    console.log(`[Layout] 当前路径: ${location.pathname}, maxWidth: ${maxWidth}`);
+    console.log(`[Layout] 当前路径: ${location.pathname}, fluid: ${fluid}`);
 
     // ---- 监听 IPC 事件 ----
     useEffect(() => {
@@ -132,7 +132,7 @@ export default function Layout() {
             </header>
 
             <main className="flex-1 overflow-auto">
-                <div className={`px-4 py-6 ${maxWidth ? '' : 'max-w-3xl mx-auto'}`}>
+                <div className={fluid ? '' : 'max-w-3xl mx-auto px-4 py-6'}>
                     <Outlet />
                 </div>
             </main>

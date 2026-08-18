@@ -56,6 +56,7 @@ export default defineConfig(({ mode }) => {
       // },
       // 确保开发服务器能正确处理 .wasm 文件
       server: {
+        port: 5252,
         headers: {
           'Cross-Origin-Opener-Policy': 'same-origin',
           'Cross-Origin-Embedder-Policy': 'require-corp'
