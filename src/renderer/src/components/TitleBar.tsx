@@ -89,6 +89,28 @@ export function TitleBar() {
     boxShadow: isHover
       ? 'inset 0 0 8px rgba(255,255,255,0.5), 0 0 4px rgba(0,0,0,0.1)'
       : 'inset 0 1px 2px rgba(0,0,0,0.1)',
+    position: 'relative' as const,
+  } as React.CSSProperties);
+
+  // Tooltip 样式
+  const tooltipStyle = (visible: boolean) => ({
+    position: 'absolute' as const,
+    top: '100%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    marginTop: '6px',
+    padding: '2px 8px',
+    borderRadius: '4px',
+    fontSize: '11px',
+    fontWeight: 500 as const,
+    whiteSpace: 'nowrap' as const,
+    pointerEvents: 'none' as const,
+    opacity: visible ? 1 : 0,
+    transition: 'opacity 0.15s ease',
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    color: '#fff',
+    zIndex: 100,
+    lineHeight: '18px',
   } as React.CSSProperties);
 
   return (
@@ -109,6 +131,7 @@ export function TitleBar() {
           aria-label="Close"
         >
           {hoverClose && <X size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />}
+          <span style={tooltipStyle(hoverClose)}>关闭</span>
         </button>
 
         {/* 最小化 */}
@@ -120,6 +143,7 @@ export function TitleBar() {
           aria-label="Minimize"
         >
           {hoverMinimize && <Minus size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />}
+          <span style={tooltipStyle(hoverMinimize)}>最小化</span>
         </button>
 
         {/* 最大化 / 还原（动态） */}
@@ -135,7 +159,8 @@ export function TitleBar() {
               <Shrink size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />
             ) : (
               <Expand size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />
-            ))}
+            )}
+          <span style={tooltipStyle(hoverMaximize)}>{isMaximized ? '还原' : '最大化'}</span>
         </button>
       </div>
 
