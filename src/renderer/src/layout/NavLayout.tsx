@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { SiDeepseek, SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
 import { useI18n } from '../stores/languageStore';
+import { useClickAway } from 'react-use';
 
 interface NavItem {
     path: string;
@@ -35,6 +36,9 @@ export default function NavLayout() {
 
     const fluid =
         (matches[matches.length - 1]?.handle as { fluid?: boolean })?.fluid ?? false;
+
+    // Close dropdown on outside click via react-use
+    useClickAway(moreMenuRef, () => setShowMoreMenu(false));
 
     const handleScroll = useCallback(() => {
         const el = scrollRef.current;
@@ -104,18 +108,6 @@ export default function NavLayout() {
         return () => observer.disconnect();
     }, [calculateVisibleItems]);
 
-    // Close more menu on outside click
-    useEffect(() => {
-        if (!showMoreMenu) return;
-        const handler = (e: MouseEvent) => {
-            if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
-                setShowMoreMenu(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [showMoreMenu]);
-
     const navLink = (path: string, icon: React.ReactNode, label: string) => {
         const isActive =
             location.pathname === `/${path}` || (path === 'worklog' && location.pathname === '/');
@@ -167,52 +159,57 @@ export default function NavLayout() {
             >
                 <div className="flex items-center gap-1 min-w-0">
                     <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4 shrink-0">工作台</h1>
+                    {/* Visible nav items - overflow hidden to clip */}
                     <nav className="flex gap-1 overflow-hidden">
                         {visibleItems.map((item) => (
                             <React.Fragment key={item.path}>
                                 {navLink(item.path, item.icon, item.label)}
                             </React.Fragment>
                         ))}
-                        {hiddenItems.length > 0 && (
-                            <div className="relative" ref={moreMenuRef}>
-                                <button
-                                    onClick={() => setShowMoreMenu(!showMoreMenu)}
-                                    className={`px-2 py-1.5 text-sm rounded-lg transition-all duration-200 ${
-                                        hiddenItems.some(item =>
+                    </nav>
+                    {/* More button + dropdown - OUTSIDE overflow-hidden nav so dropdown is visible */}
+                    {hiddenItems.length > 0 && (
+                        <div className="relative" ref={moreMenuRef}>
+                            <button
+                                onClick={() => setShowMoreMenu((prev) => !prev)}
+                                className={`px-2 py-1.5 text-sm rounded-lg transition-all duration-200 ${
+                                    hiddenItems.some(
+                                        (item) =>
                                             location.pathname === `/${item.path}` ||
                                             (item.path === 'worklog' && location.pathname === '/')
-                                        )
-                                            ? 'bg-zinc-900/90 text-white dark:bg-zinc-100/90 dark:text-zinc-900 shadow-sm'
-                                            : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70'
-                                    }`}
+                                    )
+                                        ? 'bg-zinc-900/90 text-white dark:bg-zinc-100/90 dark:text-zinc-900 shadow-sm'
+                                        : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70'
+                                }`}
+                            >
+                                <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                            {showMoreMenu && (
+                                <div
+                                    className="absolute top-full left-0 mt-1 py-1 bg-white/90 dark:bg-zinc-800/90 
+                                               backdrop-blur-xl rounded-lg shadow-lg border border-zinc-200/40 dark:border-zinc-700/40 
+                                               min-w-[120px] z-50 animate-fade-in"
                                 >
-                                    <MoreHorizontal className="w-4 h-4" />
-                                </button>
-                                {showMoreMenu && (
-                                    <div className="absolute top-full left-0 mt-1 py-1 bg-white/90 dark:bg-zinc-800/90 
-                                                    backdrop-blur-xl rounded-lg shadow-lg border border-zinc-200/40 dark:border-zinc-700/40 
-                                                    min-w-[120px] z-50 animate-fade-in">
-                                        {hiddenItems.map((item) => (
-                                            <Link
-                                                key={item.path}
-                                                to={`/${item.path}`}
-                                                onClick={() => setShowMoreMenu(false)}
-                                                className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md mx-1 transition-colors ${
-                                                    location.pathname === `/${item.path}` ||
-                                                    (item.path === 'worklog' && location.pathname === '/')
-                                                        ? 'bg-zinc-900/10 text-zinc-900 dark:bg-zinc-100/10 dark:text-zinc-100'
-                                                        : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-zinc-700/70'
-                                                }`}
-                                            >
-                                                {item.icon}
-                                                {item.label}
-                                            </Link>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </nav>
+                                    {hiddenItems.map((item) => (
+                                        <Link
+                                            key={item.path}
+                                            to={`/${item.path}`}
+                                            onClick={() => setShowMoreMenu(false)}
+                                            className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md mx-1 transition-colors ${
+                                                location.pathname === `/${item.path}` ||
+                                                (item.path === 'worklog' && location.pathname === '/')
+                                                    ? 'bg-zinc-900/10 text-zinc-900 dark:bg-zinc-100/10 dark:text-zinc-100'
+                                                    : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-zinc-700/70'
+                                            }`}
+                                        >
+                                            {item.icon}
+                                            {item.label}
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
                 <Link
                     to="/settings"
