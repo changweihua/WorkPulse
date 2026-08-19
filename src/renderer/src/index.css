@@ -17,17 +17,21 @@
 }
 
 /* ===== Base: translucent body for Mica ===== */
+html {
+  background: transparent;
+}
+
 body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: rgb(250 250 250 / 0.72);
+  background-color: rgb(250 250 250 / 0.5);
   color: #09090b;
 }
 
 .dark body,
 :root.dark body {
-  background-color: rgb(10 10 10 / 0.72);
+  background-color: rgb(10 10 10 / 0.5);
   color: #fafafa;
 }
 

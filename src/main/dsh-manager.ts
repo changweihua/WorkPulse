@@ -191,7 +191,7 @@ export class DSHManager {
                 log.info('DSH start: no API key, using way-3 (user configures in UI)');
             }
 
-            const args = ['@deepseek-ai/dsh', 'web', '--host', '127.0.0.1', '--port', String(port)];
+            const args = ['@deepseek-ai/dsh', 'web', '--host', '127.0.0.1', '--port', String(port), '--no-open'];
             const child = spawn('npx', args, {
                 cwd: process.cwd(),
                 env,

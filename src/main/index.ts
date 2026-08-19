@@ -478,7 +478,6 @@ function createWindow(): void {
     //frame: false, // needed if process.versions.electron < 14
     /* You can use *titleBarOverlay: true* to use the original Windows controls */
     titleBarOverlay: false,
-    backgroundMaterial: 'mica',  // Windows 11 云母效果
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
