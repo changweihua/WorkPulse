@@ -178,15 +178,9 @@ function setupContextMenu(window: BrowserWindow): void {
         const text = parameters.selectionText.trim()
         if (text.length > 0) {
           items.push({
-            label: `🔍 搜索 "${text.substring(0, 20)}${text.length > 20 ? '…' : ''}"`,
+            label: `搜索 "${text.substring(0, 20)}${text.length > 20 ? '…' : ''}"`,
             click: () => {
               shell.openExternal(`https://www.google.com/search?q=${encodeURIComponent(text)}`)
-            }
-          })
-          items.push({
-            label: `📋 复制 "${text.substring(0, 20)}${text.length > 20 ? '…' : ''}"`,
-            click: () => {
-              // clipboard.writeText(text)
             }
           })
           items.push({ type: 'separator' })
@@ -196,7 +190,7 @@ function setupContextMenu(window: BrowserWindow): void {
       // 链接 → 在浏览器打开
       if (parameters.linkURL) {
         items.push({
-          label: '🌐 在浏览器中打开链接',
+          label: '在浏览器中打开链接',
           click: () => {
             shell.openExternal(parameters.linkURL)
           }
@@ -204,33 +198,15 @@ function setupContextMenu(window: BrowserWindow): void {
         items.push({ type: 'separator' })
       }
 
-      // 图片 → 复制图片（需要额外处理）
-      if (parameters.mediaType === 'image' && parameters.srcURL) {
-        items.push({
-          label: '🖼️ 复制图片到剪贴板',
-          click: async () => {
-            // try {
-            //   const response = await fetch(parameters.srcURL)
-            //   const buffer = await response.arrayBuffer()
-            //   const image = nativeImage.createFromBuffer(Buffer.from(buffer))
-            //   clipboard.writeImage(image)
-            // } catch (error) {
-            //   console.error('复制图片失败:', error)
-            // }
-          }
-        })
-        items.push({ type: 'separator' })
-      }
-
       // 应用内导航
       items.push({
-        label: '🏠 返回工作台',
+        label: '返回工作台',
         click: () => {
           window.webContents.send('navigate:worklog')
         }
       })
       items.push({
-        label: '⚙️ 打开设置',
+        label: '打开设置',
         click: () => {
           window.webContents.send('navigate:settings')
         }
@@ -245,29 +221,29 @@ function setupContextMenu(window: BrowserWindow): void {
       if (!is.dev) {
         items.push({ type: 'separator' })
         items.push({
-          label: `⚡ 开发模式 v${app.getVersion()}`,
+          label: `开发模式 v${app.getVersion()}`,
           enabled: false,
         })
         // 快速重载
         items.push({
-          label: '🔄 重载页面',
+          label: '重载页面',
           click: () => {
             window.webContents.reload()
           }
         })
         // 打开 DevTools
         items.push({
-          label: '🔧 打开开发者工具',
+          label: '打开开发者工具',
           click: () => {
             window.webContents.openDevTools()
           }
         })
       }
 
-      // 显示页面信息（可选）
+      // 显示页面信息
       items.push({ type: 'separator' })
       items.push({
-        label: `📄 WorkPulse v${app.getVersion()}`,
+        label: `WorkPulse v${app.getVersion()}`,
         enabled: false,
       })
 
@@ -292,18 +268,30 @@ function setupContextMenu(window: BrowserWindow): void {
 // --- Tray ---
 
 function buildTrayMenu(): Electron.Menu {
+  const iconDir = is.dev
+    ? join(__dirname, '../../resources')
+    : join(process.resourcesPath)
+
+  const newLogIcon = nativeImage.createFromPath(join(iconDir, 'tray-icon-16.png')).resize({ width: 16, height: 16 })
+  const newTaskIcon = nativeImage.createFromPath(join(iconDir, 'tray-icon-16.png')).resize({ width: 16, height: 16 })
+  const showIcon = nativeImage.createFromPath(join(iconDir, 'tray-icon-16.png')).resize({ width: 16, height: 16 })
+  const quitIcon = nativeImage.createFromPath(join(iconDir, 'tray-icon-16.png')).resize({ width: 16, height: 16 })
+
   return Menu.buildFromTemplate([
     {
       label: tMain('newLog'),
+      icon: newLogIcon,
       click: () => sendToRenderer('quick-create:log')
     },
     {
       label: tMain('newTask'),
+      icon: newTaskIcon,
       click: () => sendToRenderer('quick-create:task')
     },
     { type: 'separator' },
     {
       label: tMain('showApp'),
+      icon: showIcon,
       click: () => {
         const win = getMainWindow()
         if (win) { win.show(); win.focus() }
@@ -312,6 +300,7 @@ function buildTrayMenu(): Electron.Menu {
     { type: 'separator' },
     {
       label: tMain('quit'),
+      icon: quitIcon,
       click: () => app.quit()
     }
   ])
