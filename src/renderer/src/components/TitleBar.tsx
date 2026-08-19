@@ -175,7 +175,7 @@ export function TitleBar() {
                 <Shrink size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />
               ) : (
                 <Expand size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />
-              )}
+              ))}
           </button>
           <span style={tooltipStyle(hoverMaximize)}>{isMaximized ? '还原' : '最大化'}</span>
         </div>
