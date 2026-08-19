@@ -113,55 +113,72 @@ export function TitleBar() {
     lineHeight: '18px',
   } as React.CSSProperties);
 
+  // 按钮外层容器（提供 tooltip 定位上下文）
+  const btnWrapStyle = {
+    position: 'relative' as const,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '20px',
+    height: '20px',
+    WebkitAppRegion: 'no-drag' as const,
+  } as React.CSSProperties;
+
   return (
     <div style={glassStyle}>
       <div
         style={{
           display: 'flex',
-          gap: '8px',
+          gap: '4px',
           WebkitAppRegion: 'no-drag',
         } as React.CSSProperties}
       >
         {/* 关闭 */}
-        <button
-          onClick={handleClose}
-          onMouseEnter={() => setHoverClose(true)}
-          onMouseLeave={() => setHoverClose(false)}
-          style={getButtonStyle('#ff5f57', '#ff7a7a', hoverClose)}
-          aria-label="Close"
-        >
-          {hoverClose && <X size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />}
+        <div style={btnWrapStyle}>
+          <button
+            onClick={handleClose}
+            onMouseEnter={() => setHoverClose(true)}
+            onMouseLeave={() => setHoverClose(false)}
+            style={getButtonStyle('#ff5f57', '#ff7a7a', hoverClose)}
+            aria-label="Close"
+          >
+            {hoverClose && <X size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />}
+          </button>
           <span style={tooltipStyle(hoverClose)}>关闭</span>
-        </button>
+        </div>
 
         {/* 最小化 */}
-        <button
-          onClick={handleMinimize}
-          onMouseEnter={() => setHoverMinimize(true)}
-          onMouseLeave={() => setHoverMinimize(false)}
-          style={getButtonStyle('#ffbd2e', '#ffd24d', hoverMinimize)}
-          aria-label="Minimize"
-        >
-          {hoverMinimize && <Minus size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />}
+        <div style={btnWrapStyle}>
+          <button
+            onClick={handleMinimize}
+            onMouseEnter={() => setHoverMinimize(true)}
+            onMouseLeave={() => setHoverMinimize(false)}
+            style={getButtonStyle('#ffbd2e', '#ffd24d', hoverMinimize)}
+            aria-label="Minimize"
+          >
+            {hoverMinimize && <Minus size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />}
+          </button>
           <span style={tooltipStyle(hoverMinimize)}>最小化</span>
-        </button>
+        </div>
 
         {/* 最大化 / 还原（动态） */}
-        <button
-          onClick={handleMaximize}
-          onMouseEnter={() => setHoverMaximize(true)}
-          onMouseLeave={() => setHoverMaximize(false)}
-          style={getButtonStyle('#28c840', '#4cd964', hoverMaximize)}
-          aria-label="Maximize"
-        >
-          {hoverMaximize &&
-            (isMaximized ? (
-              <Shrink size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />
-            ) : (
-              <Expand size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />
-            )}
+        <div style={btnWrapStyle}>
+          <button
+            onClick={handleMaximize}
+            onMouseEnter={() => setHoverMaximize(true)}
+            onMouseLeave={() => setHoverMaximize(false)}
+            style={getButtonStyle('#28c840', '#4cd964', hoverMaximize)}
+            aria-label="Maximize"
+          >
+            {hoverMaximize &&
+              (isMaximized ? (
+                <Shrink size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />
+              ) : (
+                <Expand size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />
+              )}
+          </button>
           <span style={tooltipStyle(hoverMaximize)}>{isMaximized ? '还原' : '最大化'}</span>
-        </button>
+        </div>
       </div>
 
       <span
