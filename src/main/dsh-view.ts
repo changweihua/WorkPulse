@@ -1,110 +1,179 @@
 /**
  * dsh-view.ts
- * 使用 WebContentsView 在 BrowserWindow 中嵌入 DSH。
- * WebContentsView 是 Electron 43 的推荐方案，替代已弃用的 BrowserView。
+ *
+ * Embeds DSH in a WebContentsView (Electron 43+ recommended API, replaces BrowserView).
+ *
+ * Key design decisions (based on craft-agents-oss / hermes-agent patterns):
+ *  - Main process owns view geometry; setAutoResize handles window resize
+ *  - Security: sandbox, contextIsolation, webSecurity enabled (loopback needs none of the overrides)
+ *  - Crash / fail-load events surfaced to renderer via dsh:status-changed
+ *  - stop() called before destroy to avoid Chromium compositor assertion
  */
 
 import { WebContentsView, BrowserWindow } from 'electron';
 import log from 'electron-log/main';
 
+// ---------- constants ----------
+const TOOLBAR_HEIGHT = 30; // debug bar height in renderer (must match DSHPage)
+const BG_COLOR = '#f9fafb'; // tailwind gray-50, matches light theme
+
+// ---------- state ----------
 let dshView: WebContentsView | null = null;
 let parentWindow: BrowserWindow | null = null;
+let viewOffset = TOOLBAR_HEIGHT;
+let windowResizeHandler: (() => void) | null = null;
+
+// ---------- helpers ----------
+
+function sendToRenderer(channel: string, ...args: unknown[]) {
+    if (parentWindow && !parentWindow.isDestroyed()) {
+        parentWindow.webContents.send(channel, ...args);
+    }
+}
+
+function layoutView() {
+    if (!dshView || !parentWindow || parentWindow.isDestroyed()) return;
+    const { width, height } = parentWindow.getContentBounds();
+    if (width < 100 || height < 100) return; // minimised – skip
+    dshView.setBounds({
+        x: 0,
+        y: viewOffset,
+        width,
+        height: Math.max(100, height - viewOffset),
+    });
+}
+
+function attachResizeListener() {
+    if (!parentWindow || windowResizeHandler) return;
+    windowResizeHandler = () => layoutView();
+    parentWindow.on('resize', windowResizeHandler);
+}
+
+function detachResizeListener() {
+    if (parentWindow && windowResizeHandler) {
+        parentWindow.removeListener('resize', windowResizeHandler);
+        windowResizeHandler = null;
+    }
+}
+
+// ---------- public API ----------
 
 /**
- * 创建 DSH WebContentsView
+ * Create and attach a DSH WebContentsView to the parent window.
+ * @param parent  The BrowserWindow to attach to
+ * @param url     The DSH service URL (http://127.0.0.1:PORT)
+ * @param offset  Y-offset from top of content area (default: TOOLBAR_HEIGHT)
  */
-export function createDSHView(parent: BrowserWindow, url: string): number {
+export function createDSHView(parent: BrowserWindow, url: string, offset: number = TOOLBAR_HEIGHT): number {
     if (dshView) destroyDSHView();
+
     parentWindow = parent;
+    viewOffset = offset;
 
     dshView = new WebContentsView({
         webPreferences: {
-            nodeIntegration: false,
+            sandbox: true,
             contextIsolation: true,
-            webSecurity: false,
-            allowRunningInsecureContent: true,
+            nodeIntegration: false,
+            webSecurity: true,
             javascript: true,
         },
     });
 
-    dshView.setBackgroundColor('#f0f0f0');
+    dshView.setBackgroundColor(BG_COLOR);
+
+    // Auto-resize with parent window – no renderer IPC needed for resize
+    dshView.setAutoResize({ width: true, height: true });
+
     parent.contentView.addChildView(dshView);
+    layoutView();
+    attachResizeListener();
 
-    const initBounds = { x: 0, y: 0, width: 100, height: 100 };
-    dshView.setBounds(initBounds);
+    const wc = dshView.webContents;
 
-    dshView.webContents.loadURL(url).catch(err => {
-        log.error('DSH 加载失败', err);
+    // --- event wiring (push state to renderer) ---
+
+    wc.on('did-start-loading', () => {
+        sendToRenderer('dsh:status-changed', { type: 'loading' });
     });
 
-    dshView.webContents.on('did-finish-load', () => {
-        log.info('DSH WebContentsView 加载完成');
+    wc.on('did-stop-loading', () => {
+        sendToRenderer('dsh:status-changed', { type: 'loaded' });
     });
 
-    dshView.webContents.on('did-fail-load', (_, code, desc) => {
-        log.error('DSH 加载失败', { code, desc });
+    wc.on('did-finish-load', () => {
+        log.info('DSH view loaded');
+        sendToRenderer('dsh:status-changed', { type: 'loaded' });
     });
 
-    dshView.webContents.on('console-message', (event, level, message, line, sourceId) => {
-        log.debug(`DSH console: ${message} (${sourceId}:${line})`);
+    wc.on('did-fail-load', (_e, code, desc, urlStr, isMainFrame) => {
+        // Ignore expected errors
+        if (!isMainFrame) return;                           // sub-frame failures
+        if (code === -3) return;                            // ERR_ABORTED (navigation/redirect)
+        if (code === -102) {                                // ERR_CONNECTION_REFUSED – service not up yet
+            log.warn('DSH connection refused (service may be starting)', { urlStr });
+            return;
+        }
+        log.error('DSH view failed to load', { code, desc, url: urlStr });
+        sendToRenderer('dsh:status-changed', { type: 'error', code, desc });
     });
 
-    log.info('DSH WebContentsView 创建成功', { id: dshView.webContents.id });
-    return dshView.webContents.id;
+    wc.on('render-process-gone', (_e, details) => {
+        log.error('DSH render process gone', { reason: details.reason });
+        sendToRenderer('dsh:status-changed', { type: 'crashed', reason: details.reason });
+    });
+
+    wc.on('page-title-updated', (_e, title) => {
+        sendToRenderer('dsh:status-changed', { type: 'title', title });
+    });
+
+    // Load URL (catch immediate failures)
+    wc.loadURL(url).catch((err) => {
+        log.error('DSH loadURL failed', err);
+        sendToRenderer('dsh:status-changed', { type: 'error', code: -1, desc: err.message });
+    });
+
+    log.info('DSH view created', { id: wc.id, url, offset });
+    return wc.id;
 }
 
 /**
- * 调整 WebContentsView 的大小和位置
+ * Manually resize the view (called from renderer when toolbar height changes).
+ * With setAutoResize, this is rarely needed.
  */
 export function resizeDSHView(offsetTop: number): void {
-    if (!dshView || !parentWindow || parentWindow.isDestroyed()) {
-        log.warn('resizeDSHView: 窗口或视图无效');
-        return;
-    }
-
-    const contentBounds = parentWindow.getContentBounds();
-    let width = contentBounds.width;
-    let height = contentBounds.height;
-    if (width < 100 || height < 100) {
-        const winBounds = parentWindow.getBounds();
-        width = Math.max(100, winBounds.width);
-        height = Math.max(100, winBounds.height);
-    }
-
-    const bounds = {
-        x: 0,
-        y: offsetTop,
-        width: width,
-        height: Math.max(0, height - offsetTop),
-    };
-
-    log.debug('调整 WebContentsView 到', bounds);
-    dshView.setBounds(bounds);
+    viewOffset = offsetTop;
+    layoutView();
 }
 
 /**
- * 销毁 WebContentsView
+ * Destroy the view. Calls stop() on webContents first to avoid compositor crash.
  */
 export function destroyDSHView(): void {
-    if (dshView) {
-        if (parentWindow && !parentWindow.isDestroyed()) {
-            parentWindow.contentView.removeChildView(dshView);
-        }
-        // 关闭 WebContents（触发清理），但不会立即销毁
-        try {
-            dshView.webContents.close();
-        } catch (e) {
-            log.warn('关闭 DSH WebContents 时出错', e);
-        }
-        // 置空以便垃圾回收
-        dshView = null;
-        parentWindow = null;
-        log.info('DSH WebContentsView 已销毁');
+    if (!dshView) return;
+
+    detachResizeListener();
+
+    try {
+        dshView.webContents.stop(); // stop in-flight load first
+    } catch { /* already destroyed */ }
+
+    if (parentWindow && !parentWindow.isDestroyed()) {
+        parentWindow.contentView.removeChildView(dshView);
     }
+
+    try {
+        dshView.webContents.close();
+        dshView.webContents.removeAllListeners();
+    } catch { /* already closed */ }
+
+    dshView = null;
+    parentWindow = null;
+    log.info('DSH view destroyed');
 }
 
 /**
- * 获取当前 WebContentsView 的 ID
+ * Get the WebContentsView ID (for IPC correlation).
  */
 export function getDSHViewId(): number | null {
     return dshView?.webContents.id ?? null;

@@ -1,29 +1,34 @@
 /**
  * dsh-manager.ts
- * 
- * 基于 DeepSeek 官方桌面应用的设计，使用更健壮的进程管理。
- * 功能：
- *   - 启动 DSH Web Host（监听随机端口或指定端口）
- *   - 严格解析就绪输出 "dsh web: http://127.0.0.1:<port>"
- *   - 支持传入 API Key（方式一）或留空（方式三）
- *   - 超时保护、优雅关闭
- *   - 并发启动/关闭控制
+ *
+ * DSH process manager (based on DeepSeek official desktop app design).
+ *
+ * Features:
+ *   - Start DSH Web Host (random or specified port)
+ *   - Strict readiness parsing: "dsh web: http://127.0.0.1:<port>"
+ *   - Optional API key injection (way-1) or leave empty (way-3)
+ *   - Timeout protection, graceful shutdown
+ *   - Crash detection + auto-restart with exponential backoff
+ *   - Status change callback for main→renderer push events
  */
 
 import { spawn, type ChildProcessByStdio } from 'child_process';
 import { Readable } from 'stream';
 import log from 'electron-log/main';
 
-// ---------- 常量 ----------
+// ---------- constants ----------
 const READINESS_PREFIX = 'dsh web: ';
 const DEFAULT_READINESS_TIMEOUT_MS = 90_000;
 const DEFAULT_SHUTDOWN_TIMEOUT_MS = 5_000;
 const MAX_STARTUP_OUTPUT_CHARS = 32_768;
+const MAX_AUTO_RESTARTS = 3;
+const AUTO_RESTART_DELAYS_MS = [2_000, 5_000, 10_000];
 
-// ---------- 类型 ----------
+// ---------- types ----------
 export type DSHStatus = 'idle' | 'starting' | 'running' | 'error' | 'stopped';
+export type DSHStatusListener = (status: DSHStatus, detail?: Record<string, unknown>) => void;
 
-// ---------- 就绪解析器（参考官方代码） ----------
+// ---------- readiness parser (reference: official code) ----------
 export function createReadinessParser() {
     let pending = '';
     let readyUrl: string | undefined;
@@ -70,7 +75,7 @@ export function createReadinessParser() {
     };
 }
 
-// ---------- 适配子进程 ----------
+// ---------- child process adapter ----------
 function adaptChildProcess(child: ChildProcessByStdio<null, Readable, Readable>) {
     return {
         pid: child.pid,
@@ -100,7 +105,7 @@ function adaptChildProcess(child: ChildProcessByStdio<null, Readable, Readable>)
     };
 }
 
-// ---------- DSH 管理器 ----------
+// ---------- DSH Manager ----------
 export class DSHManager {
     private child: any = null;
     private status: DSHStatus = 'idle';
@@ -110,21 +115,51 @@ export class DSHManager {
     private exitedPromise: Promise<void> | null = null;
     private outputBuffer = '';
     private shuttingDown = false;
+    private autoRestartCount = 0;
+    private statusListeners: DSHStatusListener[] = [];
 
     getStatus() { return this.status; }
     getPort() { return this.port; }
 
     /**
-     * 启动 DSH 服务
-     * @param apiKey - 可选，传入则设置环境变量 DEEPSEEK_API_KEY
-     * @param port - 可选，指定端口，默认 0（随机分配）
-     * @returns Promise<string> 返回就绪 URL
+     * Register a status change listener (for main→renderer push events).
+     */
+    onStatusChange(listener: DSHStatusListener): () => void {
+        this.statusListeners.push(listener);
+        return () => {
+            this.statusListeners = this.statusListeners.filter(l => l !== listener);
+        };
+    }
+
+    private emitStatusChange(detail?: Record<string, unknown>) {
+        for (const listener of this.statusListeners) {
+            try { listener(this.status, detail); } catch { /* swallow */ }
+        }
+    }
+
+    private setStatus(s: DSHStatus, detail?: Record<string, unknown>) {
+        if (this.status === s) return;
+        this.status = s;
+        this.emitStatusChange(detail);
+    }
+
+    /**
+     * Start DSH service with auto-restart on crash.
      */
     async start(apiKey?: string, port = 0): Promise<string> {
         if (this.startPromise) return this.startPromise;
         if (this.shutdownPromise) throw new Error('Cannot start after shutdown');
 
-        this.startPromise = new Promise<string>((resolve, reject) => {
+        this.autoRestartCount = 0;
+        this.startPromise = this.doStart(apiKey, port);
+        return this.startPromise;
+    }
+
+    /**
+     * Internal start implementation (may be called again for auto-restart).
+     */
+    private doStart(apiKey?: string, port = 0): Promise<string> {
+        return new Promise<string>((resolve, reject) => {
             const parser = createReadinessParser();
             let settled = false;
             const cleanups: Array<() => void> = [];
@@ -147,17 +182,15 @@ export class DSHManager {
                 reject(new Error(`${error instanceof Error ? error.message : String(error)}${diag}`));
             };
 
-            // 准备环境变量
+            // Environment variables
             const env = { ...process.env };
             if (apiKey) {
                 env.DEEPSEEK_API_KEY = apiKey;
-                log.info('DSH 启动：使用传入的 API Key（方式一）');
+                log.info('DSH start: using API key (way-1)');
             } else {
-                log.info('DSH 启动：未传入 API Key，将使用方式三（用户在 UI 中配置）');
+                log.info('DSH start: no API key, using way-3 (user configures in UI)');
             }
-            // 参考官方代码，在 Electron 中需要设置 ELECTRON_RUN_AS_NODE=1
-            // 这里我们使用 npx，如果直接使用 node 执行 CLI 入口则需设置
-            // 为了简单，我们继续使用 npx，但确保环境变量传递
+
             const args = ['@deepseek-ai/dsh', 'web', '--host', '127.0.0.1', '--port', String(port)];
             const child = spawn('npx', args, {
                 cwd: process.cwd(),
@@ -167,23 +200,33 @@ export class DSHManager {
                 windowsHide: true,
             });
             this.child = adaptChildProcess(child);
-            this.status = 'starting';
-            log.info(`DSH 进程启动，PID: ${this.child.pid}`);
+            this.setStatus('starting');
+            log.info(`DSH process started, PID: ${this.child.pid}`);
 
-            // 退出处理
+            // Exit handler – detect crash after readiness
             const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
-                if (settled) return;
-                fail(new Error(`DSH exited before readiness (code ${code}, signal ${signal})`));
                 this.exitedPromise = Promise.resolve();
+
+                if (settled) {
+                    // Process exited after readiness → crash or stop
+                    if (!this.shuttingDown && this.status === 'running') {
+                        log.warn('DSH process exited unexpectedly after running', { code, signal });
+                        this.handleCrash(code, signal);
+                    }
+                    return;
+                }
+
+                // Exited before readiness
+                fail(new Error(`DSH exited before readiness (code ${code}, signal ${signal})`));
             };
             cleanups.push(this.child.onExit(onExit));
 
-            // 错误处理
+            // Error handler
             this.child.onError((err: Error) => {
                 fail(new Error(`DSH spawn error: ${err.message}`));
             });
 
-            // 处理 stdout
+            // Stdout – readiness detection
             cleanups.push(this.child.stdout.onData((chunk: string) => {
                 appendOutput(chunk);
                 try {
@@ -191,9 +234,9 @@ export class DSHManager {
                     if (url && !settled) {
                         settled = true;
                         cleanup();
-                        this.status = 'running';
+                        this.setStatus('running');
                         this.port = new URL(url).port ? Number(new URL(url).port) : 0;
-                        log.info(`DSH 服务就绪: ${url}`);
+                        log.info(`DSH service ready: ${url}`);
                         resolve(url);
                     }
                 } catch (err) {
@@ -202,33 +245,56 @@ export class DSHManager {
                 }
             }));
 
-            // stderr 只记录，不用于就绪检测
+            // Stderr – log only, not used for readiness
             cleanups.push(this.child.stderr.onData((chunk: string) => {
                 appendOutput(chunk);
             }));
 
-            // 超时
+            // Readiness timeout
             const timeout = setTimeout(() => {
                 fail(new Error(`DSH readiness timed out after ${DEFAULT_READINESS_TIMEOUT_MS}ms`));
                 this.child.kill('SIGTERM');
             }, DEFAULT_READINESS_TIMEOUT_MS);
 
-            // 保存清理函数
-            this.startPromise?.finally(() => {
-                cleanup();
-            });
+            this.startPromise?.finally(() => cleanup());
         });
-
-        return this.startPromise;
     }
 
     /**
-     * 停止 DSH 服务
+     * Handle crash after the service was running. Auto-restart with backoff.
+     */
+    private handleCrash(code: number | null, signal: NodeJS.Signals | null) {
+        if (this.shuttingDown) return;
+
+        if (this.autoRestartCount < MAX_AUTO_RESTARTS) {
+            const delay = AUTO_RESTART_DELAYS_MS[this.autoRestartCount] ?? 10_000;
+            this.autoRestartCount++;
+            log.info(`DSH auto-restarting (attempt ${this.autoRestartCount}/${MAX_AUTO_RESTARTS}) in ${delay}ms`);
+            this.setStatus('error', { reason: 'crash', autoRestarting: true, attempt: this.autoRestartCount, delay });
+
+            setTimeout(() => {
+                if (this.shuttingDown || this.status === 'stopped') return;
+                this.startPromise = null;
+                this.start().catch((err) => {
+                    log.error('DSH auto-restart failed', err);
+                });
+            }, delay);
+        } else {
+            log.error('DSH crashed, max auto-restart attempts reached', { code, signal });
+            this.setStatus('error', { reason: 'crash', code, signal, autoRestarting: false });
+            this.port = null;
+            this.child = null;
+            this.startPromise = null;
+        }
+    }
+
+    /**
+     * Stop DSH service.
      */
     async stop(): Promise<void> {
         if (this.shutdownPromise) return this.shutdownPromise;
         if (!this.child) {
-            this.status = 'stopped';
+            this.setStatus('stopped');
             return Promise.resolve();
         }
 
@@ -246,18 +312,19 @@ export class DSHManager {
             race.then((result) => {
                 if (timer) clearTimeout(timer);
                 if (result === 'timeout') {
-                    log.warn('DSH 未在超时内关闭，强制 SIGKILL');
+                    log.warn('DSH did not exit in time, forcing SIGKILL');
                     this.child.kill('SIGKILL');
                     return closed;
                 }
                 return;
             }).finally(() => {
-                this.status = 'stopped';
+                this.setStatus('stopped');
                 this.port = null;
                 this.child = null;
                 this.startPromise = null;
                 this.shutdownPromise = null;
-                log.info('DSH 服务已停止');
+                this.autoRestartCount = 0;
+                log.info('DSH service stopped');
                 resolve();
             });
         });
@@ -265,7 +332,7 @@ export class DSHManager {
     }
 
     /**
-     * 健康检查
+     * Health check.
      */
     async checkHealth(): Promise<boolean> {
         if (!this.port) return false;
@@ -280,5 +347,5 @@ export class DSHManager {
     }
 }
 
-// 导出单例
+// Export singleton
 export const dshManager = new DSHManager();

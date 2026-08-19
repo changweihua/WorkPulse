@@ -132,10 +132,12 @@ declare global {
       stop: () => Promise<{ success: boolean }>;
       checkHealth: () => Promise<{ healthy: boolean }>;
 
-      // BrowserView 管理
-      createView: (url: string) => Promise<{ viewId: number }>;
-      resizeView: (offsetTop: number) => Promise<{ success: boolean }>;
+      // BrowserView management
+      createView: (url: string, offsetTop?: number) => Promise<{ viewId: number }>;
       destroyView: () => Promise<{ success: boolean }>;
+
+      // Status change listener (main → renderer push)
+      onStatusChanged: (callback: (data: { status: string; [key: string]: any }) => void) => () => void;
     };
     sys: {
       onAccentColorUpdate: (callback: (color: string) => void) => () => void;

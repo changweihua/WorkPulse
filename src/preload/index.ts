@@ -160,34 +160,23 @@ if (process.contextIsolated) {
       },
     });
 
-    // ---- 新增 DSH API ----
+    // ---- DSH API ----
     contextBridge.exposeInMainWorld('dsh', {
-      /**
-       * 获取 DSH 状态和端口
-       */
       getStatus: () => ipcRenderer.invoke('dsh:getStatus'),
-
-      /**
-       * 启动 DSH 服务
-       * @param apiKey - 可选，传入则使用方式一（通过环境变量注入）
-       *                 不传则使用方式三（用户在 UI 中配置）
-       */
       start: (apiKey?: string) => ipcRenderer.invoke('dsh:start', apiKey),
-
-      /**
-       * 停止 DSH 服务
-       */
       stop: () => ipcRenderer.invoke('dsh:stop'),
-
-      /**
-       * 健康检查
-       */
       checkHealth: () => ipcRenderer.invoke('dsh:checkHealth'),
-      // 新增 BrowserView 相关 API
-      createView: (url: string) => ipcRenderer.invoke('dsh:createView', url),
-      // 新增
-      resizeView: (offsetTop: number) => ipcRenderer.invoke('dsh:resizeView', offsetTop),
+
+      // BrowserView management
+      createView: (url: string, offsetTop?: number) => ipcRenderer.invoke('dsh:createView', url, offsetTop),
       destroyView: () => ipcRenderer.invoke('dsh:destroyView'),
+
+      // Status change listener (main → renderer push)
+      onStatusChanged: (callback: (event: any, data: any) => void) => {
+        const listener = (_event: any, data: any) => callback(data);
+        ipcRenderer.on('dsh:status-changed', listener);
+        return () => ipcRenderer.removeListener('dsh:status-changed', listener);
+      },
     });
 
     contextBridge.exposeInMainWorld('sys', {

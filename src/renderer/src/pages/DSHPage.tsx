@@ -1,112 +1,87 @@
-import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { RotateCcw, ArrowLeft, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+type ViewStatus = 'idle' | 'starting' | 'loading' | 'running' | 'error' | 'stopped' | 'crashed';
+
+const STATUS_LABELS: Record<ViewStatus, string> = {
+    idle: '未启动',
+    starting: '启动中...',
+    loading: '加载中...',
+    running: '运行中',
+    error: '出错',
+    stopped: '已停止',
+    crashed: '已崩溃',
+};
+
+const STATUS_COLORS: Record<ViewStatus, string> = {
+    idle: 'text-gray-400',
+    starting: 'text-blue-500',
+    loading: 'text-blue-500',
+    running: 'text-green-500',
+    error: 'text-red-500',
+    stopped: 'text-gray-400',
+    crashed: 'text-red-600',
+};
+
+const STATUS_ICONS: Record<ViewStatus, React.ReactNode> = {
+    idle: null,
+    starting: <Loader2 className="w-3.5 h-3.5 animate-spin" />,
+    loading: <Loader2 className="w-3.5 h-3.5 animate-spin" />,
+    running: <CheckCircle2 className="w-3.5 h-3.5" />,
+    error: <AlertCircle className="w-3.5 h-3.5" />,
+    stopped: null,
+    crashed: <AlertCircle className="w-3.5 h-3.5" />,
+};
+
+const TOOLBAR_HEIGHT = 32;
 
 export default function DSHPage() {
-    const [status, setStatus] = useState<'idle' | 'starting' | 'running' | 'error' | 'stopped'>('idle');
+    const navigate = useNavigate();
+    const [status, setStatus] = useState<ViewStatus>('idle');
     const [port, setPort] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [viewCreated, setViewCreated] = useState(false);
-    const [offsetTop, setOffsetTop] = useState(0);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const [viewLoading, setViewLoading] = useState(false);
+    const viewRef = useRef<HTMLDivElement>(null);
+    const cleanupRef = useRef<(() => void) | null>(null);
 
-    // ---- 计算偏移量（标题栏 + 导航栏 + 调试栏高度） ----
-    const calculateOffset = useCallback(() => {
-        let total = 0;
-        // 1. 标题栏（可能有 .title-bar 或 data-titlebar）
-        const titleBar = document.querySelector('.title-bar') || document.querySelector('[data-titlebar]');
-        if (titleBar) {
-            const rect = titleBar.getBoundingClientRect();
-            total += rect.height;
-        }
-        // 2. 导航栏（header）
-        const header = document.querySelector('header');
-        if (header) {
-            const rect = header.getBoundingClientRect();
-            total += rect.height;
-        }
-        // 3. 当前组件的调试栏（本组件内的 .debug-bar）
-        const debugBar = containerRef.current?.querySelector('.debug-bar');
-        if (debugBar) {
-            const rect = debugBar.getBoundingClientRect();
-            total += rect.height;
-        }
-        // 如果 total 仍为 0，用默认值（例如 80px）
-        if (total === 0) {
-            total = 80;
-        }
-        // 加 1px 间隙
-        const newOffset = total + 1;
-        if (newOffset !== offsetTop) {
-            setOffsetTop(newOffset);
-            console.log('📍 计算偏移量:', newOffset);
-        }
-        return newOffset;
-    }, [offsetTop]);
-
-    // ---- 使用 useLayoutEffect 确保 DOM 已更新，并加入重试 ----
-    useLayoutEffect(() => {
-        // 首次计算
-        const doCalc = () => {
-            const off = calculateOffset();
-            if (off > 0 && viewCreated) {
-                window.dsh.resizeView(off);
+    // ---- Status change listener (main → renderer push) ----
+    useEffect(() => {
+        const cleanup = window.dsh.onStatusChanged((data) => {
+            if (data.status) setStatus(data.status as ViewStatus);
+            if (data.autoRestarting) {
+                setError(`服务崩溃，正在自动重启 (第${data.attempt}次)...`);
+            } else if (data.status === 'error' && data.reason === 'crash' && !data.autoRestarting) {
+                setError('服务崩溃且自动重启失败');
             }
-        };
-        // 延迟一帧确保布局完成
-        requestAnimationFrame(() => {
-            doCalc();
         });
-        // 如果第一次计算为 0，每 100ms 重试一次，最多 5 次
-        let retries = 0;
-        const retryInterval = setInterval(() => {
-            if (offsetTop > 0 || retries >= 5) {
-                clearInterval(retryInterval);
-                return;
-            }
-            retries++;
-            calculateOffset();
-        }, 100);
-        return () => clearInterval(retryInterval);
-    }, [calculateOffset, viewCreated, offsetTop]);
-
-    // ---- 窗口变化时重新计算 ----
-    useEffect(() => {
-        const handleResize = () => {
-            calculateOffset();
-            if (viewCreated && offsetTop > 0) {
-                window.dsh.resizeView(offsetTop);
-            }
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, [calculateOffset, viewCreated, offsetTop]);
-
-    // ---- 偏移量变化时调整 BrowserView ----
-    useEffect(() => {
-        if (viewCreated && offsetTop > 0) {
-            window.dsh.resizeView(offsetTop);
-        }
-    }, [viewCreated, offsetTop]);
-
-    // ---- 其余功能函数（fetchStatus, startDSH, stopDSH, goBack） ----
-    const fetchStatus = useCallback(async () => {
-        try {
-            const result = await window.dsh.getStatus();
-            setStatus(result.status as any);
-            setPort(result.port);
-        } catch (err) {
-            console.error('fetchStatus error:', err);
-        }
+        return cleanup;
     }, []);
 
+    // ---- Fetch initial status ----
+    useEffect(() => {
+        window.dsh.getStatus().then((result) => {
+            setStatus(result.status as ViewStatus);
+            setPort(result.port);
+        });
+    }, []);
+
+    // ---- Auto-start if idle ----
+    useEffect(() => {
+        if (status === 'idle' && !loading) {
+            startDSH();
+        }
+    }, [status, loading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ---- Start DSH service ----
     const startDSH = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
             const result = await window.dsh.start();
             setPort(result.port);
-            setStatus('running');
         } catch (err: any) {
             setError(err.message || '启动失败');
             setStatus('error');
@@ -115,6 +90,7 @@ export default function DSHPage() {
         }
     }, []);
 
+    // ---- Stop DSH service ----
     const stopDSH = useCallback(async () => {
         await window.dsh.stop();
         setStatus('stopped');
@@ -125,114 +101,132 @@ export default function DSHPage() {
         }
     }, [viewCreated]);
 
-    const goBack = useCallback(async () => {
-        await window.dsh.destroyView();
-        setViewCreated(false);
-        // 通过 IPC 切换页面
-        if (window.api && window.api.send) {
-            window.api.send('navigate', 'worklog');
-        } else {
-            window.history.back();
-        }
-    }, []);
-
-    // ---- 生命周期 ----
-    useEffect(() => {
-        fetchStatus();
-    }, [fetchStatus]);
-
-    useEffect(() => {
-        if (status === 'idle' && !loading) {
-            startDSH();
-        }
-    }, [status, loading, startDSH]);
-
-    // ---- 创建 BrowserView ----
+    // ---- Create BrowserView ----
     useEffect(() => {
         if (status === 'running' && port && !viewCreated) {
-            window.dsh.createView(`http://127.0.0.1:${port}`)
-                .then(() => {
-                    setViewCreated(true);
-                    // 创建后立即调整一次
-                    setTimeout(() => {
-                        if (offsetTop > 0) {
-                            window.dsh.resizeView(offsetTop);
-                        } else {
-                            // 如果偏移量还没算出来，强制计算
-                            calculateOffset();
-                        }
-                    }, 100);
-                })
+            window.dsh.createView(`http://127.0.0.1:${port}`, TOOLBAR_HEIGHT)
+                .then(() => setViewCreated(true))
                 .catch(console.error);
         }
-    }, [status, port, viewCreated, offsetTop, calculateOffset]);
+    }, [status, port, viewCreated]);
 
-    // ---- 组件卸载时销毁 ----
+    // ---- Destroy view on unmount ----
     useEffect(() => {
         return () => {
             window.dsh.destroyView();
         };
     }, []);
 
-    // ---- 引导提示 ----
-    const [showTip, setShowTip] = useState(false);
+    // ---- Cleanup status listener on unmount ----
     useEffect(() => {
-        if (status === 'running') {
-            const hasShown = localStorage.getItem('dsh_setup_tip_shown');
-            if (!hasShown) {
-                setShowTip(true);
-                localStorage.setItem('dsh_setup_tip_shown', 'true');
-            }
-        }
-    }, [status]);
+        return () => {
+            cleanupRef.current?.();
+        };
+    }, []);
 
-    // ---- 渲染 ----
+    // ---- Render ----
     return (
-        <div className="flex flex-col h-full w-full bg-white" ref={containerRef}>
-            {/* 调试栏（含返回按钮） - 添加 class="debug-bar" 以便计算高度 */}
-            <div className="debug-bar shrink-0 bg-gray-200 p-1 text-xs text-gray-700 flex gap-2 flex-wrap items-center" style={{ height: '30px' }}>
-                <button onClick={goBack} className="px-2 py-0.5 bg-purple-500 text-white rounded hover:bg-purple-600">← 返回</button>
-                <span>状态: {status}</span>
-                <span>端口: {port || '无'}</span>
-                <span>视图: {viewCreated ? '已创建' : '未创建'}</span>
-                <span>偏移: {offsetTop}px</span>
-                <button onClick={fetchStatus} className="px-2 py-0.5 bg-blue-500 text-white rounded">刷新</button>
-                <button onClick={startDSH} className="px-2 py-0.5 bg-green-500 text-white rounded">启动</button>
-                <button onClick={stopDSH} className="px-2 py-0.5 bg-red-500 text-white rounded">停止</button>
+        <div className="flex flex-col h-full bg-white">
+            {/* Toolbar */}
+            <div
+                className="shrink-0 flex items-center gap-2 px-3 bg-gray-100 border-b border-gray-200 text-xs"
+                style={{ height: TOOLBAR_HEIGHT }}
+            >
+                <button
+                    onClick={() => {
+                        window.dsh.destroyView();
+                        setViewCreated(false);
+                        navigate('/worklog');
+                    }}
+                    className="p-1 hover:bg-gray-200 rounded transition-colors text-gray-600"
+                    title="返回"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                </button>
+
+                <div className="h-4 w-px bg-gray-300" />
+
+                {/* Status indicator */}
+                <div className={`flex items-center gap-1 ${STATUS_COLORS[status]}`}>
+                    {STATUS_ICONS[status]}
+                    <span>{STATUS_LABELS[status]}</span>
+                </div>
+
+                {port && (
+                    <span className="text-gray-400">:{port}</span>
+                )}
+
+                {error && (
+                    <span className="text-red-500 truncate max-w-[300px]" title={error}>
+                        {error}
+                    </span>
+                )}
+
+                {/* Spacer */}
+                <div className="flex-1" />
+
+                {/* Actions */}
+                <button
+                    onClick={() => window.dsh.getStatus().then(r => { setStatus(r.status as ViewStatus); setPort(r.port); })}
+                    className="p-1 hover:bg-gray-200 rounded transition-colors text-gray-500"
+                    title="刷新状态"
+                >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                </button>
             </div>
 
-            {/* 内容区（BrowserView 覆盖） */}
-            <div className="flex-1 relative bg-gray-50">
-                {status === 'starting' || loading ? (
-                    <div className="flex items-center justify-center h-full">
+            {/* Content area – BrowserView covers this div */}
+            <div ref={viewRef} className="flex-1 relative bg-white">
+                {/* Loading overlay */}
+                {(status === 'starting' || loading) && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
                         <div className="text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                            <p>正在启动 DSH 服务...</p>
+                            <Loader2 className="w-10 h-10 text-blue-500 animate-spin mx-auto mb-3" />
+                            <p className="text-sm text-gray-500">正在启动 DSH 服务...</p>
                         </div>
                     </div>
-                ) : status === 'error' ? (
-                    <div className="flex items-center justify-center h-full flex-col">
-                        <p className="text-red-600 mb-4">启动失败: {error}</p>
-                        <button onClick={startDSH} className="px-4 py-2 bg-blue-500 text-white rounded">重试</button>
-                    </div>
-                ) : status === 'running' && port ? (
-                    showTip && (
-                        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white border border-blue-300 shadow-lg rounded-lg p-4 max-w-md z-10">
-                            <div className="flex items-start gap-3">
-                                <span className="text-2xl">💡</span>
-                                <div>
-                                    <h3 className="font-semibold text-gray-800">首次使用 DeepSeek Harness</h3>
-                                    <p className="text-sm text-gray-600 mt-1">
-                                        请在界面右上角点击 <strong>设置</strong>，进入 <strong>模型</strong> 页面，
-                                        输入 DeepSeek API Key 后即可使用。
-                                    </p>
-                                </div>
-                                <button onClick={() => setShowTip(false)} className="shrink-0 text-gray-400 hover:text-gray-600">✕</button>
-                            </div>
+                )}
+
+                {/* Error overlay */}
+                {status === 'error' && !loading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                        <div className="text-center max-w-sm">
+                            <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+                            <p className="text-sm text-gray-700 mb-1">启动失败</p>
+                            <p className="text-xs text-gray-400 mb-4 break-all">{error}</p>
+                            <button
+                                onClick={startDSH}
+                                className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
+                            >
+                                重试
+                            </button>
                         </div>
-                    )
-                ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">DSH 未启动</div>
+                    </div>
+                )}
+
+                {/* Not started */}
+                {status === 'stopped' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                        <div className="text-center">
+                            <p className="text-sm text-gray-400 mb-4">DSH 服务已停止</p>
+                            <button
+                                onClick={startDSH}
+                                className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
+                            >
+                                重新启动
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Idle */}
+                {status === 'idle' && !loading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                        <div className="text-center">
+                            <Loader2 className="w-10 h-10 text-gray-300 animate-spin mx-auto mb-3" />
+                            <p className="text-sm text-gray-400">准备启动...</p>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

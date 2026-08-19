@@ -36,6 +36,15 @@ import { dshManager } from './dsh-manager'
 import { createDSHView, destroyDSHView, resizeDSHView } from './dsh-view'
 
 export function registerIpcHandlers(): void {
+  // --- DSH status push (main → renderer) ---
+  dshManager.onStatusChange((status, detail) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('dsh:status-changed', { status, ...detail });
+      }
+    }
+  });
+
   // --- Work Logs ---
 
   ipcMain.handle('worklog:add', (_event, content: string, category?: string) => {
@@ -353,11 +362,10 @@ export function registerIpcHandlers(): void {
  * 提供 IPC 通道，供渲染进程管理 DSH BrowserView。
  */
   
-  ipcMain.handle('dsh:createView', (event, url: string) => {
+  ipcMain.handle('dsh:createView', (event, url: string, offsetTop: number = 30) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) throw new Error('No parent window');
-    const viewId = createDSHView(win, url);
-    // 创建时已经延迟调整了，这里也可以再做一次
+    const viewId = createDSHView(win, url, offsetTop);
     return { viewId };
   });
 
