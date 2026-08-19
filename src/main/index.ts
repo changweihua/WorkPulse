@@ -8,6 +8,7 @@ import { tMain, type AppLanguage } from './i18n'
 import { configureAutoUpdater, registerUpdateIpc, startUpdateCheck } from './updater'
 import {
   MicaBrowserWindow,
+  IS_WINDOWS_11,
   // @ts-ignore
   useMicaElectron
 } from 'talex-mica-electron';
@@ -485,7 +486,11 @@ function createWindow(): void {
   })
 
   // 2. 应用亚克力效果
-  mainWindow.setMicaAcrylicEffect();
+  if (IS_WINDOWS_11) {
+    mainWindow.setMicaAcrylicEffect();  // Win11: DWM Acrylic
+  } else {
+    mainWindow.setAcrylic();            // Win10: User32 Acrylic
+  }
 
   // 当窗口准备就绪后，最大化并显示
   // +++++ 修改 ready-to-show：先关闭启动窗口，再显示主窗口 +++++

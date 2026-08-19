@@ -16,7 +16,7 @@
   --shadow-fluent-accent: 0 2px 4px rgb(0 0 0 / 4%), 0 8px 16px rgb(0 0 0 / 6%), 0 0 0 1px rgb(0 0 0 / 2%);
 }
 
-/* ===== Base: translucent body for Mica ===== */
+/* ===== Base: transparent body for Acrylic ===== */
 html {
   background: transparent;
 }
@@ -25,13 +25,13 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: rgb(250 250 250 / 0.5);
+  background-color: transparent;
   color: #09090b;
 }
 
 .dark body,
 :root.dark body {
-  background-color: rgb(10 10 10 / 0.5);
+  background-color: transparent;
   color: #fafafa;
 }
 
