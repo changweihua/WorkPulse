@@ -69,7 +69,7 @@ function StatCard({
 
   return (
     <div
-      className="flex items-center gap-3 p-4 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl card-hover animate-slide-up"
+      className="flex items-center gap-3 p-4 surface-card rounded-xl card-hover animate-slide-up"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className={`p-2 rounded-lg ${color}`}>
@@ -98,7 +98,7 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
   }, [])
 
   return (
-    <div ref={ref} className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 animate-slide-up" style={{ animationDelay: '200ms' }}>
+    <div ref={ref} className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '200ms' }}>
       <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-4">{t('stats.dailyActivity')}</h3>
       <div className="flex items-end gap-1 h-32">
         {data.map((d, i) => {
@@ -196,7 +196,7 @@ function HeatMap({ data }: { data: DailyStats[] }): ReactNode {
   }
 
   return (
-    <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 animate-slide-up" style={{ animationDelay: '300ms' }}>
+    <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '300ms' }}>
       <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">{t('stats.activity')}</h3>
       <div className="flex gap-1">
         {weeks.map((week, wi) => (

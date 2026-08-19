@@ -124,10 +124,10 @@ function WorkLogPage(): ReactNode {
             onKeyDown={handleKeyDown}
             placeholder={t('worklog.inputPlaceholder')}
             aria-label={t('worklog.inputAria')}
-            className={`w-full px-4 py-3 text-base border rounded-lg outline-none transition-all bg-white dark:bg-zinc-900 dark:text-zinc-100 ${
+            className={`w-full px-4 py-3 text-base border rounded-lg outline-none transition-all surface-input dark:text-zinc-100 ${
               shaking
                 ? 'animate-shake border-red-400 ring-2 ring-red-200'
-                : 'border-zinc-300 dark:border-zinc-700 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700'
+                : 'border-[var(--color-border)] focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700'
             }`}
           />
         </div>
@@ -143,7 +143,7 @@ function WorkLogPage(): ReactNode {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder={t('worklog.searchPlaceholder')}
-            className="w-full pl-9 pr-8 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-900 dark:text-zinc-100"
+            className="w-full pl-9 pr-8 py-2 text-sm border border-[var(--color-border)] rounded-lg outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100"
           />
           {search && (
             <button
@@ -176,7 +176,7 @@ function WorkLogPage(): ReactNode {
             <Download className="w-4 h-4" />
             {t('common.export')}
           </button>
-          <div className="absolute right-0 top-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+          <div className="absolute right-0 top-full mt-1 surface-elevated border border-[var(--color-border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
             <button
               onClick={async () => {
                 const path = await window.api.export.logs('csv')
@@ -250,7 +250,7 @@ function WorkLogPage(): ReactNode {
                               if (e.key === 'Enter') handleEditSave()
                               if (e.key === 'Escape') handleEditCancel()
                             }}
-                            className="flex-1 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                            className="flex-1 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
                             autoFocus
                           />
                           <input
@@ -262,13 +262,13 @@ function WorkLogPage(): ReactNode {
                               if (e.key === 'Escape') handleEditCancel()
                             }}
                             placeholder="#tag"
-                            className="w-24 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                            className="w-24 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
                           />
                           <input
                             type="date"
                             value={editDate}
                             onChange={(e) => setEditDate(e.target.value)}
-                            className="w-32 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+                            className="w-32 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
                           />
                         </div>
                         <div className="flex items-center gap-1 shrink-0">

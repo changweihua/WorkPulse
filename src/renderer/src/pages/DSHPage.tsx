@@ -189,11 +189,11 @@ export default function DSHPage() {
 
                 {/* Error overlay */}
                 {status === 'error' && !loading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                    <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-zinc-900 z-10">
                         <div className="text-center max-w-sm">
                             <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-                            <p className="text-sm text-gray-700 mb-1">启动失败</p>
-                            <p className="text-xs text-gray-400 mb-4 break-all">{error}</p>
+                            <p className="text-sm text-zinc-700 dark:text-zinc-300 mb-1">启动失败</p>
+                            <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-4 break-all">{error}</p>
                             <button
                                 onClick={startDSH}
                                 className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
@@ -206,9 +206,9 @@ export default function DSHPage() {
 
                 {/* Not started */}
                 {status === 'stopped' && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                    <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-zinc-900 z-10">
                         <div className="text-center">
-                            <p className="text-sm text-gray-400 mb-4">DSH 服务已停止</p>
+                            <p className="text-sm text-zinc-400 dark:text-zinc-500 mb-4">DSH 服务已停止</p>
                             <button
                                 onClick={startDSH}
                                 className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
@@ -221,10 +221,10 @@ export default function DSHPage() {
 
                 {/* Idle */}
                 {status === 'idle' && !loading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                    <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-zinc-900 z-10">
                         <div className="text-center">
-                            <Loader2 className="w-10 h-10 text-gray-300 animate-spin mx-auto mb-3" />
-                            <p className="text-sm text-gray-400">准备启动...</p>
+                            <Loader2 className="w-10 h-10 text-zinc-300 dark:text-zinc-600 animate-spin mx-auto mb-3" />
+                            <p className="text-sm text-zinc-400 dark:text-zinc-500">准备启动...</p>
                         </div>
                     </div>
                 )}

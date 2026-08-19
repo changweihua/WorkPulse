@@ -206,14 +206,14 @@ function ReportPage(): ReactNode {
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="px-2 py-1 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-zinc-500 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                className="px-2 py-1 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-zinc-500 surface-input dark:text-zinc-100"
               />
               <span>{t('common.to')}</span>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="px-2 py-1 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-zinc-500 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                className="px-2 py-1 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-zinc-500 surface-input dark:text-zinc-100"
               />
             </div>
           </div>
@@ -289,7 +289,7 @@ function ReportPage(): ReactNode {
               <button
                 onClick={() => setEditing(false)}
                 className={`flex items-center gap-1 px-3 py-1 text-xs rounded transition-colors ${
-                  !editing ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+                  !editing ? 'surface-card text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
                 }`}
               >
                 <Eye className="w-3.5 h-3.5" />
@@ -298,7 +298,7 @@ function ReportPage(): ReactNode {
               <button
                 onClick={() => setEditing(true)}
                 className={`flex items-center gap-1 px-3 py-1 text-xs rounded transition-colors ${
-                  editing ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+                  editing ? 'surface-card text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
                 }`}
               >
                 <Pencil className="w-3.5 h-3.5" />
@@ -312,10 +312,10 @@ function ReportPage(): ReactNode {
             <textarea
               value={reportContent}
               onChange={(e) => setReportContent(e.target.value)}
-              className="w-full min-h-75 px-4 py-3 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 dark:text-zinc-100 text-sm font-mono leading-relaxed outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 resize-y mb-4"
+              className="w-full min-h-75 px-4 py-3 border border-zinc-200 dark:border-zinc-700 rounded-lg surface-input dark:text-zinc-100 text-sm font-mono leading-relaxed outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 resize-y mb-4"
             />
           ) : (
-            <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-6 bg-white dark:bg-zinc-900 mb-4">
+            <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-6 surface-card mb-4">
               <div className="prose prose-zinc dark:prose-invert prose-sm max-w-none" role="article">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportContent}</ReactMarkdown>
               </div>
@@ -408,7 +408,7 @@ function ReportPage(): ReactNode {
                 <button
                   key={report.id}
                   onClick={() => handleViewReport(report)}
-                  className="w-full text-left flex items-center justify-between px-4 py-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-zinc-300 dark:hover:border-zinc-600 hover:shadow-sm transition-all group"
+                  className="w-full text-left flex items-center justify-between px-4 py-3 surface-card hover:border-zinc-300 dark:hover:border-zinc-600 hover:shadow-sm transition-all group"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

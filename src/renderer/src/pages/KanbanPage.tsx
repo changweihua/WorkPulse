@@ -222,7 +222,7 @@ function SortableTaskCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="group flex items-start gap-2 p-3 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 card-hover animate-pop-in"
+      className="group flex items-start gap-2 p-3 surface-card rounded-lg shadow-sm hover:shadow-md transition-all duration-200 card-hover animate-pop-in"
     >
       <button
         {...attributes}
@@ -358,7 +358,7 @@ function SortableTaskCard({
 // --- Overlay Card (while dragging) ---
 function TaskCardOverlay({ task }: { task: Task }): ReactNode {
   return (
-    <div className="p-3 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-lg shadow-lg rotate-2 scale-105">
+    <div className="p-3 surface-elevated rounded-lg shadow-lg rotate-2 scale-105">
       <p className="text-sm text-zinc-800 dark:text-zinc-200">{task.title}</p>
     </div>
   )
@@ -396,7 +396,7 @@ function CompleteDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-fade-in">
-      <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 animate-scale-in">
+      <div className="surface-elevated rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 animate-scale-in">
         <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('kanban.completeTitle')}</h3>
         <p className="text-sm text-zinc-500 mb-4">
           {t('kanban.completePrompt')}
@@ -407,7 +407,7 @@ function CompleteDialog({
           onChange={(e) => setLogContent(e.target.value)}
           onKeyDown={handleKeyDown}
           rows={3}
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100 resize-none mb-4"
+          className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100 resize-none mb-4"
         />
         <div className="flex justify-end gap-2">
           <button
@@ -639,7 +639,7 @@ function KanbanPage(): ReactNode {
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAddTask()}
                 onFocus={() => setShowDescInput(true)}
                 placeholder={t('kanban.newTask')}
-                className="flex-1 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                className="flex-1 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100"
               />
               <button
                 onClick={handleAddTask}
@@ -657,13 +657,13 @@ function KanbanPage(): ReactNode {
                   onChange={(e) => setNewTaskDesc(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
                   placeholder={t('kanban.newDescription')}
-                  className="flex-1 px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                  className="flex-1 px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100"
                 />
                 <input
                   type="date"
                   value={newTaskDate}
                   onChange={(e) => setNewTaskDate(e.target.value)}
-                  className="px-2 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                  className="px-2 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100"
                 />
               </div>
             )}
@@ -712,7 +712,7 @@ function KanbanPage(): ReactNode {
 
         {/* Draft Box Sidebar */}
         <div
-          className={`shrink-0 border-l border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/50 rounded-lg transition-all flex flex-col ${draftOpen ? 'w-56' : 'w-10'
+          className={`shrink-0 border-l border-zinc-200 dark:border-zinc-700 rounded-lg transition-all flex flex-col ${draftOpen ? 'w-56' : 'w-10'
             }`}
         >
           {/* Toggle Button */}
@@ -764,7 +764,7 @@ function KanbanPage(): ReactNode {
                     onChange={(e) => setDraftInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddDraft()}
                     placeholder={t('kanban.draftPlaceholder')}
-                    className="flex-1 px-2 py-1.5 border border-zinc-200 dark:border-zinc-600 rounded text-xs outline-none focus:border-zinc-400 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                    className="flex-1 px-2 py-1.5 border border-zinc-200 dark:border-zinc-600 rounded text-xs outline-none focus:border-zinc-400 surface-input dark:text-zinc-100"
                   />
                   <button
                     onClick={handleAddDraft}
