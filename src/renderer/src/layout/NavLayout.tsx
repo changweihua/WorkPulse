@@ -132,8 +132,8 @@ export default function NavLayout() {
                 onClick={() => setShowMoreMenu(false)}
                 className={`relative px-3 py-1.5 text-sm rounded-lg transition-all duration-200 whitespace-nowrap ${
                     isActive
-                        ? 'bg-zinc-900/90 text-white dark:bg-zinc-100/90 dark:text-zinc-900 shadow-sm'
-                        : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70 hover:text-zinc-700 dark:hover:text-zinc-200'
+                        ? 'bg-zinc-900/85 text-white dark:bg-white/15 dark:text-zinc-50 shadow-sm'
+                        : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-zinc-50'
                 }`}
             >
                 {icon}
@@ -166,10 +166,10 @@ export default function NavLayout() {
                 ))}
             </div>
 
-            {/* 导航栏 - Fluent Acrylic */}
+            {/* 导航栏 - Mica 半透明 */}
             <header
-                className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200/40 dark:border-zinc-800/40 
-                           bg-white/50 dark:bg-zinc-900/50 backdrop-blur-2xl backdrop-saturate-150 shrink-0 
+                className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200/30 dark:border-zinc-700/30 
+                           bg-white/25 dark:bg-zinc-900/35 shrink-0 
                            sticky top-0 z-20"
             >
                 <div className="flex items-center gap-1 min-w-0">
@@ -194,16 +194,16 @@ export default function NavLayout() {
                                             location.pathname === `/${item.path}` ||
                                             (item.path === 'worklog' && location.pathname === '/')
                                     )
-                                        ? 'bg-zinc-900/90 text-white dark:bg-zinc-100/90 dark:text-zinc-900 shadow-sm'
-                                        : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70'
+                                        ? 'bg-zinc-900/85 text-white dark:bg-white/15 dark:text-zinc-50 shadow-sm'
+                                        : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 dark:hover:bg-white/10'
                                 }`}
                             >
                                 <MoreHorizontal className="w-4 h-4" />
                             </button>
                             {showMoreMenu && (
                                 <div
-                                    className={`absolute top-full mt-1 py-1 bg-white/90 dark:bg-zinc-800/90 
-                                               backdrop-blur-xl rounded-lg shadow-lg border border-zinc-200/40 dark:border-zinc-700/40 
+                                    className={`absolute top-full mt-1 py-1 bg-white/70 dark:bg-zinc-900/70 
+                                               rounded-lg shadow-lg border border-zinc-200/30 dark:border-zinc-700/30 
                                                min-w-[120px] z-50 animate-fade-in whitespace-nowrap ${
                                                    dropdownRight ? 'right-0' : 'left-0'
                                                }`}
@@ -216,8 +216,8 @@ export default function NavLayout() {
                                             className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md mx-1 transition-colors ${
                                                 location.pathname === `/${item.path}` ||
                                                 (item.path === 'worklog' && location.pathname === '/')
-                                                    ? 'bg-zinc-900/10 text-zinc-900 dark:bg-zinc-100/10 dark:text-zinc-100'
-                                                    : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-zinc-700/70'
+                                                    ? 'bg-zinc-900/10 text-zinc-900 dark:bg-white/15 dark:text-zinc-50'
+                                                    : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 dark:hover:bg-white/10'
                                             }`}
                                         >
                                             {item.icon}
@@ -231,8 +231,8 @@ export default function NavLayout() {
                 </div>
                 <Link
                     to="/settings"
-                    className="p-2 text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-200 
-                               hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70 rounded-lg transition-all duration-200 settings-spin shrink-0"
+                    className="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 
+                               hover:bg-zinc-100/60 dark:hover:bg-white/10 rounded-lg transition-all duration-200 settings-spin shrink-0"
                     aria-label={t('nav.settings')}
                 >
                     <Settings className="w-5 h-5" />

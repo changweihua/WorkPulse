@@ -485,19 +485,27 @@ function createWindow(): void {
     }
   })
 
-  // 2. 应用亚克力效果
+  // 2. 应用 Mica 效果
   if (IS_WINDOWS_11) {
-    mainWindow.setMicaAcrylicEffect();  // Win11: DWM Acrylic
+    mainWindow.setMicaEffect()
+    // 主题必须在效果之后设置
+    const savedTheme = getSetting('theme')
+    if (savedTheme === 'dark') mainWindow.setDarkTheme()
+    else if (savedTheme === 'light') mainWindow.setLightTheme()
+    else mainWindow.setAutoTheme()
   } else {
-    mainWindow.setAcrylic();            // Win10: User32 Acrylic
+    mainWindow.setAcrylic()
   }
 
   // 当窗口准备就绪后，最大化并显示
-  // +++++ 修改 ready-to-show：先关闭启动窗口，再显示主窗口 +++++
   mainWindow.once('ready-to-show', () => {
-    closeSplashWindow()        // 关闭启动窗口
+    closeSplashWindow()
     mainWindow.maximize()
     mainWindow.show()
+    // 重新应用 Mica，防止最大化后丢失
+    if (IS_WINDOWS_11) {
+      setTimeout(() => mainWindow.setMicaEffect(), 100)
+    }
   })
   if (process.platform !== 'darwin') {
     mainWindow.on('close', (event) => {
@@ -573,6 +581,14 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
+
+// --- IPC: Mica 主题同步 ---
+ipcMain.on('mica:set-theme', (_event, theme: 'light' | 'dark' | 'system') => {
+  if (!IS_WINDOWS_11) return
+  if (theme === 'dark') mainWindow.setDarkTheme()
+  else if (theme === 'light') mainWindow.setLightTheme()
+  else mainWindow.setAutoTheme()
+})
 
 // --- IPC: shortcut update ---
 

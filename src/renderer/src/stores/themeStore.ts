@@ -14,6 +14,9 @@ function applyTheme(theme: Theme): void {
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
   document.documentElement.classList.toggle('dark', isDark)
+
+  // 同步 Mica 主题到主进程
+  ;(window.api as any).window?.setMicaTheme?.(theme)
 }
 
 export const useThemeStore = create<ThemeStore>((set) => ({

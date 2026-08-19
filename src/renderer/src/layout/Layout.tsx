@@ -103,7 +103,7 @@ export default function Layout() {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
+        <div className="h-screen flex flex-col bg-transparent">
             <TitleBar />
             <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                 <div className="flex items-center gap-1">

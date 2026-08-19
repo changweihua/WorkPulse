@@ -139,6 +139,12 @@ declare global {
       // Status change listener (main → renderer push)
       onStatusChanged: (callback: (data: { status: string; [key: string]: any }) => void) => () => void;
     };
+    window: {
+      minimize: () => void;
+      maximize: () => void;
+      close: () => void;
+      setMicaTheme: (theme: 'light' | 'dark' | 'system') => void;
+    };
     sys: {
       onAccentColorUpdate: (callback: (color: string) => void) => () => void;
     };
