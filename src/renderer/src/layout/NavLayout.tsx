@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Outlet, Link, useLocation, useMatches } from 'react-router-dom';
 import {
     Settings,
@@ -10,16 +10,27 @@ import {
     Bot,
     Zap,
     ArrowUp,
+    MoreHorizontal,
 } from 'lucide-react';
 import { SiDeepseek, SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
 import { useI18n } from '../stores/languageStore';
+
+interface NavItem {
+    path: string;
+    icon: React.ReactNode;
+    label: string;
+}
 
 export default function NavLayout() {
     const location = useLocation();
     const matches = useMatches();
     const { t } = useI18n();
     const scrollRef = useRef<HTMLDivElement>(null);
+    const navRef = useRef<HTMLDivElement>(null);
     const [showTopBtn, setShowTopBtn] = useState(false);
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const [visibleCount, setVisibleCount] = useState(11);
+    const moreMenuRef = useRef<HTMLDivElement>(null);
 
     const fluid =
         (matches[matches.length - 1]?.handle as { fluid?: boolean })?.fluid ?? false;
@@ -33,13 +44,65 @@ export default function NavLayout() {
         scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    // All nav items
+    const allItems: NavItem[] = [
+        { path: 'worklog', icon: <ClipboardList className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.worklog') },
+        { path: 'kanban', icon: <Columns3 className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.kanban') },
+        { path: 'report', icon: <FileText className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.report') },
+        { path: 'stats', icon: <BarChart3 className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.stats') },
+        { path: 'calendar', icon: <Calendar className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.calendar') },
+        { path: 'chat', icon: <Bot className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.chat') },
+        { path: 'pp', icon: <SiPaddlepaddle className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.pp') },
+        { path: 'xray', icon: <Zap className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.xray') },
+        { path: 'onnx', icon: <SiOnnx className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.onnx') },
+        { path: 'ocr', icon: <SiPaddle className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.ocr') },
+        { path: 'dsh', icon: <SiDeepseek className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.dsh') },
+    ];
+
+    // Responsive: calculate how many items fit
+    const calculateVisibleItems = useCallback(() => {
+        const nav = navRef.current;
+        if (!nav) return;
+        const containerWidth = nav.offsetWidth;
+        const titleWidth = 120; // approximate "工作台" + mr-4
+        const settingsWidth = 48;
+        const moreBtnWidth = 40; // "..." button
+        const availableWidth = containerWidth - titleWidth - settingsWidth;
+
+        // Estimate each item ~72px (px-3 + icon + label + gap)
+        const itemWidth = 72;
+        const maxItems = Math.floor(availableWidth / itemWidth);
+        const count = Math.min(Math.max(maxItems, 3), allItems.length);
+        setVisibleCount(count);
+    }, [allItems.length]);
+
+    useEffect(() => {
+        calculateVisibleItems();
+        const observer = new ResizeObserver(calculateVisibleItems);
+        if (navRef.current) observer.observe(navRef.current);
+        return () => observer.disconnect();
+    }, [calculateVisibleItems]);
+
+    // Close more menu on outside click
+    useEffect(() => {
+        if (!showMoreMenu) return;
+        const handler = (e: MouseEvent) => {
+            if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+                setShowMoreMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showMoreMenu]);
+
     const navLink = (path: string, icon: React.ReactNode, label: string) => {
         const isActive =
             location.pathname === `/${path}` || (path === 'worklog' && location.pathname === '/');
         return (
             <Link
                 to={`/${path}`}
-                className={`relative px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
+                onClick={() => setShowMoreMenu(false)}
+                className={`relative px-3 py-1.5 text-sm rounded-lg transition-all duration-200 whitespace-nowrap ${
                     isActive
                         ? 'bg-zinc-900/90 text-white dark:bg-zinc-100/90 dark:text-zinc-900 shadow-sm'
                         : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70 hover:text-zinc-700 dark:hover:text-zinc-200'
@@ -51,34 +114,70 @@ export default function NavLayout() {
         );
     };
 
+    const visibleItems = allItems.slice(0, visibleCount);
+    const hiddenItems = allItems.slice(visibleCount);
+
     return (
-        <div className="flex flex-col h-full">
+        <div ref={navRef} className="flex flex-col h-full">
             {/* 导航栏 - Fluent Acrylic */}
             <header
                 className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200/40 dark:border-zinc-800/40 
                            bg-white/50 dark:bg-zinc-900/50 backdrop-blur-2xl backdrop-saturate-150 shrink-0 
                            sticky top-0 z-20"
             >
-                <div className="flex items-center gap-1">
-                    <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4">工作台</h1>
-                    <nav className="flex gap-1">
-                        {navLink('worklog', <ClipboardList className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.worklog'))}
-                        {navLink('kanban', <Columns3 className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.kanban'))}
-                        {navLink('report', <FileText className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.report'))}
-                        {navLink('stats', <BarChart3 className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.stats'))}
-                        {navLink('calendar', <Calendar className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.calendar'))}
-                        {navLink('chat', <Bot className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.chat'))}
-                        {navLink('pp', <SiPaddlepaddle className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.pp'))}
-                        {navLink('xray', <Zap className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.xray'))}
-                        {navLink('onnx', <SiOnnx className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.onnx'))}
-                        {navLink('ocr', <SiPaddle className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.ocr'))}
-                        {navLink('dsh', <SiDeepseek className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.dsh'))}
+                <div className="flex items-center gap-1 min-w-0">
+                    <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4 shrink-0">工作台</h1>
+                    <nav className="flex gap-1 overflow-hidden">
+                        {visibleItems.map((item) => (
+                            <React.Fragment key={item.path}>
+                                {navLink(item.path, item.icon, item.label)}
+                            </React.Fragment>
+                        ))}
+                        {hiddenItems.length > 0 && (
+                            <div className="relative" ref={moreMenuRef}>
+                                <button
+                                    onClick={() => setShowMoreMenu(!showMoreMenu)}
+                                    className={`px-2 py-1.5 text-sm rounded-lg transition-all duration-200 ${
+                                        hiddenItems.some(item =>
+                                            location.pathname === `/${item.path}` ||
+                                            (item.path === 'worklog' && location.pathname === '/')
+                                        )
+                                            ? 'bg-zinc-900/90 text-white dark:bg-zinc-100/90 dark:text-zinc-900 shadow-sm'
+                                            : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70'
+                                    }`}
+                                >
+                                    <MoreHorizontal className="w-4 h-4" />
+                                </button>
+                                {showMoreMenu && (
+                                    <div className="absolute top-full left-0 mt-1 py-1 bg-white/90 dark:bg-zinc-800/90 
+                                                    backdrop-blur-xl rounded-lg shadow-lg border border-zinc-200/40 dark:border-zinc-700/40 
+                                                    min-w-[120px] z-50 animate-fade-in">
+                                        {hiddenItems.map((item) => (
+                                            <Link
+                                                key={item.path}
+                                                to={`/${item.path}`}
+                                                onClick={() => setShowMoreMenu(false)}
+                                                className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md mx-1 transition-colors ${
+                                                    location.pathname === `/${item.path}` ||
+                                                    (item.path === 'worklog' && location.pathname === '/')
+                                                        ? 'bg-zinc-900/10 text-zinc-900 dark:bg-zinc-100/10 dark:text-zinc-100'
+                                                        : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/70 dark:hover:bg-zinc-700/70'
+                                                }`}
+                                            >
+                                                {item.icon}
+                                                {item.label}
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </nav>
                 </div>
                 <Link
                     to="/settings"
                     className="p-2 text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-200 
-                               hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70 rounded-lg transition-all duration-200 settings-spin"
+                               hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70 rounded-lg transition-all duration-200 settings-spin shrink-0"
                     aria-label={t('nav.settings')}
                 >
                     <Settings className="w-5 h-5" />

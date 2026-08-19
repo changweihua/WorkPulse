@@ -71,6 +71,8 @@ export function TitleBar() {
     flexShrink: 0,
     userSelect: 'none',
     borderBottom: '1px solid rgba(255,255,255,0.08)',
+    position: 'relative' as const,
+    zIndex: 50,
   } as React.CSSProperties;
 
   // 红绿灯按钮样式工厂（尺寸调整为 14px）
@@ -109,7 +111,7 @@ export function TitleBar() {
     transition: 'opacity 0.15s ease',
     backgroundColor: 'rgba(0,0,0,0.75)',
     color: '#fff',
-    zIndex: 100,
+    zIndex: 9999,
     lineHeight: '18px',
   } as React.CSSProperties);
 
