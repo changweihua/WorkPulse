@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import { Outlet, Link, useLocation, useMatches } from 'react-router-dom';
 import {
     Settings,
@@ -27,6 +27,7 @@ export default function NavLayout() {
     const { t } = useI18n();
     const scrollRef = useRef<HTMLDivElement>(null);
     const navRef = useRef<HTMLDivElement>(null);
+    const measureRef = useRef<HTMLDivElement>(null);
     const [showTopBtn, setShowTopBtn] = useState(false);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const [visibleCount, setVisibleCount] = useState(11);
@@ -59,26 +60,46 @@ export default function NavLayout() {
         { path: 'dsh', icon: <SiDeepseek className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.dsh') },
     ];
 
-    // Responsive: calculate how many items fit
+    // Responsive: measure actual rendered items
     const calculateVisibleItems = useCallback(() => {
         const nav = navRef.current;
-        if (!nav) return;
-        const containerWidth = nav.offsetWidth;
-        const titleWidth = 120; // approximate "工作台" + mr-4
-        const settingsWidth = 48;
-        const moreBtnWidth = 40; // "..." button
-        const availableWidth = containerWidth - titleWidth - settingsWidth;
+        const measure = measureRef.current;
+        if (!nav || !measure) return;
 
-        // Estimate each item ~72px (px-3 + icon + label + gap)
-        const itemWidth = 72;
-        const maxItems = Math.floor(availableWidth / itemWidth);
-        const count = Math.min(Math.max(maxItems, 3), allItems.length);
+        const containerWidth = nav.offsetWidth;
+        // Reserve space for: title (approx100px) + settings btn (40px) + more btn (36px) + gaps
+        const reservedWidth = 180;
+        const availableWidth = containerWidth - reservedWidth;
+
+        // Measure each item's actual rendered width from the hidden measure container
+        const itemEls = measure.querySelectorAll('[data-nav-item]');
+        if (itemEls.length === 0) return;
+
+        let totalWidth = 0;
+        let fitCount = 0;
+        const gaps = 4; // gap-1 = 4px
+
+        for (let i = 0; i < itemEls.length; i++) {
+            const el = itemEls[i] as HTMLElement;
+            const itemWidth = el.offsetWidth + gaps;
+            if (totalWidth + itemWidth > availableWidth) break;
+            totalWidth += itemWidth;
+            fitCount = i + 1;
+        }
+
+        // Always show at least3 items
+        const count = Math.max(fitCount, 3);
         setVisibleCount(count);
-    }, [allItems.length]);
+    }, []);
+
+    useLayoutEffect(() => {
+        calculateVisibleItems();
+    }, [calculateVisibleItems]);
 
     useEffect(() => {
-        calculateVisibleItems();
-        const observer = new ResizeObserver(calculateVisibleItems);
+        const observer = new ResizeObserver(() => {
+            calculateVisibleItems();
+        });
         if (navRef.current) observer.observe(navRef.current);
         return () => observer.disconnect();
     }, [calculateVisibleItems]);
@@ -119,6 +140,25 @@ export default function NavLayout() {
 
     return (
         <div ref={navRef} className="flex flex-col h-full">
+            {/* Hidden measure container - renders all items off-screen for width measurement */}
+            <div
+                ref={measureRef}
+                className="fixed top-0 left-0 invisible pointer-events-none flex gap-1"
+                style={{ zIndex: -1 }}
+                aria-hidden
+            >
+                {allItems.map((item) => (
+                    <div
+                        key={item.path}
+                        data-nav-item
+                        className="px-3 py-1.5 text-sm whitespace-nowrap inline-flex items-center"
+                    >
+                        {item.icon}
+                        {item.label}
+                    </div>
+                ))}
+            </div>
+
             {/* 导航栏 - Fluent Acrylic */}
             <header
                 className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200/40 dark:border-zinc-800/40 
