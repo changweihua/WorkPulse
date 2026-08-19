@@ -39,10 +39,11 @@ export default function NavLayout() {
         return (
             <Link
                 to={`/${path}`}
-                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 reveal-border ${isActive
-                        ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 tab-active'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 hover:scale-[1.02]'
-                    }`}
+                className={`relative px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
+                    isActive
+                        ? 'bg-zinc-900/90 text-white dark:bg-zinc-100/90 dark:text-zinc-900 shadow-sm'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70 hover:text-zinc-700 dark:hover:text-zinc-200'
+                }`}
             >
                 {icon}
                 {label}
@@ -54,8 +55,9 @@ export default function NavLayout() {
         <div className="flex flex-col h-full">
             {/* 导航栏 - Fluent Acrylic */}
             <header
-                className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/40 dark:border-zinc-800/40 
-                           bg-white/50 dark:bg-zinc-900/50 backdrop-blur-2xl backdrop-saturate-150 shrink-0"
+                className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200/40 dark:border-zinc-800/40 
+                           bg-white/50 dark:bg-zinc-900/50 backdrop-blur-2xl backdrop-saturate-150 shrink-0 
+                           sticky top-0 z-20"
             >
                 <div className="flex items-center gap-1">
                     <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4">工作台</h1>
@@ -75,7 +77,8 @@ export default function NavLayout() {
                 </div>
                 <Link
                     to="/settings"
-                    className="p-2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors settings-spin"
+                    className="p-2 text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-200 
+                               hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70 rounded-lg transition-all duration-200 settings-spin"
                     aria-label={t('nav.settings')}
                 >
                     <Settings className="w-5 h-5" />
