@@ -33,12 +33,27 @@ export default function NavLayout() {
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const [visibleCount, setVisibleCount] = useState(11);
     const moreMenuRef = useRef<HTMLDivElement>(null);
+    const moreBtnRef = useRef<HTMLButtonElement>(null);
+    const [dropdownRight, setDropdownRight] = useState(false);
 
     const fluid =
         (matches[matches.length - 1]?.handle as { fluid?: boolean })?.fluid ?? false;
 
     // Close dropdown on outside click via react-use
     useClickAway(moreMenuRef, () => setShowMoreMenu(false));
+
+    // Toggle more menu with dynamic alignment
+    const toggleMoreMenu = useCallback(() => {
+        if (!showMoreMenu) {
+            const btn = moreBtnRef.current;
+            if (btn) {
+                const rect = btn.getBoundingClientRect();
+                // If button is within 140px of viewport right, align dropdown to right
+                setDropdownRight(window.innerWidth - rect.right < 140);
+            }
+        }
+        setShowMoreMenu((prev) => !prev);
+    }, [showMoreMenu]);
 
     const handleScroll = useCallback(() => {
         const el = scrollRef.current;
@@ -171,7 +186,8 @@ export default function NavLayout() {
                     {hiddenItems.length > 0 && (
                         <div className="relative" ref={moreMenuRef}>
                             <button
-                                onClick={() => setShowMoreMenu((prev) => !prev)}
+                                ref={moreBtnRef}
+                                onClick={toggleMoreMenu}
                                 className={`px-2 py-1.5 text-sm rounded-lg transition-all duration-200 ${
                                     hiddenItems.some(
                                         (item) =>
@@ -186,9 +202,11 @@ export default function NavLayout() {
                             </button>
                             {showMoreMenu && (
                                 <div
-                                    className="absolute top-full left-0 mt-1 py-1 bg-white/90 dark:bg-zinc-800/90 
+                                    className={`absolute top-full mt-1 py-1 bg-white/90 dark:bg-zinc-800/90 
                                                backdrop-blur-xl rounded-lg shadow-lg border border-zinc-200/40 dark:border-zinc-700/40 
-                                               min-w-[120px] z-50 animate-fade-in"
+                                               min-w-[120px] z-50 animate-fade-in whitespace-nowrap ${
+                                                   dropdownRight ? 'right-0' : 'left-0'
+                                               }`}
                                 >
                                     {hiddenItems.map((item) => (
                                         <Link
