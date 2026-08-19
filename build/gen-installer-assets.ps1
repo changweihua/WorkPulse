@@ -29,6 +29,10 @@ $white = [System.Drawing.Color]::FromArgb(255, 255, 255)
 $gray = [System.Drawing.Color]::FromArgb(160, 165, 180)    # #A0A5B4
 $grayLight = [System.Drawing.Color]::FromArgb(200, 205, 215)
 
+# Fonts (CJK-safe)
+$fontEn = "Segoe UI"
+$fontCJK = "Microsoft YaHei UI"
+
 # ============================================================
 # 1. installerSidebar.bmp (164×314) - Welcome/Finish page left panel
 # ============================================================
@@ -73,21 +77,21 @@ $g.FillEllipse((New-Object System.Drawing.SolidBrush($red)), $startX + $dotSpaci
 $g.FillRectangle((New-Object System.Drawing.SolidBrush($gray)), 34, 108, 96, 2)
 
 # "WorkPulse" title text
-$titleFont = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
+$titleFont = New-Object System.Drawing.Font($fontEn, 14, [System.Drawing.FontStyle]::Bold)
 $titleBrush = New-Object System.Drawing.SolidBrush($white)
 $titleSize = $g.MeasureString("WorkPulse", $titleFont)
 $titleX = (164 - $titleSize.Width) / 2
 $g.DrawString("WorkPulse", $titleFont, $titleBrush, $titleX, 185)
 
 # Tagline
-$tagFont = New-Object System.Drawing.Font("Segoe UI", 8)
+$tagFont = New-Object System.Drawing.Font($fontCJK, 8)
 $tagBrush = New-Object System.Drawing.SolidBrush($gray)
 $tagSize = $g.MeasureString("工作脉搏 · 高效协同", $tagFont)
 $tagX = (164 - $tagSize.Width) / 2
 $g.DrawString("工作脉搏 · 高效协同", $tagFont, $tagBrush, $tagX, 210)
 
 # Version placeholder
-$verFont = New-Object System.Drawing.Font("Segoe UI", 7)
+$verFont = New-Object System.Drawing.Font($fontEn, 7)
 $verBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(100, 105, 120))
 $g.DrawString("v0.1.9", $verFont, $verBrush, 70, 230)
 
@@ -130,12 +134,12 @@ $g2.FillEllipse((New-Object System.Drawing.SolidBrush($pink)), $startX2 + $dotSp
 $g2.FillEllipse((New-Object System.Drawing.SolidBrush($red)), $startX2 + $dotSpacing2 * 3, $dotY2, $dotSize2, $dotSize2)
 
 # "WorkPulse" text
-$headerFont = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+$headerFont = New-Object System.Drawing.Font($fontEn, 11, [System.Drawing.FontStyle]::Bold)
 $headerBrush = New-Object System.Drawing.SolidBrush($white)
 $g2.DrawString("WorkPulse", $headerFont, $headerBrush, 70, 18)
 
 # Subtitle
-$subFont = New-Object System.Drawing.Font("Segoe UI", 7)
+$subFont = New-Object System.Drawing.Font($fontCJK, 7)
 $subBrush = New-Object System.Drawing.SolidBrush($gray)
 $g2.DrawString("安装向导", $subFont, $subBrush, 70, 35)
 
