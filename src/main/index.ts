@@ -484,10 +484,8 @@ function createWindow(): void {
     }
   })
 
-  // 2. 应用 Windows 11 云母效果
-  mainWindow.setMicaEffect();           // 标准云母效果
-  // win.setMicaTabbedEffect();  // 备选：带选项卡的云母效果 (Mica Alt)
-  // win.setMicaAcrylicEffect(); // 备选：亚克力效果
+  // 2. 应用亚克力效果
+  mainWindow.setMicaAcrylicEffect();
 
   // 当窗口准备就绪后，最大化并显示
   // +++++ 修改 ready-to-show：先关闭启动窗口，再显示主窗口 +++++
