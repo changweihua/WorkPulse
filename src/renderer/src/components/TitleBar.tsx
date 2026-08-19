@@ -1,51 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState } from 'react';
 import { X, Minus, Expand, Shrink } from 'lucide-react';
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [accentColor, setAccentColor] = useState<string>('rgba(24, 24, 27, 0.85)');
 
   const [hoverClose, setHoverClose] = useState(false);
   const [hoverMinimize, setHoverMinimize] = useState(false);
   const [hoverMaximize, setHoverMaximize] = useState(false);
-
-  useEffect(() => {
-    const saved = sessionStorage.getItem('accentColor');
-    if (saved) {
-      setAccentColor(saved);
-    }
-    if (!window.sys?.onAccentColorUpdate) return;
-    const unsubscribe = window.sys.onAccentColorUpdate((color: string) => {
-      setAccentColor(color);
-      sessionStorage.setItem('accentColor', color);
-    });
-    return () => unsubscribe?.();
-  }, []);
-
-  const toRgba = (hex: string, alpha: number) => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-
-  const accentColorBg = accentColor.startsWith('#') ? toRgba(accentColor, 0.7) : accentColor;
-
-  function isLightColor(hex: string): boolean {
-    const raw = hex.startsWith('#') ? hex.slice(1) : hex;
-    if (raw.length < 6) return true;
-    const r = parseInt(raw.slice(0, 2), 16);
-    const g = parseInt(raw.slice(2, 4), 16);
-    const b = parseInt(raw.slice(4, 6), 16);
-    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5;
-  }
-
-  const textColor = useMemo(() => {
-    if (accentColor.startsWith('#')) {
-      return isLightColor(accentColor) ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)';
-    }
-    return 'rgba(255,255,255,0.9)';
-  }, [accentColor]);
 
   const handleMinimize = () => (window.api as any).window.minimize();
   const handleMaximize = () => {
@@ -185,7 +146,7 @@ export function TitleBar() {
           flex: 1,
           textAlign: 'center',
           fontSize: '13px',
-          color: textColor,
+          color: 'rgba(255,255,255,0.9)',
           fontWeight: 500,
           letterSpacing: '0.3px',
           textShadow: '0 1px 2px rgba(0,0,0,0.1)',

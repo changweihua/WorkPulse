@@ -145,9 +145,6 @@ declare global {
       close: () => void;
       setMicaTheme: (theme: 'light' | 'dark' | 'system') => void;
     };
-    sys: {
-      onAccentColorUpdate: (callback: (color: string) => void) => () => void;
-    };
     pp: {
       ipcRenderer: {
         invoke(channel: string, ...args: any[]): Promise<any>;

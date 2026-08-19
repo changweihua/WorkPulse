@@ -697,24 +697,29 @@ function SettingsPage(): ReactNode {
                 <option value="en">{t('settings.languageEn')}</option>
               </select>
             </div>
-            <div className="flex gap-2">
-              {([
-                { value: 'light', label: t('settings.themeLight'), Icon: Sun },
-                { value: 'dark', label: t('settings.themeDark'), Icon: Moon },
-                { value: 'system', label: t('settings.themeSystem'), Icon: Monitor }
-              ] as const).map(({ value, label, Icon }) => (
-                <button
-                  key={value}
-                  onClick={() => handleThemeChange(value)}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors ${theme === value
-                      ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
-                      : 'border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                    }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </button>
-              ))}
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('settings.theme')}</label>
+              <p className="text-xs text-zinc-400 mb-2">{t('settings.themeHelp')}</p>
+              <div className="flex gap-2">
+                {([
+                  { value: 'light', label: t('settings.themeLight'), Icon: Sun, color: 'bg-amber-400' },
+                  { value: 'dark', label: t('settings.themeDark'), Icon: Moon, color: 'bg-zinc-700' },
+                  { value: 'system', label: t('settings.themeSystem'), Icon: Monitor, color: 'bg-gradient-to-r from-amber-400 to-zinc-700' }
+                ] as const).map(({ value, label, Icon, color }) => (
+                  <button
+                    key={value}
+                    onClick={() => handleThemeChange(value)}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors ${theme === value
+                        ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                        : 'border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                      }`}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full ${color} ${theme === value ? 'ring-2 ring-white dark:ring-zinc-900 ring-offset-1' : ''}`} />
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </section>
 

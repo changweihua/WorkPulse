@@ -157,7 +157,7 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({ onDateClick
     };
 
     return (
-        <div className="w-full flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-100/80 overflow-hidden select-none">
+        <div className="w-full flex-1 flex flex-col bg-white/70 dark:bg-zinc-900/70 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100/80 dark:border-zinc-800/50 overflow-hidden select-none">
             {/* 头部 */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
                 <button onClick={goPrev} className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition text-xl">

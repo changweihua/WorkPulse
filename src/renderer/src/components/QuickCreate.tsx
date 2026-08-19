@@ -74,7 +74,7 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
 
       {/* Panel */}
       <div
-        className="relative w-full max-w-lg mx-4 bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden animate-slide-down"
+        className="relative w-full max-w-lg mx-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden animate-slide-down"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Mode toggle */}
