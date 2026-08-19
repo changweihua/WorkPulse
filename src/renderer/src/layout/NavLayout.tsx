@@ -39,9 +39,9 @@ export default function NavLayout() {
         return (
             <Link
                 to={`/${path}`}
-                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${isActive
+                className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 reveal-border ${isActive
                         ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 tab-active'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:scale-[1.02]'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 hover:scale-[1.02]'
                     }`}
             >
                 {icon}
@@ -52,11 +52,10 @@ export default function NavLayout() {
 
     return (
         <div className="flex flex-col h-full">
-            {/* 导航栏 - 增强毛玻璃效果 */}
+            {/* 导航栏 - Fluent Acrylic */}
             <header
-                className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/30 dark:border-zinc-800/30 
-                           bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl backdrop-saturate-150 shrink-0 
-                           shadow-sm"
+                className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/40 dark:border-zinc-800/40 
+                           bg-white/50 dark:bg-zinc-900/50 backdrop-blur-2xl backdrop-saturate-150 shrink-0"
             >
                 <div className="flex items-center gap-1">
                     <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4">工作台</h1>

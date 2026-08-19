@@ -423,9 +423,9 @@ function SettingsPage(): ReactNode {
   const isCheckingUpdate = updateState.status === 'checking' || updateState.status === 'downloading'
 
   return (
-    <div className="flex flex-col bg-zinc-50 dark:bg-zinc-950">
+    <div className="flex flex-col bg-zinc-50/70 dark:bg-zinc-950/70">
       {/* Header */}
-      <header className="flex items-center px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+      <header className="flex items-center px-4 py-3 border-b border-zinc-200/40 dark:border-zinc-800/40 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-xl">
         <button
           onClick={() => navigate('/worklog')}
           className="p-2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors mr-2"

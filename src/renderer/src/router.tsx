@@ -18,7 +18,7 @@ const NotFound = () => (
     <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center">
             <h1 className="text-4xl font-bold text-zinc-800 dark:text-zinc-200">404</h1>
-            <p className="text-zinc-600 dark:text-zinc-400 mt-2">页面未找到</p>
+            <p className="text-zinc-500 dark:text-zinc-400 mt-2">页面未找到</p>
         </div>
     </div>
 );

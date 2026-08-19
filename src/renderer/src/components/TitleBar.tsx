@@ -56,17 +56,17 @@ export function TitleBar() {
 
   const appTitle = import.meta.env.VITE_APP_TITLE || 'WorkPulseD';
 
-  // 液态玻璃背景样式
+  // 液态玻璃背景样式 (Fluent Design: acrylic + noise grain)
   const glassStyle = {
     height: '32px',
     display: 'flex',
     alignItems: 'center',
     padding: '0 12px',
     backgroundColor: accentColorBg,
-    backdropFilter: 'blur(20px) saturate(1.4)',
-    WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
+    backdropFilter: 'blur(30px) saturate(1.5)',
+    WebkitBackdropFilter: 'blur(30px) saturate(1.5)',
     backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 60%)',
-    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.05)',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.08)',
     WebkitAppRegion: 'drag',
     flexShrink: 0,
     userSelect: 'none',

@@ -126,10 +126,10 @@ export default function DSHPage() {
 
     // ---- Render ----
     return (
-        <div className="flex flex-col h-full bg-white">
+        <div className="flex flex-col h-full bg-white/70 dark:bg-zinc-950/70">
             {/* Toolbar */}
             <div
-                className="shrink-0 flex items-center gap-2 px-3 bg-gray-100 border-b border-gray-200 text-xs"
+                className="shrink-0 flex items-center gap-2 px-3 bg-gray-100/60 backdrop-blur-xl border-b border-gray-200/40 text-xs"
                 style={{ height: TOOLBAR_HEIGHT }}
             >
                 <button

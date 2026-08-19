@@ -9,28 +9,25 @@
   --font-serif: "JetBrains Maple Mono", "Maple Mono NF CN", "Source Han Serif SC", "思源宋体", serif;
   --font-mono: "JetBrains Maple Mono", monospace;
 
-  /* 如果还有其他自定义（颜色、间距等），也在这里添加 */
-  /* 例如：--color-primary: #0ea5e9; */
+  /* Fluent Design shadows */
+  --shadow-fluent: 0 2px 4px rgb(0 0 0 / 4%), 0 8px 16px rgb(0 0 0 / 6%);
+  --shadow-fluent-lg: 0 8px 16px rgb(0 0 0 / 8%), 0 20px 40px rgb(0 0 0 / 10%);
+  --shadow-fluent-xl: 0 16px 32px rgb(0 0 0 / 10%), 0 32px 64px rgb(0 0 0 / 12%);
+  --shadow-fluent-accent: 0 2px 4px rgb(0 0 0 / 4%), 0 8px 16px rgb(0 0 0 / 6%), 0 0 0 1px rgb(0 0 0 / 2%);
 }
 
-@layer base {
-  /* body {
-    font-family: "Maple Mono NF CN", "Source Han Serif SC", "思源宋体", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
-  } */
-}
-
+/* ===== Base: translucent body for Mica ===== */
 body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #fafafa;
+  background-color: rgb(250 250 250 / 0.72);
   color: #09090b;
 }
 
 .dark body,
 :root.dark body {
-  background-color: #0a0a0a;
+  background-color: rgb(10 10 10 / 0.72);
   color: #fafafa;
 }
 
@@ -235,4 +232,63 @@ body,
 /* Streak fire glow */
 .streak-glow {
   text-shadow: 0 0 8px rgba(234, 88, 12, 0.4);
+}
+
+/* ===== Fluent Design Materials ===== */
+
+/* Acrylic: blur + tint + noise (transient surfaces: popovers, dialogs) */
+.bg-acrylic {
+  background-color: rgb(247 247 247 / 0.8);
+  backdrop-filter: blur(40px) saturate(1.4);
+  -webkit-backdrop-filter: blur(40px) saturate(1.4);
+  border: 1px solid rgb(229 229 229 / 0.9);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 1024 1024' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.25' numOctaves='1' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px;
+}
+.dark .bg-acrylic {
+  background-color: rgb(24 24 24 / 0.66);
+  border-color: rgb(255 255 255 / 0.06);
+}
+
+/* Mica surface: frosted tint (persistent panels, cards) */
+.bg-mica {
+  background-color: rgb(249 251 253 / 0.86);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid rgb(225 230 234 / 0.6);
+}
+.dark .bg-mica {
+  background-color: rgb(32 35 48 / 0.86);
+  border-color: rgb(255 255 255 / 0.06);
+}
+
+/* Reveal border: Fluent hover highlight */
+.reveal-border {
+  position: relative;
+}
+.reveal-border::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgb(255 255 255 / 0.5);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.reveal-border:hover::after {
+  opacity: 1;
+}
+.dark .reveal-border::after {
+  border-color: rgb(255 255 255 / 0.15);
+}
+
+/* Subtle divider (Fluent layer stroke) */
+.divider-fluent {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(0 0 0 / 8%), transparent);
+}
+.dark .divider-fluent {
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 8%), transparent);
 }
