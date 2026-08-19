@@ -1,5 +1,6 @@
 const sharp = require('sharp');
 const path = require('path');
+const fs = require('fs');
 
 const buildDir = path.join(__dirname);
 
@@ -14,31 +15,20 @@ const RED = '#EF4444';
 const WHITE = '#FFFFFF';
 const GRAY = '#A0A5B4';
 
-// Helper: create monitor + dots SVG elements
-function monitorElements(x, y, scale = 1) {
-  const s = scale;
-  return `
-    <!-- Monitor body -->
-    <rect x="${x+10*s}" y="${y}" width="${96*s}" height="${68*s}" rx="${6*s}" fill="${NAVY_LIGHT}" />
-    <!-- Screen -->
-    <rect x="${x+14*s}" y="${y+4*s}" width="${88*s}" height="${52*s}" rx="${3*s}" fill="#141930" />
-    <!-- Taskbar -->
-    <rect x="${x+18*s}" y="${y+42*s}" width="${80*s}" height="${10*s}" rx="${2*s}" fill="#2A3050" />
-    <!-- 4 colored dots -->
-    <circle cx="${x+30*s}" cy="${y+47*s}" r="${4*s}" fill="${CYAN}" />
-    <circle cx="${x+46*s}" cy="${y+47*s}" r="${4*s}" fill="${LIGHT_BLUE}" />
-    <circle cx="${x+62*s}" cy="${y+47*s}" r="${4*s}" fill="${PINK}" />
-    <circle cx="${x+78*s}" cy="${y+47*s}" r="${4*s}" fill="${RED}" />
-    <!-- Stand -->
-    <rect x="${x+44*s}" y="${y+68*s}" width="${24*s}" height="${5*s}" rx="${1*s}" fill="${NAVY_LIGHT}" />
-    <rect x="${x+36*s}" y="${y+73*s}" width="${40*s}" height="${4*s}" rx="${2*s}" fill="${NAVY_LIGHT}" />
-  `;
+// Generate PNG files first (known working approach)
+async function genPNG(svg, width, height, pngFile) {
+  await sharp(Buffer.from(svg))
+    .resize(width, height)
+    .png()
+    .toFile(path.join(buildDir, pngFile));
+  console.log(`  PNG: ${pngFile}`);
 }
 
 // ============================================================
 // 1. installerSidebar (164×314)
 // ============================================================
 async function genSidebar() {
+  console.log('Generating installerSidebar...');
   const svg = `<svg width="164" height="314" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
@@ -46,79 +36,32 @@ async function genSidebar() {
         <stop offset="100%" stop-color="${NAVY_MID}" />
       </linearGradient>
     </defs>
-    <!-- Background -->
     <rect width="164" height="314" fill="url(#bg)" />
-    
-    <!-- Monitor illustration -->
-    ${monitorElements(24, 55, 1.15)}
-    
-    <!-- WorkPulse title -->
+    <rect x="34" y="55" width="116" height="85" rx="8" fill="${NAVY_LIGHT}" />
+    <rect x="40" y="61" width="104" height="65" rx="4" fill="#141930" />
+    <rect x="44" y="108" width="96" height="10" rx="2" fill="#2A3050" />
+    <circle cx="56" cy="113" r="4" fill="${CYAN}" />
+    <circle cx="72" cy="113" r="4" fill="${LIGHT_BLUE}" />
+    <circle cx="88" cy="113" r="4" fill="${PINK}" />
+    <circle cx="104" cy="113" r="4" fill="${RED}" />
+    <rect x="72" y="140" width="24" height="5" rx="1" fill="${NAVY_LIGHT}" />
+    <rect x="60" y="145" width="48" height="4" rx="2" fill="${NAVY_LIGHT}" />
     <text x="82" y="195" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="20" font-weight="bold" fill="${WHITE}">WorkPulse</text>
-    
-    <!-- Tagline -->
     <text x="82" y="218" text-anchor="middle" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="10" fill="${GRAY}">工作脉搏 · 高效协同</text>
-    
-    <!-- Version -->
     <text x="82" y="238" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#646578">v0.1.9</text>
-    
-    <!-- Decorative dots -->
     <circle cx="22" cy="275" r="4" fill="${CYAN}" opacity="0.25" />
     <circle cx="37" cy="282" r="3" fill="${LIGHT_BLUE}" opacity="0.2" />
     <circle cx="127" cy="273" r="3.5" fill="${PINK}" opacity="0.2" />
     <circle cx="142" cy="283" r="2.5" fill="${RED}" opacity="0.2" />
   </svg>`;
-
-  await sharp(Buffer.from(svg))
-    .resize(164, 314)
-    .png()
-    .toFile(path.join(buildDir, 'installerSidebar.png'));
-  
-  // Convert to BMP (24-bit)
-  await sharp(Buffer.from(svg))
-    .resize(164, 314)
-    .raw()
-    .toBuffer({ resolveWithObject: true })
-    .then(({ data, info }) => {
-      // Create 24-bit BMP manually
-      const w = info.width, h = info.height;
-      const rowSize = Math.ceil((w * 3) / 4) * 4;
-      const imgSize = rowSize * h;
-      const fileSize = 54 + imgSize;
-      const buf = Buffer.alloc(fileSize);
-      
-      // BMP header
-      buf.write('BM', 0);
-      buf.writeUInt32LE(fileSize, 2);
-      buf.writeUInt32LE(54, 10);
-      // DIB header
-      buf.writeUInt32LE(40, 14);
-      buf.writeInt32LE(w, 18);
-      buf.writeInt32LE(h, 22);
-      buf.writeUInt16LE(1, 26);
-      buf.writeUInt16LE(24, 28);
-      buf.writeUInt32LE(imgSize, 34);
-      
-      // Pixel data (bottom-up, BGR)
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const srcIdx = ((h - 1 - y) * w + x) * 3;
-          const dstIdx = 54 + y * rowSize + x * 3;
-          buf[dstIdx] = data[srcIdx + 2]; // B
-          buf[dstIdx + 1] = data[srcIdx + 1]; // G
-          buf[dstIdx + 2] = data[srcIdx]; // R
-        }
-      }
-      
-      require('fs').writeFileSync(path.join(buildDir, 'installerSidebar.bmp'), buf);
-    });
-  
-  console.log('installerSidebar done');
+  await genPNG(svg, 164, 314, 'installerSidebar.png');
 }
 
 // ============================================================
 // 2. installerHeader (150×57)
 // ============================================================
 async function genHeader() {
+  console.log('Generating installerHeader...');
   const svg = `<svg width="150" height="57" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="bg" x1="0" y1="0" x2="1" y2="0">
@@ -126,69 +69,22 @@ async function genHeader() {
         <stop offset="100%" stop-color="${NAVY_LIGHT}" />
       </linearGradient>
     </defs>
-    <!-- Background -->
     <rect width="150" height="57" fill="url(#bg)" />
-    
-    <!-- 4 colored dots -->
     <circle cx="18" cy="22" r="4" fill="${CYAN}" />
     <circle cx="30" cy="22" r="4" fill="${LIGHT_BLUE}" />
     <circle cx="42" cy="22" r="4" fill="${PINK}" />
     <circle cx="54" cy="22" r="4" fill="${RED}" />
-    
-    <!-- WorkPulse title -->
     <text x="70" y="28" font-family="Segoe UI, sans-serif" font-size="14" font-weight="bold" fill="${WHITE}">WorkPulse</text>
-    
-    <!-- Subtitle -->
     <text x="70" y="42" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="9" fill="${GRAY}">安装向导</text>
   </svg>`;
-
-  await sharp(Buffer.from(svg))
-    .resize(150, 57)
-    .png()
-    .toFile(path.join(buildDir, 'installerHeader.png'));
-  
-  // Convert to BMP
-  await sharp(Buffer.from(svg))
-    .resize(150, 57)
-    .raw()
-    .toBuffer({ resolveWithObject: true })
-    .then(({ data, info }) => {
-      const w = info.width, h = info.height;
-      const rowSize = Math.ceil((w * 3) / 4) * 4;
-      const imgSize = rowSize * h;
-      const fileSize = 54 + imgSize;
-      const buf = Buffer.alloc(fileSize);
-      
-      buf.write('BM', 0);
-      buf.writeUInt32LE(fileSize, 2);
-      buf.writeUInt32LE(54, 10);
-      buf.writeUInt32LE(40, 14);
-      buf.writeInt32LE(w, 18);
-      buf.writeInt32LE(h, 22);
-      buf.writeUInt16LE(1, 26);
-      buf.writeUInt16LE(24, 28);
-      buf.writeUInt32LE(imgSize, 34);
-      
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const srcIdx = ((h - 1 - y) * w + x) * 3;
-          const dstIdx = 54 + y * rowSize + x * 3;
-          buf[dstIdx] = data[srcIdx + 2];
-          buf[dstIdx + 1] = data[srcIdx + 1];
-          buf[dstIdx + 2] = data[srcIdx];
-        }
-      }
-      
-      require('fs').writeFileSync(path.join(buildDir, 'installerHeader.bmp'), buf);
-    });
-  
-  console.log('installerHeader done');
+  await genPNG(svg, 150, 57, 'installerHeader.png');
 }
 
 // ============================================================
 // 3. uninstallerSidebar (164×314)
 // ============================================================
 async function genUninstallSidebar() {
+  console.log('Generating uninstallerSidebar...');
   const svg = `<svg width="164" height="314" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
@@ -196,71 +92,30 @@ async function genUninstallSidebar() {
         <stop offset="100%" stop-color="#323746" />
       </linearGradient>
     </defs>
-    <!-- Background -->
     <rect width="164" height="314" fill="url(#bg)" />
-    
-    <!-- Monitor illustration -->
-    ${monitorElements(24, 55, 1.15)}
-    
-    <!-- WorkPulse title -->
+    <rect x="34" y="55" width="116" height="85" rx="8" fill="${NAVY_LIGHT}" />
+    <rect x="40" y="61" width="104" height="65" rx="4" fill="#141930" />
+    <rect x="44" y="108" width="96" height="10" rx="2" fill="#2A3050" />
+    <circle cx="56" cy="113" r="4" fill="${CYAN}" />
+    <circle cx="72" cy="113" r="4" fill="${LIGHT_BLUE}" />
+    <circle cx="88" cy="113" r="4" fill="${PINK}" />
+    <circle cx="104" cy="113" r="4" fill="${RED}" />
+    <rect x="72" y="140" width="24" height="5" rx="1" fill="${NAVY_LIGHT}" />
+    <rect x="60" y="145" width="48" height="4" rx="2" fill="${NAVY_LIGHT}" />
     <text x="82" y="195" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="20" font-weight="bold" fill="${WHITE}">WorkPulse</text>
-    
-    <!-- Uninstall tagline -->
     <text x="82" y="218" text-anchor="middle" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="10" fill="${GRAY}">卸载向导</text>
-    
-    <!-- Decorative dots -->
     <circle cx="22" cy="275" r="4" fill="${CYAN}" opacity="0.25" />
     <circle cx="37" cy="282" r="3" fill="${LIGHT_BLUE}" opacity="0.2" />
     <circle cx="127" cy="273" r="3.5" fill="${PINK}" opacity="0.2" />
     <circle cx="142" cy="283" r="2.5" fill="${RED}" opacity="0.2" />
   </svg>`;
-
-  await sharp(Buffer.from(svg))
-    .resize(164, 314)
-    .png()
-    .toFile(path.join(buildDir, 'uninstallerSidebar.png'));
-  
-  // Convert to BMP
-  await sharp(Buffer.from(svg))
-    .resize(164, 314)
-    .raw()
-    .toBuffer({ resolveWithObject: true })
-    .then(({ data, info }) => {
-      const w = info.width, h = info.height;
-      const rowSize = Math.ceil((w * 3) / 4) * 4;
-      const imgSize = rowSize * h;
-      const fileSize = 54 + imgSize;
-      const buf = Buffer.alloc(fileSize);
-      
-      buf.write('BM', 0);
-      buf.writeUInt32LE(fileSize, 2);
-      buf.writeUInt32LE(54, 10);
-      buf.writeUInt32LE(40, 14);
-      buf.writeInt32LE(w, 18);
-      buf.writeInt32LE(h, 22);
-      buf.writeUInt16LE(1, 26);
-      buf.writeUInt16LE(24, 28);
-      buf.writeUInt32LE(imgSize, 34);
-      
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const srcIdx = ((h - 1 - y) * w + x) * 3;
-          const dstIdx = 54 + y * rowSize + x * 3;
-          buf[dstIdx] = data[srcIdx + 2];
-          buf[dstIdx + 1] = data[srcIdx + 1];
-          buf[dstIdx + 2] = data[srcIdx];
-        }
-      }
-      
-      require('fs').writeFileSync(path.join(buildDir, 'uninstallerSidebar.bmp'), buf);
-    });
-  
-  console.log('uninstallerSidebar done');
+  await genPNG(svg, 164, 314, 'uninstallerSidebar.png');
 }
 
 (async () => {
   await genSidebar();
   await genHeader();
   await genUninstallSidebar();
-  console.log('All assets generated!');
+  console.log('All PNG assets generated!');
+  console.log('Now run: python build/convert-png-to-bmp.py');
 })();
