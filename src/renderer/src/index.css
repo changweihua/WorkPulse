@@ -360,6 +360,15 @@ body,
   border-color: rgb(255 255 255 / 0.15);
 }
 
+/* Streaming report: live emerald border glow */
+@keyframes stream-border {
+  0%, 100% { border-color: rgb(16 185 129 / 0.35); box-shadow: 0 0 0 0 rgb(16 185 129 / 0.12); }
+  50% { border-color: rgb(16 185 129 / 0.8); box-shadow: 0 0 0 4px rgb(16 185 129 / 0.06); }
+}
+.streaming-border {
+  animation: stream-border 2.2s ease-in-out infinite;
+}
+
 /* Subtle divider (Fluent layer stroke) */
 .divider-fluent {
   height: 1px;
