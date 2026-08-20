@@ -706,12 +706,14 @@ ipcMain.on('window-control', (event, action) => {
 export function setAutoLaunch(enable: boolean): void {
   // 持久化到数据库
   setSetting('auto_launch', enable ? 'true' : 'false')
-  // 设置系统登录项
-  app.setLoginItemSettings({
-    openAtLogin: enable,
-    path: app.getPath('exe'),
-    args: enable ? ['--hidden'] : []
-  });
+  // 打包后才启用系统登录项，开发环境下 electron.exe 无法正确启动应用
+  if (app.isPackaged) {
+    app.setLoginItemSettings({
+      openAtLogin: enable,
+      path: app.getPath('exe'),
+      args: enable ? ['--hidden'] : []
+    });
+  }
 }
 
 /**
@@ -735,14 +737,16 @@ export function registerAutoLaunchIpc(): void {
     return getAutoLaunch();
   });
 
-  // 启动时恢复系统登录项设置
-  const savedAutoLaunch = getSetting('auto_launch')
-  if (savedAutoLaunch !== null) {
-    app.setLoginItemSettings({
-      openAtLogin: savedAutoLaunch === 'true',
-      path: app.getPath('exe'),
-      args: savedAutoLaunch === 'true' ? ['--hidden'] : []
-    });
+  // 启动时恢复系统登录项设置（仅打包后生效）
+  if (app.isPackaged) {
+    const savedAutoLaunch = getSetting('auto_launch')
+    if (savedAutoLaunch !== null) {
+      app.setLoginItemSettings({
+        openAtLogin: savedAutoLaunch === 'true',
+        path: app.getPath('exe'),
+        args: savedAutoLaunch === 'true' ? ['--hidden'] : []
+      });
+    }
   }
 
   // 关闭行为设置
