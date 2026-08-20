@@ -105,6 +105,11 @@ interface API {
     list: (limit?: number) => Promise<Report[]>
     update: (id: number, content: string) => Promise<Report | null>
   }
+  ai: {
+    streamChat: (prompt: string) => Promise<{
+      onPort: (callback: (port: MessagePort) => void) => () => void
+    }>
+  }
   settings: {
     get: (key: string) => Promise<string | null>
     set: (key: string, value: string) => Promise<void>

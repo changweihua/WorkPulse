@@ -86,6 +86,20 @@ const api = {
     update: (id: number, content: string) =>
       ipcRenderer.invoke('report:update', id, content)
   },
+  ai: {
+    streamChat: async (prompt: string) => {
+      await ipcRenderer.invoke('ai:stream-chat', prompt)
+      return {
+        onPort: (callback: (port: MessagePort) => void) => {
+          const handler = (_event: Electron.IpcRendererEvent, port: MessagePort) => {
+            callback(port)
+          }
+          ipcRenderer.on('ai:stream-port', handler)
+          return () => ipcRenderer.removeListener('ai:stream-port', handler)
+        }
+      }
+    }
+  },
   settings: {
     get: (key: string) => ipcRenderer.invoke('settings:get', key),
     set: (key: string, value: string) => ipcRenderer.invoke('settings:set', key, value),

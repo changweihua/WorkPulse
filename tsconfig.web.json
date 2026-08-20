@@ -12,8 +12,6 @@
     "rootDir": "./src/renderer/src",
     "strict": true,
     "skipLibCheck": true,
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/renderer/src/*"]
     }

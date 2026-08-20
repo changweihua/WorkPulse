@@ -1,6 +1,6 @@
 {
   "name": "workpulse",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Work log + AI report generator desktop app",
   "author": "changweihua <changweihua@users.noreply.github.com>",
   "repository": {
@@ -171,6 +171,7 @@
     "@electron-uikit/titlebar": "^1.4.0",
     "@fauzitech/ai-ui": "^0.1.0",
     "@huggingface/transformers": "^4.2.0",
+    "@typescript/typescript-win32-x64": "^7.0.2",
     "better-sqlite3": "^13.0.3",
     "canvas-confetti": "^1.9.4",
     "date-fns": "^4.4.0",
@@ -187,6 +188,7 @@
     "react-router-dom": "^7.18.2",
     "react-use": "^17.6.1",
     "remark-gfm": "^4.0.1",
+    "streamdown": "^2.5.0",
     "talex-mica-electron": "^1.0.2",
     "zustand": "^5.0.15"
   },

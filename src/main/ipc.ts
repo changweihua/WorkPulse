@@ -1,4 +1,4 @@
-import { ipcMain, dialog, shell, app, BrowserWindow } from 'electron'
+import { ipcMain, dialog, shell, app, BrowserWindow, MessageChannelMain } from 'electron'
 import { readFileSync, writeFileSync } from 'fs'
 import {
   addWorkLog,
@@ -26,7 +26,7 @@ import {
   updateWorkLog,
   workLogExists
 } from './db'
-import { generateReport } from './ai'
+import { generateReport, streamChat } from './ai'
 import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey } from './secureSettings'
 import { tMain } from './i18n'
 import OpenAI from 'openai';
@@ -106,6 +106,26 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('report:update', (_event, id: number, content: string) => {
     return updateReportContent(id, content)
+  })
+
+  ipcMain.handle('ai:stream-chat', async (event, prompt: string) => {
+    const { port1, port2 } = new MessageChannelMain()
+    event.sender.postMessage('ai:stream-port', null, [port2])
+
+    await streamChat(
+      prompt,
+      (text) => port1.postMessage({ type: 'chunk', text }),
+      () => {
+        port1.postMessage({ type: 'done' })
+        port1.close()
+      },
+      (error) => {
+        port1.postMessage({ type: 'error', error })
+        port1.close()
+      }
+    )
+
+    return { ok: true }
   })
 
   // --- Tasks ---

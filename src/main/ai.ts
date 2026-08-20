@@ -1,3 +1,4 @@
+import { net } from 'electron'
 import { getSetting } from './db'
 import { getStoredApiKey } from './secureSettings'
 import { getResolvedLanguage, tMain } from './i18n'
@@ -239,6 +240,126 @@ async function callDeepSeek(
 
   const data = await response.json()
   return data.choices[0]?.message?.content || 'Generation failed: empty response'
+}
+
+// --- Streaming API ---
+
+function parseSSEChunk(line: string): string | null {
+  if (!line.startsWith('data: ')) return null
+  const data = line.slice(6)
+  if (data === '[DONE]') return null
+  try {
+    const json = JSON.parse(data)
+    if (json.choices?.[0]?.delta?.content) return json.choices[0].delta.content
+    if (json.type === 'content_block_delta') return json.delta?.text
+    return null
+  } catch {
+    return null
+  }
+}
+
+function getApiUrl(provider: string, baseUrl: string): string {
+  const base = baseUrl?.replace(/\/+$/, '') || ''
+  if (provider === 'anthropic') return `${base || 'https://api.anthropic.com'}/v1/messages`
+  if (provider === 'deepseek') return `${base || 'https://api.deepseek.com'}/chat/completions`
+  return `${base || 'https://api.openai.com'}/v1/chat/completions`
+}
+
+function getHeaders(provider: string, apiKey: string): Record<string, string> {
+  if (provider === 'anthropic') {
+    return {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01'
+    }
+  }
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`
+  }
+}
+
+function getDefaultModel(provider: string, model: string): string {
+  if (model) return model
+  if (provider === 'anthropic') return 'claude-sonnet-4-20250514'
+  if (provider === 'deepseek') return 'deepseek-chat'
+  return 'gpt-4o-mini'
+}
+
+export async function streamChat(
+  prompt: string,
+  onChunk: (text: string) => void,
+  onDone: () => void,
+  onError: (error: string) => void
+): Promise<void> {
+  const apiKey = getStoredApiKey()
+  if (!apiKey) {
+    onError(tMain('apiKeyMissing'))
+    return
+  }
+
+  const provider = getSetting('ai_provider') || 'openai'
+  const baseUrl = getSetting('ai_base_url') || ''
+  const model = getSetting('ai_model') || ''
+  const resolvedLanguage = getResolvedLanguage()
+  const language = getSetting('report_language') || (resolvedLanguage === 'zh' ? '中文' : 'English')
+  const style = getSetting('report_style') || (resolvedLanguage === 'zh' ? '简洁专业' : 'Concise professional')
+  const customPrompt = getSetting('system_prompt') || (resolvedLanguage === 'zh' ? DEFAULT_SYSTEM_PROMPT : DEFAULT_SYSTEM_PROMPT_EN)
+
+  const vars: Record<string, string> = { language, style, dateFrom: '', dateTo: '' }
+  const systemPrompt = replaceVars(customPrompt, vars)
+
+  const messages: Message[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: prompt }
+  ]
+
+  try {
+    const url = getApiUrl(provider, baseUrl)
+    const headers = getHeaders(provider, apiKey)
+
+    const body: Record<string, unknown> = {
+      model: getDefaultModel(provider, model),
+      messages,
+      stream: true,
+      temperature: 0.7,
+      max_tokens: 2000
+    }
+
+    const response = await net.fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      onError(`${response.status}: ${error}`)
+      return
+    }
+
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) {
+          onDone()
+          break
+        }
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n')
+        for (const line of lines) {
+          const text = parseSSEChunk(line)
+          if (text) onChunk(text)
+        }
+      }
+    }
+  } catch (err) {
+    onError(String(err))
+  }
 }
 
 export { DEFAULT_SYSTEM_PROMPT, DEFAULT_REPORT_TEMPLATE, DEFAULT_SYSTEM_PROMPT_EN, DEFAULT_REPORT_TEMPLATE_EN }

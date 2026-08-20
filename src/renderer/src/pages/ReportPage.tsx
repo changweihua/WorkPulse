@@ -13,11 +13,10 @@ import {
   Download,
   Save
 } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { getDateRange, type DatePreset } from '../lib/dateUtils'
 import { useToast } from '../components/Toast'
 import { useI18n } from '../stores/languageStore'
+import { StreamedMarkdown, useStreamChat } from '../components/StreamedMarkdown'
 
 interface Report {
   id: number
@@ -28,7 +27,7 @@ interface Report {
   generated_at: string
 }
 
-type Status = 'idle' | 'no_key' | 'generating' | 'success' | 'error' | 'no_data'
+type Status = 'idle' | 'no_key' | 'generating' | 'streaming' | 'success' | 'error' | 'no_data'
 
 function ReportPage(): ReactNode {
   const [preset, setPreset] = useState<DatePreset>('this_week')
@@ -45,12 +44,34 @@ function ReportPage(): ReactNode {
   const [historyOpen, setHistoryOpen] = useState(true)
   const toast = useToast()
   const { t } = useI18n()
+  const { content: streamedContent, isStreaming, error: streamError, startStream, reset: resetStream } = useStreamChat()
 
   useEffect(() => {
     checkApiKey()
     applyPreset('this_week')
     loadHistory()
   }, [])
+
+  useEffect(() => {
+    if (status === 'streaming' && streamedContent) {
+      setReportContent(streamedContent)
+    }
+  }, [streamedContent, status])
+
+  useEffect(() => {
+    if (status === 'streaming' && !isStreaming && streamedContent) {
+      setReportContent(streamedContent)
+      setStatus('success')
+      loadHistory()
+    }
+  }, [isStreaming, status, streamedContent])
+
+  useEffect(() => {
+    if (status === 'streaming' && streamError) {
+      setErrorMsg(streamError)
+      setStatus('error')
+    }
+  }, [streamError, status])
 
   const checkApiKey = async (): Promise<void> => {
     const key = await window.api.settings.get('api_key')
@@ -79,13 +100,30 @@ function ReportPage(): ReactNode {
     setErrorMsg('')
     setViewingReport(null)
     setActiveReport(null)
+    resetStream()
+
+    const logs = await window.api.worklog.byDateRange(dateFrom, dateTo)
+    if (!logs || logs.length === 0) {
+      setStatus('no_data')
+      return
+    }
+
+    const tasks = await window.api.task.list()
+    const filteredTasks = tasks.filter((task) => {
+      if (task.status !== 'done') return true
+      const completedDate = task.completed_at?.slice(0, 10)
+      return Boolean(completedDate && completedDate >= dateFrom && completedDate <= dateTo)
+    })
+
+    const logsText = logs.map((log: { created_at: string; content: string }) => `[${log.created_at}] ${log.content}`).join('\n')
+    const taskText = filteredTasks.length > 0
+      ? `\n\nTasks:\n${filteredTasks.map((t) => `- [${t.status}] ${t.title}${t.description ? `: ${t.description}` : ''}`).join('\n')}`
+      : ''
+    const prompt = `Generate a work summary report for ${dateFrom} to ${dateTo}.\n\nWork logs:\n${logsText}${taskText}`
 
     try {
-      const report = await window.api.report.generate(dateFrom, dateTo)
-      setReportContent(report.content)
-      setActiveReport(report)
-      setStatus('success')
-      await loadHistory()
+      await startStream(prompt)
+      setStatus('streaming')
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('report.generatedFallback')
       if (msg.includes('没有工作记录') || msg.includes('No work logs')) {
@@ -221,13 +259,13 @@ function ReportPage(): ReactNode {
           {/* Generate Button */}
           <button
             onClick={handleGenerate}
-            disabled={status === 'no_key' || status === 'generating'}
+            disabled={status === 'no_key' || status === 'generating' || status === 'streaming'}
             className="mb-6 px-6 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm font-medium rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {status === 'generating' ? (
+            {status === 'generating' || status === 'streaming' ? (
               <span className="flex items-center gap-2">
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                {t('report.generating')}
+                {status === 'streaming' ? t('report.streaming') : t('report.generating')}
               </span>
             ) : (
               t('report.generate')
@@ -316,9 +354,10 @@ function ReportPage(): ReactNode {
             />
           ) : (
             <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-6 surface-card mb-4">
-              <div className="prose prose-zinc dark:prose-invert prose-sm max-w-none" role="article">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportContent}</ReactMarkdown>
-              </div>
+              <StreamedMarkdown
+                content={reportContent}
+                isStreaming={isStreaming}
+              />
             </div>
           )}
 

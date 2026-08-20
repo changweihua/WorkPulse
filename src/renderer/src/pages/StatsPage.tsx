@@ -27,7 +27,7 @@ function formatLocalDate(date: Date): string {
 function useCountUp(target: number, duration = 600): number {
   const [value, setValue] = useState(0)
   const startTime = useRef<number | null>(null)
-  const frameRef = useRef<number>()
+  const frameRef = useRef<number>(0)
 
   useEffect(() => {
     if (target === 0) { setValue(0); return }
