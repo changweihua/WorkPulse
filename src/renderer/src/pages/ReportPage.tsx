@@ -319,7 +319,7 @@ function ReportPage(): ReactNode {
       )}
 
       {/* Report Preview / Edit */}
-      {status === 'success' && reportContent && (
+      {(status === 'success' || status === 'streaming') && reportContent && (
         <div>
           {/* Toggle bar */}
           <div className="flex items-center justify-between mb-2">

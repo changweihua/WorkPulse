@@ -40,29 +40,24 @@ export function useStreamChat(): StreamChatState & {
     setState({ content: '', isStreaming: true, error: null })
 
     try {
-      const { onPort } = await (window.api as any).ai.streamChat(prompt)
+      const api = (window.api as any).ai.streamChat(prompt)
 
-      const removeListener = onPort((port: MessagePort) => {
-        port.onmessage = (e: MessageEvent) => {
-          const { type, text, error } = e.data
-
-          if (type === 'chunk') {
-            bufferRef.current += text
-            setState((prev) => ({ ...prev, content: bufferRef.current }))
-          } else if (type === 'done') {
-            setState((prev) => ({ ...prev, isStreaming: false }))
-          } else if (type === 'error') {
-            setState((prev) => ({
-              ...prev,
-              isStreaming: false,
-              error: error || 'Unknown error'
-            }))
-          }
-        }
-        port.start()
+      const cleanupChunk = api.onChunk((text: string) => {
+        bufferRef.current += text
+        setState((prev) => ({ ...prev, content: bufferRef.current }))
+      })
+      const cleanupDone = api.onDone(() => {
+        setState((prev) => ({ ...prev, isStreaming: false }))
+      })
+      const cleanupError = api.onError((error: string) => {
+        setState((prev) => ({
+          ...prev,
+          isStreaming: false,
+          error: error || 'Unknown error'
+        }))
       })
 
-      cleanupRef.current = removeListener
+      cleanupRef.current = () => { cleanupChunk(); cleanupDone(); cleanupError() }
     } catch (err) {
       setState((prev) => ({
         ...prev,

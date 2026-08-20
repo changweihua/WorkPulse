@@ -5,6 +5,7 @@ import { router } from './router';
 import { useThemeStore } from './stores/themeStore';
 import { useLanguageStore } from './stores/languageStore';
 import { ToastProvider } from './components/Toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
   const initTheme = useThemeStore((s) => s.init);
@@ -16,9 +17,11 @@ function App() {
   }, []);
 
   return (
-    <ToastProvider>
-      <RouterProvider router={router} />
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }
 

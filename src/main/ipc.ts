@@ -109,20 +109,11 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('ai:stream-chat', async (event, prompt: string) => {
-    const { port1, port2 } = new MessageChannelMain()
-    event.sender.postMessage('ai:stream-port', null, [port2])
-
     await streamChat(
       prompt,
-      (text) => port1.postMessage({ type: 'chunk', text }),
-      () => {
-        port1.postMessage({ type: 'done' })
-        port1.close()
-      },
-      (error) => {
-        port1.postMessage({ type: 'error', error })
-        port1.close()
-      }
+      (text) => event.sender.send('ai:stream-chunk', text),
+      () => event.sender.send('ai:stream-done'),
+      (error) => event.sender.send('ai:stream-error', error)
     )
 
     return { ok: true }

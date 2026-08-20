@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef, ReactNode } from 'react'
 import { Flame, FileText, CheckCircle2, ListTodo } from 'lucide-react'
+import * as echarts from 'echarts'
 import { useI18n } from '../stores/languageStore'
+import ContributionGrid3D from '../components/ContributionGrid3D'
 
 interface DailyStats {
   date: string
@@ -23,7 +25,6 @@ function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
-// Count-up hook
 function useCountUp(target: number, duration = 600): number {
   const [value, setValue] = useState(0)
   const startTime = useRef<number | null>(null)
@@ -36,7 +37,6 @@ function useCountUp(target: number, duration = 600): number {
     const animate = (time: number): void => {
       if (!startTime.current) startTime.current = time
       const progress = Math.min((time - startTime.current) / duration, 1)
-      // Ease out cubic
       const eased = 1 - Math.pow(1 - progress, 3)
       setValue(Math.round(eased * target))
       if (progress < 1) {
@@ -56,6 +56,7 @@ function StatCard({
   value,
   suffix,
   color,
+  gradient,
   delay = 0
 }: {
   icon: typeof Flame
@@ -63,162 +64,229 @@ function StatCard({
   value: number
   suffix?: string
   color: string
+  gradient: string
   delay?: number
 }): ReactNode {
   const displayValue = useCountUp(value)
 
   return (
     <div
-      className="flex items-center gap-3 p-4 surface-card rounded-xl card-hover animate-slide-up"
-      style={{ animationDelay: `${delay}ms` }}
+      className="flex items-center gap-4 p-5 surface-card rounded-xl card-hover animate-slide-up"
+      style={{ animationDelay: `${delay}ms`, backgroundImage: gradient }}
     >
-      <div className={`p-2 rounded-lg ${color}`}>
-        <Icon className="w-5 h-5" />
+      <div className={`p-3 rounded-xl ${color}`}>
+        <Icon className="w-6 h-6" />
       </div>
       <div>
-        <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+        <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums leading-none">
           {displayValue}{suffix ? ` ${suffix}` : ''}
         </p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5">{label}</p>
       </div>
     </div>
   )
 }
 
-function BarChart({ data }: { data: DailyStats[] }): ReactNode {
-  const maxVal = Math.max(...data.map((d) => d.log_count + d.task_completed), 1)
-  const [visible, setVisible] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+function DonutChart({ logs, tasks }: { logs: number; tasks: number }): ReactNode {
   const { t } = useI18n()
-
-  useEffect(() => {
-    // Trigger bar grow after mount
-    const timer = setTimeout(() => setVisible(true), 200)
-    return () => clearTimeout(timer)
-  }, [])
+  const total = logs + tasks
+  const r = 54
+  const c = 2 * Math.PI * r
+  const logFrac = total > 0 ? logs / total : 0
+  const logLen = logFrac * c
+  const taskLen = c - logLen
 
   return (
-    <div ref={ref} className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '200ms' }}>
-      <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-4">{t('stats.dailyActivity')}</h3>
-      <div className="flex items-end gap-1 h-32">
-        {data.map((d, i) => {
-          const logH = (d.log_count / maxVal) * 100
-          const taskH = (d.task_completed / maxVal) * 100
-          const day = new Date(d.date + 'T00:00:00')
-          const label = `${day.getMonth() + 1}/${day.getDate()}`
-          const isToday = d.date === formatLocalDate(new Date())
-
-          return (
-            <div
-              key={d.date}
-              className="flex-1 flex flex-col items-center gap-0.5 min-w-0"
-              title={t('stats.dayTooltip', { date: d.date, logs: d.log_count, tasks: d.task_completed })}
-            >
-              <div className="w-full flex flex-col justify-end h-24">
-                {d.task_completed > 0 && (
-                  <div
-                    className={`w-full bg-green-400 dark:bg-green-500 rounded-t-sm transition-all duration-500 ${visible ? '' : 'scale-y-0'}`}
-                    style={{
-                      height: `${taskH}%`,
-                      minHeight: d.task_completed > 0 ? 3 : 0,
-                      transformOrigin: 'bottom',
-                      transitionDelay: `${i * 40}ms`
-                    }}
-                  />
-                )}
-                {d.log_count > 0 && (
-                  <div
-                    className={`w-full bg-blue-400 dark:bg-blue-500 rounded-t-sm transition-all duration-500 ${visible ? '' : 'scale-y-0'}`}
-                    style={{
-                      height: `${logH}%`,
-                      minHeight: d.log_count > 0 ? 3 : 0,
-                      transformOrigin: 'bottom',
-                      transitionDelay: `${i * 40}ms`
-                    }}
-                  />
-                )}
-                {d.log_count === 0 && d.task_completed === 0 && (
-                  <div className="w-full bg-zinc-100 dark:bg-zinc-700 rounded-t-sm" style={{ height: '3%' }} />
-                )}
-              </div>
-              <span
-                className={`text-[9px] leading-none ${
-                  isToday ? 'text-blue-500 font-bold' : 'text-zinc-400'
-                }`}
-              >
-                {label}
-              </span>
-            </div>
-          )
-        })}
+    <div className="flex flex-col items-center">
+      <div className="relative w-40 h-40">
+        <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
+          <circle cx="70" cy="70" r={r} fill="none" stroke="rgb(0 0 0 / 6%)" strokeWidth="16" />
+          <circle
+            cx="70" cy="70" r={r} fill="none" stroke="#2dd4bf" strokeWidth="16"
+            strokeDasharray={`${logLen} ${c - logLen}`} strokeLinecap="round"
+          />
+          <circle
+            cx="70" cy="70" r={r} fill="none" stroke="#facc15" strokeWidth="16"
+            strokeDasharray={`${taskLen} ${c - taskLen}`} strokeDashoffset={-logLen}
+            strokeLinecap="round"
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+            {total}
+          </span>
+          <span className="text-[11px] text-zinc-400">{t('stats.total')}</span>
+        </div>
       </div>
-      <div className="flex items-center gap-4 mt-3 text-xs text-zinc-400 dark:text-zinc-500">
-        <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm bg-blue-400" /> {t('stats.logLegend')}
+      <div className="flex items-center gap-5 mt-4 text-xs">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#2dd4bf]" />
+          <span className="text-zinc-600 dark:text-zinc-300">{t('stats.logLegend')}</span>
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">{logs}</span>
         </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm bg-green-400" /> {t('stats.doneLegend')}
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#facc15]" />
+          <span className="text-zinc-600 dark:text-zinc-300">{t('stats.doneTasks')}</span>
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">{tasks}</span>
         </span>
       </div>
     </div>
   )
 }
 
-function HeatMap({ data }: { data: DailyStats[] }): ReactNode {
-  // Build last 12 weeks of data
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const dataMap = new Map(data.map((d) => [d.date, d.log_count + d.task_completed]))
+function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
   const { t } = useI18n()
+  const last7 = data.filter((d) => {
+    const diff = (Date.now() - new Date(d.date + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24)
+    return diff < 7
+  })
+  const weekLogs = last7.reduce((s, d) => s + d.log_count, 0)
+  const weekTasks = last7.reduce((s, d) => s + d.task_completed, 0)
+  const activeDays = last7.filter((d) => d.log_count + d.task_completed > 0).length
 
-  const weeks: { date: Date; count: number }[][] = []
-  const startDay = new Date(today)
-  startDay.setDate(startDay.getDate() - 83) // ~12 weeks
-  // Align to Sunday
-  startDay.setDate(startDay.getDate() - startDay.getDay())
-
-  let currentWeek: { date: Date; count: number }[] = []
-  for (let d = new Date(startDay); d <= today; d.setDate(d.getDate() + 1)) {
-    const dateStr = formatLocalDate(d)
-    currentWeek.push({ date: new Date(d), count: dataMap.get(dateStr) || 0 })
-    if (currentWeek.length === 7) {
-      weeks.push(currentWeek)
-      currentWeek = []
-    }
-  }
-  if (currentWeek.length) weeks.push(currentWeek)
-
-  const getColor = (count: number): string => {
-    if (count === 0) return 'bg-zinc-100 dark:bg-zinc-800'
-    if (count <= 2) return 'bg-green-200 dark:bg-green-900'
-    if (count <= 5) return 'bg-green-400 dark:bg-green-700'
-    return 'bg-green-600 dark:bg-green-500'
-  }
+  const rows = [
+    { label: t('stats.activeDays'), value: `${activeDays} / 7` },
+    { label: t('stats.logLegend'), value: String(weekLogs) },
+    { label: t('stats.doneTasks'), value: String(weekTasks) }
+  ]
 
   return (
-    <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '300ms' }}>
-      <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">{t('stats.activity')}</h3>
-      <div className="flex gap-1">
-        {weeks.map((week, wi) => (
-          <div key={wi} className="flex flex-col gap-1">
-            {week.map((day) => (
-              <div
-                key={formatLocalDate(day.date)}
-                className={`w-3 h-3 rounded-sm ${getColor(day.count)} transition-all duration-300 hover:scale-150 hover:z-10`}
-                title={t('stats.heatTooltip', { date: formatLocalDate(day.date), count: day.count })}
-              />
-            ))}
+    <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '120ms' }}>
+      <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
+        {t('stats.weeklySummary')}
+      </h3>
+      <div className="space-y-3">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">{row.label}</span>
+            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">
+              {row.value}
+            </span>
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-1 mt-2 text-[10px] text-zinc-400">
-        <span>{t('stats.less')}</span>
-        <span className="w-3 h-3 rounded-sm bg-zinc-100 dark:bg-zinc-800" />
-        <span className="w-3 h-3 rounded-sm bg-green-200 dark:bg-green-900" />
-        <span className="w-3 h-3 rounded-sm bg-green-400 dark:bg-green-700" />
-        <span className="w-3 h-3 rounded-sm bg-green-600 dark:bg-green-500" />
-        <span>{t('stats.more')}</span>
-      </div>
+    </div>
+  )
+}
+
+const FONT_FAMILY = '"JetBrains Maple Mono", "Maple Mono NF CN", "Source Han Serif SC", "思源宋体", sans-serif'
+
+function BarChart({ data }: { data: DailyStats[] }): ReactNode {
+  const { t } = useI18n()
+  const chartRef = useRef<HTMLDivElement>(null)
+  const chartInstance = useRef<echarts.ECharts | null>(null)
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains('dark')
+  )
+
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(document.documentElement.classList.contains('dark'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!chartRef.current) return
+
+    if (!chartInstance.current) {
+      chartInstance.current = echarts.init(chartRef.current)
+    }
+    const chart = chartInstance.current
+
+    const dates = data.map((d) => {
+      const day = new Date(d.date + 'T00:00:00')
+      return `${day.getMonth() + 1}/${day.getDate()}`
+    })
+    const logs = data.map((d) => d.log_count || 0)
+    const tasks = data.map((d) => d.task_completed || 0)
+
+    chart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: isDark ? 'rgba(24,24,27,0.95)' : 'rgba(255,255,255,0.95)',
+        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+        borderWidth: 1,
+        textStyle: { color: isDark ? '#e5e7eb' : '#111827', fontSize: 12, fontFamily: FONT_FAMILY },
+        axisPointer: { type: 'shadow', shadowStyle: { color: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' } }
+      },
+      legend: {
+        top: 0,
+        right: 0,
+        textStyle: { color: isDark ? '#a1a1aa' : '#71717a', fontSize: 11, fontFamily: FONT_FAMILY },
+        itemWidth: 12,
+        itemHeight: 8,
+        itemGap: 16
+      },
+      grid: { left: 40, right: 12, top: 32, bottom: 28 },
+      xAxis: {
+        type: 'category',
+        data: dates,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { color: isDark ? '#71717a' : '#a1a1aa', fontSize: 10, fontFamily: FONT_FAMILY }
+      },
+      yAxis: {
+        type: 'value',
+        splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' } },
+        axisLabel: { color: isDark ? '#71717a' : '#a1a1aa', fontSize: 10, fontFamily: FONT_FAMILY }
+      },
+      series: [
+        {
+          name: t('stats.logLegend'),
+          type: 'bar',
+          stack: 'total',
+          barWidth: '50%',
+          barMaxWidth: 20,
+          data: logs,
+          itemStyle: {
+            borderRadius: [0, 0, 0, 0],
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: isDark ? '#60a5fa' : '#3b82f6' },
+              { offset: 1, color: isDark ? '#3b82f6' : '#2563eb' }
+            ])
+          }
+        },
+        {
+          name: t('stats.doneLegend'),
+          type: 'bar',
+          stack: 'total',
+          barWidth: '50%',
+          barMaxWidth: 20,
+          data: tasks,
+          itemStyle: {
+            borderRadius: [3, 3, 0, 0],
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: isDark ? '#4ade80' : '#22c55e' },
+              { offset: 1, color: isDark ? '#22c55e' : '#16a34a' }
+            ])
+          }
+        }
+      ],
+      animationDuration: 800,
+      animationEasing: 'cubicOut'
+    })
+
+    return () => {}
+  }, [data, isDark, t])
+
+  useEffect(() => {
+    const handleResize = () => chartInstance.current?.resize()
+    window.addEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      chartInstance.current?.dispose()
+      chartInstance.current = null
+    }
+  }, [])
+
+  return (
+    <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '200ms' }}>
+      <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
+        {t('stats.dailyActivity')}
+      </h3>
+      <div ref={chartRef} className="h-52 w-full" />
     </div>
   )
 }
@@ -233,20 +301,20 @@ function StatsPage(): ReactNode {
 
   if (!stats) {
     return (
-      <div className="text-center py-16 text-zinc-400">
-        <div className="w-6 h-6 mx-auto mb-2 border-2 border-zinc-300 border-t-zinc-500 rounded-full animate-spin" />
-        {t('common.loading')}
+      <div className="h-full flex items-center justify-center text-zinc-400">
+        <div className="text-center">
+          <div className="w-6 h-6 mx-auto mb-2 border-2 border-zinc-300 border-t-zinc-500 rounded-full animate-spin" />
+          {t('common.loading')}
+        </div>
       </div>
     )
   }
 
-  // Last 14 days for bar chart
   const last14 = stats.daily.filter((d) => {
     const diff = (Date.now() - new Date(d.date + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24)
     return diff <= 14
   })
 
-  // Fill missing days
   const filled: DailyStats[] = []
   const today = new Date()
   for (let i = 13; i >= 0; i--) {
@@ -258,44 +326,73 @@ function StatsPage(): ReactNode {
   }
 
   return (
-    <div>
-      {/* Stat Cards */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
-        <StatCard
-          icon={Flame}
-          label={t('stats.streak')}
-          value={stats.streak}
-          suffix={t('stats.days')}
-          color={`bg-orange-100 dark:bg-orange-900/30 text-orange-600 ${stats.streak >= 7 ? 'streak-glow' : ''}`}
-          delay={0}
-        />
-        <StatCard
-          icon={FileText}
-          label={t('stats.totalLogs')}
-          value={stats.totalLogs}
-          color="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
-          delay={60}
-        />
-        <StatCard
-          icon={CheckCircle2}
-          label={t('stats.doneTasks')}
-          value={stats.totalTasksDone}
-          color="bg-green-100 dark:bg-green-900/30 text-green-600"
-          delay={120}
-        />
-        <StatCard
-          icon={ListTodo}
-          label={t('stats.activeTasks')}
-          value={stats.totalTasksActive}
-          color="bg-purple-100 dark:bg-purple-900/30 text-purple-600"
-          delay={180}
-        />
-      </div>
+    <div className="h-full overflow-hidden">
+      <div className="h-full overflow-y-auto px-6 py-6">
+        <div className="space-y-5">
+          <div className="animate-slide-up">
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              {t('stats.title')}
+            </h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t('stats.subtitle')}</p>
+          </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-4">
-        <BarChart data={filled} />
-        <HeatMap data={stats.daily} />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard
+              icon={Flame}
+              label={t('stats.streak')}
+              value={stats.streak}
+              suffix={t('stats.days')}
+              color={`bg-orange-100 dark:bg-orange-900/30 text-orange-600 ${stats.streak >= 7 ? 'streak-glow' : ''}`}
+              gradient="linear-gradient(135deg, rgba(249,115,22,0.12), rgba(249,115,22,0))"
+              delay={0}
+            />
+            <StatCard
+              icon={FileText}
+              label={t('stats.totalLogs')}
+              value={stats.totalLogs}
+              color="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
+              gradient="linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0))"
+              delay={60}
+            />
+            <StatCard
+              icon={CheckCircle2}
+              label={t('stats.doneTasks')}
+              value={stats.totalTasksDone}
+              color="bg-green-100 dark:bg-green-900/30 text-green-600"
+              gradient="linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0))"
+              delay={120}
+            />
+            <StatCard
+              icon={ListTodo}
+              label={t('stats.activeTasks')}
+              value={stats.totalTasksActive}
+              color="bg-purple-100 dark:bg-purple-900/30 text-purple-600"
+              gradient="linear-gradient(135deg, rgba(168,85,247,0.12), rgba(168,85,247,0))"
+              delay={180}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2 surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '100ms' }}>
+              <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">
+                {t('stats.contributionGraph')}
+              </h3>
+              <ContributionGrid3D data={stats.daily} />
+            </div>
+
+            <div className="space-y-5">
+              <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '160ms' }}>
+                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
+                  {t('stats.logsVsTasks')}
+                </h3>
+                <DonutChart logs={stats.totalLogs} tasks={stats.totalTasksDone} />
+              </div>
+              <WeeklySummary data={stats.daily} />
+            </div>
+          </div>
+
+          <BarChart data={filled} />
+        </div>
       </div>
     </div>
   )

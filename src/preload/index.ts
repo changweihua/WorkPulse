@@ -87,15 +87,23 @@ const api = {
       ipcRenderer.invoke('report:update', id, content)
   },
   ai: {
-    streamChat: async (prompt: string) => {
-      await ipcRenderer.invoke('ai:stream-chat', prompt)
+    streamChat: (prompt: string) => {
+      ipcRenderer.invoke('ai:stream-chat', prompt)
       return {
-        onPort: (callback: (port: MessagePort) => void) => {
-          const handler = (_event: Electron.IpcRendererEvent, port: MessagePort) => {
-            callback(port)
-          }
-          ipcRenderer.on('ai:stream-port', handler)
-          return () => ipcRenderer.removeListener('ai:stream-port', handler)
+        onChunk: (cb: (text: string) => void) => {
+          const handler = (_e: any, text: string) => cb(text)
+          ipcRenderer.on('ai:stream-chunk', handler)
+          return () => ipcRenderer.removeListener('ai:stream-chunk', handler)
+        },
+        onDone: (cb: () => void) => {
+          const handler = () => cb()
+          ipcRenderer.on('ai:stream-done', handler)
+          return () => ipcRenderer.removeListener('ai:stream-done', handler)
+        },
+        onError: (cb: (err: string) => void) => {
+          const handler = (_e: any, err: string) => cb(err)
+          ipcRenderer.on('ai:stream-error', handler)
+          return () => ipcRenderer.removeListener('ai:stream-error', handler)
         }
       }
     }
