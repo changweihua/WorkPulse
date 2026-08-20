@@ -57,8 +57,9 @@ async function genSidebar() {
     <rect x="72" y="140" width="24" height="5" rx="1" fill="${MONITOR_BODY}" />
     <rect x="60" y="145" width="48" height="4" rx="2" fill="${MONITOR_BODY}" />
     <text x="82" y="195" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="20" font-weight="bold" fill="${TEXT_DARK}">WorkPulse</text>
-    <text x="82" y="218" text-anchor="middle" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="10" fill="${TEXT_SECONDARY}">工作脉搏 · 高效协同</text>
-    <text x="82" y="238" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="${TEXT_TERTIARY}">v0.1.9</text>
+    <text x="82" y="218" text-anchor="middle" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="9" fill="${TEXT_SECONDARY}">让每一份努力被看见</text>
+    <text x="82" y="234" text-anchor="middle" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="9" fill="${TEXT_SECONDARY}">记录工作，释放潜能</text>
+    <text x="82" y="250" text-anchor="middle" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="9" fill="${TEXT_SECONDARY}">轻松记录，智能分析</text>
     <circle cx="22" cy="275" r="4" fill="${CYAN}" opacity="0.3" />
     <circle cx="37" cy="282" r="3" fill="${LIGHT_BLUE}" opacity="0.25" />
     <circle cx="127" cy="273" r="3.5" fill="${PINK}" opacity="0.25" />
@@ -85,7 +86,7 @@ async function genHeader() {
     <circle cx="42" cy="22" r="4" fill="${PINK}" />
     <circle cx="54" cy="22" r="4" fill="${RED}" />
     <text x="70" y="28" font-family="Segoe UI, sans-serif" font-size="14" font-weight="bold" fill="${TEXT_DARK}">WorkPulse</text>
-    <text x="70" y="42" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="9" fill="${TEXT_SECONDARY}">安装向导</text>
+    <text x="70" y="42" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="9" fill="${TEXT_SECONDARY}">你的工作效率伙伴</text>
   </svg>`;
   await genPNG(svg, 150, 57, 'installerHeader.png');
 }
@@ -113,7 +114,9 @@ async function genUninstallSidebar() {
     <rect x="72" y="140" width="24" height="5" rx="1" fill="${MONITOR_BODY}" />
     <rect x="60" y="145" width="48" height="4" rx="2" fill="${MONITOR_BODY}" />
     <text x="82" y="195" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="20" font-weight="bold" fill="${TEXT_DARK}">WorkPulse</text>
-    <text x="82" y="218" text-anchor="middle" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="10" fill="${TEXT_SECONDARY}">卸载向导</text>
+    <text x="82" y="218" text-anchor="middle" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="9" fill="${TEXT_SECONDARY}">感谢一路相伴</text>
+    <text x="82" y="234" text-anchor="middle" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="9" fill="${TEXT_SECONDARY}">期待再次相遇</text>
+    <text x="82" y="250" text-anchor="middle" font-family="Microsoft YaHei UI, SimHei, sans-serif" font-size="8" fill="${TEXT_TERTIARY}">再见，珍重</text>
     <circle cx="22" cy="275" r="4" fill="${CYAN}" opacity="0.3" />
     <circle cx="37" cy="282" r="3" fill="${LIGHT_BLUE}" opacity="0.25" />
     <circle cx="127" cy="273" r="3.5" fill="${PINK}" opacity="0.25" />
