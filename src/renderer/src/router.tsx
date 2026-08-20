@@ -35,7 +35,7 @@ export const router = createHashRouter([
                     { index: true, element: <Navigate to="/worklog" replace /> },
                     { path: 'worklog', element: <WorkLogPage /> },
                     { path: 'kanban', element: <KanbanPage />, handle: { fluid: true } },
-                    { path: 'report', element: <ReportPage /> },
+                    { path: 'report', element: <ReportPage />, handle: { fluid: true } },
                     { path: 'stats', element: <StatsPage />, handle: { fluid: true } },
                     { path: 'calendar', element: <CalendarPage />, handle: { fluid: true } },
                     { path: 'chat', element: <ChatPage /> },

@@ -205,7 +205,8 @@ function ReportPage(): ReactNode {
     <div className="h-full overflow-hidden">
       <div className="h-full overflow-y-auto px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
-          <div className="lg:col-span-3 space-y-5 min-w-0">
+          <div className="lg:col-span-2 min-w-0 order-2 lg:order-1">
+            <div className="surface-card p-5 lg:sticky lg:top-6">
             <div className="animate-slide-up">
               <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{t('report.title')}</h1>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t('report.subtitle')}</p>
@@ -437,8 +438,7 @@ function ReportPage(): ReactNode {
             )}
           </div>
 
-          <div className="lg:col-span-2 min-w-0">
-            <div className="surface-card p-5 lg:sticky lg:top-6">
+          <div className="lg:col-span-3 space-y-5 min-w-0 order-1 lg:order-2">
               <div className="flex items-center gap-2 mb-4">
                 <Clock className="w-4 h-4 text-zinc-400" />
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('report.history')}</h3>
