@@ -10,7 +10,7 @@ import {
     Bot,
     Zap,
 } from 'lucide-react';
-import { SiDeepseek, SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
+import { SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
 import { TitleBar } from '../components/TitleBar';
 import { useToast } from '../components/Toast';
 import { useI18n } from '../stores/languageStore';
@@ -119,7 +119,7 @@ export default function Layout() {
                         {navLink('xray', <Zap className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.xray'))}
                         {navLink('onnx', <SiOnnx className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.onnx'))}
                         {navLink('ocr', <SiPaddle className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.ocr'))}
-                        {navLink('dsh', <SiDeepseek className="inline-block w-4 h-4 mr-1 -mt-0.5" />, t('nav.dsh'))}
+
                     </nav>
                 </div>
                 <Link

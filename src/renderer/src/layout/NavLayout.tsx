@@ -12,7 +12,7 @@ import {
     ArrowUp,
     MoreHorizontal,
 } from 'lucide-react';
-import { SiDeepseek, SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
+import { SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
 import { useI18n } from '../stores/languageStore';
 import { useClickAway } from 'react-use';
 
@@ -76,7 +76,7 @@ export default function NavLayout() {
         { path: 'xray', icon: <Zap className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.xray') },
         { path: 'onnx', icon: <SiOnnx className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.onnx') },
         { path: 'ocr', icon: <SiPaddle className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.ocr') },
-        { path: 'dsh', icon: <SiDeepseek className="inline-block w-4 h-4 mr-1 -mt-0.5" />, label: t('nav.dsh') },
+
     ];
 
     // Responsive: measure actual rendered items

@@ -30,7 +30,7 @@ export const translations = {
     'nav.onnx': 'ONNX',
     'nav.ocr': 'OCR',
     'nav.pp': 'PaddleOCR',
-    'nav.dsh': 'DSH',
+
 
     'quick.log': '记录日志',
     'quick.task': '添加任务',

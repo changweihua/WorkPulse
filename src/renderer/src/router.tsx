@@ -12,7 +12,7 @@ import XrayProcessor from './pages/XrayProcessor';
 import OnnxPage from './pages/OnnxPage';
 import OcrPage from './pages/OcrPage';
 import OcrPagePP from './pages/OcrPagePP';
-import DSHPage from './pages/DSHPage';
+
 
 const NotFound = () => (
     <div className="flex items-center justify-center h-full min-h-[400px]">
@@ -43,7 +43,7 @@ export const router = createHashRouter([
                     { path: 'onnx', element: <OnnxPage />, handle: { fluid: true } },
                     { path: 'ocr', element: <OcrPage />, handle: { fluid: true } },
                     { path: 'pp', element: <OcrPagePP />, handle: { fluid: true } },
-                    { path: 'dsh', element: <DSHPage />, handle: { fluid: false } },
+                
                 ],
             },
             // 设置页直接挂在 TitleBarLayout 下，没有导航栏

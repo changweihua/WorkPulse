@@ -161,25 +161,6 @@ if (process.contextIsolated) {
       },
     });
 
-    // ---- DSH API ----
-    contextBridge.exposeInMainWorld('dsh', {
-      getStatus: () => ipcRenderer.invoke('dsh:getStatus'),
-      start: (apiKey?: string) => ipcRenderer.invoke('dsh:start', apiKey),
-      stop: () => ipcRenderer.invoke('dsh:stop'),
-      checkHealth: () => ipcRenderer.invoke('dsh:checkHealth'),
-
-      // BrowserView management
-      createView: (url: string, offsetTop?: number) => ipcRenderer.invoke('dsh:createView', url, offsetTop),
-      destroyView: () => ipcRenderer.invoke('dsh:destroyView'),
-
-      // Status change listener (main → renderer push)
-      onStatusChanged: (callback: (event: any, data: any) => void) => {
-        const listener = (_event: any, data: any) => callback(data);
-        ipcRenderer.on('dsh:status-changed', listener);
-        return () => ipcRenderer.removeListener('dsh:status-changed', listener);
-      },
-    });
-
     contextBridge.exposeInMainWorld('nativeAPI', {
       sayHello: (name: string) => ipcRenderer.invoke('say-hello', name),
     });

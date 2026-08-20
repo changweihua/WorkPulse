@@ -126,19 +126,6 @@ declare global {
       on: (channel: string, listener: (...args: any[]) => void) => void;
       removeAllListeners: (channel: string) => void;
     };
-    dsh: {
-      getStatus: () => Promise<{ status: string; port: number }>;
-      start: (apiKey?: string) => Promise<{ success: boolean; port: number; mode?: string }>;
-      stop: () => Promise<{ success: boolean }>;
-      checkHealth: () => Promise<{ healthy: boolean }>;
-
-      // BrowserView management
-      createView: (url: string, offsetTop?: number) => Promise<{ viewId: number }>;
-      destroyView: () => Promise<{ success: boolean }>;
-
-      // Status change listener (main → renderer push)
-      onStatusChanged: (callback: (data: { status: string; [key: string]: any }) => void) => () => void;
-    };
     window: {
       minimize: () => void;
       maximize: () => void;

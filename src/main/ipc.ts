@@ -32,18 +32,8 @@ import { tMain } from './i18n'
 import OpenAI from 'openai';
 import { join } from 'path'
 import log from 'electron-log/main';
-import { dshManager } from './dsh-manager'
-import { createDSHView, destroyDSHView, resizeDSHView } from './dsh-view'
 
-export function registerIpcHandlers(): void {
-  // --- DSH status push (main → renderer) ---
-  dshManager.onStatusChange((status, detail) => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) {
-        win.webContents.send('dsh:status-changed', { status, ...detail });
-      }
-    }
-  });
+
 
   // --- Work Logs ---
 
@@ -316,68 +306,6 @@ export function registerIpcHandlers(): void {
     writeFileSync(result.filePath, reportContent, 'utf-8')
     return result.filePath
   })
-
-  //------------------DSH
-  // 获取状态
-  ipcMain.handle('dsh:getStatus', () => {
-    return {
-      status: dshManager.getStatus(),
-      port: dshManager.getPort(),
-    };
-  });
-
-  /**
-   * 启动 DSH
-   * 参数：可选的 apiKey (string)
-   * 如果不传，则使用方式三（用户在 UI 中配置）
-   * 如果传入，则使用方式一（通过环境变量注入）
-   */
-  ipcMain.handle('dsh:start', async (event, apiKey?: string) => {
-    const logger = log.scope('DSH-IPC');
-    logger.info('收到启动请求', { hasKey: !!apiKey });
-    await dshManager.start(apiKey);
-    return {
-      success: true,
-      port: dshManager.getPort(),
-      // 可选：告知前端使用了哪种方式
-      mode: apiKey ? 'way1' : 'way3',
-    };
-  });
-
-  // 停止 DSH
-  ipcMain.handle('dsh:stop', () => {
-    dshManager.stop();
-    return { success: true };
-  });
-
-  // 健康检查
-  ipcMain.handle('dsh:checkHealth', async () => {
-    const healthy = await dshManager.checkHealth();
-    return { healthy };
-  });
-
-  /**
- * dsh.view.handler.ts
- * 
- * 提供 IPC 通道，供渲染进程管理 DSH BrowserView。
- */
-  
-  ipcMain.handle('dsh:createView', (event, url: string, offsetTop: number = 30) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (!win) throw new Error('No parent window');
-    const viewId = createDSHView(win, url, offsetTop);
-    return { viewId };
-  });
-
-  ipcMain.handle('dsh:resizeView', (event, offsetTop: number = 30) => {
-    resizeDSHView(offsetTop);
-    return { success: true };
-  });
-
-  ipcMain.handle('dsh:destroyView', () => {
-    destroyDSHView();
-    return { success: true };
-  });
 
   ipcMain.on('navigate', (event, page: string) => {
     const win = BrowserWindow.fromWebContents(event.sender);

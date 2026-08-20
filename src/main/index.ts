@@ -20,7 +20,7 @@ import contextMenu from 'electron-context-menu'
 import { loadDotNet } from './asar-dotnet-loader';
 import fs from 'fs/promises';
 import log from 'electron-log/main';
-import { dshManager } from './dsh-manager'
+
 log.initialize(); // 只需调用一次
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'info';
 log.transports.file.level = 'info';
@@ -669,8 +669,7 @@ app.on('before-quit', () => {
 })
 
 app.on('will-quit', async () => {
-  await dshManager.stop();
-  globalShortcut.unregisterAll()
+    globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', () => {
