@@ -187,6 +187,9 @@ function SettingsPage(): ReactNode {
   const [autoLaunch, setAutoLaunch] = useState(false)
   const [loadingAutoLaunch, setLoadingAutoLaunch] = useState(true)
 
+  // 关闭行为设置
+  const [closeAction, setCloseAction] = useState('minimize')
+
   useEffect(() => {
     loadSettings()
 
@@ -201,6 +204,11 @@ function SettingsPage(): ReactNode {
         setLoadingAutoLaunch(false)
       })
       .catch(() => setLoadingAutoLaunch(false))
+
+    // 加载关闭行为设置
+    void window.api.app.getCloseAction()
+      .then((action: string) => setCloseAction(action))
+      .catch(() => {})
 
     return () => {
       unsubscribeUpdateStatus()
@@ -398,7 +406,7 @@ function SettingsPage(): ReactNode {
       case 'not_available':
         return t('settings.updateNotAvailable')
       case 'error':
-        return t('settings.updateError', { message: updateState.error || '' })
+        return t('settings.updateCheckFailed')
       case 'idle':
       default:
         return t('settings.updateIdle')
@@ -416,6 +424,19 @@ function SettingsPage(): ReactNode {
       setAutoLaunch(!newState) // 回滚
       toast.error('❌ 操作失败，请重试')
       console.error('Toggle auto-launch error:', error)
+    }
+  }
+
+  // 切换关闭行为
+  const handleCloseActionChange = async (action: string): Promise<void> => {
+    const prev = closeAction
+    setCloseAction(action)
+    try {
+      await window.api.app.setCloseAction(action)
+      toast.success(action === 'quit' ? '✅ 关闭时将退出程序' : '✅ 关闭时将最小化到托盘')
+    } catch (error) {
+      setCloseAction(prev)
+      toast.error('❌ 操作失败，请重试')
     }
   }
 
@@ -747,9 +768,37 @@ function SettingsPage(): ReactNode {
                 </button>
               )}
             </div>
-          </section>
 
-          {/* About / Updates */}
+            {/* 关闭行为 */}
+            <div className="flex items-center justify-between mt-4">
+              <div>
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">关闭窗口时</p>
+                <p className="text-xs text-zinc-400">选择点击关闭按钮时的行为</p>
+              </div>
+              <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+                <button
+                  onClick={() => handleCloseActionChange('minimize')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    closeAction === 'minimize'
+                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  最小化到托盘
+                </button>
+                <button
+                  onClick={() => handleCloseActionChange('quit')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    closeAction === 'quit'
+                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  退出程序
+                </button>
+              </div>
+            </div>
+          </section>
           <section>
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.updates')}</h2>
             <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />

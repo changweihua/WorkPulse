@@ -272,10 +272,10 @@ function buildTrayMenu(): Electron.Menu {
     ? join(__dirname, '../../resources')
     : join(process.resourcesPath)
 
-  const newLogIcon = nativeImage.createFromPath(join(iconDir, 'tray-icon-16.png')).resize({ width: 16, height: 16 })
-  const newTaskIcon = nativeImage.createFromPath(join(iconDir, 'tray-icon-16.png')).resize({ width: 16, height: 16 })
-  const showIcon = nativeImage.createFromPath(join(iconDir, 'tray-icon-16.png')).resize({ width: 16, height: 16 })
-  const quitIcon = nativeImage.createFromPath(join(iconDir, 'tray-icon-16.png')).resize({ width: 16, height: 16 })
+  const newLogIcon = nativeImage.createFromPath(join(iconDir, 'menu-new-log.png')).resize({ width: 16, height: 16 })
+  const newTaskIcon = nativeImage.createFromPath(join(iconDir, 'menu-new-task.png')).resize({ width: 16, height: 16 })
+  const showIcon = nativeImage.createFromPath(join(iconDir, 'menu-show.png')).resize({ width: 16, height: 16 })
+  const quitIcon = nativeImage.createFromPath(join(iconDir, 'menu-quit.png')).resize({ width: 16, height: 16 })
 
   return Menu.buildFromTemplate([
     {
@@ -301,7 +301,10 @@ function buildTrayMenu(): Electron.Menu {
     {
       label: tMain('quit'),
       icon: quitIcon,
-      click: () => app.quit()
+      click: () => {
+        isQuitting = true
+        app.quit()
+      }
     }
   ])
 }
@@ -500,7 +503,13 @@ function createWindow(): void {
     mainWindow.on('close', (event) => {
       if (!isQuitting) {
         event.preventDefault()
-        mainWindow.hide()
+        const closeAction = getSetting('close_action')
+        if (closeAction === 'quit') {
+          isQuitting = true
+          app.quit()
+        } else {
+          mainWindow.hide()
+        }
       }
     })
   }
@@ -624,6 +633,8 @@ app.whenReady().then(async () => {
   // Register title bar IPC listeners
   registerTitleBarListener()
 
+  initDatabase()
+
   registerAutoLaunchIpc();
 
   electronApp.setAppUserModelId('com.workpulse')
@@ -639,7 +650,6 @@ app.whenReady().then(async () => {
     // }
   })
 
-  initDatabase()
   configureAutoUpdater()
   registerIpcHandlers()
   registerShortcutIpc()
@@ -694,6 +704,9 @@ ipcMain.on('window-control', (event, action) => {
  * @param enable - true 启用，false 禁用
  */
 export function setAutoLaunch(enable: boolean): void {
+  // 持久化到数据库
+  setSetting('auto_launch', enable ? 'true' : 'false')
+  // 设置系统登录项
   app.setLoginItemSettings({
     openAtLogin: enable,
     path: app.getPath('exe'),
@@ -705,6 +718,9 @@ export function setAutoLaunch(enable: boolean): void {
  * 获取当前开机启动状态
  */
 export function getAutoLaunch(): boolean {
+  // 优先从数据库读取
+  const saved = getSetting('auto_launch')
+  if (saved !== null) return saved === 'true'
   return app.getLoginItemSettings().openAtLogin;
 }
 
@@ -718,4 +734,24 @@ export function registerAutoLaunchIpc(): void {
   ipcMain.handle('get-auto-launch', () => {
     return getAutoLaunch();
   });
+
+  // 启动时恢复系统登录项设置
+  const savedAutoLaunch = getSetting('auto_launch')
+  if (savedAutoLaunch !== null) {
+    app.setLoginItemSettings({
+      openAtLogin: savedAutoLaunch === 'true',
+      path: app.getPath('exe'),
+      args: savedAutoLaunch === 'true' ? ['--hidden'] : []
+    });
+  }
+
+  // 关闭行为设置
+  ipcMain.handle('get-close-action', () => {
+    return getSetting('close_action') || 'minimize'
+  })
+
+  ipcMain.handle('set-close-action', (_event, action: string) => {
+    setSetting('close_action', action)
+    return { success: true }
+  })
 }

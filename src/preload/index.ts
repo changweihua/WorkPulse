@@ -31,6 +31,10 @@ const api = {
     getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch'),
     // 设置开机启动
     setAutoLaunch: (enable: boolean) => ipcRenderer.invoke('set-auto-launch', enable),
+    // 获取关闭行为设置
+    getCloseAction: () => ipcRenderer.invoke('get-close-action') as Promise<string>,
+    // 设置关闭行为
+    setCloseAction: (action: string) => ipcRenderer.invoke('set-close-action', action),
     setLanguage: (language: AppLanguage) => ipcRenderer.invoke('app:language:update', language),
     getVersion: () => ipcRenderer.invoke('app:get-version') as Promise<string>,
     getUpdateState: () => ipcRenderer.invoke('app:updates:get-state') as Promise<AppUpdateState>,

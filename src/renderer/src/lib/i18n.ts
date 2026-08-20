@@ -211,6 +211,7 @@ export const translations = {
     'settings.updateDownloaded': '更新已下载，重启后安装',
     'settings.updateNotAvailable': '已是最新版本',
     'settings.updateError': '更新检查失败：{{message}}',
+    'settings.updateCheckFailed': '检查更新出错',
 
     'date.thisWeek': '本周',
     'date.lastWeek': '上周',
@@ -420,6 +421,7 @@ export const translations = {
     'settings.updateDownloaded': 'Update downloaded. Restart to install.',
     'settings.updateNotAvailable': 'You are up to date',
     'settings.updateError': 'Update check failed: {{message}}',
+    'settings.updateCheckFailed': 'Update check failed',
 
     'date.thisWeek': 'This week',
     'date.lastWeek': 'Last week',

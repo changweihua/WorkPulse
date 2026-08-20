@@ -1,10 +1,22 @@
-# WorkPulse (拾光)
+# WorkPulse
 
 [English](./README.md) | [中文](./README.zh-CN.md)
+
+> 让每一份努力被看见
 
 A lightweight desktop app that captures your daily work in seconds — log what you did, track tasks on a kanban board, and generate AI-powered reports.
 
 Built for individual contributors who want a frictionless way to remember what they accomplished each day.
+
+## Screenshots
+
+| Work Log | Kanban |
+|----------|--------|
+| ![Work Log](docs/screenshots/workpulse-worklog.png) | ![Kanban](docs/screenshots/workpulse-kanban.png) |
+
+| AI Report | Statistics |
+|-----------|------------|
+| ![AI Report](docs/screenshots/workpulse-report.png) | ![Statistics](docs/screenshots/workpulse-stats.png) |
 
 ## Features
 
@@ -18,11 +30,13 @@ Built for individual contributors who want a frictionless way to remember what t
 
 **Quick Capture** — Configurable global shortcuts (`Ctrl+Shift+L` for logs, `Ctrl+Shift+T` for tasks by default) let you record without switching windows. Quick logs also support `#tag` parsing and are accessible from the menu bar tray icon.
 
-**Dark Mode** — System, light, or dark theme with full UI coverage.
+**Dark Mode** — System, light, or dark theme with full UI coverage. Windows 11 Mica effect support for native translucent surfaces.
 
 **Languages** — English and Chinese UI with a system-default option. Menus, tray actions, settings, exports, and default AI report prompts follow the selected language.
 
 **Auto Updates** — Packaged builds check GitHub Releases for newer versions, download updates in the background, and install after restart. Settings also includes a manual update check.
+
+**Windows Mica Effect** — Native Windows 11 Mica material for title bar and navigation, creating a seamless integration with the desktop environment.
 
 ## Tech Stack
 
@@ -32,6 +46,7 @@ Built for individual contributors who want a frictionless way to remember what t
 - **Zustand** for state management
 - **@dnd-kit** for drag-and-drop
 - **Tailwind CSS** for styling
+- **talex-mica-electron** for Windows Mica effect
 
 ## Getting Started
 
@@ -63,13 +78,17 @@ xattr -cr /Applications/WorkPulse.app
 
 Then open the app normally.
 
+### Windows
+
+Download the NSIS installer from [Releases](../../releases). Run the installer and follow the prompts. The app will be installed to your Program Files directory.
+
 ## Release Builds
 
 GitHub Actions builds release artifacts for macOS, Windows, and Linux when a `v*` tag is pushed, or when the `Release` workflow is run manually.
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 The workflow uploads DMG/ZIP, NSIS/portable EXE, AppImage, and DEB artifacts to the GitHub Release. Builds are unsigned by default; add signing secrets later if you need notarized macOS or signed Windows installers.

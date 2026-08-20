@@ -142,14 +142,13 @@ export function TitleBar() {
       </div>
 
       <span
+        className="text-zinc-800 dark:text-white/90"
         style={{
           flex: 1,
           textAlign: 'center',
           fontSize: '13px',
-          color: 'rgba(255,255,255,0.9)',
           fontWeight: 500,
           letterSpacing: '0.3px',
-          textShadow: '0 1px 2px rgba(0,0,0,0.1)',
         }}
       >
         {appTitle}
