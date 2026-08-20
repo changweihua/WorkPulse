@@ -1,11 +1,11 @@
 {
   "name": "workpulse",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Work log + AI report generator desktop app",
-  "author": "dobest1024 <dobest1024@users.noreply.github.com>",
+  "author": "changweihua <changweihua@users.noreply.github.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dobest1024/WorkPulse.git"
+    "url": "https://github.com/changweihua/WorkPulse.git"
   },
   "main": "./out/main/index.js",
   "scripts": {
@@ -23,7 +23,7 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web"
   },
   "build": {
-    "appId": "com.workpulse.app",
+    "appId": "cmono.workpulse.app",
     "productName": "WorkPulse",
     "copyright": "Copyright © 2026",
     "asar": true,
@@ -34,7 +34,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "dobest1024",
+        "owner": "changweihua",
         "repo": "WorkPulse"
       }
     ],

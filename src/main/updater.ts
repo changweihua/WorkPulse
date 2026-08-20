@@ -33,7 +33,7 @@ interface GitHubRelease {
   assets: { browser_download_url: string; name: string }[]
 }
 
-const owner = 'dobest1024'
+const owner = 'changweihua'
 const repo = 'WorkPulse'
 const latestReleaseApiUrl = `https://api.github.com/repos/${owner}/${repo}/releases/latest`
 const releasePageUrl = `https://github.com/${owner}/${repo}/releases/latest`
