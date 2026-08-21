@@ -1,6 +1,8 @@
 import { app, protocol, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain } from 'electron'
 import path, { join } from 'path'
-import { readFileSync } from 'fs'
+import { readFileSync, createReadStream } from 'fs'
+import { Readable } from 'stream'
+import { getModelsDir } from './model-files'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, getSetting, setSetting } from './db'
 import { registerIpcHandlers } from './ipc'
@@ -597,6 +599,29 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.error('⚠️ .NET 加载失败', err);
   }
+
+  // 模型本地缓存协议：appmodel://models/<modelId>/resolve/main/<file>
+  protocol.handle('appmodel', async (request) => {
+    try {
+      const u = new URL(request.url)
+      const rel = decodeURIComponent(u.pathname).replace(/^\/+/, '')
+      const modelsDir = path.normalize(getModelsDir())
+      const target = path.normalize(path.join(modelsDir, rel))
+      if (!target.startsWith(modelsDir)) return new Response('Forbidden', { status: 403 })
+      const st = await fs.stat(target)
+      if (!st.isFile()) throw new Error('not a file')
+      const webStream = Readable.toWeb(createReadStream(target)) as unknown as ReadableStream
+      return new Response(webStream, {
+        headers: {
+          'content-type': 'application/octet-stream',
+          'content-length': String(st.size),
+          'access-control-allow-origin': '*'
+        }
+      })
+    } catch {
+      return new Response('Not Found', { status: 404 })
+    }
+  })
 
   // 注册 IPC 处理：读取模型文件
   ipcMain.handle('read-model-file', async (event, fileName: string) => {

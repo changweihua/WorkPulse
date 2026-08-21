@@ -33,6 +33,7 @@ import {
   workLogExists
 } from './db'
 import { generateReport, streamChat } from './ai'
+import { ensureModelFiles, setModelProgressSender } from './model-files'
 import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey } from './secureSettings'
 import { tMain } from './i18n'
 import OpenAI from 'openai';
@@ -128,6 +129,19 @@ export function registerIpcHandlers(): void {
 
     return { ok: true }
   })
+
+  // --- Models（本地文件夹缓存） ---
+  setModelProgressSender((p) => {
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed()) w.webContents.send('model-download-progress', p)
+    }
+  })
+
+  ipcMain.handle(
+    'model:ensure',
+    (_event, modelId: string, required: string[], optional: string[]) =>
+      ensureModelFiles(modelId, required || [], optional || [])
+  )
 
   // --- Tasks ---
 

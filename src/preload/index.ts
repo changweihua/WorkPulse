@@ -118,6 +118,21 @@ const api = {
       }
     }
   },
+  models: {
+    ensure: (modelId: string, required: string[], optional: string[]) =>
+      ipcRenderer.invoke('model:ensure', modelId, required, optional) as Promise<{
+        ok: boolean
+        missing: string[]
+      }>,
+    onProgress: (
+      cb: (p: { modelId: string; file: string; loaded: number; total: number; percent: number }) => void
+    ) => {
+      const handler = (_e: unknown, p: { modelId: string; file: string; loaded: number; total: number; percent: number }): void =>
+        cb(p)
+      ipcRenderer.on('model-download-progress', handler)
+      return () => ipcRenderer.removeListener('model-download-progress', handler)
+    }
+  },
   settings: {
     get: (key: string) => ipcRenderer.invoke('settings:get', key),
     set: (key: string, value: string) => ipcRenderer.invoke('settings:set', key, value),

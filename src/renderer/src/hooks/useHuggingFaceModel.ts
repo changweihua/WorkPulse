@@ -48,7 +48,37 @@ export interface UseModelOptions<T extends PipelineType> {
 }
 
 // ---------- 固定使用国内镜像（huggingface.co 部分网络不可达） ----------
-const REMOTE_HOST = 'https://hf-mirror.com';
+// 注意：remoteHost 必须以 / 结尾，否则拼接出 https://hf-mirror.comorg/... 全部 404
+const REMOTE_HOST = 'https://hf-mirror.com/';
+// 本地文件夹缓存协议：主进程下载到 userData/models 后经此回放（见 src/main/index.ts）
+const LOCAL_HOST = 'appmodel://models/';
+
+// ---------- 文件清单 ----------
+const BASE_FILES = ['config.json', 'tokenizer_config.json', 'tokenizer.json'];
+const OPTIONAL_FILES = [
+    'generation_config.json',
+    'preprocessor_config.json',
+    'added_tokens.json',
+    'special_tokens_map.json',
+    'vocab.txt',
+    'merges.txt',
+    'vocab.json',
+];
+const weightFileFor = (dtype: DType): string => {
+    switch (dtype) {
+        case 'q4f16':
+            return 'onnx/model_q4f16.onnx';
+        case 'q8':
+        case 'int8':
+        case 'uint8':
+            return 'onnx/model_quantized.onnx';
+        case 'fp32':
+        case 'auto':
+            return 'onnx/model.onnx';
+        default:
+            return `onnx/model_${dtype}.onnx`;
+    }
+};
 
 // 禁止尝试本地模型路径，避免先请求 localhost 失败浪费时间
 env.allowLocalModels = false;
@@ -79,6 +109,30 @@ export function useHuggingFaceModel<T extends PipelineType>({
     // ---------- Refs ----------
     const pipeRef = useRef<any>(null);
     const loadIdRef = useRef<number>(0);
+    const pendingModelRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        pendingModelRef.current = pendingModel;
+    }, [pendingModel]);
+
+    // ---------- 主进程下载进度合并（本地文件夹缓存） ----------
+    useEffect(() => {
+        if (status !== 'loading') return;
+        const off = window.api.models.onProgress((p) => {
+            if (p.modelId !== (pendingModelRef.current ?? currentModel)) return;
+            const pct = p.percent >= 0 ? p.percent : 0;
+            setProgressItems((prev) => {
+                const existing = prev.find((item) => item.file === p.file);
+                if (existing) {
+                    return prev.map((item) =>
+                        item.file === p.file ? { ...item, progress: pct } : item
+                    );
+                }
+                return [...prev, { file: p.file, progress: pct }];
+            });
+        });
+        return off;
+    }, [status, currentModel]);
 
     // ---------- 加载模型（带回退链 + 缓存复用） ----------
     const loadModel = useCallback(
@@ -129,6 +183,21 @@ export function useHuggingFaceModel<T extends PipelineType>({
                 try {
                     setProgressItems([]);
                     setOverallProgress(0);
+
+                    // 先经主进程把文件下载到本地文件夹（已存在则秒过），
+                    // 成功则走 appmodel:// 协议本地回放；失败则回退直连镜像
+                    let host = REMOTE_HOST;
+                    try {
+                        const res = await window.api.models.ensure(
+                            modelId,
+                            [...BASE_FILES, weightFileFor(dtype)],
+                            OPTIONAL_FILES
+                        );
+                        if (res?.ok) host = LOCAL_HOST;
+                    } catch {
+                        /* 主进程不可用时直连镜像 */
+                    }
+                    env.remoteHost = host;
 
                     const pipe = await pipeline(
                         task,
@@ -181,7 +250,7 @@ export function useHuggingFaceModel<T extends PipelineType>({
             setError(
                 msg.includes('404') || msg.toLowerCase().includes('could not locate')
                     ? `该模型缺少可用的权重文件（已尝试 ${attempts.map((a) => `${a.device}/${a.dtype}`).join('、')}）。请更换其他模型。`
-                    : `网络加载失败：${msg}。当前源：hf-mirror.com（国内镜像）。`
+                    : `网络加载失败：${msg}。已尝试本地缓存与 hf-mirror.com 国内镜像。`
             );
             setPendingModel(null);
         },

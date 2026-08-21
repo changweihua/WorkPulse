@@ -148,6 +148,16 @@ interface API {
       onPort: (callback: (port: MessagePort) => void) => () => void
     }>
   }
+  models: {
+    ensure: (
+      modelId: string,
+      required: string[],
+      optional: string[]
+    ) => Promise<{ ok: boolean; missing: string[] }>
+    onProgress: (
+      cb: (p: { modelId: string; file: string; loaded: number; total: number; percent: number }) => void
+    ) => () => void
+  }
   settings: {
     get: (key: string) => Promise<string | null>
     set: (key: string, value: string) => Promise<void>
