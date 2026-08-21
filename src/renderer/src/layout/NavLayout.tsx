@@ -131,10 +131,11 @@ export default function NavLayout() {
             <Link
                 to={`/${path}`}
                 onClick={() => setShowMoreMenu(false)}
-                className={`relative px-3 py-1.5 text-sm rounded-lg transition-all duration-200 whitespace-nowrap ${
+                className={`relative px-3 py-1.5 text-sm rounded-lg outline-none whitespace-nowrap
+                            transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-sky-500/70 ${
                     isActive
-                        ? 'bg-zinc-900/85 text-white dark:bg-white/15 dark:text-zinc-50 shadow-sm'
-                        : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-zinc-50'
+                        ? 'bg-zinc-900/85 text-white font-medium shadow-sm ring-1 ring-white/10 dark:bg-white/15 dark:text-zinc-50'
+                        : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-zinc-50'
                 }`}
             >
                 {icon}
@@ -190,36 +191,40 @@ export default function NavLayout() {
                             <button
                                 ref={moreBtnRef}
                                 onClick={toggleMoreMenu}
-                                className={`px-2 py-1.5 text-sm rounded-lg transition-all duration-200 ${
+                                className={`px-2 py-1.5 text-sm rounded-lg outline-none
+                                            transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-sky-500/70 ${
                                     hiddenItems.some(
                                         (item) =>
                                             location.pathname === `/${item.path}` ||
                                             (item.path === 'worklog' && location.pathname === '/')
                                     )
-                                        ? 'bg-zinc-900/85 text-white dark:bg-white/15 dark:text-zinc-50 shadow-sm'
-                                        : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 dark:hover:bg-white/10'
+                                        ? 'bg-zinc-900/85 text-white shadow-sm ring-1 ring-white/10 dark:bg-white/15 dark:text-zinc-50'
+                                        : showMoreMenu
+                                          ? 'bg-zinc-100/80 text-zinc-900 dark:bg-white/10 dark:text-zinc-50'
+                                          : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-zinc-50'
                                 }`}
                             >
                                 <MoreHorizontal className="w-4 h-4" />
                             </button>
                             {showMoreMenu && (
                                 <div
-                                    className={`absolute top-full mt-1 py-1 bg-white/70 dark:bg-zinc-900/70 
-                                               rounded-lg shadow-lg border border-zinc-200/30 dark:border-zinc-700/30 
-                                               min-w-[120px] z-50 animate-fade-in whitespace-nowrap ${
-                                                   dropdownRight ? 'right-0' : 'left-0'
-                                               }`}
+                                    className={`absolute top-full mt-1.5 py-1 bg-white/75 dark:bg-zinc-900/75 backdrop-blur-md
+                                                rounded-xl shadow-lg shadow-zinc-900/5 border border-zinc-200/40 dark:border-zinc-700/40
+                                                min-w-[132px] z-50 animate-fade-in whitespace-nowrap ${
+                                                    dropdownRight ? 'right-0' : 'left-0'
+                                                }`}
                                 >
                                     {hiddenItems.map((item) => (
                                         <Link
                                             key={item.path}
                                             to={`/${item.path}`}
                                             onClick={() => setShowMoreMenu(false)}
-                                            className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md mx-1 transition-colors ${
+                                            className={`flex items-center gap-2.5 mx-1.5 my-0.5 px-3 py-2 text-sm rounded-lg outline-none
+                                                        transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-sky-500/70 ${
                                                 location.pathname === `/${item.path}` ||
                                                 (item.path === 'worklog' && location.pathname === '/')
-                                                    ? 'bg-zinc-900/10 text-zinc-900 dark:bg-white/15 dark:text-zinc-50'
-                                                    : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 dark:hover:bg-white/10'
+                                                    ? 'bg-zinc-900/8 text-zinc-900 font-medium dark:bg-white/15 dark:text-zinc-50'
+                                                    : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/70 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-zinc-50'
                                             }`}
                                         >
                                             {item.icon}
@@ -234,7 +239,8 @@ export default function NavLayout() {
                 <Link
                     to="/settings"
                     className="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 
-                               hover:bg-zinc-100/60 dark:hover:bg-white/10 rounded-lg transition-all duration-200 settings-spin shrink-0"
+                               hover:bg-zinc-100/60 dark:hover:bg-white/10 rounded-lg outline-none shrink-0 settings-spin
+                               transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-sky-500/70"
                     aria-label={t('nav.settings')}
                 >
                     <Settings className="w-5 h-5" />

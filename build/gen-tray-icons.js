@@ -11,19 +11,46 @@ const C4 = '#34d399'; // emerald
 
 // ============================================================
 // Tray icon: 4 colored rounded squares in a 2×2 grid
-// Wider gap + padding for breathing room, rounded corners
+// 尺寸自适应：小尺寸（≤32px）用满画布的粗壮版本，
+// 大尺寸（≥48px）用带渐变深度的精致版本
 // ============================================================
-function genTrayIconSVG(size = 256) {
-  const pad = 16;   // outer padding
-  const gap = 18;   // gap between squares
-  const cell = (256 - pad * 2 - gap) / 2;
-  const r = 22;
+function genTrayIconSVG(size) {
+  if (size <= 32) {
+    // 小尺寸：极小边距 + 小间隙，色块尽量大，圆角适中防糊
+    const pad = 6;
+    const gap = 10;
+    const cell = (256 - pad * 2 - gap) / 2;
+    const r = 30;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+      <rect x="${pad}" y="${pad}" width="${cell}" height="${cell}" rx="${r}" fill="${C1}" />
+      <rect x="${pad + cell + gap}" y="${pad}" width="${cell}" height="${cell}" rx="${r}" fill="${C2}" />
+      <rect x="${pad}" y="${pad + cell + gap}" width="${cell}" height="${cell}" rx="${r}" fill="${C3}" />
+      <rect x="${pad + cell + gap}" y="${pad + cell + gap}" width="${cell}" height="${cell}" rx="${r}" fill="${C4}" />
+    </svg>`;
+  }
 
+  // 大尺寸：稍留呼吸感 + 每块顶部高光渐变增加质感
+  const pad = 14;
+  const gap = 16;
+  const cell = (256 - pad * 2 - gap) / 2;
+  const r = 26;
+  const block = (x, y) => `
+    <rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="${r}" fill="url(#hl)" opacity="0.3" />`;
   return `<svg width="${size}" height="${size}" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="hl" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+        <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
     <rect x="${pad}" y="${pad}" width="${cell}" height="${cell}" rx="${r}" fill="${C1}" />
+    ${block(pad, pad)}
     <rect x="${pad + cell + gap}" y="${pad}" width="${cell}" height="${cell}" rx="${r}" fill="${C2}" />
+    ${block(pad + cell + gap, pad)}
     <rect x="${pad}" y="${pad + cell + gap}" width="${cell}" height="${cell}" rx="${r}" fill="${C3}" />
+    ${block(pad, pad + cell + gap)}
     <rect x="${pad + cell + gap}" y="${pad + cell + gap}" width="${cell}" height="${cell}" rx="${r}" fill="${C4}" />
+    ${block(pad + cell + gap, pad + cell + gap)}
   </svg>`;
 }
 
@@ -32,28 +59,28 @@ function genTrayIconSVG(size = 256) {
 // ============================================================
 async function genTrayIcons() {
   const sizes = [16, 32, 48, 64, 128, 256, 512];
-  
+
   for (const size of sizes) {
     const svg = genTrayIconSVG(size);
-    const outFile = size === 256 
+    const outFile = size === 256
       ? path.join(resourcesDir, 'tray-icon.png')
       : path.join(resourcesDir, `tray-icon-${size}.png`);
-    
+
     await sharp(Buffer.from(svg))
       .resize(size, size)
       .png()
       .toFile(outFile);
-    
+
     console.log(`tray-icon-${size}.png done`);
   }
-  
+
   // Also generate @2x for macOS
   await sharp(Buffer.from(genTrayIconSVG(512)))
     .resize(512, 512)
     .png()
     .toFile(path.join(resourcesDir, 'tray-icon-macTemplate.png'));
   console.log('tray-icon-macTemplate.png done');
-  
+
   await sharp(Buffer.from(genTrayIconSVG(1024)))
     .resize(1024, 1024)
     .png()
