@@ -188,6 +188,10 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
   const [categories, setCategories] = useState<{ name: string; count: number }[]>([])
   const [loading, setLoading] = useState(true)
 
+  // t 每次渲染都是新引用，不能放进依赖，否则无限循环导致闪烁
+  const tRef = useRef(t)
+  tRef.current = t
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -201,7 +205,7 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
         if (cancelled) return
         const counts = new Map<string, number>()
         for (const log of logs) {
-          const key = log.category?.trim() || t('stats.uncategorized')
+          const key = log.category?.trim() || tRef.current('stats.uncategorized')
           counts.set(key, (counts.get(key) || 0) + 1)
         }
         setCategories(
@@ -216,7 +220,7 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
     return () => {
       cancelled = true
     }
-  }, [range, t])
+  }, [range])
 
   const total = categories.reduce((s, c) => s + c.count, 0)
 
@@ -246,7 +250,7 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
                 </div>
                 <div className="h-1.5 w-full bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
                   <div
-                    className="h-full rounded-full transition-all duration-700"
+                    className="h-full rounded-full transition-[width] duration-700 ease-out"
                     style={{ width: `${pct}%`, backgroundColor: CATEGORY_COLORS[idx % CATEGORY_COLORS.length] }}
                   />
                 </div>

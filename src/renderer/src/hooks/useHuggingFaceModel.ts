@@ -52,6 +52,9 @@ const MIRROR_KEY = 'hf_mirror_enabled';
 const MIRROR_URL = 'https://hf-mirror.com';
 const DEFAULT_REMOTE_HOST = 'https://huggingface.co';
 
+// 禁止尝试本地模型路径，避免先请求 localhost 失败浪费时间
+env.allowLocalModels = false;
+
 const getMirrorEnabled = (): boolean => {
     try {
         return localStorage.getItem(MIRROR_KEY) === 'true';
@@ -94,7 +97,7 @@ export function useHuggingFaceModel<T extends PipelineType>({
         env.remoteHost = enabled ? MIRROR_URL : DEFAULT_REMOTE_HOST;
     }, []);
 
-    // ---------- 加载模型 ----------
+    // ---------- 加载模型（带回退链） ----------
     const loadModel = useCallback(
         async (modelId: string) => {
             const currentLoadId = ++loadIdRef.current;
@@ -104,58 +107,92 @@ export function useHuggingFaceModel<T extends PipelineType>({
             setOverallProgress(0);
             pipeRef.current = null;
 
-            try {
-                env.remoteHost = mirrorEnabled ? MIRROR_URL : DEFAULT_REMOTE_HOST;
+            env.remoteHost = mirrorEnabled ? MIRROR_URL : DEFAULT_REMOTE_HOST;
 
-                // 修复：显式指定 dtype 类型，并确保类型正确
-                const dtype = pipelineOptions.dtype || 'q4f16' as const;
-                const device = pipelineOptions.device || 'webgpu' as const;
+            const requestedDtype = pipelineOptions.dtype || 'q4f16';
+            const requestedDevice = pipelineOptions.device || 'webgpu';
 
-                const pipe = await pipeline(
-                    task,
-                    modelId,
-                    {
-                        dtype,
-                        device,
-                        progress_callback: (info: any) => {
-                            if (currentLoadId !== loadIdRef.current) return;
-                            if (info.status === 'progress_total') {
-                                setOverallProgress(Math.round(info.progress || 0));
-                                return;
-                            }
-                            if (info.status === 'progress' && info.file) {
-                                setProgressItems((prev) => {
-                                    const existing = prev.find((item) => item.file === info.file);
-                                    if (existing) {
-                                        return prev.map((item) =>
-                                            item.file === info.file
-                                                ? { ...item, progress: Math.round(info.progress || 0) }
-                                                : item
-                                        );
-                                    }
-                                    return [...prev, { file: info.file, progress: Math.round(info.progress || 0) }];
-                                });
-                            }
-                        },
-                    }
-                );
+            // 回退链：请求的组合 → webgpu+q8 → wasm+q8
+            // 很多模型没有 q4f16 权重文件（404），或环境不支持 WebGPU
+            const combos: { device: DeviceType; dtype: DType }[] = [
+                { device: requestedDevice, dtype: requestedDtype },
+                { device: 'webgpu', dtype: 'q8' },
+                { device: 'wasm', dtype: 'q8' },
+            ];
+            // 去重
+            const seen = new Set<string>();
+            const attempts = combos.filter((c) => {
+                const key = `${c.device}/${c.dtype}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
 
-                if (currentLoadId !== loadIdRef.current) {
-                    await pipe?.dispose?.();
-                    return;
-                }
+            let lastError: Error | null = null;
 
-                pipeRef.current = pipe;
-                setCurrentModel(modelId);
-                setPendingModel(null);
-                setStatus('ready');
-            } catch (err) {
+            for (let i = 0; i < attempts.length; i++) {
                 if (currentLoadId !== loadIdRef.current) return;
-                setStatus('error');
-                setError((err as Error).message);
-                setPendingModel(null);
-                console.error('模型加载失败:', err);
+                const { device, dtype } = attempts[i];
+
+                try {
+                    setProgressItems([]);
+                    setOverallProgress(0);
+
+                    const pipe = await pipeline(
+                        task,
+                        modelId,
+                        {
+                            dtype,
+                            device,
+                            progress_callback: (info: any) => {
+                                if (currentLoadId !== loadIdRef.current) return;
+                                if (info.status === 'progress_total') {
+                                    setOverallProgress(Math.round(info.progress || 0));
+                                    return;
+                                }
+                                if (info.status === 'progress' && info.file) {
+                                    setProgressItems((prev) => {
+                                        const existing = prev.find((item) => item.file === info.file);
+                                        if (existing) {
+                                            return prev.map((item) =>
+                                                item.file === info.file
+                                                    ? { ...item, progress: Math.round(info.progress || 0) }
+                                                    : item
+                                            );
+                                        }
+                                        return [...prev, { file: info.file, progress: Math.round(info.progress || 0) }];
+                                    });
+                                }
+                            },
+                        }
+                    );
+
+                    if (currentLoadId !== loadIdRef.current) {
+                        await pipe?.dispose?.();
+                        return;
+                    }
+
+                    pipeRef.current = pipe;
+                    setCurrentModel(modelId);
+                    setPendingModel(null);
+                    setStatus('ready');
+                    return;
+                } catch (err) {
+                    lastError = err as Error;
+                    console.warn(`模型加载失败 (${device}/${dtype})，尝试下一配置...`, err);
+                    if (currentLoadId !== loadIdRef.current) return;
+                }
             }
+
+            if (currentLoadId !== loadIdRef.current) return;
+            setStatus('error');
+            const msg = lastError?.message || '未知错误';
+            setError(
+                msg.includes('404') || msg.toLowerCase().includes('could not locate')
+                    ? `该模型缺少可用的权重文件（已尝试 ${attempts.map((a) => `${a.device}/${a.dtype}`).join('、')}）。请更换其他模型。`
+                    : `网络加载失败：${msg}。当前源：${mirrorEnabled ? 'hf-mirror.com（国内镜像）' : 'huggingface.co'}，可尝试切换镜像。`
+            );
+            setPendingModel(null);
         },
         [task, mirrorEnabled, pipelineOptions.dtype, pipelineOptions.device]
     );
@@ -222,6 +259,17 @@ export function useHuggingFaceModel<T extends PipelineType>({
         pipeRef.current = null;
         setStatus('idle');
     }, []);
+
+    // ---------- 镜像切换后重载当前模型 ----------
+    const firstMirrorRun = useRef(true);
+    useEffect(() => {
+        if (firstMirrorRun.current) {
+            firstMirrorRun.current = false;
+            return;
+        }
+        loadModel(pendingModel || currentModel);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mirrorEnabled]);
 
     // ---------- 首次加载 ----------
     useEffect(() => {
