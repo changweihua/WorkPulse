@@ -87,9 +87,23 @@ function createTables(): void {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS calendar_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL CHECK(type IN ('todo', 'meeting')),
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      event_date TEXT NOT NULL,
+      start_time TEXT,
+      end_time TEXT,
+      location TEXT DEFAULT '',
+      completed INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_work_logs_created_at ON work_logs(created_at);
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_reports_dates ON reports(date_from, date_to);
+    CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
   `)
 }
 
@@ -500,4 +514,90 @@ export function setSetting(key: string, value: string): void {
 export function deleteSetting(key: string): void {
   const stmt = db.prepare('DELETE FROM settings WHERE key = ?')
   stmt.run(key)
+}
+
+// --- Calendar Events (todos & meetings) ---
+
+export interface CalendarEvent {
+  id: number
+  type: 'todo' | 'meeting'
+  title: string
+  description: string
+  event_date: string
+  start_time: string | null
+  end_time: string | null
+  location: string
+  completed: number
+  created_at: string
+}
+
+export interface CalendarEventInput {
+  type: 'todo' | 'meeting'
+  title: string
+  description?: string
+  event_date: string
+  start_time?: string | null
+  end_time?: string | null
+  location?: string
+}
+
+export function addEvent(input: CalendarEventInput): CalendarEvent {
+  const stmt = db.prepare(
+    `INSERT INTO calendar_events (type, title, description, event_date, start_time, end_time, location)
+     VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`
+  )
+  return stmt.get(
+    input.type,
+    input.title,
+    input.description ?? '',
+    input.event_date,
+    input.start_time ?? null,
+    input.end_time ?? null,
+    input.location ?? ''
+  ) as CalendarEvent
+}
+
+export function getEventsByDate(date: string): CalendarEvent[] {
+  const stmt = db.prepare(
+    `SELECT * FROM calendar_events WHERE event_date = ?
+     ORDER BY completed ASC, type DESC, start_time IS NULL, start_time, id`
+  )
+  return stmt.all(date) as CalendarEvent[]
+}
+
+export function getEventsByRange(from: string, to: string): CalendarEvent[] {
+  const stmt = db.prepare(
+    `SELECT * FROM calendar_events WHERE event_date >= ? AND event_date <= ?
+     ORDER BY event_date, start_time IS NULL, start_time, id`
+  )
+  return stmt.all(from, to) as CalendarEvent[]
+}
+
+export function updateEvent(id: number, updates: Partial<CalendarEventInput> & { completed?: boolean }): CalendarEvent | null {
+  const fields: string[] = []
+  const values: unknown[] = []
+
+  if (updates.title !== undefined) { fields.push('title = ?'); values.push(updates.title) }
+  if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description) }
+  if (updates.event_date !== undefined) { fields.push('event_date = ?'); values.push(updates.event_date) }
+  if (updates.start_time !== undefined) { fields.push('start_time = ?'); values.push(updates.start_time) }
+  if (updates.end_time !== undefined) { fields.push('end_time = ?'); values.push(updates.end_time) }
+  if (updates.location !== undefined) { fields.push('location = ?'); values.push(updates.location) }
+  if (updates.completed !== undefined) { fields.push('completed = ?'); values.push(updates.completed ? 1 : 0) }
+
+  if (fields.length === 0) return getEventById(id)
+
+  values.push(id)
+  const stmt = db.prepare(`UPDATE calendar_events SET ${fields.join(', ')} WHERE id = ? RETURNING *`)
+  return stmt.get(...values) as CalendarEvent | null
+}
+
+export function getEventById(id: number): CalendarEvent | null {
+  const stmt = db.prepare('SELECT * FROM calendar_events WHERE id = ?')
+  return (stmt.get(id) as CalendarEvent | undefined) ?? null
+}
+
+export function deleteEvent(id: number): boolean {
+  const stmt = db.prepare('DELETE FROM calendar_events WHERE id = ?')
+  return stmt.run(id).changes > 0
 }

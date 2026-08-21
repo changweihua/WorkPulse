@@ -30,6 +30,19 @@ interface Task {
   due_date: string | null
 }
 
+interface CalendarEvent {
+  id: number
+  type: 'todo' | 'meeting'
+  title: string
+  description: string
+  event_date: string
+  start_time: string | null
+  end_time: string | null
+  location: string
+  completed: number
+  created_at: string
+}
+
 type QuickCreateType = 'log' | 'task'
 type NavigatePage = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings'
 type AppLanguage = 'system' | 'zh' | 'en'
@@ -99,6 +112,30 @@ interface API {
       totalTasksActive: number
       streak: number
     }>
+  }
+  event: {
+    add: (input: {
+      type: 'todo' | 'meeting'
+      title: string
+      description?: string
+      event_date: string
+      start_time?: string | null
+      end_time?: string | null
+      location?: string
+    }) => Promise<CalendarEvent>
+    byDate: (date: string) => Promise<CalendarEvent[]>
+    byRange: (from: string, to: string) => Promise<CalendarEvent[]>
+    update: (id: number, updates: Partial<{
+      type: 'todo' | 'meeting'
+      title: string
+      description: string
+      event_date: string
+      start_time: string | null
+      end_time: string | null
+      location: string
+      completed: boolean
+    }>) => Promise<CalendarEvent | null>
+    delete: (id: number) => Promise<boolean>
   }
   report: {
     generate: (dateFrom: string, dateTo: string) => Promise<Report>

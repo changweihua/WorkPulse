@@ -76,6 +76,14 @@ const api = {
   stats: {
     get: (days?: number) => ipcRenderer.invoke('stats:get', days)
   },
+  event: {
+    add: (input: Record<string, unknown>) => ipcRenderer.invoke('event:add', input),
+    byDate: (date: string) => ipcRenderer.invoke('event:byDate', date),
+    byRange: (from: string, to: string) => ipcRenderer.invoke('event:byRange', from, to),
+    update: (id: number, updates: Record<string, unknown>) =>
+      ipcRenderer.invoke('event:update', id, updates),
+    delete: (id: number) => ipcRenderer.invoke('event:delete', id),
+  },
   import: {
     logs: () => ipcRenderer.invoke('import:logs') as Promise<{ imported: number; skipped: number; filePath: string } | null>,
   },

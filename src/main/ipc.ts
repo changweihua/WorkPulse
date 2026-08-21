@@ -23,6 +23,12 @@ import {
   deleteTask,
   reorderTasks,
   type Task,
+  addEvent,
+  getEventsByDate,
+  getEventsByRange,
+  updateEvent,
+  deleteEvent,
+  type CalendarEventInput,
   updateWorkLog,
   workLogExists
 } from './db'
@@ -166,6 +172,31 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('task:completeOnly', (_event, id: number) => {
     return updateTask(id, { status: 'done' })
+  })
+
+  // --- Calendar Events (todos & meetings) ---
+
+  ipcMain.handle('event:add', (_event, input: CalendarEventInput) => {
+    return addEvent(input)
+  })
+
+  ipcMain.handle('event:byDate', (_event, date: string) => {
+    return getEventsByDate(date)
+  })
+
+  ipcMain.handle('event:byRange', (_event, from: string, to: string) => {
+    return getEventsByRange(from, to)
+  })
+
+  ipcMain.handle(
+    'event:update',
+    (_event, id: number, updates: Partial<CalendarEventInput> & { completed?: boolean }) => {
+      return updateEvent(id, updates)
+    }
+  )
+
+  ipcMain.handle('event:delete', (_event, id: number) => {
+    return deleteEvent(id)
   })
 
   // --- Settings ---
