@@ -355,12 +355,12 @@ function SettingsPage(): ReactNode {
   const [material, setMaterial] = useState<string>('tabbed')
 
   useEffect(() => {
-    window.api.window.getMaterial().then(setMaterial).catch(() => {})
+    window.api?.window?.getMaterial?.().then(setMaterial).catch(() => {})
   }, [])
 
   const handleMaterialChange = async (value: string): Promise<void> => {
-    const res = await window.api.window.setMaterial(value)
-    if (res.success) {
+    const res = await window.api?.window?.setMaterial?.(value)
+    if (res?.success) {
       setMaterial(value)
       toast.success(t('settings.materialChanged'))
     }
