@@ -171,7 +171,7 @@ export default function NavLayout() {
             {/* 导航栏 - Mica 半透明 */}
             <header
                 className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200/20 dark:border-zinc-700/20 
-                           bg-white/50 dark:bg-[#232326]/88
+                           bg-white/50 dark:bg-[#2a2a2e]/55
                            shrink-0 
                            sticky top-0 z-20"
             >
