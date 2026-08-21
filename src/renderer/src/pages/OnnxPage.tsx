@@ -19,6 +19,7 @@ import {
     User,
     Sparkles,
     Zap,
+    RotateCcw,
 } from 'lucide-react';
 
 const IS_WEBGPU_AVAILABLE = !!(navigator as any).gpu;
@@ -43,6 +44,7 @@ function ModelPanel({
     progressItems,
     error,
     isError,
+    onRetry,
 }: {
     status: string;
     currentModel: string;
@@ -56,6 +58,7 @@ function ModelPanel({
     progressItems: { file: string; progress: number }[];
     error: string | null;
     isError: boolean;
+    onRetry: () => void;
 }) {
     const modelsInGroup = useMemo(() => getModelsByGroup(selectedGroup), [selectedGroup]);
     const displayModel = pendingModel || currentModel;
@@ -174,6 +177,14 @@ function ModelPanel({
                         <p className="text-xs font-medium text-red-600 dark:text-red-400">加载失败</p>
                         <p className="text-[11px] text-red-500/90 dark:text-red-400/80 mt-1 break-all">{error}</p>
                         <p className="text-[10px] text-red-400/70 mt-1.5">可尝试切换镜像或更换模型</p>
+                        <button
+                            onClick={onRetry}
+                            disabled={isLoading}
+                            className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-[11px] font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-red-500/70 disabled:opacity-50 disabled:pointer-events-none"
+                        >
+                            <RotateCcw size={12} />
+                            重试加载
+                        </button>
                     </div>
                 )}
             </div>
@@ -224,8 +235,9 @@ function OnnxPageContent() {
         isLoading,
         isReady,
         isGenerating,
-        isError,
-    } = useONNXModel();
+    isError,
+    retry,
+} = useONNXModel();
 
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -310,6 +322,7 @@ function OnnxPageContent() {
                 progressItems={progressItems}
                 error={error}
                 isError={isError}
+    onRetry={retry}
             />
 
             {/* 右侧对话区 */}

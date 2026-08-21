@@ -311,6 +311,11 @@ export function useHuggingFaceModel<T extends PipelineType>({
         [currentModel, loadModel]
     );
 
+    // ---------- 重试当前模型 ----------
+    const retry = useCallback(() => {
+        return loadModel(currentModel);
+    }, [currentModel, loadModel]);
+
     // ---------- 首次加载（卸载时不销毁，模型保留在缓存中供下次复用） ----------
     useEffect(() => {
         loadModel(currentModel);
@@ -342,6 +347,7 @@ export function useHuggingFaceModel<T extends PipelineType>({
         generate,
         recognize,
         switchModel,
+        retry,
         modelList,
         isLoading: status === 'loading',
         isReady: status === 'ready',
