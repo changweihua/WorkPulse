@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, ReactNode } from 'react'
-import { Flame, FileText, CheckCircle2, ListTodo } from 'lucide-react'
+import { useEffect, useState, useRef, useCallback, ReactNode } from 'react'
+import { Flame, FileText, CheckCircle2, ListTodo, RefreshCw, Tag, TrendingUp, Calendar } from 'lucide-react'
 import * as echarts from 'echarts'
 import { useI18n } from '../stores/languageStore'
 import ContributionGrid3D from '../components/ContributionGrid3D'
@@ -17,6 +17,13 @@ interface Stats {
   totalTasksActive: number
   streak: number
 }
+
+const RANGE_OPTIONS = [30, 90, 180, 365] as const
+
+const CATEGORY_COLORS = [
+  '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ec4899',
+  '#14b8a6', '#f97316', '#6366f1', '#84cc16', '#ef4444',
+]
 
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear()
@@ -143,11 +150,18 @@ function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
   const weekLogs = last7.reduce((s, d) => s + d.log_count, 0)
   const weekTasks = last7.reduce((s, d) => s + d.task_completed, 0)
   const activeDays = last7.filter((d) => d.log_count + d.task_completed > 0).length
+  const bestDay = last7.reduce(
+    (best, d) => (d.log_count + d.task_completed > best.count ? { date: d.date, count: d.log_count + d.task_completed } : best),
+    { date: '', count: 0 }
+  )
+  const avgPerActiveDay = activeDays > 0 ? ((weekLogs + weekTasks) / activeDays).toFixed(1) : '0'
 
   const rows = [
     { label: t('stats.activeDays'), value: `${activeDays} / 7` },
     { label: t('stats.logLegend'), value: String(weekLogs) },
-    { label: t('stats.doneTasks'), value: String(weekTasks) }
+    { label: t('stats.doneTasks'), value: String(weekTasks) },
+    { label: t('stats.bestDay'), value: bestDay.count > 0 ? `${bestDay.date.slice(5)} · ${bestDay.count}` : '-' },
+    { label: t('stats.avgPerDay'), value: avgPerActiveDay }
   ]
 
   return (
@@ -165,6 +179,82 @@ function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function CategoryBreakdown({ range }: { range: number }): ReactNode {
+  const { t } = useI18n()
+  const [categories, setCategories] = useState<{ name: string; count: number }[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    const to = new Date()
+    const from = new Date()
+    from.setDate(from.getDate() - range)
+    const fmt = (d: Date): string => formatLocalDate(d)
+    window.api.worklog
+      .byDateRange(fmt(from), fmt(to))
+      .then((logs) => {
+        if (cancelled) return
+        const counts = new Map<string, number>()
+        for (const log of logs) {
+          const key = log.category?.trim() || t('stats.uncategorized')
+          counts.set(key, (counts.get(key) || 0) + 1)
+        }
+        setCategories(
+          [...counts.entries()]
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 6)
+        )
+      })
+      .catch(() => !cancelled && setCategories([]))
+      .finally(() => !cancelled && setLoading(false))
+    return () => {
+      cancelled = true
+    }
+  }, [range, t])
+
+  const total = categories.reduce((s, c) => s + c.count, 0)
+
+  return (
+    <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '240ms' }}>
+      <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4 flex items-center gap-1.5">
+        <Tag size={14} className="text-blue-500" />
+        {t('stats.categoryDist')}
+      </h3>
+      {loading ? (
+        <div className="flex items-center justify-center py-8 text-zinc-400 text-xs">{t('common.loading')}</div>
+      ) : categories.length === 0 ? (
+        <div className="flex items-center justify-center py-8 text-zinc-400 text-xs">{t('stats.noData')}</div>
+      ) : (
+        <div className="space-y-3">
+          {categories.map((cat, idx) => {
+            const pct = total > 0 ? Math.round((cat.count / total) * 100) : 0
+            return (
+              <div key={cat.name}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300 truncate max-w-[70%]" title={cat.name}>
+                    {cat.name}
+                  </span>
+                  <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums shrink-0 ml-2">
+                    {cat.count} · {pct}%
+                  </span>
+                </div>
+                <div className="h-1.5 w-full bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${pct}%`, backgroundColor: CATEGORY_COLORS[idx % CATEGORY_COLORS.length] }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -293,11 +383,23 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
 
 function StatsPage(): ReactNode {
   const [stats, setStats] = useState<Stats | null>(null)
+  const [range, setRange] = useState<number>(90)
+  const [refreshing, setRefreshing] = useState(false)
   const { t } = useI18n()
 
-  useEffect(() => {
-    window.api.stats.get(90).then(setStats)
+  const loadStats = useCallback(async (days: number): Promise<void> => {
+    setRefreshing(true)
+    try {
+      const data = await window.api.stats.get(days)
+      setStats(data)
+    } finally {
+      setRefreshing(false)
+    }
   }, [])
+
+  useEffect(() => {
+    loadStats(range)
+  }, [range, loadStats])
 
   if (!stats) {
     return (
@@ -310,30 +412,55 @@ function StatsPage(): ReactNode {
     )
   }
 
-  const last14 = stats.daily.filter((d) => {
-    const diff = (Date.now() - new Date(d.date + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24)
-    return diff <= 14
-  })
+  const barDays = Math.min(range, 30)
 
   const filled: DailyStats[] = []
   const today = new Date()
-  for (let i = 13; i >= 0; i--) {
+  for (let i = barDays - 1; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
     const dateStr = formatLocalDate(d)
-    const existing = last14.find((s) => s.date === dateStr)
+    const existing = stats.daily.find((s) => s.date === dateStr)
     filled.push(existing || { date: dateStr, log_count: 0, task_completed: 0 })
   }
 
   return (
     <div className="h-full overflow-hidden">
-      <div className="h-full overflow-y-auto px-6 py-6">
+      <div className="h-full overflow-y-auto px-6 py-6" style={{ scrollbarGutter: 'stable' }}>
         <div className="space-y-5">
-          <div className="animate-slide-up">
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {t('stats.title')}
-            </h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t('stats.subtitle')}</p>
+          {/* 标题 + 时间范围 + 刷新 */}
+          <div className="flex flex-wrap items-end justify-between gap-3 animate-slide-up">
+            <div>
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                {t('stats.title')}
+              </h1>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t('stats.subtitle')}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center rounded-lg border border-[var(--color-border)] surface-input overflow-hidden">
+                {RANGE_OPTIONS.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRange(r)}
+                    className={`px-3 py-1.5 text-xs font-medium transition ${
+                      range === r
+                        ? 'bg-blue-500 text-white'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                    }`}
+                  >
+                    {r >= 365 ? '1y' : `${r}d`}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => loadStats(range)}
+                disabled={refreshing}
+                className="p-2 rounded-lg border border-[var(--color-border)] surface-input hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition disabled:opacity-50"
+                title={t('common.refresh')}
+              >
+                <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -374,7 +501,8 @@ function StatsPage(): ReactNode {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="lg:col-span-2 surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '100ms' }}>
-              <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">
+              <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-1.5">
+                <Calendar size={14} className="text-violet-500" />
                 {t('stats.contributionGraph')}
               </h3>
               <ContributionGrid3D data={stats.daily} />
@@ -382,7 +510,8 @@ function StatsPage(): ReactNode {
 
             <div className="space-y-5">
               <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '160ms' }}>
-                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
+                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4 flex items-center gap-1.5">
+                  <TrendingUp size={14} className="text-teal-500" />
                   {t('stats.logsVsTasks')}
                 </h3>
                 <DonutChart logs={stats.totalLogs} tasks={stats.totalTasksDone} />
@@ -392,6 +521,8 @@ function StatsPage(): ReactNode {
           </div>
 
           <BarChart data={filled} />
+
+          <CategoryBreakdown range={range} />
         </div>
       </div>
     </div>
