@@ -24,6 +24,18 @@ import {
     PanelRightOpen,
     PanelRightClose,
     MoreVertical,
+    Eye,
+    EyeOff,
+    Download,
+    Upload,
+    CheckCircle,
+    AlertCircle,
+    RefreshCw,
+    Key,
+    Server,
+    Thermometer,
+    Hash,
+    FileJson,
 } from 'lucide-react';
 
 // ---------- 类型定义 ----------
@@ -119,6 +131,30 @@ const DEFAULT_CONFIGS: ModelConfig[] = [
         max_tokens: 4096,
         top_p: 0.95,
     },
+];
+
+// ---------- 供应商预设 ----------
+interface ProviderPreset {
+    id: string;
+    name: string;
+    icon: string;
+    baseURL: string;
+    models: string[];
+    defaultModel: string;
+    maxTokens: number;
+    description: string;
+}
+
+const PROVIDER_PRESETS: ProviderPreset[] = [
+    { id: 'deepseek', name: 'DeepSeek', icon: '🐋', baseURL: 'https://api.deepseek.com', models: ['deepseek-chat', 'deepseek-reasoner'], defaultModel: 'deepseek-chat', maxTokens: 4096, description: '高性价比，支持推理' },
+    { id: 'openai', name: 'OpenAI', icon: '🤖', baseURL: 'https://api.openai.com/v1', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'], defaultModel: 'gpt-4o-mini', maxTokens: 4096, description: 'GPT 系列模型' },
+    { id: 'anthropic', name: 'Anthropic', icon: '🧠', baseURL: 'https://api.anthropic.com', models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'], defaultModel: 'claude-sonnet-4-20250514', maxTokens: 4096, description: 'Claude 系列模型' },
+    { id: 'zhipu', name: '智谱 AI', icon: '🔮', baseURL: 'https://open.bigmodel.cn/api/paas/v4', models: ['glm-4', 'glm-4-flash', 'glm-4-air'], defaultModel: 'glm-4', maxTokens: 4096, description: 'GLM 系列模型' },
+    { id: 'moonshot', name: 'Moonshot', icon: '🌙', baseURL: 'https://api.moonshot.cn/v1', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'], defaultModel: 'moonshot-v1-8k', maxTokens: 4096, description: '月之暗面 Kimi' },
+    { id: 'qwen', name: '通义千问', icon: '☁️', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', models: ['qwen-plus', 'qwen-turbo', 'qwen-max'], defaultModel: 'qwen-plus', maxTokens: 4096, description: '阿里云通义系列' },
+    { id: 'gitee', name: 'Gitee AI', icon: '🐙', baseURL: 'https://ai.gitee.com/v1', models: ['Qwen3-8B', 'DeepSeek-R1', 'GLM-4-9B'], defaultModel: 'Qwen3-8B', maxTokens: 2048, description: 'Gitee 开源模型' },
+    { id: 'ollama', name: 'Ollama (本地)', icon: '🦙', baseURL: 'http://localhost:11434/v1', models: ['llama3', 'qwen2', 'mistral', 'codellama'], defaultModel: 'llama3', maxTokens: 4096, description: '本地部署模型' },
+    { id: 'custom', name: '自定义', icon: '⚙️', baseURL: '', models: [], defaultModel: '', maxTokens: 4096, description: '自定义 API 地址' },
 ];
 
 // ---------- 加载动画 ----------
@@ -400,27 +436,120 @@ function ConfigDrawer({
 }) {
     const [editing, setEditing] = useState<ModelConfig | null>(null);
     const [formData, setFormData] = useState<Partial<ModelConfig>>({});
+    const [activeTab, setActiveTab] = useState<'list' | 'edit'>('list');
+    const [showKey, setShowKey] = useState(false);
+    const [testing, setTesting] = useState(false);
+    const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+    const [importMode, setImportMode] = useState(false);
+    const [importJson, setImportJson] = useState('');
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-    const openNew = () => {
+    const validate = (data: Partial<ModelConfig>): string[] => {
+        const errors: string[] = [];
+        if (!data.name?.trim()) errors.push('名称不能为空');
+        if (!data.baseURL?.trim()) errors.push('API 地址不能为空');
+        if (!data.model?.trim()) errors.push('模型名称不能为空');
+        if (data.baseURL?.trim() && !/^https?:\/\//.test(data.baseURL.trim()) && !/^https?:\/\/localhost/.test(data.baseURL.trim())) {
+            errors.push('API 地址格式不正确（需要 http:// 或 https://）');
+        }
+        if (data.headers?.trim()) {
+            try { JSON.parse(data.headers); } catch { errors.push('自定义 Headers JSON 格式错误'); }
+        }
+        return errors;
+    };
+
+    const openNew = (presetId?: string) => {
         setEditing(null);
-        setFormData({ name: '', baseURL: '', model: '', token: '', headers: '', temperature: 0.7, max_tokens: 4096, top_p: 0.9 });
+        setShowKey(false);
+        setTestResult(null);
+        setValidationErrors([]);
+        setShowAdvanced(false);
+        if (presetId) {
+            const preset = PROVIDER_PRESETS.find((p) => p.id === presetId);
+            if (preset) {
+                setFormData({
+                    name: preset.name,
+                    baseURL: preset.baseURL,
+                    model: preset.defaultModel,
+                    token: '',
+                    headers: '',
+                    temperature: 0.7,
+                    max_tokens: preset.maxTokens,
+                    top_p: 0.9,
+                });
+            }
+        } else {
+            setFormData({ name: '', baseURL: '', model: '', token: '', headers: '', temperature: 0.7, max_tokens: 4096, top_p: 0.9 });
+        }
+        setActiveTab('edit');
     };
 
     const openEdit = (c: ModelConfig) => {
         setEditing(c);
         setFormData({ ...c });
+        setShowKey(false);
+        setTestResult(null);
+        setValidationErrors([]);
+        setShowAdvanced(false);
+        setActiveTab('edit');
+    };
+
+    const duplicateConfig = (c: ModelConfig) => {
+        const newConfig: ModelConfig = {
+            ...c,
+            id: crypto.randomUUID(),
+            name: `${c.name} (副本)`,
+        };
+        onSaveConfig(newConfig, true);
+    };
+
+    const testConnection = async () => {
+        if (!formData.baseURL?.trim()) {
+            setTestResult({ ok: false, msg: '请填写 API 地址' });
+            return;
+        }
+        setTesting(true);
+        setTestResult(null);
+        try {
+            const url = formData.baseURL.trim().replace(/\/+$/, '') + '/models';
+            const headers: Record<string, string> = {};
+            if (formData.token) headers['Authorization'] = `Bearer ${formData.token}`;
+            if (formData.headers?.trim()) {
+                try {
+                    const custom = JSON.parse(formData.headers);
+                    Object.assign(headers, custom);
+                } catch { /* ignore */ }
+            }
+            const resp = await fetch(url, {
+                method: 'GET',
+                headers,
+                signal: AbortSignal.timeout(10000),
+            });
+            if (resp.ok) {
+                const data = await resp.json().catch(() => null);
+                const modelCount = data?.data?.length;
+                setTestResult({ ok: true, msg: `连接成功 (${resp.status})${modelCount ? `，发现 ${modelCount} 个模型` : ''}` });
+            } else {
+                const text = await resp.text().catch(() => '');
+                setTestResult({ ok: false, msg: `HTTP ${resp.status}: ${text.slice(0, 120)}` });
+            }
+        } catch (e: any) {
+            setTestResult({ ok: false, msg: e?.name === 'TimeoutError' ? '连接超时 (10s)' : `连接失败: ${e?.message || e}` });
+        } finally {
+            setTesting(false);
+        }
     };
 
     const save = () => {
-        if (!formData.name || !formData.baseURL || !formData.model) return;
-        if (formData.headers?.trim()) {
-            try { JSON.parse(formData.headers); } catch { return; }
-        }
+        const errors = validate(formData);
+        setValidationErrors(errors);
+        if (errors.length > 0) return;
         const config: ModelConfig = {
             id: editing?.id || crypto.randomUUID(),
-            name: formData.name!,
-            baseURL: formData.baseURL!,
-            model: formData.model!,
+            name: formData.name!.trim(),
+            baseURL: formData.baseURL!.trim(),
+            model: formData.model!.trim(),
             token: formData.token || '',
             headers: formData.headers || '',
             temperature: formData.temperature ?? 0.7,
@@ -428,7 +557,48 @@ function ConfigDrawer({
             top_p: formData.top_p ?? 0.9,
         };
         onSaveConfig(config, !editing);
+        setActiveTab('list');
         setEditing(null);
+    };
+
+    const exportConfigs = () => {
+        const json = JSON.stringify(configs, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `workpulse-models-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const importConfigs = () => {
+        try {
+            const parsed = JSON.parse(importJson);
+            const arr = Array.isArray(parsed) ? parsed : [parsed];
+            let count = 0;
+            for (const item of arr) {
+                if (item.name && item.baseURL && item.model) {
+                    onSaveConfig({
+                        id: item.id || crypto.randomUUID(),
+                        name: item.name,
+                        baseURL: item.baseURL,
+                        model: item.model,
+                        token: item.token || '',
+                        headers: item.headers || '',
+                        temperature: item.temperature ?? 0.7,
+                        max_tokens: item.max_tokens ?? 4096,
+                        top_p: item.top_p ?? 0.9,
+                    }, true);
+                    count++;
+                }
+            }
+            setImportMode(false);
+            setImportJson('');
+            if (count > 0) alert(`成功导入 ${count} 个配置`);
+        } catch {
+            alert('JSON 格式错误');
+        }
     };
 
     if (!open) return null;
@@ -436,92 +606,290 @@ function ConfigDrawer({
     return (
         <div className="fixed inset-0 z-50 flex">
             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative ml-auto w-[400px] h-full surface-elevated shadow-2xl flex flex-col animate-slide-in-right">
+            <div className="relative ml-auto w-[440px] h-full surface-elevated shadow-2xl flex flex-col animate-slide-in-right">
                 {/* Header */}
                 <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
                     <h3 className="text-base font-semibold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
                         <Settings size={16} />
-                        模型配置
+                        {activeTab === 'edit' ? (editing ? '编辑模型' : '新增模型') : '模型管理'}
                     </h3>
-                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition">
-                        <X size={18} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        {activeTab === 'edit' && (
+                            <button onClick={() => { setActiveTab('list'); setEditing(null); }} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition" title="返回列表">
+                                <ChevronLeft size={16} />
+                            </button>
+                        )}
+                        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition">
+                            <X size={18} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
-                    {/* 配置列表 */}
-                    <div className="px-4 py-3 space-y-1">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">已保存的配置</span>
-                            <button onClick={openNew} className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 font-medium">
-                                + 新增
-                            </button>
-                        </div>
-                        {configs.map((c) => (
-                            <div
-                                key={c.id}
-                                onClick={() => onSelectConfig(c.id)}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition ${
-                                    currentConfigId === c.id
-                                        ? 'bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-200 dark:ring-blue-800'
-                                        : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                                }`}
-                            >
-                                <div className={`w-2 h-2 rounded-full shrink-0 ${currentConfigId === c.id ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'}`} />
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{c.name}</div>
-                                    <div className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate">{c.model}</div>
-                                </div>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); openEdit(c); }}
-                                    className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700"
-                                >
-                                    编辑
+                    {activeTab === 'list' ? (
+                        <>
+                            {/* 工具栏 */}
+                            <div className="px-4 py-3 flex items-center gap-2 border-b border-[var(--color-border)]">
+                                <button onClick={() => openNew()} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition shadow-sm">
+                                    <Plus size={15} />
+                                    手动新增
                                 </button>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onDeleteConfig(c.id); }}
-                                    className="text-xs text-zinc-400 hover:text-red-500 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
-                                >
-                                    删除
+                                <button onClick={() => setImportMode(true)} className="flex items-center gap-1.5 px-3 py-2.5 border border-zinc-200 dark:border-zinc-700 text-sm rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition">
+                                    <Upload size={14} />
+                                    导入
+                                </button>
+                                <button onClick={exportConfigs} className="flex items-center gap-1.5 px-3 py-2.5 border border-zinc-200 dark:border-zinc-700 text-sm rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition">
+                                    <Download size={14} />
+                                    导出
                                 </button>
                             </div>
-                        ))}
-                    </div>
 
-                    {/* 编辑表单 */}
-                    {editing !== null && (
-                        <div className="px-4 py-3 border-t border-[var(--color-border)] space-y-3">
-                            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
-                                <span>{editing ? '编辑配置' : '新增配置'}</span>
-                                <button onClick={() => setEditing(null)} className="text-zinc-400 hover:text-zinc-600">
-                                    <X size={14} />
+                            {/* 供应商预设 */}
+                            <div className="px-4 py-3 border-b border-[var(--color-border)]">
+                                <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2.5">快速新增（供应商模板）</div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {PROVIDER_PRESETS.filter((p) => p.id !== 'custom').map((preset) => (
+                                        <button
+                                            key={preset.id}
+                                            onClick={() => openNew(preset.id)}
+                                            className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all text-center group"
+                                        >
+                                            <span className="text-xl group-hover:scale-110 transition-transform">{preset.icon}</span>
+                                            <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300 leading-tight">{preset.name}</span>
+                                            <span className="text-[9px] text-zinc-400 dark:text-zinc-500 leading-tight">{preset.description}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 已保存配置列表 */}
+                            <div className="px-4 py-3 space-y-1.5">
+                                <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">已保存的配置 ({configs.length})</div>
+                                {configs.length === 0 && (
+                                    <div className="text-center py-8 text-zinc-400 dark:text-zinc-500 text-sm">暂无配置，点击上方按钮添加</div>
+                                )}
+                                {configs.map((c) => {
+                                    const preset = PROVIDER_PRESETS.find((p) => c.baseURL.includes(p.baseURL.replace(/https?:\/\//, '')));
+                                    return (
+                                        <div
+                                            key={c.id}
+                                            onClick={() => onSelectConfig(c.id)}
+                                            className={`group flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all ${
+                                                currentConfigId === c.id
+                                                    ? 'bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-200 dark:ring-blue-800'
+                                                    : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                                            }`}
+                                        >
+                                            <span className="text-xl shrink-0">{preset?.icon || '⚙️'}</span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{c.name}</span>
+                                                    {currentConfigId === c.id && (
+                                                        <span className="shrink-0 px-1.5 py-0.5 bg-blue-500 text-white text-[10px] font-medium rounded-full">使用中</span>
+                                                    )}
+                                                </div>
+                                                <div className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate mt-0.5">
+                                                    {c.model} · {c.baseURL.replace(/https?:\/\//, '').slice(0, 35)}
+                                                </div>
+                                                <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 flex items-center gap-2">
+                                                    <span className="flex items-center gap-0.5">
+                                                        <Key size={9} />
+                                                        {c.token ? '已设置' : '未设置'}
+                                                    </span>
+                                                    <span className="flex items-center gap-0.5">
+                                                        <Thermometer size={9} />
+                                                        {c.temperature}
+                                                    </span>
+                                                    <span className="flex items-center gap-0.5">
+                                                        <Hash size={9} />
+                                                        {c.max_tokens}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); duplicateConfig(c); }}
+                                                    className="p-1.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition"
+                                                    title="复制配置"
+                                                >
+                                                    <Copy size={13} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); openEdit(c); }}
+                                                    className="p-1.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition"
+                                                    title="编辑"
+                                                >
+                                                    <Settings size={13} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); if (confirm(`确定删除「${c.name}」？`)) onDeleteConfig(c.id); }}
+                                                    className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-zinc-400 hover:text-red-500 transition"
+                                                    title="删除"
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* 导入弹窗 */}
+                            {importMode && (
+                                <div className="px-4 py-3 border-t border-[var(--color-border)] space-y-3 bg-zinc-50/50 dark:bg-zinc-800/30">
+                                    <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
+                                        <span className="flex items-center gap-1.5"><FileJson size={13} /> 导入配置 (JSON)</span>
+                                        <button onClick={() => setImportMode(false)} className="text-zinc-400 hover:text-zinc-600"><X size={14} /></button>
+                                    </div>
+                                    <textarea
+                                        value={importJson}
+                                        onChange={(e) => setImportJson(e.target.value)}
+                                        placeholder={'[\n  {"name":"My API", "baseURL":"https://...", "model":"gpt-4o", "token":"sk-..."}\n]'}
+                                        rows={6}
+                                        className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm surface-input dark:text-zinc-100 font-mono resize-none outline-none focus:border-blue-400"
+                                    />
+                                    <div className="flex gap-2">
+                                        <button onClick={importConfigs} className="flex-1 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition flex items-center justify-center gap-1.5">
+                                            <Upload size={13} /> 确认导入
+                                        </button>
+                                        <button onClick={() => setImportMode(false)} className="px-4 py-2 border border-zinc-200 dark:border-zinc-700 text-sm rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition">
+                                            取消
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        /* 编辑表单 */
+                        <div className="px-5 py-4 space-y-4">
+                            {/* 验证错误 */}
+                            {validationErrors.length > 0 && (
+                                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg space-y-1">
+                                    {validationErrors.map((err, i) => (
+                                        <div key={i} className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
+                                            <AlertCircle size={12} />
+                                            {err}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* 基础信息 */}
+                            <div className="space-y-3">
+                                <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                                    <Server size={12} /> 基础信息
+                                </div>
+                                <InputField label="名称" placeholder="如 DeepSeek" value={formData.name || ''} onChange={(v) => setFormData({ ...formData, name: v })} />
+                                <InputField label="API 地址" placeholder="https://api.deepseek.com" value={formData.baseURL || ''} onChange={(v) => setFormData({ ...formData, baseURL: v })} />
+                                <div>
+                                    <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">模型</label>
+                                    <input
+                                        type="text"
+                                        placeholder="deepseek-chat"
+                                        value={formData.model || ''}
+                                        onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                                        list={`model-list-${editing?.id || 'new'}`}
+                                        className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm surface-input dark:text-zinc-100 outline-none focus:border-blue-400"
+                                    />
+                                    <datalist id={`model-list-${editing?.id || 'new'}`}>
+                                        {PROVIDER_PRESETS.flatMap((p) => p.models.map((m) => (
+                                            <option key={`${p.id}-${m}`} value={m} />
+                                        )))}
+                                    </datalist>
+                                </div>
+                            </div>
+
+                            {/* API Key */}
+                            <div className="space-y-3">
+                                <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                                    <Key size={12} /> 认证
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">API Key</label>
+                                    <div className="relative">
+                                        <input
+                                            type={showKey ? 'text' : 'password'}
+                                            placeholder="sk-... 或留空使用环境变量"
+                                            value={formData.token || ''}
+                                            onChange={(e) => setFormData({ ...formData, token: e.target.value })}
+                                            className="w-full px-3 py-2 pr-10 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm surface-input dark:text-zinc-100 outline-none focus:border-blue-400 font-mono"
+                                        />
+                                        <button
+                                            onClick={() => setShowKey(!showKey)}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-400 transition"
+                                        >
+                                            {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">自定义 Headers (JSON)</label>
+                                    <textarea
+                                        placeholder='{"X-Custom":"value"}'
+                                        value={formData.headers || ''}
+                                        onChange={(e) => setFormData({ ...formData, headers: e.target.value })}
+                                        rows={2}
+                                        className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm surface-input dark:text-zinc-100 font-mono resize-none outline-none focus:border-blue-400"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* 测试连接 */}
+                            <div className="p-3 bg-zinc-50/50 dark:bg-zinc-800/30 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">连接测试</span>
+                                    <button
+                                        onClick={testConnection}
+                                        disabled={testing}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition disabled:opacity-50"
+                                    >
+                                        <RefreshCw size={12} className={testing ? 'animate-spin' : ''} />
+                                        {testing ? '测试中...' : '测试连接'}
+                                    </button>
+                                </div>
+                                {testResult && (
+                                    <div className={`flex items-start gap-1.5 text-xs ${testResult.ok ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                                        {testResult.ok ? <CheckCircle size={12} className="shrink-0 mt-0.5" /> : <AlertCircle size={12} className="shrink-0 mt-0.5" />}
+                                        <span className="break-all">{testResult.msg}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 高级参数 */}
+                            <div className="space-y-3">
+                                <button
+                                    onClick={() => setShowAdvanced(!showAdvanced)}
+                                    className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition"
+                                >
+                                    <Zap size={12} />
+                                    高级参数
+                                    <ChevronRight size={12} className={`transition-transform ${showAdvanced ? 'rotate-90' : ''}`} />
+                                </button>
+                                {showAdvanced && (
+                                    <div className="grid grid-cols-3 gap-3 p-3 bg-zinc-50/50 dark:bg-zinc-800/30 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
+                                        <NumberField label="Temperature" step={0.1} min={0} max={2} value={formData.temperature ?? 0.7} onChange={(v) => setFormData({ ...formData, temperature: v })} />
+                                        <NumberField label="Max Tokens" step={256} min={256} value={formData.max_tokens ?? 4096} onChange={(v) => setFormData({ ...formData, max_tokens: v })} />
+                                        <NumberField label="Top P" step={0.05} min={0} max={1} value={formData.top_p ?? 0.9} onChange={(v) => setFormData({ ...formData, top_p: v })} />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 保存按钮 */}
+                            <div className="flex gap-2 pt-2">
+                                <button
+                                    onClick={() => { setActiveTab('list'); setEditing(null); setValidationErrors([]); }}
+                                    className="flex-1 py-2.5 border border-zinc-200 dark:border-zinc-700 text-sm font-medium rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition"
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    onClick={save}
+                                    className="flex-1 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition shadow-sm flex items-center justify-center gap-1.5"
+                                >
+                                    <Check size={15} />
+                                    {editing ? '保存修改' : '创建配置'}
                                 </button>
                             </div>
-                            <InputField label="名称" placeholder="如 DeepSeek" value={formData.name || ''} onChange={(v) => setFormData({ ...formData, name: v })} />
-                            <InputField label="API 地址" placeholder="https://api.deepseek.com" value={formData.baseURL || ''} onChange={(v) => setFormData({ ...formData, baseURL: v })} />
-                            <InputField label="模型" placeholder="deepseek-chat" value={formData.model || ''} onChange={(v) => setFormData({ ...formData, model: v })} />
-                            <InputField label="API Key" placeholder="留空则使用环境变量" value={formData.token || ''} onChange={(v) => setFormData({ ...formData, token: v })} type="password" />
-                            <div>
-                                <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">自定义 Headers</label>
-                                <textarea
-                                    placeholder='{"X-Custom":"value"}'
-                                    value={formData.headers || ''}
-                                    onChange={(e) => setFormData({ ...formData, headers: e.target.value })}
-                                    rows={2}
-                                    className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm surface-input dark:text-zinc-100 font-mono resize-none outline-none focus:border-blue-400"
-                                />
-                            </div>
-                            <div className="grid grid-cols-3 gap-3">
-                                <NumberField label="Temperature" step={0.1} min={0} max={2} value={formData.temperature ?? 0.7} onChange={(v) => setFormData({ ...formData, temperature: v })} />
-                                <NumberField label="Max Tokens" step={256} min={256} value={formData.max_tokens ?? 4096} onChange={(v) => setFormData({ ...formData, max_tokens: v })} />
-                                <NumberField label="Top P" step={0.05} min={0} max={1} value={formData.top_p ?? 0.9} onChange={(v) => setFormData({ ...formData, top_p: v })} />
-                            </div>
-                            <button
-                                onClick={save}
-                                className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition"
-                            >
-                                保存
-                            </button>
                         </div>
                     )}
                 </div>
