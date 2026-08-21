@@ -23,7 +23,6 @@ export const AVAILABLE_MODELS: (ModelOption & { groupId: ModelGroupId })[] = [
     { id: 'onnxruntime/DeepSeek-R1-Distill-ONNX', label: 'DeepSeek-R1 1.5B', groupId: 'light' },
     { id: 'microsoft/Phi-3-mini-4k-instruct-onnx-web', label: 'Phi-3 Mini 4K', groupId: 'light' },
     // 中量级
-    { id: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-7B-ONNX', label: 'DeepSeek-R1 7B', groupId: 'medium' },
     { id: 'onnx-community/DeepSeek-R1-Distill-Llama-8B-ONNX-DirectML-GenAI-INT4', label: 'DeepSeek-R1 8B', groupId: 'medium' },
 ];
 

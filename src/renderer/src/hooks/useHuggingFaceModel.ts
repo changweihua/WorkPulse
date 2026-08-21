@@ -89,6 +89,7 @@ export function useHuggingFaceModel<T extends PipelineType>({
     // ---------- Refs ----------
     const pipeRef = useRef<any>(null);
     const loadIdRef = useRef<number>(0);
+    const loadedKeyRef = useRef<string>('');
 
     // ---------- 镜像切换 ----------
     const toggleMirror = useCallback((enabled: boolean) => {
@@ -106,8 +107,6 @@ export function useHuggingFaceModel<T extends PipelineType>({
             setProgressItems([]);
             setOverallProgress(0);
             pipeRef.current = null;
-
-            env.remoteHost = mirrorEnabled ? MIRROR_URL : DEFAULT_REMOTE_HOST;
 
             const requestedDtype = pipelineOptions.dtype || 'q4f16';
             const requestedDevice = pipelineOptions.device || 'webgpu';
@@ -128,60 +127,81 @@ export function useHuggingFaceModel<T extends PipelineType>({
                 return true;
             });
 
+            // 源回退：当前源全部组合失败后自动尝试镜像（huggingface.co 在部分网络不可达）
+            const hostPlan: { host: string; isMirror: boolean }[] = [
+                { host: mirrorEnabled ? MIRROR_URL : DEFAULT_REMOTE_HOST, isMirror: mirrorEnabled },
+            ];
+            if (!mirrorEnabled) hostPlan.push({ host: MIRROR_URL, isMirror: true });
+
             let lastError: Error | null = null;
 
-            for (let i = 0; i < attempts.length; i++) {
+            for (const { host, isMirror } of hostPlan) {
                 if (currentLoadId !== loadIdRef.current) return;
-                const { device, dtype } = attempts[i];
+                env.remoteHost = host;
 
-                try {
-                    setProgressItems([]);
-                    setOverallProgress(0);
-
-                    const pipe = await pipeline(
-                        task,
-                        modelId,
-                        {
-                            dtype,
-                            device,
-                            progress_callback: (info: any) => {
-                                if (currentLoadId !== loadIdRef.current) return;
-                                if (info.status === 'progress_total') {
-                                    setOverallProgress(Math.round(info.progress || 0));
-                                    return;
-                                }
-                                if (info.status === 'progress' && info.file) {
-                                    setProgressItems((prev) => {
-                                        const existing = prev.find((item) => item.file === info.file);
-                                        if (existing) {
-                                            return prev.map((item) =>
-                                                item.file === info.file
-                                                    ? { ...item, progress: Math.round(info.progress || 0) }
-                                                    : item
-                                            );
-                                        }
-                                        return [...prev, { file: info.file, progress: Math.round(info.progress || 0) }];
-                                    });
-                                }
-                            },
-                        }
-                    );
-
-                    if (currentLoadId !== loadIdRef.current) {
-                        await pipe?.dispose?.();
-                        return;
-                    }
-
-                    pipeRef.current = pipe;
-                    setCurrentModel(modelId);
-                    setPendingModel(null);
-                    setStatus('ready');
-                    return;
-                } catch (err) {
-                    lastError = err as Error;
-                    console.warn(`模型加载失败 (${device}/${dtype})，尝试下一配置...`, err);
+                let succeeded = false;
+                for (let i = 0; i < attempts.length; i++) {
                     if (currentLoadId !== loadIdRef.current) return;
+                    const { device, dtype } = attempts[i];
+
+                    try {
+                        setProgressItems([]);
+                        setOverallProgress(0);
+
+                        const pipe = await pipeline(
+                            task,
+                            modelId,
+                            {
+                                dtype,
+                                device,
+                                progress_callback: (info: any) => {
+                                    if (currentLoadId !== loadIdRef.current) return;
+                                    if (info.status === 'progress_total') {
+                                        setOverallProgress(Math.round(info.progress || 0));
+                                        return;
+                                    }
+                                    if (info.status === 'progress' && info.file) {
+                                        setProgressItems((prev) => {
+                                            const existing = prev.find((item) => item.file === info.file);
+                                            if (existing) {
+                                                return prev.map((item) =>
+                                                    item.file === info.file
+                                                        ? { ...item, progress: Math.round(info.progress || 0) }
+                                                        : item
+                                                );
+                                            }
+                                            return [...prev, { file: info.file, progress: Math.round(info.progress || 0) }];
+                                        });
+                                    }
+                                },
+                            }
+                        );
+
+                        if (currentLoadId !== loadIdRef.current) {
+                            await pipe?.dispose?.();
+                            return;
+                        }
+
+                        pipeRef.current = pipe;
+                        setCurrentModel(modelId);
+                        setPendingModel(null);
+                        setStatus('ready');
+                        loadedKeyRef.current = `${modelId}@${host}`;
+                        succeeded = true;
+
+                        // 镜像回退成功：持久化偏好并同步开关（重载副作用会被 loadedKey 拦截）
+                        if (isMirror && !mirrorEnabled) {
+                            setMirrorEnabledStorage(true);
+                            setMirrorEnabledState(true);
+                        }
+                        break;
+                    } catch (err) {
+                        lastError = err as Error;
+                        console.warn(`模型加载失败 (${host} ${device}/${dtype})，尝试下一配置...`, err);
+                        if (currentLoadId !== loadIdRef.current) return;
+                    }
                 }
+                if (succeeded) return;
             }
 
             if (currentLoadId !== loadIdRef.current) return;
@@ -190,7 +210,7 @@ export function useHuggingFaceModel<T extends PipelineType>({
             setError(
                 msg.includes('404') || msg.toLowerCase().includes('could not locate')
                     ? `该模型缺少可用的权重文件（已尝试 ${attempts.map((a) => `${a.device}/${a.dtype}`).join('、')}）。请更换其他模型。`
-                    : `网络加载失败：${msg}。当前源：${mirrorEnabled ? 'hf-mirror.com（国内镜像）' : 'huggingface.co'}，可尝试切换镜像。`
+                    : `网络加载失败：${msg}。已尝试源：${mirrorEnabled ? 'hf-mirror.com（国内镜像）' : 'huggingface.co 与 hf-mirror.com（国内镜像）'}。`
             );
             setPendingModel(null);
         },
@@ -267,7 +287,12 @@ export function useHuggingFaceModel<T extends PipelineType>({
             firstMirrorRun.current = false;
             return;
         }
-        loadModel(pendingModel || currentModel);
+        const target = pendingModel || currentModel;
+        // 该模型已经从当前源加载成功（如自动回退后的状态同步），无需重载
+        if (loadedKeyRef.current === `${target}@${mirrorEnabled ? MIRROR_URL : DEFAULT_REMOTE_HOST}`) {
+            return;
+        }
+        loadModel(target);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mirrorEnabled]);
 
