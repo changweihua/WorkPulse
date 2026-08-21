@@ -151,6 +151,9 @@ const api = {
     minimize: () => ipcRenderer.send('window-control', 'minimize'),
     maximize: () => ipcRenderer.send('window-control', 'maximize'),
     close: () => ipcRenderer.send('window-control', 'close'),
+    getMaterial: (): Promise<string> => ipcRenderer.invoke('get-window-material'),
+    setMaterial: (material: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('set-window-material', material),
   },
   on: {
     quickCreate: (cb: (type: QuickCreateType) => void) => {

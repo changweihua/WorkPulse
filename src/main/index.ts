@@ -466,7 +466,8 @@ function createWindow(): void {
     // 原生 Mica（Electron 36+ / PR #47386）：零透明度背景让 DWM 材质透出，
     // 同时保留窗口阴影、贴靠布局与圆角；Win10 上自动忽略该属性
     backgroundColor: '#00000000',
-    backgroundMaterial: 'tabbed',
+    // 窗口材质：mica | tabbed | acrylic（设置页可切换，默认 tabbed）
+    backgroundMaterial: (getSetting('window_material') as 'mica' | 'tabbed' | 'acrylic') || 'tabbed',
     titleBarOverlay: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -750,6 +751,25 @@ export function registerAutoLaunchIpc(): void {
 
   ipcMain.handle('set-close-action', (_event, action: string) => {
     setSetting('close_action', action)
+    return { success: true }
+  })
+
+  // 窗口材质（Mica / Mica Tabbed / Acrylic），动态切换无需重启
+  ipcMain.handle('get-window-material', () => {
+    return getSetting('window_material') || 'tabbed'
+  })
+
+  ipcMain.handle('set-window-material', (_event, material: string) => {
+    setSetting('window_material', material)
+    const win = getMainWindow()
+    if (win && process.platform === 'win32') {
+      try {
+        win.setBackgroundMaterial(material as 'mica' | 'tabbed' | 'acrylic')
+      } catch (err) {
+        console.error('[Main] setBackgroundMaterial failed:', err)
+        return { success: false }
+      }
+    }
     return { success: true }
   })
 }

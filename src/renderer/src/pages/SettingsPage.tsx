@@ -6,9 +6,12 @@ import {
   Trash2,
   RotateCcw,
   Keyboard,
-  Sun,
-  Moon,
-  Monitor,
+Sun,
+Moon,
+Monitor,
+Layers,
+PanelTop,
+Droplets,
   RefreshCw,
   Download,
   CheckCircle2,
@@ -346,6 +349,21 @@ function SettingsPage(): ReactNode {
   const handleThemeChange = async (value: Theme): Promise<void> => {
     await setTheme(value)
     toast.success(t('settings.themeChanged'))
+  }
+
+  // ---------- 窗口材质（Mica / Tabbed / Acrylic） ----------
+  const [material, setMaterial] = useState<string>('tabbed')
+
+  useEffect(() => {
+    window.api.window.getMaterial().then(setMaterial).catch(() => {})
+  }, [])
+
+  const handleMaterialChange = async (value: string): Promise<void> => {
+    const res = await window.api.window.setMaterial(value)
+    if (res.success) {
+      setMaterial(value)
+      toast.success(t('settings.materialChanged'))
+    }
   }
 
   const handleSystemPromptBlur = async (): Promise<void> => {
@@ -736,6 +754,30 @@ function SettingsPage(): ReactNode {
                       }`}
                   >
                     <span className={`w-2.5 h-2.5 rounded-full ${color} ${theme === value ? 'ring-2 ring-white dark:ring-zinc-900 ring-offset-1' : ''}`} />
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('settings.material')}</label>
+              <p className="text-xs text-zinc-400 mb-2">{t('settings.materialHelp')}</p>
+              <div className="flex gap-2">
+                {([
+                  { value: 'mica', label: t('settings.materialMica'), Icon: Layers, color: 'bg-blue-400' },
+                  { value: 'tabbed', label: t('settings.materialTabbed'), Icon: PanelTop, color: 'bg-indigo-400' },
+                  { value: 'acrylic', label: t('settings.materialAcrylic'), Icon: Droplets, color: 'bg-cyan-400' }
+                ] as const).map(({ value, label, Icon, color }) => (
+                  <button
+                    key={value}
+                    onClick={() => handleMaterialChange(value)}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors ${material === value
+                        ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                        : 'border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                      }`}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full ${color} ${material === value ? 'ring-2 ring-white dark:ring-zinc-900 ring-offset-1' : ''}`} />
                     <Icon className="w-4 h-4" />
                     {label}
                   </button>

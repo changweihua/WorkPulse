@@ -185,6 +185,8 @@ declare global {
       minimize: () => void;
       maximize: () => void;
       close: () => void;
+      getMaterial: () => Promise<string>;
+      setMaterial: (material: string) => Promise<{ success: boolean }>;
     };
     pp: {
       ipcRenderer: {
