@@ -17,11 +17,28 @@ interface ClickInfo {
     isWorkday: boolean;
 }
 
-interface ChineseLunarCalendarProps {
-    onDateClick?: (date: Date, dateStr: string, info: ClickInfo) => void;
+export interface EventMark {
+    todo: number;
+    done: number;
+    meeting: number;
 }
 
-const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({ onDateClick }) => {
+interface ChineseLunarCalendarProps {
+    onDateClick?: (date: Date, dateStr: string, info: ClickInfo) => void;
+    /** 每月事件标记：dateStr -> {待办数/已完成数/会议数} */
+    eventMarks?: Record<string, EventMark>;
+    /** 当前选中日期（YYYY-MM-DD），用于高亮 */
+    selectedDateStr?: string;
+    /** 可见月份变化回调 */
+    onMonthChange?: (year: number, month: number) => void;
+}
+
+const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({
+    onDateClick,
+    eventMarks,
+    selectedDateStr,
+    onMonthChange,
+}) => {
     const today = new Date();
     const [currentYear, setCurrentYear] = useState(today.getFullYear());
     const [currentMonth, setCurrentMonth] = useState(today.getMonth() + 1);
@@ -39,6 +56,11 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({ onDateClick
         else setCurrentMonth(m => m + 1);
     };
     const goToday = () => { setCurrentYear(today.getFullYear()); setCurrentMonth(today.getMonth() + 1); };
+
+    // 可见月份变化 -> 通知父级加载该月事件
+    useEffect(() => {
+        onMonthChange?.(currentYear, currentMonth);
+    }, [currentYear, currentMonth, onMonthChange]);
 
     const days: DayInfo[] = useMemo(() => {
         const result: DayInfo[] = [];
@@ -82,6 +104,9 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({ onDateClick
         const isHolidayDay = dateStr ? isHolidayDate(holidays, dateStr) : false;
         const isWorkdayDay = dateStr ? isWorkdaySwap(holidays, dateStr) : false;
         const isWeekend = (dow === 0 || dow === 6) && isCurrent;
+        const marks = dateStr ? eventMarks?.[dateStr] : undefined;
+        const pendingTodo = marks ? marks.todo - marks.done : 0;
+        const isSelected = !!dateStr && dateStr === selectedDateStr;
 
         // 底部文字：节日名 > 农历节日 > "正月 初一"
         const subText = holidayName || (festivals.length > 0 ? festivals[0] : `${lunarFull}${lunarDay}`);
@@ -96,6 +121,7 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({ onDateClick
                     'bg-gray-50/80 hover:bg-gray-100/90 border border-transparent',
                     !isCurrent && 'opacity-35 pointer-events-none bg-gray-50/30',
                     isToday && 'bg-blue-50/70 border-blue-100 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.75 before:rounded-full before:bg-blue-500',
+                    isSelected && 'ring-2 ring-blue-400/70 border-blue-200 bg-blue-50/80',
                     isHolidayDay && 'bg-red-50/50',
                     isWorkdayDay && 'bg-emerald-50/50',
                 ].filter(Boolean).join(' ')}
@@ -136,6 +162,20 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({ onDateClick
                         ].filter(Boolean).join(' ')}>
                             {subText}
                         </span>
+                        {/* 事件标记：琥珀点=未完成待办 / 绿点=待办全部完成 / 紫点=会议 */}
+                        {marks && (marks.todo > 0 || marks.meeting > 0) && (
+                            <div className="flex items-center justify-center gap-1 mt-0.5">
+                                {marks.todo > 0 && (
+                                    <span
+                                        className={`w-1.5 h-1.5 rounded-full ${pendingTodo > 0 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                        title={pendingTodo > 0 ? `${pendingTodo} 项待办` : '待办已全部完成'}
+                                    />
+                                )}
+                                {marks.meeting > 0 && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500" title={`${marks.meeting} 个会议`} />
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

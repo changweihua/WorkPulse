@@ -62,6 +62,46 @@ const CalendarPage: React.FC = () => {
     const selectedYear = selectedDate ? Number(selectedDate.dateStr.slice(0, 4)) : new Date().getFullYear();
     const holidays = useHolidays(selectedYear);
 
+    // ---------- 左侧日历联动：当月事件标记 ----------
+    const [monthMarks, setMonthMarks] = useState<Record<string, { todo: number; done: number; meeting: number }>>({});
+    const [calMonth, setCalMonth] = useState<{ year: number; month: number }>({
+        year: new Date().getFullYear(),
+        month: new Date().getMonth() + 1,
+    });
+
+    const loadMonthEvents = useCallback(async (year: number, month: number) => {
+        if (!window.api?.event?.byRange) return;
+        try {
+            const mm = String(month).padStart(2, '0');
+            const start = `${year}-${mm}-01`;
+            const lastDay = new Date(year, month, 0).getDate();
+            const end = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`;
+            const list = await window.api.event.byRange(start, end);
+            const marks: Record<string, { todo: number; done: number; meeting: number }> = {};
+            for (const ev of list || []) {
+                if (!marks[ev.event_date]) marks[ev.event_date] = { todo: 0, done: 0, meeting: 0 };
+                const m = marks[ev.event_date];
+                if (ev.type === 'todo') {
+                    m.todo += 1;
+                    if (ev.completed) m.done += 1;
+                } else {
+                    m.meeting += 1;
+                }
+            }
+            setMonthMarks(marks);
+        } catch {
+            setMonthMarks({});
+        }
+    }, []);
+
+    useEffect(() => {
+        loadMonthEvents(calMonth.year, calMonth.month);
+    }, [calMonth, loadMonthEvents]);
+
+    const handleMonthChange = useCallback((year: number, month: number) => {
+        setCalMonth((prev) => (prev.year === year && prev.month === month ? prev : { year, month }));
+    }, []);
+
     const loadEvents = useCallback(async (dateStr: string) => {
         if (!window.api?.event) return;
         try {
@@ -131,6 +171,7 @@ const CalendarPage: React.FC = () => {
                 });
             }
             await loadEvents(selectedDate.dateStr);
+            loadMonthEvents(calMonth.year, calMonth.month);
             setShowForm(false);
             resetForm();
         } catch (err) {
@@ -142,12 +183,14 @@ const CalendarPage: React.FC = () => {
         if (!selectedDate) return;
         await window.api.event.update(e.id, { completed: !e.completed });
         await loadEvents(selectedDate.dateStr);
+        loadMonthEvents(calMonth.year, calMonth.month);
     };
 
     const handleDelete = async (id: number) => {
         if (!selectedDate) return;
         await window.api.event.delete(id);
         await loadEvents(selectedDate.dateStr);
+        loadMonthEvents(calMonth.year, calMonth.month);
     };
 
     const todos = useMemo(() => events.filter((e) => e.type === 'todo'), [events]);
@@ -163,7 +206,12 @@ const CalendarPage: React.FC = () => {
             <div className="flex flex-1 flex-col lg:flex-row gap-5 w-full max-w-[1400px] mx-auto min-h-0">
                 {/* 左侧日历 */}
                 <div className="lg:w-3/5 flex-1 flex flex-col overflow-hidden rounded-xl min-h-0">
-                    <ChineseLunarCalendar onDateClick={handleDateClick} />
+                    <ChineseLunarCalendar
+                        onDateClick={handleDateClick}
+                        eventMarks={monthMarks}
+                        selectedDateStr={selectedDate?.dateStr}
+                        onMonthChange={handleMonthChange}
+                    />
                 </div>
 
                 {/* 右侧面板 */}
