@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Html, ContactShadows } from '@react-three/drei'
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
+import { useI18n } from '../stores/languageStore'
 
 interface DailyStats {
   date: string
@@ -53,6 +54,9 @@ function Grid({
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const dummy = useMemo(() => new THREE.Object3D(), [])
   const [hovered, setHovered] = useState<number | null>(null)
+  const startRef = useRef(0)
+  const settledRef = useRef(false)
+  const { t } = useI18n()
 
   const geometry = useMemo(() => new RoundedBoxGeometry(1, 1, 1, 4, 0.12), [])
   const material = useMemo(
@@ -73,12 +77,33 @@ function Grid({
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
   }, [cells])
 
-  useFrame((state) => {
+  // 数据/主题变化时重新播放生长动画（自管理时间线，不依赖已弃用的 THREE.Clock）
+  useEffect(() => {
+    startRef.current = performance.now()
+    settledRef.current = false
+  }, [cells])
+
+  // 悬停指针
+  useEffect(() => {
+    document.body.style.cursor = hovered !== null ? 'pointer' : 'auto'
+    return () => {
+      document.body.style.cursor = 'auto'
+    }
+  }, [hovered])
+
+  const totalTime = useMemo(
+    () => cells.reduce((m, c) => Math.max(m, c.delay), 0) + DURATION,
+    [cells]
+  )
+
+  useFrame(() => {
     const mesh = meshRef.current
-    if (!mesh) return
-    const t = state.clock.getElapsedTime()
+    if (!mesh || settledRef.current || cells.length === 0) return
+    const t = (performance.now() - startRef.current) / 1000
+    let allDone = true
     cells.forEach((cell, i) => {
       const local = Math.min(Math.max((t - cell.delay) / DURATION, 0), 1)
+      if (local < 1) allDone = false
       const eased = 1 - Math.pow(1 - local, 3)
       const h = Math.max(cell.targetHeight * eased, 0.001)
       dummy.position.set(cell.x, h / 2, cell.z)
@@ -87,6 +112,7 @@ function Grid({
       mesh.setMatrixAt(i, dummy.matrix)
     })
     mesh.instanceMatrix.needsUpdate = true
+    if (allDone && t >= totalTime) settledRef.current = true
   })
 
   const hoverCell = hovered !== null ? cells[hovered] : null
@@ -125,7 +151,7 @@ function Grid({
             }}
           >
             <div style={{ fontWeight: 600 }}>{hoverCell.date}</div>
-            <div>{hoverCell.count} {hoverCell.count === 1 ? 'activity' : 'activities'}</div>
+            <div>{t('stats.activities', { count: hoverCell.count })}</div>
           </div>
         </Html>
       )}
@@ -189,7 +215,8 @@ export default function ContributionGrid3D({ data }: { data: DailyStats[] }) {
     return { cells: built, cols: colCount }
   }, [data, isDark])
 
-  const camDist = Math.max(cols, 7) * SPACING * 1.1
+  // fov 28（低畸变近轴测视角）相比默认 75 需要约 3 倍距离才能容纳相同宽度
+  const camDist = Math.max(cols, 7) * SPACING * 3.4
 
   return (
     <div className="h-[480px] w-full">
@@ -200,6 +227,7 @@ export default function ContributionGrid3D({ data }: { data: DailyStats[] }) {
         style={{ background: 'transparent' }}
         camera={{
           position: [camDist * 0.95, camDist * 1.2, camDist * 0.95],
+          fov: 28,
           zoom: 1,
           near: 0.1,
           far: 2000

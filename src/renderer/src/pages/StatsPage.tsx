@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback, ReactNode } from 'react'
 import { Flame, FileText, CheckCircle2, ListTodo, RefreshCw, Tag, TrendingUp, Calendar } from 'lucide-react'
 import * as echarts from 'echarts'
 import { useI18n } from '../stores/languageStore'
+import type { TranslationKey } from '../lib/i18n'
 import ContributionGrid3D from '../components/ContributionGrid3D'
 
 interface DailyStats {
@@ -19,6 +20,13 @@ interface Stats {
 }
 
 const RANGE_OPTIONS = [30, 90, 180, 365] as const
+
+const RANGE_LABELS: Record<number, TranslationKey> = {
+  30: 'stats.range1M',
+  90: 'stats.range3M',
+  180: 'stats.range6M',
+  365: 'stats.range1Y'
+}
 
 const CATEGORY_COLORS = [
   '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ec4899',
@@ -452,7 +460,7 @@ function StatsPage(): ReactNode {
                         : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                     }`}
                   >
-                    {r >= 365 ? '1y' : `${r}d`}
+                    {t(RANGE_LABELS[r])}
                   </button>
                 ))}
               </div>

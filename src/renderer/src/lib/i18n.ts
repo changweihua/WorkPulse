@@ -164,6 +164,11 @@ export const translations = {
     'stats.categoryDist': '分类分布',
     'stats.uncategorized': '未分类',
     'stats.noData': '暂无数据',
+    'stats.range1M': '近一月',
+    'stats.range3M': '近三月',
+    'stats.range6M': '近半年',
+    'stats.range1Y': '近一年',
+    'stats.activities': '{{count}} 次活动',
 
     'settings.back': '返回',
     'settings.title': '设置',
@@ -403,6 +408,11 @@ export const translations = {
     'stats.categoryDist': 'Category Breakdown',
     'stats.uncategorized': 'Uncategorized',
     'stats.noData': 'No data',
+    'stats.range1M': '1M',
+    'stats.range3M': '3M',
+    'stats.range6M': '6M',
+    'stats.range1Y': '1Y',
+    'stats.activities': '{{count}} activities',
 
     'settings.back': 'Back',
     'settings.title': 'Settings',
