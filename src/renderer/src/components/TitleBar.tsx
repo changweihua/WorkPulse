@@ -23,7 +23,6 @@ export function TitleBar() {
     display: 'flex',
     alignItems: 'center',
     padding: '0 12px',
-    backgroundColor: 'transparent',
     backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 60%)',
     WebkitAppRegion: 'drag',
     flexShrink: 0,
@@ -85,7 +84,7 @@ export function TitleBar() {
   } as React.CSSProperties;
 
   return (
-    <div style={glassStyle}>
+    <div style={glassStyle} className="bg-white/50 dark:bg-[#28282b]/55">
       <div
         style={{
           display: 'flex',
