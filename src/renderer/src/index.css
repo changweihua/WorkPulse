@@ -53,9 +53,9 @@
 /* ===== Dark mode tokens ===== */
 .dark {
   /* 深色表面：足够的不透明度稳定背景亮度，保证文字对比度 */
-  --color-surface-card: rgb(40 40 43 / 0.48);
-  --color-surface-elevated: rgb(40 40 43 / 0.62);
-  --color-surface-input: rgb(40 40 43 / 0.72);
+  --color-surface-card: rgb(40 40 43 / 0.60);
+  --color-surface-elevated: rgb(40 40 43 / 0.75);
+  --color-surface-input: rgb(40 40 43 / 0.85);
   --color-surface-inset: rgb(255 255 255 / 5%);
 
   --color-border: rgb(255 255 255 / 10%);
