@@ -466,7 +466,7 @@ function createWindow(): void {
     // 原生 Mica（Electron 36+ / PR #47386）：零透明度背景让 DWM 材质透出，
     // 同时保留窗口阴影、贴靠布局与圆角；Win10 上自动忽略该属性
     backgroundColor: '#00000000',
-    backgroundMaterial: 'mica',
+    backgroundMaterial: 'tabbed',
     titleBarOverlay: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
