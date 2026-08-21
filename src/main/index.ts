@@ -9,12 +9,6 @@ import { registerIpcHandlers } from './ipc'
 import { tMain, type AppLanguage } from './i18n'
 import { configureAutoUpdater, registerUpdateIpc, startUpdateCheck } from './updater'
 import {
-  MicaBrowserWindow,
-  IS_WINDOWS_11,
-  // @ts-ignore
-  useMicaElectron
-} from 'talex-mica-electron';
-import {
   registerTitleBarListener,
   attachTitleBarToWindow
 } from '@electron-uikit/titlebar'
@@ -459,19 +453,20 @@ function createWindow(): void {
   const iconPath = is.dev
     ? join(__dirname, '../../resources/icon.png')
     : join(process.resourcesPath, 'icon.png')
-  const mainWindow = new MicaBrowserWindow({
+  const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     minWidth: 400,
     minHeight: 500,
     show: false,
-    title: appTitle, 
+    title: appTitle,
     frame: false,                    // ← 完全移除默认标题栏
-    transparent: true,               // ← 允许圆角/透明效果
     titleBarStyle: 'hidden',
     icon: iconPath,
-    //frame: false, // needed if process.versions.electron < 14
-    /* You can use *titleBarOverlay: true* to use the original Windows controls */
+    // 原生 Mica（Electron 36+ / PR #47386）：零透明度背景让 DWM 材质透出，
+    // 同时保留窗口阴影、贴靠布局与圆角；Win10 上自动忽略该属性
+    backgroundColor: '#00000000',
+    backgroundMaterial: 'mica',
     titleBarOverlay: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -479,27 +474,11 @@ function createWindow(): void {
     }
   })
 
-  // 2. 应用 Mica 效果
-  if (IS_WINDOWS_11) {
-    mainWindow.setMicaEffect()
-    // 主题必须在效果之后设置
-    const savedTheme = getSetting('theme')
-    if (savedTheme === 'dark') mainWindow.setDarkTheme()
-    else if (savedTheme === 'light') mainWindow.setLightTheme()
-    else mainWindow.setAutoTheme()
-  } else {
-    mainWindow.setAcrylic()
-  }
-
-  // 当窗口准备就绪后，最大化并显示
+  // 当窗口准备就绪后，最大化并显示（原生 Mica 无需最大化后重应用）
   mainWindow.once('ready-to-show', () => {
     closeSplashWindow()
     mainWindow.maximize()
     mainWindow.show()
-    // 重新应用 Mica，防止最大化后丢失
-    if (IS_WINDOWS_11) {
-      setTimeout(() => mainWindow.setMicaEffect(), 100)
-    }
   })
   if (process.platform !== 'darwin') {
     mainWindow.on('close', (event) => {
@@ -521,15 +500,6 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-
-  // --- IPC: Mica 主题同步 ---
-  ipcMain.on('mica:set-theme', (_event, theme: 'light' | 'dark' | 'system') => {
-    if (!IS_WINDOWS_11) return
-    mainWindow.setMicaEffect()
-    if (theme === 'dark') mainWindow.setDarkTheme()
-    else if (theme === 'light') mainWindow.setLightTheme()
-    else mainWindow.setAutoTheme()
-  })
 
   console.log('[Main] 📋 Loading URL...');
 
@@ -589,7 +559,6 @@ if (!gotTheLock) {
 }
 
 // --- Bootstrap ---
-useMicaElectron()
 let dotnetLib: any = null;
 app.whenReady().then(async () => {
   // 加载 .NET

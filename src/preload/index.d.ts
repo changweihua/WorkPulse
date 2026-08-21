@@ -185,7 +185,6 @@ declare global {
       minimize: () => void;
       maximize: () => void;
       close: () => void;
-      setMicaTheme: (theme: 'light' | 'dark' | 'system') => void;
     };
     pp: {
       ipcRenderer: {

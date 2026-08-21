@@ -151,7 +151,6 @@ const api = {
     minimize: () => ipcRenderer.send('window-control', 'minimize'),
     maximize: () => ipcRenderer.send('window-control', 'maximize'),
     close: () => ipcRenderer.send('window-control', 'close'),
-    setMicaTheme: (theme: 'light' | 'dark' | 'system') => ipcRenderer.send('mica:set-theme', theme),
   },
   on: {
     quickCreate: (cb: (type: QuickCreateType) => void) => {
