@@ -82,6 +82,8 @@ const api = {
   report: {
     generate: (dateFrom: string, dateTo: string) =>
       ipcRenderer.invoke('report:generate', dateFrom, dateTo),
+    create: (type: string, dateFrom: string, dateTo: string, content: string) =>
+      ipcRenderer.invoke('report:create', type, dateFrom, dateTo, content),
     list: (limit?: number) => ipcRenderer.invoke('report:list', limit),
     update: (id: number, content: string) =>
       ipcRenderer.invoke('report:update', id, content)

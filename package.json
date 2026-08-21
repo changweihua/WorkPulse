@@ -9,18 +9,27 @@
   },
   "main": "./out/main/index.js",
   "scripts": {
-    "predev": "node scripts/sync-version.js",
-    "dev": " electron-vite dev",
-    "prebuild": "node scripts/sync-version.js",
+    "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
+    "release": "tsx scripts/sync-version.ts && bumpp",
+    "postrelease": "tsx scripts/sync-version.ts",
+    "sync-version": "tsx scripts/sync-version.ts",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
-    "typecheck": "npm run typecheck:node && npm run typecheck:web"
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "prepare": "husky",
+    "commit": "cz",
+    "lint:commit": "commitlint --edit"
+  },
+  "config": {
+    "commitizen": {
+      "path": "node_modules/cz-customizable"
+    }
   },
   "build": {
     "appId": "cmono.workpulse.app",
@@ -51,6 +60,22 @@
       {
         "from": "resources/tray-icon.png",
         "to": "tray-icon.png"
+      },
+      {
+        "from": "resources/menu-new-log.png",
+        "to": "menu-new-log.png"
+      },
+      {
+        "from": "resources/menu-new-task.png",
+        "to": "menu-new-task.png"
+      },
+      {
+        "from": "resources/menu-show.png",
+        "to": "menu-show.png"
+      },
+      {
+        "from": "resources/menu-quit.png",
+        "to": "menu-quit.png"
       },
       {
         "from": "resources/models",
@@ -200,6 +225,8 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@tailwindcss/vite": "^4.3.3",
@@ -210,10 +237,15 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
     "bmp-js": "^0.1.0",
+    "bumpp": "^12.2.1",
+    "commitizen": "^4.3.2",
+    "commitlint-config-git-commit-emoji": "^1.0.0",
     "cross-env": "^10.1.0",
+    "cz-customizable": "^7.5.4",
     "electron": "^43.4.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0-beta.1",
+    "husky": "^9.1.7",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "sharp": "^0.35.3",

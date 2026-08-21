@@ -104,6 +104,10 @@ export function registerIpcHandlers(): void {
     return getReports(limit)
   })
 
+  ipcMain.handle('report:create', (_event, type: string, dateFrom: string, dateTo: string, content: string) => {
+    return saveReport(type, dateFrom, dateTo, content)
+  })
+
   ipcMain.handle('report:update', (_event, id: number, content: string) => {
     return updateReportContent(id, content)
   })

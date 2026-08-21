@@ -102,6 +102,7 @@ interface API {
   }
   report: {
     generate: (dateFrom: string, dateTo: string) => Promise<Report>
+    create: (type: string, dateFrom: string, dateTo: string, content: string) => Promise<Report>
     list: (limit?: number) => Promise<Report[]>
     update: (id: number, content: string) => Promise<Report | null>
   }

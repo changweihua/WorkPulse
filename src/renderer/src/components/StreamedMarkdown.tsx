@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { Streamdown } from 'streamdown'
+import { Brain } from 'lucide-react'
 
 interface StreamedMarkdownProps {
   content: string
@@ -7,12 +8,51 @@ interface StreamedMarkdownProps {
   className?: string
 }
 
+function parseThinkTags(content: string): { think: string; rest: string } {
+  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/)
+  const think = thinkMatch ? thinkMatch[1].trim() : ''
+  const rest = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+  return { think, rest }
+}
+
 export function StreamedMarkdown({ content, isStreaming = false, className }: StreamedMarkdownProps) {
+  const [thinkOpen, setThinkOpen] = useState(false)
+  const { think, rest } = useMemo(() => parseThinkTags(content), [content])
+
   return (
     <div className={className || 'prose prose-zinc dark:prose-invert prose-sm max-w-none'} role="article">
-      <Streamdown mode={isStreaming ? 'streaming' : 'static'} isAnimating={isStreaming}>
-        {content}
-      </Streamdown>
+      {think && (
+        <div className="mb-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 overflow-hidden">
+          <button
+            onClick={() => setThinkOpen(!thinkOpen)}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors"
+          >
+            <Brain className="w-3.5 h-3.5" />
+            <span className="font-medium">Thinking</span>
+            {isStreaming && !think && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            )}
+            <svg className={`w-3 h-3 ml-auto transition-transform ${thinkOpen ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M2 4l4 4 4-4" />
+            </svg>
+          </button>
+          {thinkOpen && (
+            <div className="px-3 pb-3 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">
+              {think}
+            </div>
+          )}
+        </div>
+      )}
+      {rest ? (
+        <Streamdown mode={isStreaming ? 'streaming' : 'static'} isAnimating={isStreaming}>
+          {rest}
+        </Streamdown>
+      ) : isStreaming && !think ? (
+        <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500 text-sm">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          正在生成...
+        </div>
+      ) : null}
     </div>
   )
 }

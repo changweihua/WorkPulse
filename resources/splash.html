@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WorkPulse · 启动中</title>
     <style>
-        /* ===== 全局重置 ===== */
         * {
             margin: 0;
             padding: 0;
@@ -21,7 +20,6 @@
             overflow: hidden;
         }
 
-        /* ===== 卡片本身充当背景，铺满全屏 ===== */
         .splash-card {
             position: fixed;
             top: 0;
@@ -29,123 +27,94 @@
             right: 0;
             bottom: 0;
             z-index: 0;
-            border-radius: 8px;        /* 圆角 */
-
-            /* 动态背景：径向渐变 + 脉冲动画 */
-            background: radial-gradient(circle at 30% 40%, #1a2332, #0b0e14 70%);
-            animation: bgPulse 6s ease-in-out infinite alternate;
-
-            /* 毛玻璃效果（非必要，但保留设计） */
-            backdrop-filter: blur(0px);
-            /* 因为背景已经是渐变，不需要模糊，但可以保留装饰 */
-
-            /* 内容居中 */
+            border-radius: 8px;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 40%, #dbeafe 70%, #ede9fe 100%);
+            animation: bgPulse 8s ease-in-out infinite alternate;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-
-            /* 字体 */
-            font-family: "JetBrains Maple Mono", "Maple Mono NF CN", "Source Han Serif SC", "思源宋体", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-
-            /* 其他装饰（无边框，因为背景已经填充） */
+            font-family: "JetBrains Maple Mono", "Maple Mono NF CN", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             padding: 40px;
             text-align: center;
+            overflow: hidden;
         }
 
         @keyframes bgPulse {
-            0% {
-                opacity: 0.8;
-                transform: scale(1);
-            }
-
-            100% {
-                opacity: 1;
-                transform: scale(1.02);
-            }
+            0% { opacity: 0.9; }
+            100% { opacity: 1; }
         }
 
-        /* ===== 可选：使用伪元素制作光晕装饰 ===== */
         .splash-card::before,
         .splash-card::after {
             content: '';
             position: absolute;
             border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.3;
-            animation: orbFloat 12s infinite alternate ease-in-out;
+            filter: blur(100px);
+            opacity: 0.35;
+            animation: orbFloat 14s infinite alternate ease-in-out;
             pointer-events: none;
         }
 
         .splash-card::before {
-            width: 400px;
-            height: 400px;
-            background: #4f46e5;
-            top: -100px;
-            left: -100px;
-            animation-delay: 0s;
+            width: 500px;
+            height: 500px;
+            background: linear-gradient(135deg, #818cf8, #6366f1);
+            top: -150px;
+            left: -150px;
         }
 
         .splash-card::after {
-            width: 350px;
-            height: 350px;
-            background: #7c3aed;
-            bottom: -80px;
-            right: -80px;
-            animation-delay: -4s;
+            width: 450px;
+            height: 450px;
+            background: linear-gradient(135deg, #93c5fd, #3b82f6);
+            bottom: -120px;
+            right: -120px;
+            animation-delay: -5s;
         }
 
         @keyframes orbFloat {
-            0% {
-                transform: translate(0, 0) scale(1);
-            }
-
-            33% {
-                transform: translate(30px, -40px) scale(1.1);
-            }
-
-            66% {
-                transform: translate(-20px, 20px) scale(0.9);
-            }
-
-            100% {
-                transform: translate(10px, -10px) scale(1.05);
-            }
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(40px, -50px) scale(1.15); }
+            66% { transform: translate(-30px, 30px) scale(0.9); }
+            100% { transform: translate(15px, -15px) scale(1.08); }
         }
 
-        /* ===== 卡片内容（在 flex 中居中） ===== */
         .brand-icon {
-            font-size: 64px;
-            line-height: 1;
-            display: block;
-            margin-bottom: 12px;
-            filter: drop-shadow(0 8px 24px rgba(79, 70, 229, 0.4));
-            animation: iconFloat 3s ease-in-out infinite;
+            width: 72px;
+            height: 72px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #6366f1, #818cf8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
+            animation: iconFloat 3.5s ease-in-out infinite;
             position: relative;
             z-index: 1;
         }
 
+        .brand-icon svg {
+            width: 36px;
+            height: 36px;
+            fill: none;
+            stroke: white;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
         @keyframes iconFloat {
-
-            0%,
-            100% {
-                transform: translateY(0);
-            }
-
-            50% {
-                transform: translateY(-6px);
-            }
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
         }
 
         .brand-name {
-            font-size: 36px;
+            font-size: 38px;
             font-weight: 700;
-            letter-spacing: -0.02em;
-            background: linear-gradient(135deg, #f0f4ff 0%, #a5b4fc 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: 0 0 40px rgba(79, 70, 229, 0.15);
+            letter-spacing: -0.03em;
+            color: #1e293b;
             margin-bottom: 2px;
             position: relative;
             z-index: 1;
@@ -153,11 +122,11 @@
 
         .brand-version {
             font-size: 12px;
-            color: rgba(255, 255, 255, 0.25);
+            color: #94a3b8;
             letter-spacing: 0.5px;
             margin-top: 2px;
-            margin-bottom: 16px;
-            font-weight: 300;
+            margin-bottom: 20px;
+            font-weight: 400;
             min-height: 18px;
             position: relative;
             z-index: 1;
@@ -165,11 +134,11 @@
 
         .brand-sub {
             font-size: 14px;
-            color: rgba(255, 255, 255, 0.35);
-            letter-spacing: 2px;
+            color: #64748b;
+            letter-spacing: 3px;
             text-transform: uppercase;
-            font-weight: 400;
-            margin-bottom: 28px;
+            font-weight: 500;
+            margin-bottom: 32px;
             position: relative;
             z-index: 1;
         }
@@ -178,8 +147,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 4px;
+            gap: 12px;
+            margin-bottom: 6px;
             position: relative;
             z-index: 1;
         }
@@ -192,66 +161,46 @@
             animation: dotWave 1.4s ease-in-out infinite;
         }
 
-        .dot:nth-child(1) {
-            animation-delay: 0s;
-        }
-
-        .dot:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .dot:nth-child(3) {
-            animation-delay: 0.4s;
-        }
+        .dot:nth-child(1) { animation-delay: 0s; }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
 
         @keyframes dotWave {
-
-            0%,
-            60%,
-            100% {
+            0%, 60%, 100% {
                 transform: translateY(0) scale(0.8);
-                opacity: 0.3;
+                opacity: 0.4;
             }
-
             30% {
                 transform: translateY(-12px) scale(1.2);
                 opacity: 1;
-                background: #a5b4fc;
+                background: #6366f1;
             }
         }
 
         .status-text {
-            margin-top: 20px;
+            margin-top: 24px;
             font-size: 12px;
-            color: rgba(255, 255, 255, 0.2);
+            color: #94a3b8;
             letter-spacing: 0.5px;
-            font-weight: 300;
-            animation: statusPulse 2s ease-in-out infinite;
+            font-weight: 400;
+            animation: statusPulse 2.5s ease-in-out infinite;
             min-height: 18px;
             position: relative;
             z-index: 1;
         }
 
         @keyframes statusPulse {
-
-            0%,
-            100% {
-                opacity: 0.2;
-            }
-
-            50% {
-                opacity: 0.6;
-            }
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
         }
 
-        /* ===== 装饰旋转环（可选，使用伪元素或额外元素） ===== */
         .ring-decoration {
             position: absolute;
             top: 20px;
             right: 20px;
             width: 80px;
             height: 80px;
-            border: 1px solid rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(100, 116, 139, 0.1);
             border-radius: 50%;
             animation: spinSlow 20s linear infinite;
             pointer-events: none;
@@ -265,44 +214,34 @@
             left: 8px;
             right: 8px;
             bottom: 8px;
-            border: 1px dashed rgba(255, 255, 255, 0.03);
+            border: 1px dashed rgba(100, 116, 139, 0.06);
             border-radius: 50%;
         }
 
         @keyframes spinSlow {
-            to {
-                transform: rotate(360deg);
-            }
+            to { transform: rotate(360deg); }
         }
 
-        /* 响应式 */
         @media (max-width: 480px) {
-            .brand-icon {
-                font-size: 48px;
-            }
-
-            .brand-name {
-                font-size: 28px;
-            }
-
-            .brand-sub {
-                font-size: 12px;
-                margin-bottom: 20px;
-            }
+            .brand-icon { width: 56px; height: 56px; border-radius: 16px; }
+            .brand-icon svg { width: 28px; height: 28px; }
+            .brand-name { font-size: 30px; }
+            .brand-sub { font-size: 12px; margin-bottom: 24px; }
         }
     </style>
 </head>
 
 <body>
-    <!-- 只有一个卡片，它本身就是背景 -->
     <div class="splash-card" id="splashCard">
-        <!-- 装饰环（保留） -->
         <div class="ring-decoration"></div>
 
-        <!-- 内容 -->
-        <span class="brand-icon">📋</span>
+        <div class="brand-icon">
+            <svg viewBox="0 0 24 24">
+                <path d="M4 6h16M4 12h16M4 18h8" />
+            </svg>
+        </div>
         <div class="brand-name">WorkPulse</div>
-        <div class="brand-version" id="version">加载中…</div>
+        <div class="brand-version" id="version"></div>
         <div class="brand-sub">工作脉搏 · 高效协同</div>
         <div class="loader">
             <div class="dot"></div>
@@ -316,25 +255,21 @@
         const env = window.__splash_env__ || {};
         if (env.DEV) console.log('[Splash]', env);
 
-        const appTitle = env.VITE_APP_TITLE || 'WorkPulse';
-        const appVersion = env.VITE_APP_VERSION || '0.2.5';
         const isDev = env.DEV === true;
-        const isProd = env.PROD === true;
 
-        document.title = `${appTitle} v${appVersion} · 启动中`;
-
-        const versionEl = document.getElementById('version');
-        if (versionEl) versionEl.textContent = `v${appVersion}`;
+        document.title = 'WorkPulse · 启动中';
 
         const statusEl = document.getElementById('status');
         if (statusEl) {
             if (isDev) statusEl.textContent = '⚡ 开发模式 · 正在启动…';
-            else if (isProd) statusEl.textContent = '🚀 正在唤醒工作空间…';
-            else statusEl.textContent = '✨ 正在唤醒工作空间…';
+            else statusEl.textContent = '🚀 正在唤醒工作空间…';
         }
 
-        const card = document.getElementById('splashCard');
-        if (card && isProd) card.classList.add('production');
+        const versionEl = document.getElementById('version');
+        if (versionEl) {
+            const version = env.APP_VERSION || '0.2.5';
+            versionEl.textContent = 'v' + version;
+        }
     </script>
 </body>
 

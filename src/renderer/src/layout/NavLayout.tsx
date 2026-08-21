@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
-import { Outlet, Link, useLocation, useMatches } from 'react-router-dom';
+import { Link, useLocation, useMatches } from 'react-router-dom';
+import AnimatedOutlet from '../components/AnimatedOutlet';
 import {
     Settings,
     FileText,
@@ -243,7 +244,7 @@ export default function NavLayout() {
             {/* 内容区域 */}
             <div ref={scrollRef} className="flex-1 overflow-auto" onScroll={handleScroll}>
                 <div className={fluid ? 'h-full' : 'max-w-3xl mx-auto px-4 py-6'}>
-                    <Outlet />
+                    <AnimatedOutlet />
                 </div>
             </div>
 

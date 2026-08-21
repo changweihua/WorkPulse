@@ -3,35 +3,27 @@ const path = require('path');
 
 const resourcesDir = path.join(__dirname, '..', 'resources');
 
-// Brand colors
-const NAVY = '#1A1F36';
-const CYAN = '#00D4FF';
-const LIGHT_BLUE = '#7DD3FC';
-const PINK = '#FCA5A5';
-const RED = '#EF4444';
+// Bright, vibrant colors — visible at 16px on any taskbar
+const C1 = '#22d3ee'; // cyan
+const C2 = '#818cf8'; // indigo
+const C3 = '#f472b6'; // pink
+const C4 = '#34d399'; // emerald
 
 // ============================================================
-// New tray icon: simplified monitor with 4 dots (clean at 16-32px)
+// Tray icon: 4 colored rounded squares in a 2×2 grid
+// Wider gap + padding for breathing room, rounded corners
 // ============================================================
 function genTrayIconSVG(size = 256) {
-  const s = size / 256;
+  const pad = 16;   // outer padding
+  const gap = 18;   // gap between squares
+  const cell = (256 - pad * 2 - gap) / 2;
+  const r = 22;
+
   return `<svg width="${size}" height="${size}" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-    <!-- Monitor body -->
-    <rect x="28" y="20" width="200" height="140" rx="16" fill="${NAVY}" />
-    <!-- Screen -->
-    <rect x="40" y="32" width="176" height="108" rx="8" fill="#141930" />
-    <!-- Taskbar -->
-    <rect x="48" y="110" width="160" height="22" rx="4" fill="#2A3050" />
-    <!-- 4 colored dots -->
-    <circle cx="80" cy="121" r="8" fill="${CYAN}" />
-    <circle cx="112" cy="121" r="8" fill="${LIGHT_BLUE}" />
-    <circle cx="144" cy="121" r="8" fill="${PINK}" />
-    <circle cx="176" cy="121" r="8" fill="${RED}" />
-    <!-- Stand -->
-    <rect x="100" y="160" width="56" height="12" rx="3" fill="${NAVY}" />
-    <rect x="80" y="172" width="96" height="10" rx="5" fill="${NAVY}" />
-    <!-- Base -->
-    <rect x="68" y="182" width="120" height="12" rx="6" fill="#3A4060" />
+    <rect x="${pad}" y="${pad}" width="${cell}" height="${cell}" rx="${r}" fill="${C1}" />
+    <rect x="${pad + cell + gap}" y="${pad}" width="${cell}" height="${cell}" rx="${r}" fill="${C2}" />
+    <rect x="${pad}" y="${pad + cell + gap}" width="${cell}" height="${cell}" rx="${r}" fill="${C3}" />
+    <rect x="${pad + cell + gap}" y="${pad + cell + gap}" width="${cell}" height="${cell}" rx="${r}" fill="${C4}" />
   </svg>`;
 }
 

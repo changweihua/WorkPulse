@@ -132,6 +132,11 @@ export const translations = {
     'report.subtitle': 'AI 智能整理你的工作记录，一键生成周报、月报',
     'report.aiReportTitle': 'AI 生成报告',
     'report.noHistory': '暂无历史报告',
+    'report.emptyTitle': 'AI 智能工作报告',
+    'report.emptyDesc': '自动分析你的工作日志和任务完成情况，生成结构化的周报、月报',
+    'report.emptyFeat1': '智能汇总工作日志与任务进展',
+    'report.emptyFeat2': '自动识别关键成果与里程碑',
+    'report.emptyFeat3': '支持编辑、导出和历史对比',
 
     'stats.dailyActivity': '每日活动',
     'stats.logLegend': '日志',
@@ -360,6 +365,11 @@ export const translations = {
     'report.subtitle': 'AI turns your work logs into polished weekly and monthly reports',
     'report.aiReportTitle': 'AI Generated Report',
     'report.noHistory': 'No report history yet',
+    'report.emptyTitle': 'AI Work Report',
+    'report.emptyDesc': 'Automatically analyze your work logs and task progress to generate structured weekly and monthly reports',
+    'report.emptyFeat1': 'Smart summary of work logs and task progress',
+    'report.emptyFeat2': 'Auto-detect key achievements and milestones',
+    'report.emptyFeat3': 'Edit, export, and compare historical reports',
 
     'stats.dailyActivity': 'Daily activity',
     'stats.logLegend': 'Logs',
