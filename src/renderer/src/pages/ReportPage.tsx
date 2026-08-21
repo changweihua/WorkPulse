@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from 'react'
+import { useState, useEffect, useRef, ReactNode } from 'react'
 import {
   Copy,
   RefreshCw,
@@ -63,13 +63,13 @@ function ReportPage(): ReactNode {
     if (status === 'streaming' && !isStreaming && streamedContent) {
       setReportContent(streamedContent)
       setStatus('success')
-      saveNewReport(streamedContent)
-      loadHistory()
+      void handleSaveNewReport(streamedContent)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStreaming, status, streamedContent])
 
   useEffect(() => {
-    if (status === 'streaming' && streamError) {
+    if ((status === 'streaming' || status === 'generating') && streamError) {
       setErrorMsg(streamError)
       setStatus('error')
     }
@@ -144,12 +144,28 @@ function ReportPage(): ReactNode {
     return 'custom'
   }
 
-  const saveNewReport = async (content: string): Promise<void> => {
+  const saveLockRef = useRef(false)
+
+  const handleSaveNewReport = async (content: string): Promise<void> => {
+    if (saveLockRef.current) return
+    if (!content.trim()) return
+    saveLockRef.current = true
     try {
       const type = getReportType()
-      await window.api.report.create(type, dateFrom, dateTo, content)
+      const saved = await window.api.report.create(type, dateFrom, dateTo, content)
+      if (saved) {
+        // 关联刚创建的记录：后续编辑可直接更新这条报告
+        setActiveReport(saved)
+        toast.success(t('report.saved'))
+        await loadHistory()
+      } else {
+        toast.error(t('report.saveFailed'))
+      }
     } catch (err) {
       console.error('Failed to save report:', err)
+      toast.error(t('report.saveFailed'))
+    } finally {
+      saveLockRef.current = false
     }
   }
 
