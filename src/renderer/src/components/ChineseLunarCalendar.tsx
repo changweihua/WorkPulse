@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Lunar } from 'lunar-typescript';
+import { useHolidays, isHolidayDate, isWorkdaySwap, getHolidayName, type HolidayMap } from '../lib/holiday';
 
 interface DayInfo {
     date: Date;
@@ -20,29 +21,11 @@ interface ChineseLunarCalendarProps {
     onDateClick?: (date: Date, dateStr: string, info: ClickInfo) => void;
 }
 
-const SPECIAL_DAYS: Record<string, string> = {
-    '2026-01-01': '元旦', '2026-01-02': '元旦', '2026-01-03': '元旦', '2026-01-04': '班',
-    '2026-02-14': '班', '2026-02-17': '春节', '2026-02-18': '春节', '2026-02-19': '春节',
-    '2026-02-20': '春节', '2026-02-21': '春节', '2026-02-22': '春节', '2026-02-23': '春节',
-    '2026-02-28': '班',
-    '2026-04-05': '清明节', '2026-04-06': '清明节', '2026-04-26': '班',
-    '2026-05-01': '劳动节', '2026-05-02': '劳动节', '2026-05-03': '劳动节',
-    '2026-05-04': '劳动节', '2026-05-05': '劳动节', '2026-05-09': '班',
-    '2026-06-25': '端午节', '2026-06-26': '端午节', '2026-06-27': '端午节',
-    '2026-09-27': '班',
-    '2026-10-01': '国庆节', '2026-10-02': '国庆节', '2026-10-03': '国庆节',
-    '2026-10-04': '国庆节', '2026-10-05': '国庆节', '2026-10-06': '国庆节',
-    '2026-10-07': '国庆节', '2026-10-08': '国庆节', '2026-10-10': '班',
-};
-
-const isHoliday = (d: string) => !!SPECIAL_DAYS[d] && SPECIAL_DAYS[d] !== '班';
-const isWorkday = (d: string) => SPECIAL_DAYS[d] === '班';
-const getHolidayName = (d: string) => isHoliday(d) ? SPECIAL_DAYS[d] : '';
-
 const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({ onDateClick }) => {
     const today = new Date();
     const [currentYear, setCurrentYear] = useState(today.getFullYear());
     const [currentMonth, setCurrentMonth] = useState(today.getMonth() + 1);
+    const holidays = useHolidays(currentYear);
 
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
     const firstDayOfMonth = new Date(currentYear, currentMonth - 1, 1).getDay();
@@ -85,16 +68,19 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({ onDateClick
 
     const handleClick = (day: DayInfo) => {
         if (!day.isCurrent || !day.dateStr) return;
-        onDateClick?.(day.date, day.dateStr, { isHoliday: isHoliday(day.dateStr), isWorkday: isWorkday(day.dateStr) });
+        onDateClick?.(day.date, day.dateStr, {
+            isHoliday: isHolidayDate(holidays, day.dateStr),
+            isWorkday: isWorkdaySwap(holidays, day.dateStr),
+        });
     };
 
     const renderDay = (day: DayInfo, idx: number) => {
         const { date, dateStr, isCurrent, lunarDay, lunarFull, festivals } = day;
         const dow = date.getDay();
         const isToday = date.toDateString() === today.toDateString();
-        const holidayName = dateStr ? getHolidayName(dateStr) : '';
-        const isHolidayDay = dateStr ? isHoliday(dateStr) : false;
-        const isWorkdayDay = dateStr ? isWorkday(dateStr) : false;
+        const holidayName = dateStr ? getHolidayName(holidays, dateStr) : '';
+        const isHolidayDay = dateStr ? isHolidayDate(holidays, dateStr) : false;
+        const isWorkdayDay = dateStr ? isWorkdaySwap(holidays, dateStr) : false;
         const isWeekend = (dow === 0 || dow === 6) && isCurrent;
 
         // 底部文字：节日名 > 农历节日 > "正月 初一"

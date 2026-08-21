@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import ChineseLunarCalendar from '../components/ChineseLunarCalendar';
+import { useHolidays, isHolidayDate, isWorkdaySwap, getHolidayName } from '../lib/holiday';
 import {
     Plus,
     Trash2,
@@ -8,20 +9,11 @@ import {
     CheckCircle2,
     MapPin,
     Clock,
-    CalendarDays,
     ListTodo,
     Users,
     X,
     Pencil,
-    ChevronDown,
 } from 'lucide-react';
-
-interface ClickRecord {
-    dateStr: string;
-    isHoliday: boolean;
-    isWorkday: boolean;
-    statusText: string;
-}
 
 interface CalEvent {
     id: number;
@@ -42,7 +34,6 @@ const CalendarPage: React.FC = () => {
     const [selectedDate, setSelectedDate] = useState<{
         date: Date;
         dateStr: string;
-        info: { isHoliday: boolean; isWorkday: boolean };
     } | null>(null);
     const [events, setEvents] = useState<CalEvent[]>([]);
     const [activeTab, setActiveTab] = useState<TabType>('todo');
@@ -64,9 +55,12 @@ const CalendarPage: React.FC = () => {
         setSelectedDate({
             date: today,
             dateStr: `${year}-${month}-${day}`,
-            info: { isHoliday: false, isWorkday: false },
         });
     }, []);
+
+    // 节假日数据（选中日期所在年份）
+    const selectedYear = selectedDate ? Number(selectedDate.dateStr.slice(0, 4)) : new Date().getFullYear();
+    const holidays = useHolidays(selectedYear);
 
     const loadEvents = useCallback(async (dateStr: string) => {
         if (!window.api?.event) return;
@@ -82,8 +76,8 @@ const CalendarPage: React.FC = () => {
         if (selectedDate?.dateStr) loadEvents(selectedDate.dateStr);
     }, [selectedDate?.dateStr, loadEvents]);
 
-    const handleDateClick = (date: Date, dateStr: string, info: { isHoliday: boolean; isWorkday: boolean }) => {
-        setSelectedDate({ date, dateStr, info });
+    const handleDateClick = (date: Date, dateStr: string) => {
+        setSelectedDate({ date, dateStr });
         setShowForm(false);
         setEditingEvent(null);
     };
@@ -183,10 +177,19 @@ const CalendarPage: React.FC = () => {
                                     {selectedDate ? `${selectedDate.dateStr} ${weekDay}` : '\u00A0'}
                                 </p>
                             </div>
-                            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                            <p className="text-sm text-zinc-600 dark:text-zinc-400 text-right">
                                 {selectedDate ? (
-                                    selectedDate.info.isHoliday ? '🏖️ 法定假日' :
-                                        selectedDate.info.isWorkday ? '💼 调休上班' : '📅 普通日'
+                                    isHolidayDate(holidays, selectedDate.dateStr) ? (
+                                        <span className="text-red-500 dark:text-red-400">
+                                            🏖️ {getHolidayName(holidays, selectedDate.dateStr) || '法定假日'}
+                                        </span>
+                                    ) : isWorkdaySwap(holidays, selectedDate.dateStr) ? (
+                                        <span className="text-emerald-600 dark:text-emerald-400">
+                                            💼 调休上班（{holidays[selectedDate.dateStr]?.name}）
+                                        </span>
+                                    ) : (
+                                        '📅 普通日'
+                                    )
                                 ) : ''}
                             </p>
                         </div>
