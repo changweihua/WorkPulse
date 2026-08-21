@@ -16,7 +16,6 @@ import {
     Check,
     Trash2,
     ImagePlus,
-    Globe,
     Zap,
     X,
     Upload,
@@ -32,8 +31,6 @@ function ModelPanel({
     selectedGroup,
     onGroupChange,
     onModelChange,
-    mirrorEnabled,
-    toggleMirror,
     isLoading,
     isGenerating,
     overallProgress,
@@ -47,8 +44,6 @@ function ModelPanel({
     selectedGroup: OCRModelGroupId;
     onGroupChange: (g: OCRModelGroupId) => void;
     onModelChange: (m: string) => void;
-    mirrorEnabled: boolean;
-    toggleMirror: (v: boolean) => void;
     isLoading: boolean;
     isGenerating: boolean;
     overallProgress: number;
@@ -138,20 +133,6 @@ function ModelPanel({
                     </p>
                 </div>
 
-                {/* 镜像开关 */}
-                <button
-                    onClick={() => toggleMirror(!mirrorEnabled)}
-                    disabled={isLoading}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-[var(--color-border)] hover:bg-zinc-50 dark:hover:bg-zinc-800 transition disabled:opacity-50"
-                >
-                    <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300 flex items-center gap-1.5">
-                        <Globe size={12} /> 国内镜像
-                    </span>
-                    <span className={`relative inline-flex items-center h-5 rounded-full w-9 transition-colors ${mirrorEnabled ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}>
-                        <span className={`inline-block w-3.5 h-3.5 bg-white rounded-full transition-transform ${mirrorEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-                    </span>
-                </button>
-
                 {/* 下载进度 */}
                 {isLoading && (
                     <div className="p-3 rounded-lg bg-emerald-50/60 dark:bg-emerald-900/15 border border-emerald-100 dark:border-emerald-800/40">
@@ -208,8 +189,6 @@ function OcrPageContent() {
         loadingMessage,
         currentModel,
         pendingModel,
-        mirrorEnabled,
-        toggleMirror,
         recognize,
         switchModel,
         isLoading,
@@ -330,8 +309,6 @@ function OcrPageContent() {
                 selectedGroup={selectedGroup}
                 onGroupChange={handleGroupChange}
                 onModelChange={handleModelChange}
-                mirrorEnabled={mirrorEnabled}
-                toggleMirror={toggleMirror}
                 isLoading={isLoading}
                 isGenerating={isGenerating}
                 overallProgress={overallProgress}

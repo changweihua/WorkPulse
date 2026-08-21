@@ -47,27 +47,18 @@ export interface UseModelOptions<T extends PipelineType> {
     };
 }
 
-// ---------- 镜像管理 ----------
-const MIRROR_KEY = 'hf_mirror_enabled';
-const MIRROR_URL = 'https://hf-mirror.com';
-const DEFAULT_REMOTE_HOST = 'https://huggingface.co';
+// ---------- 固定使用国内镜像（huggingface.co 部分网络不可达） ----------
+const REMOTE_HOST = 'https://hf-mirror.com';
 
 // 禁止尝试本地模型路径，避免先请求 localhost 失败浪费时间
 env.allowLocalModels = false;
+env.remoteHost = REMOTE_HOST;
 
-const getMirrorEnabled = (): boolean => {
-    try {
-        return localStorage.getItem(MIRROR_KEY) === 'true';
-    } catch {
-        return false;
-    }
-};
-
-const setMirrorEnabledStorage = (enabled: boolean) => {
-    try {
-        localStorage.setItem(MIRROR_KEY, String(enabled));
-    } catch { }
-};
+// ---------- 模块级 pipeline 缓存 ----------
+// 跨页面、跨挂载复用已加载的模型：再次进入页面立即就绪，不重复拉取
+const pipelineCache = new Map<string, any>();
+const cacheKey = (task: string, modelId: string, dtype: string, device: string) =>
+    `${task}|${modelId}|${dtype}|${device}`;
 
 export function useHuggingFaceModel<T extends PipelineType>({
     task,
@@ -84,21 +75,12 @@ export function useHuggingFaceModel<T extends PipelineType>({
     const [overallProgress, setOverallProgress] = useState(0);
     const [currentModel, setCurrentModel] = useState<string>(defaultId);
     const [pendingModel, setPendingModel] = useState<string | null>(null);
-    const [mirrorEnabled, setMirrorEnabledState] = useState<boolean>(getMirrorEnabled);
 
     // ---------- Refs ----------
     const pipeRef = useRef<any>(null);
     const loadIdRef = useRef<number>(0);
-    const loadedKeyRef = useRef<string>('');
 
-    // ---------- 镜像切换 ----------
-    const toggleMirror = useCallback((enabled: boolean) => {
-        setMirrorEnabledState(enabled);
-        setMirrorEnabledStorage(enabled);
-        env.remoteHost = enabled ? MIRROR_URL : DEFAULT_REMOTE_HOST;
-    }, []);
-
-    // ---------- 加载模型（带回退链） ----------
+    // ---------- 加载模型（带回退链 + 缓存复用） ----------
     const loadModel = useCallback(
         async (modelId: string) => {
             const currentLoadId = ++loadIdRef.current;
@@ -127,81 +109,70 @@ export function useHuggingFaceModel<T extends PipelineType>({
                 return true;
             });
 
-            // 源回退：当前源全部组合失败后自动尝试镜像（huggingface.co 在部分网络不可达）
-            const hostPlan: { host: string; isMirror: boolean }[] = [
-                { host: mirrorEnabled ? MIRROR_URL : DEFAULT_REMOTE_HOST, isMirror: mirrorEnabled },
-            ];
-            if (!mirrorEnabled) hostPlan.push({ host: MIRROR_URL, isMirror: true });
-
             let lastError: Error | null = null;
 
-            for (const { host, isMirror } of hostPlan) {
+            for (let i = 0; i < attempts.length; i++) {
                 if (currentLoadId !== loadIdRef.current) return;
-                env.remoteHost = host;
+                const { device, dtype } = attempts[i];
 
-                let succeeded = false;
-                for (let i = 0; i < attempts.length; i++) {
-                    if (currentLoadId !== loadIdRef.current) return;
-                    const { device, dtype } = attempts[i];
-
-                    try {
-                        setProgressItems([]);
-                        setOverallProgress(0);
-
-                        const pipe = await pipeline(
-                            task,
-                            modelId,
-                            {
-                                dtype,
-                                device,
-                                progress_callback: (info: any) => {
-                                    if (currentLoadId !== loadIdRef.current) return;
-                                    if (info.status === 'progress_total') {
-                                        setOverallProgress(Math.round(info.progress || 0));
-                                        return;
-                                    }
-                                    if (info.status === 'progress' && info.file) {
-                                        setProgressItems((prev) => {
-                                            const existing = prev.find((item) => item.file === info.file);
-                                            if (existing) {
-                                                return prev.map((item) =>
-                                                    item.file === info.file
-                                                        ? { ...item, progress: Math.round(info.progress || 0) }
-                                                        : item
-                                                );
-                                            }
-                                            return [...prev, { file: info.file, progress: Math.round(info.progress || 0) }];
-                                        });
-                                    }
-                                },
-                            }
-                        );
-
-                        if (currentLoadId !== loadIdRef.current) {
-                            await pipe?.dispose?.();
-                            return;
-                        }
-
-                        pipeRef.current = pipe;
-                        setCurrentModel(modelId);
-                        setPendingModel(null);
-                        setStatus('ready');
-                        loadedKeyRef.current = `${modelId}@${host}`;
-                        succeeded = true;
-
-                        // 镜像回退成功：持久化偏好并同步开关（重载副作用会被 loadedKey 拦截）
-                        if (isMirror && !mirrorEnabled) {
-                            setMirrorEnabledStorage(true);
-                            setMirrorEnabledState(true);
-                        }
-                        break;
-                    } catch (err) {
-                        lastError = err as Error;
-                        console.warn(`模型加载失败 (${host} ${device}/${dtype})，尝试下一配置...`, err);
-                        if (currentLoadId !== loadIdRef.current) return;
-                    }
+                // 缓存命中：直接复用已加载的模型，不重复拉取
+                const key = cacheKey(task, modelId, dtype, device);
+                const cached = pipelineCache.get(key);
+                if (cached) {
+                    pipeRef.current = cached;
+                    setCurrentModel(modelId);
+                    setPendingModel(null);
+                    setStatus('ready');
+                    return;
                 }
-                if (succeeded) return;
+
+                try {
+                    setProgressItems([]);
+                    setOverallProgress(0);
+
+                    const pipe = await pipeline(
+                        task,
+                        modelId,
+                        {
+                            dtype,
+                            device,
+                            progress_callback: (info: any) => {
+                                if (currentLoadId !== loadIdRef.current) return;
+                                if (info.status === 'progress_total') {
+                                    setOverallProgress(Math.round(info.progress || 0));
+                                    return;
+                                }
+                                if (info.status === 'progress' && info.file) {
+                                    setProgressItems((prev) => {
+                                        const existing = prev.find((item) => item.file === info.file);
+                                        if (existing) {
+                                            return prev.map((item) =>
+                                                item.file === info.file
+                                                    ? { ...item, progress: Math.round(info.progress || 0) }
+                                                    : item
+                                            );
+                                        }
+                                        return [...prev, { file: info.file, progress: Math.round(info.progress || 0) }];
+                                    });
+                                }
+                            },
+                        }
+                    );
+
+                    // 即使加载期间用户已切换，也放入缓存供下次秒开
+                    pipelineCache.set(key, pipe);
+                    if (currentLoadId !== loadIdRef.current) return;
+
+                    pipeRef.current = pipe;
+                    setCurrentModel(modelId);
+                    setPendingModel(null);
+                    setStatus('ready');
+                    return;
+                } catch (err) {
+                    lastError = err as Error;
+                    console.warn(`模型加载失败 (${device}/${dtype})，尝试下一配置...`, err);
+                    if (currentLoadId !== loadIdRef.current) return;
+                }
             }
 
             if (currentLoadId !== loadIdRef.current) return;
@@ -210,11 +181,11 @@ export function useHuggingFaceModel<T extends PipelineType>({
             setError(
                 msg.includes('404') || msg.toLowerCase().includes('could not locate')
                     ? `该模型缺少可用的权重文件（已尝试 ${attempts.map((a) => `${a.device}/${a.dtype}`).join('、')}）。请更换其他模型。`
-                    : `网络加载失败：${msg}。已尝试源：${mirrorEnabled ? 'hf-mirror.com（国内镜像）' : 'huggingface.co 与 hf-mirror.com（国内镜像）'}。`
+                    : `网络加载失败：${msg}。当前源：hf-mirror.com（国内镜像）。`
             );
             setPendingModel(null);
         },
-        [task, mirrorEnabled, pipelineOptions.dtype, pipelineOptions.device]
+        [task, pipelineOptions.dtype, pipelineOptions.device]
     );
 
     // ---------- 推理（文本生成） ----------
@@ -271,43 +242,9 @@ export function useHuggingFaceModel<T extends PipelineType>({
         [currentModel, loadModel]
     );
 
-    // ---------- 释放资源 ----------
-    const dispose = useCallback(async () => {
-        if (pipeRef.current?.dispose) {
-            await pipeRef.current.dispose();
-        }
-        pipeRef.current = null;
-        setStatus('idle');
-    }, []);
-
-    // ---------- 镜像切换后重载当前模型 ----------
-    const firstMirrorRun = useRef(true);
+    // ---------- 首次加载（卸载时不销毁，模型保留在缓存中供下次复用） ----------
     useEffect(() => {
-        if (firstMirrorRun.current) {
-            firstMirrorRun.current = false;
-            return;
-        }
-        const target = pendingModel || currentModel;
-        // 该模型已经从当前源加载成功（如自动回退后的状态同步），无需重载
-        if (loadedKeyRef.current === `${target}@${mirrorEnabled ? MIRROR_URL : DEFAULT_REMOTE_HOST}`) {
-            return;
-        }
-        loadModel(target);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [mirrorEnabled]);
-
-    // ---------- 首次加载 ----------
-    useEffect(() => {
-        env.remoteHost = mirrorEnabled ? MIRROR_URL : DEFAULT_REMOTE_HOST;
         loadModel(currentModel);
-
-        return () => {
-            loadIdRef.current++;
-            if (pipeRef.current?.dispose) {
-                pipeRef.current.dispose().catch(console.warn);
-            }
-            pipeRef.current = null;
-        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -315,7 +252,7 @@ export function useHuggingFaceModel<T extends PipelineType>({
     const loadingMessage = (() => {
         switch (status) {
             case 'loading':
-                return `正在加载模型 ${currentModel}...`;
+                return `正在加载模型 ${pendingModel || currentModel}...`;
             case 'generating':
                 return task === 'image-to-text' ? '正在识别文字...' : '正在推理生成答案...';
             case 'error':
@@ -333,12 +270,9 @@ export function useHuggingFaceModel<T extends PipelineType>({
         loadingMessage,
         currentModel,
         pendingModel,
-        mirrorEnabled,
-        toggleMirror,
         generate,
         recognize,
         switchModel,
-        dispose,
         modelList,
         isLoading: status === 'loading',
         isReady: status === 'ready',
