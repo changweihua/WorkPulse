@@ -800,7 +800,7 @@ function SettingsPage(): ReactNode {
               ) : (
                 <button
                   onClick={handleToggleAutoLaunch}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-2 ${autoLaunch ? 'bg-zinc-900 dark:bg-zinc-100' : 'bg-zinc-300 dark:bg-zinc-600'
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${autoLaunch ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'
                     }`}
                 >
                   <span

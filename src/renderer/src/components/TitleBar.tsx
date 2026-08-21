@@ -99,7 +99,7 @@ export function TitleBar() {
             onClick={handleClose}
             onMouseEnter={() => setHoverClose(true)}
             onMouseLeave={() => setHoverClose(false)}
-            style={getButtonStyle('#ff5f57', '#ff7a7a', hoverClose)}
+            style={getButtonStyle('#f87171', '#fca5a5', hoverClose)}
             aria-label="Close"
           >
             {hoverClose && <X size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />}
@@ -113,7 +113,7 @@ export function TitleBar() {
             onClick={handleMinimize}
             onMouseEnter={() => setHoverMinimize(true)}
             onMouseLeave={() => setHoverMinimize(false)}
-            style={getButtonStyle('#ffbd2e', '#ffd24d', hoverMinimize)}
+            style={getButtonStyle('#fbbf24', '#fcd34d', hoverMinimize)}
             aria-label="Minimize"
           >
             {hoverMinimize && <Minus size={8} color="rgba(40,40,40,0.8)" strokeWidth={2.5} />}
@@ -127,7 +127,7 @@ export function TitleBar() {
             onClick={handleMaximize}
             onMouseEnter={() => setHoverMaximize(true)}
             onMouseLeave={() => setHoverMaximize(false)}
-            style={getButtonStyle('#28c840', '#4cd964', hoverMaximize)}
+            style={getButtonStyle('#4ade80', '#86efac', hoverMaximize)}
             aria-label="Maximize"
           >
             {hoverMaximize &&
