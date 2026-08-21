@@ -425,6 +425,16 @@ export function registerIpcHandlers(): void {
   //   }
   // });
 
+  // 报告页流式生成（冒号频道，与 preload ai.streamChat 对应）
+  ipcMain.handle('ai:stream-chat', async (event, prompt: string) => {
+    await streamChat(
+      prompt,
+      (text) => event.sender.send('ai:stream-chunk', text),
+      () => event.sender.send('ai:stream-done'),
+      (error) => event.sender.send('ai:stream-error', error)
+    )
+  })
+
   ipcMain.handle('ai-chat-stream', async (event, params) => {
     const { userMessage, history, config } = params;
     const controller = new AbortController();
