@@ -170,6 +170,13 @@ interface API {
     logs: (format: 'csv' | 'markdown') => Promise<string | null>
     report: (content: string, dateRange: string) => Promise<string | null>
   }
+  window: {
+    minimize: () => void
+    maximize: () => void
+    close: () => void
+    getMaterial: () => Promise<string>
+    setMaterial: (material: string) => Promise<{ success: boolean }>
+  }
 }
 
 declare global {
