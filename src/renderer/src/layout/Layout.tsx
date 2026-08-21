@@ -103,9 +103,9 @@ export default function Layout() {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-white/50 dark:bg-[#232326]/88">
+        <div className="h-screen flex flex-col">
             <TitleBar />
-            <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-[#232326]/88">
+            <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-[#2a2a2e]/55">
                 <div className="flex items-center gap-1">
                     <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4">工作台</h1>
                     <nav className="flex gap-1">
@@ -131,7 +131,7 @@ export default function Layout() {
                 </Link>
             </header>
 
-            <main className="flex-1 overflow-auto">
+            <main className="flex-1 overflow-auto bg-white/50 dark:bg-[#232326]/88">
                 <div className={fluid ? '' : 'max-w-3xl mx-auto px-4 py-6'}>
                     <Outlet />
                 </div>
