@@ -24,19 +24,25 @@
 
 **看板任务** — 在待办 → 进行中 → 已完成之间拖拽任务卡片。有草稿箱存放"以后再说"的想法，支持截止日期和内联编辑。完成任务时自动生成一条工作日志。
 
-**AI 报告** — 选择时间范围，一键生成结构化工作总结。报告会结合工作日志和任务上下文，支持 OpenAI/Anthropic 兼容服务，可预览、编辑、保存到历史、复制或导出。
+**AI 报告** — 选择时间范围，一键生成结构化工作总结。流式渲染（支持思考过程折叠），生成完成自动保存到历史，可预览、编辑、复制或导出。
 
-**数据统计** — 14 天活动柱状图、GitHub 风格热力图、连续记录天数、任务完成统计。
+**AI 对话** — 内置多会话聊天，支持 DeepSeek/OpenAI/Anthropic/智谱/Moonshot/通义/Gitee/Ollama 等供应商预设、连接测试、配置导入导出，实时 Token 统计与成本估算。
+
+**日程日历** — 万年历视图管理待办事项与会议预约，自动接入法定节假日与调休数据；会议开始前按配置的提前量推送系统通知，并可同步推送到 iPhone（Bark）。
+
+**本地 AI 模型** — ONNX 模型对话、OCR 图片文字识别、PaddleOCR、XRay 影像处理。模型经 hf-mirror.com 国内镜像下载并缓存到本地文件夹，跨页面复用，支持 WebGPU 加速与失败重试。
+
+**数据统计** — 3D 贡献图（React Three Fiber）、堆叠柱状图、环形占比、分类分布、连续记录天数，支持近一月到近一年周期一键切换。
 
 **快速记录** — 可配置全局快捷键（默认 `Ctrl+Shift+L` 记日志、`Ctrl+Shift+T` 加任务）让你无需切换窗口即可记录。快速日志同样支持 `#标签` 解析，也可从菜单栏托盘图标操作。
 
-**深色模式** — 跟随系统、浅色、深色三种主题，全界面覆盖。Windows 11 支持 Mica 毛玻璃效果，与桌面环境无缝融合。
+**深色模式** — 跟随系统、浅色、深色三种主题，全界面覆盖，基于设计 Token 统一配色。
 
 **多语言** — 支持中文和英文界面，可跟随系统语言。菜单、托盘操作、设置、导出及默认 AI 报告提示词均随语言切换。
 
 **自动更新** — 打包版本会自动检查 GitHub Releases 新版本，后台下载更新，重启后安装。设置页面也提供手动检查更新。
 
-**Windows Mica 效果** — 原生 Windows 11 Mica 材质应用于标题栏和导航栏，与桌面环境融为一体。
+**Windows Mica 效果** — 原生 `backgroundMaterial`（Mica / Mica Tabbed / Acrylic 可在设置中切换），标题栏、导航栏与内容区统一涂装，毛玻璃质感与桌面环境融为一体。
 
 ## 技术栈
 
@@ -45,8 +51,11 @@
 - **SQLite** (better-sqlite3) 本地数据存储
 - **Zustand** 状态管理
 - **@dnd-kit** 拖拽排序
-- **Tailwind CSS** 样式
-- **talex-mica-electron** Windows Mica 效果
+- **Tailwind CSS** 样式（设计 Token 体系）
+- 原生 `backgroundMaterial` Windows Mica 效果
+- **React Three Fiber** + **Three.js** 3D 贡献图
+- **ECharts** 统计图表
+- **Transformers.js** 本地 AI 模型推理（WebGPU）
 
 ## 快速开始
 
@@ -87,11 +96,10 @@ xattr -cr /Applications/WorkPulse.app
 当推送 `v*` 标签或手动运行 `Release` 工作流时，GitHub Actions 会为 macOS、Windows 和 Linux 构建发布产物。
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+npm run release        # 交互式选择版本号，自动提交 + 打标签 + 推送
 ```
 
-工作流会将 DMG/ZIP、NSIS/便携版 EXE、AppImage 和 DEB 产物上传到 GitHub Release。默认构建未签名；如需 macOS 公证或 Windows 签名安装包，请另行配置签名密钥。
+发布前请同步更新 [CHANGELOG.md](./CHANGELOG.md)。工作流会将 DMG/ZIP、NSIS/便携版 EXE、AppImage 和 DEB 产物上传到 GitHub Release。默认构建未签名；如需 macOS 公证或 Windows 签名安装包，请另行配置签名密钥。
 
 打包应用使用相同的 GitHub Release 元数据（`latest.yml`、`latest-mac.yml`、`latest-linux.yml`）进行自动更新检查。
 

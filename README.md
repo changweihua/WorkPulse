@@ -24,19 +24,25 @@ Built for individual contributors who want a frictionless way to remember what t
 
 **Kanban Board** — Drag tasks between Todo → In Progress → Done. Includes a draft box for "maybe later" ideas, due date tracking, and inline editing. Completing a task auto-generates a work log entry.
 
-**AI Reports** — Select a date range, get a structured summary of your work. Reports use both work logs and task context, support OpenAI/Anthropic-compatible providers, and can be previewed, edited, saved to history, copied, or exported.
+**AI Reports** — Select a date range and generate a structured summary of your work with streaming rendering (thinking-process collapsible). Reports are auto-saved to history on completion and can be previewed, edited, copied, or exported.
 
-**Statistics** — 14-day activity bar chart, GitHub-style heat map, streak counter, and task completion metrics.
+**AI Chat** — Built-in multi-conversation chat with provider presets for DeepSeek/OpenAI/Anthropic/Zhipu/Moonshot/Qwen/Gitee/Ollama, connection testing, config import/export, live token usage and cost estimation.
+
+**Calendar** — Manage todos and meetings on a perpetual calendar view with automatic Chinese holiday/substitute-workday data. Meeting reminders fire system notifications ahead of the configured lead time and can also be pushed to your iPhone via Bark.
+
+**Local AI Models** — ONNX model chat, OCR text recognition, PaddleOCR, and XRay image processing. Models download via the hf-mirror.com China mirror into a local folder cache, reused across pages, with WebGPU acceleration and retry on failure.
+
+**Statistics** — 3D contribution graph (React Three Fiber), stacked bar chart, donut breakdown, category distribution, streak counter, with one-click range switching from 1 month to 1 year.
 
 **Quick Capture** — Configurable global shortcuts (`Ctrl+Shift+L` for logs, `Ctrl+Shift+T` for tasks by default) let you record without switching windows. Quick logs also support `#tag` parsing and are accessible from the menu bar tray icon.
 
-**Dark Mode** — System, light, or dark theme with full UI coverage. Windows 11 Mica effect support for native translucent surfaces.
+**Dark Mode** — System, light, or dark theme with full UI coverage, unified through a design-token color system.
 
 **Languages** — English and Chinese UI with a system-default option. Menus, tray actions, settings, exports, and default AI report prompts follow the selected language.
 
 **Auto Updates** — Packaged builds check GitHub Releases for newer versions, download updates in the background, and install after restart. Settings also includes a manual update check.
 
-**Windows Mica Effect** — Native Windows 11 Mica material for title bar and navigation, creating a seamless integration with the desktop environment.
+**Windows Mica Effect** — Native `backgroundMaterial` (Mica / Mica Tabbed / Acrylic, switchable in Settings) with unified title bar, navigation, and content painting for a seamless frosted-glass desktop integration.
 
 ## Tech Stack
 
@@ -45,8 +51,11 @@ Built for individual contributors who want a frictionless way to remember what t
 - **SQLite** (better-sqlite3) for local-first data storage
 - **Zustand** for state management
 - **@dnd-kit** for drag-and-drop
-- **Tailwind CSS** for styling
-- **talex-mica-electron** for Windows Mica effect
+- **Tailwind CSS** with a design-token system
+- Native `backgroundMaterial` for Windows Mica effect
+- **React Three Fiber** + **Three.js** for the 3D contribution graph
+- **ECharts** for statistics charts
+- **Transformers.js** for local AI model inference (WebGPU)
 
 ## Getting Started
 
@@ -87,11 +96,10 @@ Download the NSIS installer from [Releases](../../releases). Run the installer a
 GitHub Actions builds release artifacts for macOS, Windows, and Linux when a `v*` tag is pushed, or when the `Release` workflow is run manually.
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+npm run release        # interactive version picker; auto commit + tag + push
 ```
 
-The workflow uploads DMG/ZIP, NSIS/portable EXE, AppImage, and DEB artifacts to the GitHub Release. Builds are unsigned by default; add signing secrets later if you need notarized macOS or signed Windows installers.
+Update [CHANGELOG.md](./CHANGELOG.md) before releasing. The workflow uploads DMG/ZIP, NSIS/portable EXE, AppImage, and DEB artifacts to the GitHub Release. Builds are unsigned by default; add signing secrets later if you need notarized macOS or signed Windows installers.
 
 Packaged apps use the same GitHub Release metadata (`latest.yml`, `latest-mac.yml`, `latest-linux.yml`) for automatic update checks.
 
