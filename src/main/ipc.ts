@@ -35,7 +35,7 @@ import {
 import { generateReport, streamChat } from './ai'
 import { ensureModelFiles, setModelProgressSender } from './model-files'
 import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey } from './secureSettings'
-import { notifyTaskCompleted } from './scheduler'
+import { sendNotification } from './notifier'
 import { tMain } from './i18n'
 import OpenAI from 'openai';
 import { join } from 'path'
@@ -164,7 +164,7 @@ export function registerIpcHandlers(): void {
       const prevStatus = getTasks().find((t) => t.id === id)?.status
       const task = updateTask(id, updates)
       if (task && updates.status === 'done' && prevStatus !== 'done') {
-        notifyTaskCompleted(task.title)
+        sendNotification({ title: '任务完成', body: task.title })
       }
       return task
     }
@@ -187,7 +187,7 @@ export function registerIpcHandlers(): void {
         if (logContent.trim()) {
           addWorkLog(logContent.trim(), '', id)
         }
-        notifyTaskCompleted(task.title)
+        sendNotification({ title: '任务完成', body: task.title })
       }
       return task
     }
