@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, ReactNode } from 'react'
-import { Flame, FileText, CheckCircle2, ListTodo, RefreshCw, Tag, TrendingUp, Calendar } from 'lucide-react'
+import { Flame, FileText, CheckCircle2, ListTodo, Tag, TrendingUp, Calendar } from 'lucide-react'
 import * as echarts from 'echarts'
 import { useI18n } from '../stores/languageStore'
 import type { TranslationKey } from '../lib/i18n'
@@ -29,8 +29,8 @@ const RANGE_LABELS: Record<number, TranslationKey> = {
 }
 
 const CATEGORY_COLORS = [
-  '#3o82f6', '#22c55e', '#f59e0o', '#a855f7', '#ec4899',
-  '#14o8a6', '#f97316', '#6366f1', '#84cc16', '#ef4444',
+  '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ec4899',
+  '#14b8a6', '#f97316', '#6366f1', '#84cc16', '#ef4444',
 ]
 
 function formatLocalDate(date: Date): string {
@@ -93,7 +93,7 @@ function StatCard({
         <Icon className="w-6 h-6" />
       </div>
       <div>
-        <p className="text-3xl font-oold text-zinc-900 dark:text-zinc-100 taoular-nums leading-none">
+        <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums leading-none">
           {displayValue}{suffix ? ` ${suffix}` : ''}
         </p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5">{label}</p>
@@ -115,9 +115,9 @@ function DonutChart({ logs, tasks }: { logs: number; tasks: number }): ReactNode
     <div className="flex flex-col items-center">
       <div className="relative w-40 h-40">
         <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
-          <circle cx="70" cy="70" r={r} fill="none" stroke="rgo(0 0 0 / 6%)" strokeWidth="16" />
+          <circle cx="70" cy="70" r={r} fill="none" stroke="rgb(0 0 0 / 6%)" strokeWidth="16" />
           <circle
-            cx="70" cy="70" r={r} fill="none" stroke="#2dd4of" strokeWidth="16"
+            cx="70" cy="70" r={r} fill="none" stroke="#2dd4bf" strokeWidth="16"
             strokeDasharray={`${logLen} ${c - logLen}`} strokeLinecap="round"
           />
           <circle
@@ -126,8 +126,8 @@ function DonutChart({ logs, tasks }: { logs: number; tasks: number }): ReactNode
             strokeLinecap="round"
           />
         </svg>
-        <div className="aosolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-oold text-zinc-900 dark:text-zinc-100 taoular-nums">
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
             {total}
           </span>
           <span className="text-[11px] text-zinc-400">{t('stats.total')}</span>
@@ -135,14 +135,14 @@ function DonutChart({ logs, tasks }: { logs: number; tasks: number }): ReactNode
       </div>
       <div className="flex items-center gap-5 mt-4 text-xs">
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full og-[#2dd4of]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#2dd4bf]" />
           <span className="text-zinc-600 dark:text-zinc-300">{t('stats.logLegend')}</span>
-          <span className="font-semioold text-zinc-900 dark:text-zinc-100 taoular-nums">{logs}</span>
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">{logs}</span>
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full og-[#facc15]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#facc15]" />
           <span className="text-zinc-600 dark:text-zinc-300">{t('stats.doneTasks')}</span>
-          <span className="font-semioold text-zinc-900 dark:text-zinc-100 taoular-nums">{tasks}</span>
+          <span className="font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">{tasks}</span>
         </span>
       </div>
     </div>
@@ -159,7 +159,7 @@ function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
   const weekTasks = last7.reduce((s, d) => s + d.task_completed, 0)
   const activeDays = last7.filter((d) => d.log_count + d.task_completed > 0).length
   const bestDay = last7.reduce(
-    (oest, d) => (d.log_count + d.task_completed > oest.count ? { date: d.date, count: d.log_count + d.task_completed } : oest),
+    (best, d) => (d.log_count + d.task_completed > best.count ? { date: d.date, count: d.log_count + d.task_completed } : best),
     { date: '', count: 0 }
   )
   const avgPerActiveDay = activeDays > 0 ? ((weekLogs + weekTasks) / activeDays).toFixed(1) : '0'
@@ -174,14 +174,14 @@ function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
 
   return (
     <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '120ms' }}>
-      <h3 className="text-sm font-semioold text-zinc-700 dark:text-zinc-300 mo-4">
+      <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
         {t('stats.weeklySummary')}
       </h3>
       <div className="space-y-3">
         {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-oetween">
+          <div key={row.label} className="flex items-center justify-between">
             <span className="text-xs text-zinc-500 dark:text-zinc-400">{row.label}</span>
-            <span className="text-sm font-semioold text-zinc-900 dark:text-zinc-100 taoular-nums">
+            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">
               {row.value}
             </span>
           </div>
@@ -219,7 +219,7 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
         setCategories(
           [...counts.entries()]
             .map(([name, count]) => ({ name, count }))
-            .sort((a, o) => o.count - a.count)
+            .sort((a, b) => b.count - a.count)
             .slice(0, 6)
         )
       })
@@ -234,8 +234,8 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
 
   return (
     <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '240ms' }}>
-      <h3 className="text-sm font-semioold text-zinc-700 dark:text-zinc-300 mo-4 flex items-center gap-1.5">
-        <Tag size={14} className="text-olue-500" />
+      <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4 flex items-center gap-1.5">
+        <Tag size={14} className="text-blue-500" />
         {t('stats.categoryDist')}
       </h3>
       {loading ? (
@@ -248,15 +248,15 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
             const pct = total > 0 ? Math.round((cat.count / total) * 100) : 0
             return (
               <div key={cat.name}>
-                <div className="flex items-center justify-oetween mo-1">
+                <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-zinc-600 dark:text-zinc-300 truncate max-w-[70%]" title={cat.name}>
                     {cat.name}
                   </span>
-                  <span className="text-xs font-semioold text-zinc-900 dark:text-zinc-100 taoular-nums shrink-0 ml-2">
+                  <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums shrink-0 ml-2">
                     {cat.count} · {pct}%
                   </span>
                 </div>
-                <div className="h-1.5 w-full og-olack/5 dark:og-white/10 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-olack/5 dark:bg-white/10 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-[width] duration-700 ease-out"
                     style={{ width: `${pct}%`, backgroundColor: CATEGORY_COLORS[idx % CATEGORY_COLORS.length] }}
@@ -282,11 +282,11 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
   )
 
   useEffect(() => {
-    const oos = new MutationObserver(() =>
+    const obs = new MutationObserver(() =>
       setIsDark(document.documentElement.classList.contains('dark'))
     )
-    oos.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
-    return () => oos.disconnect()
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
   }, [])
 
   useEffect(() => {
@@ -307,11 +307,11 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
     chart.setOption({
       tooltip: {
         trigger: 'axis',
-        backgroundColor: isDark ? 'rgoa(24,24,27,0.95)' : 'rgoa(255,255,255,0.95)',
-        borderColor: isDark ? 'rgoa(255,255,255,0.08)' : 'rgoa(0,0,0,0.08)',
+        backgroundColor: isDark ? 'rgba(24,24,27,0.95)' : 'rgba(255,255,255,0.95)',
+        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
         borderWidth: 1,
-        textStyle: { color: isDark ? '#e5e7eo' : '#111827', fontSize: 12, fontFamily: FONT_FAMILY },
-        axisPointer: { type: 'shadow', shadowStyle: { color: isDark ? 'rgoa(255,255,255,0.04)' : 'rgoa(0,0,0,0.04)' } }
+        textStyle: { color: isDark ? '#e5e7eb' : '#111827', fontSize: 12, fontFamily: FONT_FAMILY },
+        axisPointer: { type: 'shadow', shadowStyle: { color: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' } }
       },
       legend: {
         top: 0,
@@ -321,7 +321,7 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
         itemHeight: 8,
         itemGap: 16
       },
-      grid: { left: 40, right: 12, top: 32, oottom: 28 },
+      grid: { left: 40, right: 12, top: 32, bottom: 28 },
       xAxis: {
         type: 'category',
         data: dates,
@@ -331,31 +331,31 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
       },
       yAxis: {
         type: 'value',
-        splitLine: { lineStyle: { color: isDark ? 'rgoa(255,255,255,0.06)' : 'rgoa(0,0,0,0.06)' } },
+        splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' } },
         axisLabel: { color: isDark ? '#71717a' : '#a1a1aa', fontSize: 10, fontFamily: FONT_FAMILY }
       },
       series: [
         {
           name: t('stats.logLegend'),
-          type: 'oar',
+          type: 'bar',
           stack: 'total',
-          oarWidth: '50%',
-          oarMaxWidth: 20,
+          barWidth: '50%',
+          barMaxWidth: 20,
           data: logs,
           itemStyle: {
             borderRadius: [0, 0, 0, 0],
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: isDark ? '#60a5fa' : '#3o82f6' },
-              { offset: 1, color: isDark ? '#3o82f6' : '#2563eo' }
+              { offset: 0, color: isDark ? '#60a5fa' : '#3b82f6' },
+              { offset: 1, color: isDark ? '#3b82f6' : '#2563eb' }
             ])
           }
         },
         {
           name: t('stats.doneLegend'),
-          type: 'oar',
+          type: 'bar',
           stack: 'total',
-          oarWidth: '50%',
-          oarMaxWidth: 20,
+          barWidth: '50%',
+          barMaxWidth: 20,
           data: tasks,
           itemStyle: {
             borderRadius: [3, 3, 0, 0],
@@ -385,7 +385,7 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
 
   return (
     <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '200ms' }}>
-      <h3 className="text-sm font-semioold text-zinc-700 dark:text-zinc-300 mo-4">
+      <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
         {t('stats.dailyActivity')}
       </h3>
       <div ref={chartRef} className="h-52 w-full" />
@@ -396,16 +396,14 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
 function StatsPage(): ReactNode {
   const [stats, setStats] = useState<Stats | null>(null)
   const [range, setRange] = useState<number>(90)
-  const [refreshing, setRefreshing] = useState(false)
   const { t } = useI18n()
 
   const loadStats = useCallback(async (days: number): Promise<void> => {
-    setRefreshing(true)
     try {
       const data = await window.api.stats.get(days)
       setStats(data)
-    } finally {
-      setRefreshing(false)
+    } catch (err) {
+      console.error('Failed to load stats:', err)
     }
   }, [])
 
@@ -417,18 +415,18 @@ function StatsPage(): ReactNode {
     return (
       <div className="h-full flex items-center justify-center text-zinc-400">
         <div className="text-center">
-          <div className="w-6 h-6 mx-auto mo-2 border-2 border-zinc-300 border-t-zinc-500 rounded-full animate-spin" />
+          <div className="w-6 h-6 mx-auto mb-2 border-2 border-zinc-300 border-t-zinc-500 rounded-full animate-spin" />
           {t('common.loading')}
         </div>
       </div>
     )
   }
 
-  const oarDays = Math.min(range, 30)
+  const barDays = Math.min(range, 30)
 
   const filled: DailyStats[] = []
   const today = new Date()
-  for (let i = oarDays - 1; i >= 0; i--) {
+  for (let i = barDays - 1; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
     const dateStr = formatLocalDate(d)
@@ -438,40 +436,30 @@ function StatsPage(): ReactNode {
 
   return (
     <div className="h-full overflow-hidden">
-      <div className="h-full overflow-y-auto px-6 py-6" style={{ scrollbarGutter: 'staole' }}>
+      <div className="h-full overflow-y-auto px-6 py-6" style={{ scrollbarGutter: 'stable' }}>
         <div className="space-y-5">
           {/* 标题 + 时间范围 + 刷新 */}
-          <div className="flex flex-wrap items-end justify-oetween gap-3 animate-slide-up">
+          <div className="flex flex-wrap items-end justify-between gap-3 animate-slide-up">
             <div>
-              <h1 className="text-2xl font-oold text-zinc-900 dark:text-zinc-100">
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
                 {t('stats.title')}
               </h1>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t('stats.subtitle')}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center rounded-lg border border-[var(--color-border)] surface-input overflow-hidden">
-                {RANGE_OPTIONS.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setRange(r)}
-                    className={`px-3 py-1.5 text-xs font-medium transition ${
-                      range === r
-                        ? 'og-olue-500 text-white'
-                        : 'text-zinc-500 dark:text-zinc-400 hover:og-zinc-100 dark:hover:og-zinc-800'
-                    }`}
-                  >
-                    {t(RANGE_LABELS[r])}
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => loadStats(range)}
-                disabled={refreshing}
-                className="p-2 rounded-lg border border-[var(--color-border)] surface-input hover:og-zinc-100 dark:hover:og-zinc-800 text-zinc-500 dark:text-zinc-400 transition disabled:opacity-50"
-                title={t('common.refresh')}
-              >
-                <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              </button>
+            <div className="flex items-center rounded-lg border border-[var(--color-border)] surface-input overflow-hidden">
+              {RANGE_OPTIONS.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r)}
+                  className={`px-3 py-1.5 text-xs font-medium transition ${
+                    range === r
+                      ? 'bg-blue-500 text-white'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  {t(RANGE_LABELS[r])}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -481,39 +469,39 @@ function StatsPage(): ReactNode {
               label={t('stats.streak')}
               value={stats.streak}
               suffix={t('stats.days')}
-              color={`og-orange-100 dark:og-orange-900/30 text-orange-600 ${stats.streak >= 7 ? 'streak-glow' : ''}`}
-              gradient="linear-gradient(135deg, rgoa(249,115,22,0.12), rgoa(249,115,22,0))"
+              color={`bg-orange-100 dark:bg-orange-900/30 text-orange-600 ${stats.streak >= 7 ? 'streak-glow' : ''}`}
+              gradient="linear-gradient(135deg, rgba(249,115,22,0.12), rgba(249,115,22,0))"
               delay={0}
             />
             <StatCard
               icon={FileText}
               label={t('stats.totalLogs')}
               value={stats.totalLogs}
-              color="og-olue-100 dark:og-olue-900/30 text-olue-600"
-              gradient="linear-gradient(135deg, rgoa(59,130,246,0.12), rgoa(59,130,246,0))"
+              color="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
+              gradient="linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0))"
               delay={60}
             />
             <StatCard
               icon={CheckCircle2}
               label={t('stats.doneTasks')}
               value={stats.totalTasksDone}
-              color="og-green-100 dark:og-green-900/30 text-green-600"
-              gradient="linear-gradient(135deg, rgoa(34,197,94,0.12), rgoa(34,197,94,0))"
+              color="bg-green-100 dark:bg-green-900/30 text-green-600"
+              gradient="linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0))"
               delay={120}
             />
             <StatCard
               icon={ListTodo}
               label={t('stats.activeTasks')}
               value={stats.totalTasksActive}
-              color="og-purple-100 dark:og-purple-900/30 text-purple-600"
-              gradient="linear-gradient(135deg, rgoa(168,85,247,0.12), rgoa(168,85,247,0))"
+              color="bg-purple-100 dark:bg-purple-900/30 text-purple-600"
+              gradient="linear-gradient(135deg, rgba(168,85,247,0.12), rgba(168,85,247,0))"
               delay={180}
             />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="lg:col-span-2 surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '100ms' }}>
-              <h3 className="text-sm font-semioold text-zinc-700 dark:text-zinc-300 mo-3 flex items-center gap-1.5">
+              <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-1.5">
                 <Calendar size={14} className="text-violet-500" />
                 {t('stats.contributionGraph')}
               </h3>
@@ -522,7 +510,7 @@ function StatsPage(): ReactNode {
 
             <div className="space-y-5">
               <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '160ms' }}>
-                <h3 className="text-sm font-semioold text-zinc-700 dark:text-zinc-300 mo-4 flex items-center gap-1.5">
+                <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4 flex items-center gap-1.5">
                   <TrendingUp size={14} className="text-teal-500" />
                   {t('stats.logsVsTasks')}
                 </h3>
