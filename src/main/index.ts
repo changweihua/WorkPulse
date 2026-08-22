@@ -1,3 +1,5 @@
+// 必须最先加载：让主进程读取项目根目录 .env（BARK_KEY 等）
+import 'dotenv/config'
 import { app, protocol, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain } from 'electron'
 import path, { join } from 'path'
 import { readFileSync, createReadStream } from 'fs'
@@ -404,11 +406,22 @@ function createSplashWindow(): void {
 
   console.log('[Splash] Loading from:', splashPath)  // 调试日志
 
-  splashWindow.loadFile(splashPath).then(() => {
-    console.log('[Splash] ✅ HTML 加载成功')
-  }).catch((err) => {
-    console.error('[Splash] ❌ HTML 加载失败:', err)
-  })
+  const loadSplash = (isRetry = false): void => {
+    if (!splashWindow) return
+    splashWindow.loadFile(splashPath).then(() => {
+      console.log('[Splash] ✅ HTML 加载成功')
+    }).catch((err) => {
+      // 窗口已被关闭（竞态）则不再处理；否则重试一次
+      if (!splashWindow) return
+      if (isRetry) {
+        console.error('[Splash] ❌ HTML 重试仍失败:', err)
+        return
+      }
+      console.warn('[Splash] ⚠️ HTML 加载失败，500ms 后重试:', err)
+      setTimeout(() => loadSplash(true), 500)
+    })
+  }
+  loadSplash()
 
   splashWindow.center()
   splashWindow.once('ready-to-show', () => {

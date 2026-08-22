@@ -210,6 +210,7 @@
     "better-sqlite3": "^13.0.3",
     "canvas-confetti": "^1.9.4",
     "date-fns": "^4.4.0",
+    "dotenv": "^17.4.2",
     "echarts": "^6.1.0",
     "electron-context-menu": "^4.1.2",
     "electron-log": "^5.4.4",
