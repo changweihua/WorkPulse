@@ -118,22 +118,22 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({
                 className={[
                     // 基础：bg-gray-50 底色 + flex 上下分区 + 相对定位（给休/班 absolute 用）
                     'relative h-full flex flex-col justify-between p-2 rounded-lg transition-all duration-150 cursor-pointer',
-                    'bg-gray-50/80 hover:bg-gray-100/90 border border-transparent',
-                    !isCurrent && 'opacity-35 pointer-events-none bg-gray-50/30',
-                    isToday && 'bg-blue-50/70 border-blue-100 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.75 before:rounded-full before:bg-blue-500',
-                    isSelected && 'ring-2 ring-blue-400/70 border-blue-200 bg-blue-50/80',
-                    isHolidayDay && 'bg-red-50/50',
-                    isWorkdayDay && 'bg-emerald-50/50',
+                    'bg-gray-50/80 hover:bg-gray-100/90 border border-transparent dark:bg-zinc-800/40 dark:hover:bg-zinc-700/50',
+                    !isCurrent && 'opacity-35 pointer-events-none bg-gray-50/30 dark:bg-zinc-800/20',
+                    isToday && 'bg-blue-50/70 border-blue-100 dark:bg-blue-500/10 dark:border-blue-500/30 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.75 before:rounded-full before:bg-blue-500',
+                    isSelected && 'ring-2 ring-blue-400/70 border-blue-200 bg-blue-50/80 dark:border-blue-500/40 dark:bg-blue-500/10',
+                    isHolidayDay && 'bg-red-50/50 dark:bg-red-500/10',
+                    isWorkdayDay && 'bg-emerald-50/50 dark:bg-emerald-500/10',
                 ].filter(Boolean).join(' ')}
             >
                 {/* 上半区：公历日期（水平居中）+ 休/班 badge（absolute 右上，不干扰居中） */}
                 <div className="relative flex justify-center">
                     <span className={[
                         'text-lg md:text-xl font-semibold leading-none text-center',
-                        isToday ? 'text-blue-600' : 'text-gray-800',
-                        isWeekend && !isWorkdayDay && !isHolidayDay && 'text-gray-400',
-                        isHolidayDay && 'text-red-500',
-                        isWorkdayDay && 'text-emerald-600',
+                        isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-zinc-100',
+                        isWeekend && !isWorkdayDay && !isHolidayDay && 'text-gray-400 dark:text-zinc-600',
+                        isHolidayDay && 'text-red-500 dark:text-red-400',
+                        isWorkdayDay && 'text-emerald-600 dark:text-emerald-400',
                     ].filter(Boolean).join(' ')}>
                         {date.getDate()}
                     </span>
@@ -157,8 +157,8 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({
                     <div className="text-center">
                         <span className={[
                             'text-[11px] md:text-xs truncate block',
-                            isHolidayDay ? 'text-red-400 font-medium' : 'text-gray-400',
-                            isWorkdayDay && 'text-emerald-600/70',
+                            isHolidayDay ? 'text-red-400 font-medium dark:text-red-400/90' : 'text-gray-400 dark:text-zinc-500',
+                            isWorkdayDay && 'text-emerald-600/70 dark:text-emerald-400/70',
                         ].filter(Boolean).join(' ')}>
                             {subText}
                         </span>
@@ -185,15 +185,15 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({
     return (
         <div className="w-full flex-1 flex flex-col bg-white/70 dark:bg-zinc-900/70 backdrop-blur-sm rounded-xl shadow-sm border border-gray-100/80 dark:border-zinc-800/50 overflow-hidden select-none">
             {/* 头部 */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-zinc-800 shrink-0">
                 <button onClick={goPrev} className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 dark:text-zinc-500 dark:hover:text-zinc-300 dark:hover:bg-white/10 transition text-xl">
                     ‹
                 </button>
                 <div className="flex items-center gap-3">
-                    <span className="text-lg font-semibold tracking-tight text-gray-800">
+                    <span className="text-lg font-semibold tracking-tight text-gray-800 dark:text-zinc-100">
                         {currentYear} 年 {currentMonth} 月
                     </span>
-                    <button onClick={goToday} className="text-sm font-medium text-blue-500 hover:text-blue-600 hover:bg-blue-50/60 px-3 py-1 rounded-md transition">
+                    <button onClick={goToday} className="text-sm font-medium text-blue-500 hover:text-blue-600 hover:bg-blue-50/60 dark:hover:bg-blue-500/10 px-3 py-1 rounded-md transition">
                         今天
                     </button>
                 </div>
@@ -203,9 +203,9 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({
             </div>
 
             {/* 周几栏 */}
-            <div className="grid grid-cols-7 text-center border-b border-gray-50 shrink-0">
+            <div className="grid grid-cols-7 text-center border-b border-gray-50 dark:border-zinc-800/60 shrink-0">
                 {['日', '一', '二', '三', '四', '五', '六'].map((w, i) => (
-                    <div key={w} className={`py-2.5 text-sm font-medium ${i === 0 || i === 6 ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <div key={w} className={`py-2.5 text-sm font-medium ${i === 0 || i === 6 ? 'text-gray-400 dark:text-zinc-600' : 'text-gray-500 dark:text-zinc-500'}`}>
                         {w}
                     </div>
                 ))}
