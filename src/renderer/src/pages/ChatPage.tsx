@@ -739,7 +739,7 @@ function ConfigDrawer({
                                 <div className="px-4 py-3 border-t border-[var(--color-border)] space-y-3 bg-zinc-50/50 dark:bg-zinc-800/30">
                                     <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
                                         <span className="flex items-center gap-1.5"><FileJson size={13} /> 导入配置 (JSON)</span>
-                                        <button onClick={() => setImportMode(false)} className="text-zinc-400 hover:text-zinc-600"><X size={14} /></button>
+                                        <button onClick={() => setImportMode(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"><X size={14} /></button>
                                     </div>
                                     <textarea
                                         value={importJson}
