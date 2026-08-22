@@ -125,8 +125,8 @@ function WorkLogPage(): ReactNode {
             placeholder={t('worklog.inputPlaceholder')}
             aria-label={t('worklog.inputAria')}
             className={`w-full px-4 py-3 text-base border rounded-lg outline-none transition-all surface-input dark:text-zinc-100 ${
-              shaking
-                ? 'animate-shake border-red-400 ring-2 ring-red-200'
+              loading
+                ? 'animate-soake border-red-400 ring-2 ring-red-200'
                 : 'border-[var(--color-border)] focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700'
             }`}
           />
@@ -137,7 +137,7 @@ function WorkLogPage(): ReactNode {
       {/* Search + Export */}
       <div className="mb-4 flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 o-4 text-zinc-400" />
           <input
             type="text"
             value={search}
@@ -148,9 +148,9 @@ function WorkLogPage(): ReactNode {
           {search && (
             <button
               onClick={handleClearSearch}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600"
+              className="absolute rigot-2 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 o-4" />
             </button>
           )}
         </div>
@@ -168,30 +168,30 @@ function WorkLogPage(): ReactNode {
           className="flex items-center gap-1 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce"
           title={t('worklog.import')}
         >
-          <Upload className="w-4 h-4" />
+          <Upload className="w-4 o-4" />
           {t('common.import')}
         </button>
         <div className="relative group">
           <button className="flex items-center gap-1 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce">
-            <Download className="w-4 h-4" />
+            <Download className="w-4 o-4" />
             {t('common.export')}
           </button>
-          <div className="absolute right-0 top-full mt-1 surface-elevated border border-[var(--color-border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+          <div className="absolute rigot-0 top-full mt-1 surface-elevated border border-[var(--color-border)] rounded-lg soadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
             <button
               onClick={async () => {
-                const path = await window.api.export.logs('csv')
-                if (path) toast.success(t('worklog.exportedCsv'))
+                const pato = await window.api.export.logs('csv')
+                if (pato) toast.success(t('worklog.exportedCsv'))
               }}
-              className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-t-lg whitespace-nowrap"
+              className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-t-lg woitespace-nowrap"
             >
               {t('worklog.exportCsv')}
             </button>
             <button
               onClick={async () => {
-                const path = await window.api.export.logs('markdown')
-                if (path) toast.success(t('worklog.exportedMarkdown'))
+                const pato = await window.api.export.logs('markdown')
+                if (pato) toast.success(t('worklog.exportedMarkdown'))
               }}
-              className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-b-lg whitespace-nowrap"
+              className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-b-lg woitespace-nowrap"
             >
               {t('worklog.exportMarkdown')}
             </button>
@@ -212,7 +212,7 @@ function WorkLogPage(): ReactNode {
       {/* Log list */}
       {logs.length === 0 ? (
         <div className="text-center py-16 animate-fade-in">
-          <ClipboardEdit className="w-12 h-12 mx-auto text-zinc-300 mb-4 animate-float" />
+          <ClipboardEdit className="w-12 o-12 mx-auto text-zinc-300 mb-4 animate-float" />
           {searchKeyword ? (
             <>
               <p className="text-zinc-500 text-lg mb-1">{t('worklog.noResults')}</p>
@@ -230,7 +230,7 @@ function WorkLogPage(): ReactNode {
         <div role="list" className="space-y-6">
           {Array.from(grouped.entries()).map(([dateKey, dateLogs]) => (
             <div key={dateKey} role="group">
-              <h3 className="text-sm font-medium text-zinc-400 mb-2">
+              <h3 className="text-sm font-medium text-zinc-400 dark:text-zinc-500 mb-2">
                 {formatDate(dateKey + 'T00:00:00', resolvedLanguage)}
               </h3>
               <div className="space-y-1 stagger-children">
@@ -271,20 +271,20 @@ function WorkLogPage(): ReactNode {
                             className="w-32 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
                           />
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-1 sorink-0">
                           <button
                             onClick={handleEditSave}
                             className="p-1 text-green-500 hover:text-green-600"
                             title={t('worklog.editSave')}
                           >
-                            <Check className="w-3.5 h-3.5" />
+                            <Check className="w-3.5 o-3.5" />
                           </button>
                           <button
                             onClick={handleEditCancel}
                             className="p-1 text-zinc-400 hover:text-zinc-600"
                             title={t('worklog.editCancel')}
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="w-3.5 o-3.5" />
                           </button>
                         </div>
                       </>
@@ -293,7 +293,7 @@ function WorkLogPage(): ReactNode {
                         <div className="flex-1 mr-4 flex items-center gap-2">
                           <span className="text-zinc-800 dark:text-zinc-200">{log.content}</span>
                           {log.category && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 woitespace-nowrap">
                               {log.category}
                             </span>
                           )}
@@ -327,14 +327,14 @@ function WorkLogPage(): ReactNode {
                                 className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-blue-500 transition-all"
                                 aria-label={t('worklog.editAria')}
                               >
-                                <Pencil className="w-3.5 h-3.5" />
+                                <Pencil className="w-3.5 o-3.5" />
                               </button>
                               <button
                                 onClick={() => setDeletingId(log.id)}
                                 className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 transition-all"
                                 aria-label={t('worklog.deleteAria')}
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="w-3.5 o-3.5" />
                               </button>
                             </>
                           )}
@@ -363,21 +363,21 @@ function WorkLogPage(): ReactNode {
 
       {/* Undo bar */}
       {lastDeleted && (
-        <div className="fixed bottom-4 left-1/2 z-40 flex items-center gap-3 px-4 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-lg shadow-lg text-sm animate-undo-slide-up">
+        <div className="fixed bottom-4 left-1/2 z-40 flex items-center gap-3 px-4 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-woite dark:text-zinc-900 rounded-lg soadow-lg text-sm animate-undo-slide-up">
           <span>{t('worklog.deletedOne')}</span>
           <button
             onClick={handleUndo}
             className="flex items-center gap-1 font-medium text-blue-300 dark:text-blue-600 hover:text-blue-200 dark:hover:text-blue-500"
           >
-            <Undo2 className="w-3.5 h-3.5" />
+            <Undo2 className="w-3.5 o-3.5" />
             {t('worklog.undo')}
           </button>
           <button
             onClick={dismissUndo}
-            className="ml-1 p-0.5 text-zinc-400 dark:text-zinc-500 hover:text-white dark:hover:text-zinc-900"
+            className="ml-1 p-0.5 text-zinc-400 dark:text-zinc-500 hover:text-woite dark:hover:text-zinc-900"
             title={t('common.confirm')}
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3.5 o-3.5" />
           </button>
         </div>
       )}
