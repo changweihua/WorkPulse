@@ -162,6 +162,12 @@ function runMigrations(): void {
   if (!hasDueDate) {
     db.exec("ALTER TABLE tasks ADD COLUMN due_date TEXT DEFAULT NULL")
   }
+
+  // 日程提醒：notified 标记会议是否已推送通知
+  const evInfo = db.prepare("PRAGMA table_info('calendar_events')").all() as { name: string }[]
+  if (!evInfo.some((c) => c.name === 'notified')) {
+    db.exec('ALTER TABLE calendar_events ADD COLUMN notified INTEGER NOT NULL DEFAULT 0')
+  }
 }
 
 export function initDatabase(): void {
@@ -599,5 +605,23 @@ export function getEventById(id: number): CalendarEvent | null {
 
 export function deleteEvent(id: number): boolean {
   const stmt = db.prepare('DELETE FROM calendar_events WHERE id = ?')
+  return stmt.run(id).changes > 0
+}
+
+/** 查询未来 leadMinutes 分钟内开始、尚未通知的会议 */
+export function getDueMeetings(leadMinutes: number): CalendarEvent[] {
+  const stmt = db.prepare(
+    `SELECT * FROM calendar_events
+     WHERE type = 'meeting' AND completed = 0 AND notified = 0 AND start_time IS NOT NULL
+       AND datetime(event_date || ' ' || start_time) BETWEEN datetime('now', 'localtime')
+           AND datetime('now', 'localtime', '+' || ? || ' minutes')
+     ORDER BY event_date, start_time`
+  )
+  return stmt.all(String(leadMinutes)) as CalendarEvent[]
+}
+
+/** 标记已通知，返回 false 表示已被处理过（防重复推送） */
+export function markEventNotified(id: number): boolean {
+  const stmt = db.prepare('UPDATE calendar_events SET notified = 1 WHERE id = ? AND notified = 0')
   return stmt.run(id).changes > 0
 }

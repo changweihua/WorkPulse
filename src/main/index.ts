@@ -5,6 +5,7 @@ import { Readable } from 'stream'
 import { getModelsDir } from './model-files'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, getSetting, setSetting } from './db'
+import { startScheduler } from './scheduler'
 import { registerIpcHandlers } from './ipc'
 import { tMain, type AppLanguage } from './i18n'
 import { configureAutoUpdater, registerUpdateIpc, startUpdateCheck } from './updater'
@@ -629,6 +630,8 @@ app.whenReady().then(async () => {
   registerTitleBarListener()
 
   initDatabase()
+
+  startScheduler(getMainWindow)
 
   registerAutoLaunchIpc();
 

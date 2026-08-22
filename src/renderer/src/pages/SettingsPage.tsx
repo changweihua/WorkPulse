@@ -193,6 +193,10 @@ function SettingsPage(): ReactNode {
   // 关闭行为设置
   const [closeAction, setCloseAction] = useState('minimize')
 
+  // 会议提醒设置
+  const [reminderEnabled, setReminderEnabled] = useState(true)
+  const [reminderLead, setReminderLead] = useState('10')
+
   useEffect(() => {
     loadSettings()
 
@@ -212,6 +216,14 @@ function SettingsPage(): ReactNode {
     void window.api.app.getCloseAction()
       .then((action: string) => setCloseAction(action))
       .catch(() => {})
+
+    // 加载会议提醒设置
+    void window.api.settings.get('reminder_enabled').then((v) => {
+      if (v !== null) setReminderEnabled(v === '1')
+    })
+    void window.api.settings.get('reminder_lead').then((v) => {
+      if (v !== null) setReminderLead(v)
+    })
 
     return () => {
       unsubscribeUpdateStatus()
@@ -454,6 +466,31 @@ function SettingsPage(): ReactNode {
       toast.success(action === 'quit' ? '✅ 关闭时将退出程序' : '✅ 关闭时将最小化到托盘')
     } catch (error) {
       setCloseAction(prev)
+      toast.error('❌ 操作失败，请重试')
+    }
+  }
+
+  // 切换会议提醒
+  const handleToggleReminder = async (): Promise<void> => {
+    const next = !reminderEnabled
+    setReminderEnabled(next)
+    try {
+      await window.api.settings.set('reminder_enabled', next ? '1' : '0')
+      toast.success(next ? '✅ 会议提醒已开启' : '✅ 会议提醒已关闭')
+    } catch (error) {
+      setReminderEnabled(!next)
+      toast.error('❌ 操作失败，请重试')
+    }
+  }
+
+  // 修改提醒提前量
+  const handleReminderLeadChange = async (value: string): Promise<void> => {
+    const prev = reminderLead
+    setReminderLead(value)
+    try {
+      await window.api.settings.set('reminder_lead', value)
+    } catch (error) {
+      setReminderLead(prev)
       toast.error('❌ 操作失败，请重试')
     }
   }
@@ -837,6 +874,37 @@ function SettingsPage(): ReactNode {
                   }`}
                 >
                   退出程序
+                </button>
+              </div>
+            </div>
+
+            {/* 会议提醒 */}
+            <div className="flex items-center justify-between mt-4">
+              <div>
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">会议开始提醒</p>
+                <p className="text-xs text-zinc-400">会议开始前推送系统通知</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <select
+                  value={reminderLead}
+                  onChange={(e) => void handleReminderLeadChange(e.target.value)}
+                  disabled={!reminderEnabled}
+                  className="px-2 py-1.5 text-xs rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 disabled:opacity-50"
+                >
+                  <option value="5">提前 5 分钟</option>
+                  <option value="10">提前 10 分钟</option>
+                  <option value="15">提前 15 分钟</option>
+                  <option value="30">提前 30 分钟</option>
+                </select>
+                <button
+                  onClick={() => void handleToggleReminder()}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${reminderEnabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'
+                    }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${reminderEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                  />
                 </button>
               </div>
             </div>
