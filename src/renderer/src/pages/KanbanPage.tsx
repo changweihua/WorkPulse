@@ -41,7 +41,7 @@ type ColumnId = 'todo' | 'in_progress' | 'done'
 type DroppableId = ColumnId | 'draft'
 
 const COLUMNS: { id: ColumnId; labelKey: 'kanban.todo' | 'kanban.inProgress' | 'kanban.done'; color: string }[] = [
-  { id: 'todo', labelKey: 'kanban.todo', color: 'border-zinc-300' },
+  { id: 'todo', labelKey: 'kanban.todo', color: 'border-zinc-300 dark:border-zinc-600' },
   { id: 'in_progress', labelKey: 'kanban.inProgress', color: 'border-blue-400' },
   { id: 'done', labelKey: 'kanban.done', color: 'border-green-400' }
 ]
@@ -276,7 +276,7 @@ function SortableTaskCard({
               </button>
               <button
                 onClick={cancelEdit}
-                className="p-1 text-zinc-400 hover:text-zinc-600 transition-colors"
+                className="p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
                 title={t('kanban.cancelShortcut')}
               >
                 <X className="w-3.5 h-3.5" />
@@ -412,7 +412,7 @@ function CompleteDialog({
         <div className="flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700"
+            className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
           >
             {t('common.skip')}
           </button>
@@ -768,7 +768,7 @@ function KanbanPage(): ReactNode {
                   />
                   <button
                     onClick={handleAddDraft}
-                    className="px-2 py-1.5 bg-zinc-100 text-zinc-600 text-xs rounded hover:bg-zinc-200 transition-colors"
+                    className="px-2 py-1.5 bg-zinc-100 text-zinc-600 text-xs rounded hover:bg-zinc-200 dark:bg-zinc-700/60 dark:text-zinc-300 dark:hover:bg-zinc-600 transition-colors"
                   >
                     <Plus className="w-3 h-3" />
                   </button>

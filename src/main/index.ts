@@ -653,10 +653,9 @@ app.whenReady().then(async () => {
 
   registerAutoLaunchIpc();
 
-  // 仅打包后设置自定义 AppUserModelID：开发模式下系统无对应快捷方式，
-  // Windows 任务栏会因此无视窗口图标、回退到 electron.exe 默认图标。
-  // 值必须与 electron-builder 的 build.appId 一致（安装器快捷方式使用该 AUMID）
-  if (app.isPackaged) {
+  // Windows 必须显式设置 AppUserModelID：缺失时 Explorer 按 electron.exe 路径推导
+  // 任务栏分组身份，导致显示 exe 默认图标。值与 electron-builder 的 build.appId 一致。
+  if (process.platform === 'win32') {
     electronApp.setAppUserModelId('cmono.workpulse.app')
   }
 
