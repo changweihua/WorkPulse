@@ -653,7 +653,11 @@ app.whenReady().then(async () => {
 
   registerAutoLaunchIpc();
 
-  electronApp.setAppUserModelId('com.workpulse')
+  // 仅打包后设置自定义 AppUserModelID：开发模式下系统无对应快捷方式，
+  // Windows 任务栏会因此无视窗口图标、回退到 electron.exe 默认图标
+  if (app.isPackaged) {
+    electronApp.setAppUserModelId('com.workpulse')
+  }
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
