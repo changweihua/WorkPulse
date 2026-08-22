@@ -173,6 +173,7 @@ Tailwind 等价写法：主文字 `text-zinc-800 dark:text-zinc-100`，次级 `t
 - [ ] 次级文字至少 `dark:text-zinc-400`，标签类用 `dark:text-zinc-300`
 - [ ] 边框用 `dark:border-zinc-700/70` 系或 `var(--color-border)`
 - [ ] 图片 / 画布区域在暗色下有中性深色底
+- [ ] Markdown 内容（`prose` 类）：`dark:prose-invert` 对 tw-prose 独立包**无效**，必须依赖 `index.css` 中 `.dark .prose` 的 `--tw-prose-*` 变量覆盖（已内置，新增排版元素时检查该块是否覆盖到）
 - [ ] 在亮色壁纸 + Acrylic 材质下目视检查文字对比度
 - [ ] `npx tsc --noEmit -p tsconfig.web.json` 通过
 
