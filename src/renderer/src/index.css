@@ -77,6 +77,23 @@
   --color-info-subtle: rgb(59 130 246 / 15%);
 }
 
+/* ===== Dark mode: Markdown 排版（tw-prose 变量覆盖，dark:prose-invert 对独立包无效） ===== */
+.dark .prose {
+  --tw-prose-body: rgb(212 212 216);
+  --tw-prose-lead: rgb(161 161 170);
+  --tw-prose-headings: rgb(250 250 250);
+  --tw-prose-bold: rgb(250 250 250);
+  --tw-prose-links: rgb(96 165 250);
+  --tw-prose-bullets: rgb(113 113 122);
+  --tw-prose-counters: rgb(113 113 122);
+  --tw-prose-hr: rgb(255 255 255 / 10%);
+  --tw-prose-quotes: rgb(212 212 216);
+  --tw-prose-quote-borders: rgb(63 63 70);
+  --tw-prose-code: rgb(250 250 250);
+  --tw-prose-th-borders: rgb(255 255 255 / 15%);
+  --tw-prose-td-borders: rgb(255 255 255 / 10%);
+}
+
 /* ===== Base: transparent body for Acrylic ===== */
 html {
   background: transparent;

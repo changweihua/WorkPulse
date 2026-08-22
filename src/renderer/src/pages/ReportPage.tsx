@@ -284,7 +284,7 @@ function ReportPage(): ReactNode {
             <button
               onClick={handleGenerate}
               disabled={status === 'no_key' || status === 'generating' || status === 'streaming'}
-              className="shrink-0 px-8 py-3 text-sm font-semibold rounded-xl text-white dark:text-zinc-900 bg-gradient-to-r from-zinc-800 via-zinc-900 to-zinc-800 dark:from-zinc-100 dark:via-zinc-200 dark:to-zinc-100 shadow-fluent hover:shadow-fluent-lg transition-all btn-bounce disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="shrink-0 px-8 py-3 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-fluent hover:shadow-fluent-lg transition-all btn-bounce disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {status === 'generating' || status === 'streaming' ? (
                 <span className="flex items-center gap-2">
