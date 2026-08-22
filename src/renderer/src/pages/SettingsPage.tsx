@@ -464,7 +464,7 @@ function SettingsPage(): ReactNode {
   return (
     <div className="flex flex-col bg-transparent">
       {/* Header - 固定顶部 */}
-      <header className="sticky top-0 z-10 flex items-center px-4 py-3 border-b border-[var(--color-border-subtle)] bg-white/50 dark:bg-[#28282b]/55 backdrop-blur-md">
+      <header className="sticky top-0 z-10 flex items-center px-4 py-3 border-b border-zinc-200/20 dark:border-zinc-700/20 bg-white/50 dark:bg-[#28282b]/55 backdrop-blur-md">
         <button
           onClick={() => navigate('/worklog')}
           className="p-2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors mr-2"
@@ -494,7 +494,7 @@ function SettingsPage(): ReactNode {
                   </code>
                   <button
                     onClick={() => setShowKey(!showKey)}
-                    className="p-2 text-zinc-400 hover:text-zinc-600"
+                    className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                     aria-label={showKey ? t('settings.hide') : t('settings.show')}
                   >
                     {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -534,7 +534,7 @@ function SettingsPage(): ReactNode {
                         setEditing(false)
                         loadSettings()
                       }}
-                      className="px-3 py-2 text-sm text-zinc-500 hover:text-zinc-700"
+                      className="px-3 py-2 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                     >
                       {t('common.cancel')}
                     </button>
@@ -627,7 +627,7 @@ function SettingsPage(): ReactNode {
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">{t('settings.systemPrompt')}</label>
                 <button
                   onClick={resetSystemPrompt}
-                  className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600"
+                  className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                   title={t('settings.restoreDefault')}
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -652,7 +652,7 @@ function SettingsPage(): ReactNode {
                 <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">{t('settings.reportTemplate')}</label>
                 <button
                   onClick={resetReportTemplate}
-                  className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600"
+                  className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                   title={t('settings.restoreDefault')}
                 >
                   <RotateCcw className="w-3 h-3" />
