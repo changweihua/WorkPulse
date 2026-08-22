@@ -29,6 +29,11 @@ let tray: Tray | null = null
 let isQuitting = false
 
 // +++++ 新增：启动窗口引用 +++++
+// 应用图标：Windows 推荐 .ico（无边框 NC 重绘后仍能稳定显示）
+const APP_ICON_PATH = is.dev
+  ? join(__dirname, '../../resources/icon.ico')
+  : join(process.resourcesPath, 'icon.ico')
+
 let splashWindow: BrowserWindow | null = null
 
 // --- Helpers ---
@@ -451,9 +456,7 @@ function closeSplashWindow(): void {
 
 // 原有的 createWindow 函数需要修改 ready-to-show 事件
 function createWindow(): void {
-  const iconPath = is.dev
-    ? join(__dirname, '../../resources/icon.png')
-    : join(process.resourcesPath, 'icon.png')
+  const iconPath = APP_ICON_PATH
   const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
@@ -479,6 +482,8 @@ function createWindow(): void {
   // 当窗口准备就绪后，最大化并显示（原生 Mica 无需最大化后重应用）
   mainWindow.once('ready-to-show', () => {
     closeSplashWindow()
+    // DWM 材质应用后重设图标，防止任务栏回退到 electron.exe 默认图标
+    mainWindow.setIcon(APP_ICON_PATH)
     mainWindow.maximize()
     mainWindow.show()
   })
@@ -768,6 +773,7 @@ export function registerAutoLaunchIpc(): void {
     if (win && process.platform === 'win32') {
       try {
         win.setBackgroundMaterial(material as 'mica' | 'tabbed' | 'acrylic')
+        win.setIcon(APP_ICON_PATH)
       } catch (err) {
         console.error('[Main] setBackgroundMaterial failed:', err)
         return { success: false }

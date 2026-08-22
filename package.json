@@ -89,6 +89,10 @@
         "to": "icon.png"
       },
       {
+        "from": "resources/icon.ico",
+        "to": "icon.ico"
+      },
+      {
         "from": "./native/",
         "to": "native/",
         "filter": [
