@@ -2,6 +2,11 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。每次发布（`npm run release` 或手动打 `v*` 标签）时同步更新本文件。
 
+## [未发布]
+
+### 新增
+- AI 报告与对话的 Markdown 渲染支持 Mermaid 图表（Streamdown 内置懒加载，跟随深浅主题，`securityLevel: strict` 渲染层净化）
+
 ## [0.2.8] - 2026-08-22
 
 ### 新增

@@ -19,6 +19,16 @@ export function StreamedMarkdown({ content, isStreaming = false, className }: St
   const [thinkOpen, setThinkOpen] = useState(false)
   const { think, rest } = useMemo(() => parseThinkTags(content), [content])
 
+  // 跟随主题切换，让 Mermaid 图表用对应的深浅配色
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(document.documentElement.classList.contains('dark'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+
   return (
     <div className={className || 'prose prose-zinc dark:prose-invert prose-sm max-w-none'} role="article">
       {think && (
@@ -44,7 +54,18 @@ export function StreamedMarkdown({ content, isStreaming = false, className }: St
         </div>
       )}
       {rest ? (
-        <Streamdown mode={isStreaming ? 'streaming' : 'static'} isAnimating={isStreaming}>
+        <Streamdown
+          mode={isStreaming ? 'streaming' : 'static'}
+          isAnimating={isStreaming}
+          mermaid={{
+            // securityLevel strict：渲染层即净化，禁止图表内 HTML 注入
+            config: {
+              theme: isDark ? 'dark' : 'default',
+              startOnLoad: false,
+              securityLevel: 'strict'
+            }
+          }}
+        >
           {rest}
         </Streamdown>
       ) : isStreaming && !think ? (
