@@ -83,7 +83,7 @@ export function TitleBar() {
   } as React.CSSProperties;
 
   return (
-    <div style={glassStyle} className="bg-white/50 dark:bg-[#28282b]/55 backdrop-blur-md">
+    <div style={glassStyle}>
       <div
         style={{
           display: 'flex',

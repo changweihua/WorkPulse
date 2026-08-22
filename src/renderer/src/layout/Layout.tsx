@@ -103,7 +103,9 @@ export default function Layout() {
     };
 
     return (
-        <div className="h-screen flex flex-col">
+        <div className="h-screen flex flex-col relative">
+            {/* 全窗口统一画布：标题栏、导航栏、内容区共享同一底色 */}
+            <div className="absolute inset-0 bg-white/50 dark:bg-[#28282b]/88 pointer-events-none" />
             <TitleBar />
             <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/20 dark:border-zinc-700/20 bg-white/50 dark:bg-[#28282b]/55 backdrop-blur-md">
                 <div className="flex items-center gap-1">
@@ -131,7 +133,7 @@ export default function Layout() {
                 </Link>
             </header>
 
-            <main className="flex-1 overflow-auto bg-white/50 dark:bg-[#28282b]/88">
+            <main className="flex-1 overflow-auto relative">
                 <div className={fluid ? '' : 'max-w-3xl mx-auto px-4 py-6'}>
                     <Outlet />
                 </div>
