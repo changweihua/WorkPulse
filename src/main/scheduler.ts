@@ -33,6 +33,21 @@ export function stopScheduler(): void {
   }
 }
 
+/** 看板任务完成通知（本地系统通知 + Bark） */
+export function notifyTaskCompleted(title: string): void {
+  try {
+    const notification = new Notification({
+      title: '任务完成',
+      body: title,
+      silent: false,
+    })
+    notification.show()
+    void pushBark('任务完成', title)
+  } catch (err) {
+    console.error('[scheduler] notifyTaskCompleted failed:', err)
+  }
+}
+
 function checkMeetings(getMainWindow: () => BrowserWindow | null): void {
   try {
     if (getSetting('reminder_enabled') === '0') return

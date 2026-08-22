@@ -35,6 +35,7 @@ import {
 import { generateReport, streamChat } from './ai'
 import { ensureModelFiles, setModelProgressSender } from './model-files'
 import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey } from './secureSettings'
+import { notifyTaskCompleted } from './scheduler'
 import { tMain } from './i18n'
 import OpenAI from 'openai';
 import { join } from 'path'
@@ -160,7 +161,12 @@ export function registerIpcHandlers(): void {
       id: number,
       updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'position' | 'due_date'>>
     ) => {
-      return updateTask(id, updates)
+      const prevStatus = getTasks().find((t) => t.id === id)?.status
+      const task = updateTask(id, updates)
+      if (task && updates.status === 'done' && prevStatus !== 'done') {
+        notifyTaskCompleted(task.title)
+      }
+      return task
     }
   )
 
@@ -177,8 +183,11 @@ export function registerIpcHandlers(): void {
     'task:complete',
     (_event, id: number, logContent: string) => {
       const task = updateTask(id, { status: 'done' })
-      if (task && logContent.trim()) {
-        addWorkLog(logContent.trim(), '', id)
+      if (task) {
+        if (logContent.trim()) {
+          addWorkLog(logContent.trim(), '', id)
+        }
+        notifyTaskCompleted(task.title)
       }
       return task
     }
