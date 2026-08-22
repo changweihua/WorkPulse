@@ -105,7 +105,7 @@ export default function Layout() {
     return (
         <div className="h-screen flex flex-col">
             <TitleBar />
-            <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-[#2a2a2e]/55">
+            <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-[#28282b]/55 backdrop-blur-md">
                 <div className="flex items-center gap-1">
                     <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4">工作台</h1>
                     <nav className="flex gap-1">
