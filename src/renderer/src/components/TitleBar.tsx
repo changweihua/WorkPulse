@@ -26,7 +26,6 @@ export function TitleBar() {
     WebkitAppRegion: 'drag',
     flexShrink: 0,
     userSelect: 'none',
-    borderBottom: '1px solid rgba(255,255,255,0.08)',
     position: 'relative' as const,
     zIndex: 50,
   } as React.CSSProperties;

@@ -464,7 +464,7 @@ function SettingsPage(): ReactNode {
   return (
     <div className="flex flex-col bg-transparent">
       {/* Header - 固定顶部 */}
-      <header className="sticky top-0 z-10 flex items-center px-4 py-3 border-b border-zinc-200/20 dark:border-zinc-700/20 bg-white/50 dark:bg-[#28282b]/55 backdrop-blur-md">
+      <header className="sticky top-0 z-10 flex items-center px-4 py-3 border-b border-zinc-200/20 dark:border-zinc-700/20">
         <button
           onClick={() => navigate('/worklog')}
           className="p-2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors mr-2"

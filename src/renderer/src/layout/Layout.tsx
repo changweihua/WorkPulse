@@ -107,7 +107,7 @@ export default function Layout() {
             {/* 全窗口统一画布：标题栏、导航栏、内容区共享同一底色 */}
             <div className="absolute inset-0 bg-white/50 dark:bg-[#28282b]/88 pointer-events-none" />
             <TitleBar />
-            <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/20 dark:border-zinc-700/20 bg-white/50 dark:bg-[#28282b]/55 backdrop-blur-md">
+            <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/20 dark:border-zinc-700/20">
                 <div className="flex items-center gap-1">
                     <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mr-4">工作台</h1>
                     <nav className="flex gap-1">
