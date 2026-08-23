@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import ChineseLunarCalendar from '../components/ChineseLunarCalendar';
+import ChineseLunarCalendar, { type EventMark } from '../components/ChineseLunarCalendar';
 import { useHolidays, isHolidayDate, isWorkdaySwap, getHolidayName } from '../lib/holiday';
 import { Fade } from '../components/Motion';
 import {
@@ -64,7 +64,7 @@ const CalendarPage: React.FC = () => {
     const holidays = useHolidays(selectedYear);
 
     // ---------- 左侧日历联动：当月事件标记 ----------
-    const [monthMarks, setMonthMarks] = useState<Record<string, { todo: number; done: number; meeting: number }>>({});
+    const [monthMarks, setMonthMarks] = useState<Record<string, EventMark>>({});
     const [calMonth, setCalMonth] = useState<{ year: number; month: number }>({
         year: new Date().getFullYear(),
         month: new Date().getMonth() + 1,
@@ -78,9 +78,9 @@ const CalendarPage: React.FC = () => {
             const lastDay = new Date(year, month, 0).getDate();
             const end = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`;
             const list = await window.api.event.byRange(start, end);
-            const marks: Record<string, { todo: number; done: number; meeting: number }> = {};
+            const marks: Record<string, EventMark> = {};
             for (const ev of list || []) {
-                if (!marks[ev.event_date]) marks[ev.event_date] = { todo: 0, done: 0, meeting: 0 };
+                if (!marks[ev.event_date]) marks[ev.event_date] = { todo: 0, done: 0, meeting: 0, events: [] };
                 const m = marks[ev.event_date];
                 if (ev.type === 'todo') {
                     m.todo += 1;
@@ -88,6 +88,26 @@ const CalendarPage: React.FC = () => {
                 } else {
                     m.meeting += 1;
                 }
+                (m.events ??= []).push({
+                    id: ev.id,
+                    type: ev.type,
+                    title: ev.title,
+                    start_time: ev.start_time,
+                    end_time: ev.end_time,
+                    completed: ev.completed,
+                });
+            }
+            // 每日事件排序：按开始时间（无时间排最后），相同时会议在前
+            for (const m of Object.values(marks)) {
+                m.events?.sort((a, b) => {
+                    if (a.start_time !== b.start_time) {
+                        if (!a.start_time) return 1;
+                        if (!b.start_time) return -1;
+                        return a.start_time.localeCompare(b.start_time);
+                    }
+                    if (a.type === b.type) return 0;
+                    return a.type === 'meeting' ? -1 : 1;
+                });
             }
             setMonthMarks(marks);
         } catch {

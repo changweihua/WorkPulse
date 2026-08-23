@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback, ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { FadeIn } from '../components/Motion'
-import { Flame, FileText, CheckCircle2, ListTodo, Tag, TrendingUp, Calendar } from 'lucide-react'
+import { Tag, TrendingUp, Calendar } from 'lucide-react'
 import * as echarts from 'echarts'
 import { useI18n } from '../stores/languageStore'
 import type { TranslationKey } from '../lib/i18n'
@@ -78,36 +78,53 @@ const STATS_ITEM_VARIANTS = {
 }
 
 function StatCard({
-  icon: Icon,
+  emoji,
   label,
   value,
   suffix,
-  color,
-  gradient
+  delta,
+  deltaLabel,
+  gradient,
+  iconBg,
+  valueColor
 }: {
-  icon: typeof Flame
+  emoji: string
   label: string
   value: number
   suffix?: string
-  color: string
+  delta?: string
+  deltaLabel?: string
   gradient: string
+  iconBg: string
+  valueColor: string
 }): ReactNode {
   const displayValue = useCountUp(value)
 
   return (
     <motion.div
       variants={STATS_ITEM_VARIANTS}
-      className="flex items-center gap-4 p-5 surface-card rounded-xl card-hover"
+      className="stat-card group relative flex items-center justify-between p-4 pr-5 surface-card rounded-2xl overflow-hidden"
       style={{ backgroundImage: gradient }}
     >
-      <div className={`p-3 rounded-xl ${color}`}>
-        <Icon className="w-6 h-6" />
-      </div>
-      <div>
-        <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums leading-none">
-          {displayValue}{suffix ? ` ${suffix}` : ''}
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 mb-1">{label}</p>
+        <p className="text-[32px] font-extrabold tabular-nums leading-none tracking-tight" style={{ color: valueColor }}>
+          {displayValue}{suffix && <span className="text-sm font-semibold text-zinc-400 dark:text-zinc-500 ml-0.5">{suffix}</span>}
         </p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5">{label}</p>
+        {delta && (
+          <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1.5">
+            {deltaLabel && <span className="mr-1">{deltaLabel}</span>}
+            <span className={`font-medium ${delta.startsWith('+') ? 'text-emerald-500' : 'text-red-500'}`}>
+              {delta.startsWith('+') ? '↑' : '↓'} {delta}
+            </span>
+          </p>
+        )}
+      </div>
+      <div
+        className="stat-card-icon shrink-0 w-14 h-14 flex items-center justify-center rounded-2xl text-3xl"
+        style={{ background: iconBg }}
+      >
+        {emoji}
       </div>
     </motion.div>
   )
@@ -162,23 +179,20 @@ function DonutChart({ logs, tasks }: { logs: number; tasks: number }): ReactNode
 
 function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
   const { t } = useI18n()
-  const last7 = data.filter((d) => {
-    const diff = (Date.now() - new Date(d.date + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24)
-    return diff < 7
-  })
-  const weekLogs = last7.reduce((s, d) => s + d.log_count, 0)
-  const weekTasks = last7.reduce((s, d) => s + d.task_completed, 0)
-  const activeDays = last7.filter((d) => d.log_count + d.task_completed > 0).length
-  const bestDay = last7.reduce(
+  const periodData = data
+  const periodLogs = periodData.reduce((s, d) => s + d.log_count, 0)
+  const periodTasks = periodData.reduce((s, d) => s + d.task_completed, 0)
+  const activeDays = periodData.filter((d) => d.log_count + d.task_completed > 0).length
+  const bestDay = periodData.reduce(
     (best, d) => (d.log_count + d.task_completed > best.count ? { date: d.date, count: d.log_count + d.task_completed } : best),
     { date: '', count: 0 }
   )
-  const avgPerActiveDay = activeDays > 0 ? ((weekLogs + weekTasks) / activeDays).toFixed(1) : '0'
+  const avgPerActiveDay = activeDays > 0 ? ((periodLogs + periodTasks) / activeDays).toFixed(1) : '0'
 
   const rows = [
-    { label: t('stats.activeDays'), value: `${activeDays} / 7` },
-    { label: t('stats.logLegend'), value: String(weekLogs) },
-    { label: t('stats.doneTasks'), value: String(weekTasks) },
+    { label: t('stats.activeDays'), value: `${activeDays} / ${data.length}` },
+    { label: t('stats.logLegend'), value: String(periodLogs) },
+    { label: t('stats.doneTasks'), value: String(periodTasks) },
     { label: t('stats.bestDay'), value: bestDay.count > 0 ? `${bestDay.date.slice(5)} · ${bestDay.count}` : '-' },
     { label: t('stats.avgPerDay'), value: avgPerActiveDay }
   ]
@@ -188,13 +202,28 @@ function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
       <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
         {t('stats.weeklySummary')}
       </h3>
-      <div className="space-y-3">
-        {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between">
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">{row.label}</span>
-            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums">
+      <div className="grid grid-cols-2 gap-2.5">
+        {rows.map((row, idx) => (
+          <div
+            key={row.label}
+            className={`rounded-lg bg-zinc-50 dark:bg-white/5 px-3 py-2.5 ${
+              idx === 3 ? 'col-span-2 flex items-center justify-between' : ''
+            }`}
+          >
+            <p
+              className={`text-[11px] text-zinc-500 dark:text-zinc-400 ${
+                idx === 3 ? '' : 'mb-1'
+              }`}
+            >
+              {row.label}
+            </p>
+            <p
+              className={`font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums ${
+                idx === 3 ? 'text-sm ml-2 truncate' : 'text-base'
+              }`}
+            >
               {row.value}
-            </span>
+            </p>
           </div>
         ))}
       </div>
@@ -404,6 +433,30 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
   )
 }
 
+/** Compare current period vs previous period of the same length for delta */
+function computeDeltas(daily: DailyStats[]): { logsDelta: string | undefined; tasksDelta: string | undefined } {
+  if (daily.length < 2) return { logsDelta: undefined, tasksDelta: undefined }
+
+  const half = Math.floor(daily.length / 2)
+  const recent = daily.slice(-half)
+  const prev = daily.slice(0, half)
+
+  const recentLogs = recent.reduce((s, d) => s + d.log_count, 0)
+  const prevLogs = prev.reduce((s, d) => s + d.log_count, 0)
+  const recentTasks = recent.reduce((s, d) => s + d.task_completed, 0)
+  const prevTasks = prev.reduce((s, d) => s + d.task_completed, 0)
+
+  const fmt = (curr: number, prevVal: number): string | undefined => {
+    if (prevVal === 0 && curr === 0) return undefined
+    if (prevVal === 0) return '+∞'
+    const pct = ((curr - prevVal) / prevVal) * 100
+    if (pct === 0) return undefined
+    return `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`
+  }
+
+  return { logsDelta: fmt(recentLogs, prevLogs), tasksDelta: fmt(recentTasks, prevTasks) }
+}
+
 function StatsPage(): ReactNode {
   const [stats, setStats] = useState<Stats | null>(null)
   const [range, setRange] = useState<number>(90)
@@ -432,6 +485,11 @@ function StatsPage(): ReactNode {
       </div>
     )
   }
+
+  // Windowed totals from daily data (linked to range selector)
+  const windowedLogs = stats.daily.reduce((s, d) => s + d.log_count, 0)
+  const windowedTasksDone = stats.daily.reduce((s, d) => s + d.task_completed, 0)
+  const { logsDelta, tasksDelta } = computeDeltas(stats.daily)
 
   const barDays = Math.min(range, 30)
 
@@ -475,44 +533,52 @@ function StatsPage(): ReactNode {
           </FadeIn>
 
           <motion.div
-            className="grid grid-cols-2 md:grid-cols-4 gap-4"
+            className="grid grid-cols-2 lg:grid-cols-4 gap-3"
             variants={STATS_GRID_VARIANTS}
             initial="hidden"
             animate="show"
           >
             <StatCard
-              icon={Flame}
+              emoji="🔥"
               label={t('stats.streak')}
               value={stats.streak}
               suffix={t('stats.days')}
-              color={`bg-orange-100 dark:bg-orange-900/30 text-orange-600 ${stats.streak >= 7 ? 'streak-glow' : ''}`}
-              gradient="linear-gradient(135deg, rgba(249,115,22,0.12), rgba(249,115,22,0))"
+              valueColor="#f97316"
+              gradient="linear-gradient(135deg, rgba(249,115,22,0.06), rgba(249,115,22,0.01))"
+              iconBg="linear-gradient(135deg, rgba(249,115,22,0.15), rgba(249,115,22,0.05))"
             />
             <StatCard
-              icon={FileText}
+              emoji="📝"
               label={t('stats.totalLogs')}
-              value={stats.totalLogs}
-              color="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
-              gradient="linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0))"
+              value={windowedLogs}
+              delta={logsDelta}
+              deltaLabel={t('stats.vsPrevHalf')}
+              valueColor="#3b82f6"
+              gradient="linear-gradient(135deg, rgba(59,130,246,0.06), rgba(59,130,246,0.01))"
+              iconBg="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))"
             />
             <StatCard
-              icon={CheckCircle2}
+              emoji="✅"
               label={t('stats.doneTasks')}
-              value={stats.totalTasksDone}
-              color="bg-green-100 dark:bg-green-900/30 text-green-600"
-              gradient="linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0))"
+              value={windowedTasksDone}
+              delta={tasksDelta}
+              deltaLabel={t('stats.vsPrevHalf')}
+              valueColor="#22c55e"
+              gradient="linear-gradient(135deg, rgba(34,197,94,0.06), rgba(34,197,94,0.01))"
+              iconBg="linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.05))"
             />
             <StatCard
-              icon={ListTodo}
+              emoji="📋"
               label={t('stats.activeTasks')}
               value={stats.totalTasksActive}
-              color="bg-purple-100 dark:bg-purple-900/30 text-purple-600"
-              gradient="linear-gradient(135deg, rgba(168,85,247,0.12), rgba(168,85,247,0))"
+              valueColor="#a855f7"
+              gradient="linear-gradient(135deg, rgba(168,85,247,0.06), rgba(168,85,247,0.01))"
+              iconBg="linear-gradient(135deg, rgba(168,85,247,0.15), rgba(168,85,247,0.05))"
             />
           </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <FadeIn className="lg:col-span-2 surface-card rounded-xl p-5" delay={0.1}>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+            <FadeIn className="lg:col-span-3 surface-card rounded-xl p-5" delay={0.1}>
               <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-1.5">
                 <Calendar size={14} className="text-violet-500" />
                 {t('stats.contributionGraph')}
@@ -520,13 +586,15 @@ function StatsPage(): ReactNode {
               <ContributionGrid3D data={stats.daily} />
             </FadeIn>
 
-            <div className="space-y-5">
-              <FadeIn className="surface-card rounded-xl p-5" delay={0.16}>
+            <div className="lg:col-span-2 space-y-5">
+              <FadeIn className="surface-card rounded-xl p-5 flex flex-col" delay={0.16}>
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4 flex items-center gap-1.5">
                   <TrendingUp size={14} className="text-teal-500" />
                   {t('stats.logsVsTasks')}
                 </h3>
-                <DonutChart logs={stats.totalLogs} tasks={stats.totalTasksDone} />
+                <div className="flex-1 flex items-center justify-center">
+                  <DonutChart logs={windowedLogs} tasks={windowedTasksDone} />
+                </div>
               </FadeIn>
               <WeeklySummary data={stats.daily} />
             </div>

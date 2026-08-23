@@ -156,7 +156,7 @@ export const translations = {
     'stats.subtitle': '你的工作节奏一览',
     'stats.contributionGraph': '贡献图',
     'stats.logsVsTasks': '日志 vs 任务',
-    'stats.weeklySummary': '本周概览',
+    'stats.weeklySummary': '数据概览',
     'stats.activeDays': '活跃天数',
     'stats.total': '总计',
     'stats.bestDay': '最佳单日',
@@ -168,6 +168,7 @@ export const translations = {
     'stats.range3M': '近三月',
     'stats.range6M': '近半年',
     'stats.range1Y': '近一年',
+    'stats.vsPrevHalf': '较上期',
     'stats.activities': '{{count}} 次活动',
 
     'settings.back': '返回',
@@ -415,7 +416,7 @@ export const translations = {
     'stats.subtitle': 'Your work rhythm at a glance',
     'stats.contributionGraph': 'Contribution Graph',
     'stats.logsVsTasks': 'Logs vs Tasks',
-    'stats.weeklySummary': 'Weekly Summary',
+    'stats.weeklySummary': 'Overview',
     'stats.activeDays': 'Active days',
     'stats.total': 'Total',
     'stats.bestDay': 'Best day',
@@ -427,6 +428,7 @@ export const translations = {
     'stats.range3M': '3M',
     'stats.range6M': '6M',
     'stats.range1Y': '1Y',
+    'stats.vsPrevHalf': 'vs prev',
     'stats.activities': '{{count}} activities',
 
     'settings.back': 'Back',

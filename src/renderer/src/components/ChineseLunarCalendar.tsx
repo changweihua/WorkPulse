@@ -17,10 +17,21 @@ interface ClickInfo {
     isWorkday: boolean;
 }
 
+export interface CalendarEvent {
+    id: number
+    type: 'todo' | 'meeting'
+    title: string
+    start_time: string | null
+    end_time: string | null
+    completed: number
+}
+
 export interface EventMark {
     todo: number;
     done: number;
     meeting: number;
+    /** 完整事件数据：提供时以 iOS 日历风格横条渲染，未提供时回退为圆点 */
+    events?: CalendarEvent[];
 }
 
 interface ChineseLunarCalendarProps {
@@ -96,6 +107,61 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({
         });
     };
 
+    // iOS 日历风格横条：最多显示 3 条，超出折叠为 "+N"
+    const renderEventBars = (events: CalendarEvent[]) => {
+        const MAX_BARS = 3;
+        const visible = events.slice(0, MAX_BARS);
+        const overflow = events.length - visible.length;
+
+        return (
+            <div className="flex flex-col gap-[2px] w-full min-w-0 mt-1">
+                {visible.map((ev) => {
+                    const isDoneTodo = ev.type === 'todo' && ev.completed === 1;
+                    return (
+                        <div key={ev.id} className="relative group">
+                            <div
+                                className={[
+                                    'h-[18px] rounded-sm text-[9px] leading-[18px] px-1 truncate text-white font-medium',
+                                    ev.type === 'meeting' && 'bg-blue-500',
+                                    ev.type === 'todo' && !isDoneTodo && 'bg-orange-400',
+                                    isDoneTodo && 'bg-zinc-300 dark:bg-zinc-600',
+                                ].filter(Boolean).join(' ')}
+                            >
+                                {ev.title}
+                            </div>
+                            {/* 自定义悬浮提示：标题 + 时间段 */}
+                            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded-md bg-zinc-800 dark:bg-zinc-700 text-white text-[10px] leading-tight whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-lg z-50">
+                                <span className="font-medium">{ev.title}</span>
+                                {ev.start_time && (
+                                    <span className="ml-1.5 text-zinc-300 dark:text-zinc-400">
+                                        {ev.start_time}{ev.end_time ? ` - ${ev.end_time}` : ''}
+                                    </span>
+                                )}
+                                {/* 小箭头指向下方 */}
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-zinc-800 dark:border-t-zinc-700" />
+                            </div>
+                        </div>
+                    );
+                })}
+                {overflow > 0 && (
+                    <div className="relative group">
+                        <span className="text-[9px] text-zinc-400 dark:text-zinc-500 leading-tight px-0.5 cursor-default">
+                            +{overflow} more
+                        </span>
+                        {/* 自定义悬浮提示：列出被折叠的事件 */}
+                        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded-md bg-zinc-800 dark:bg-zinc-700 text-white text-[10px] leading-relaxed whitespace-pre opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-lg z-50">
+                            {events.slice(MAX_BARS).map((ev) => {
+                                const time = ev.start_time ? ` ${ev.start_time}` : '';
+                                return `${ev.type === 'meeting' ? '📅' : ev.completed ? '✅' : '⬜'} ${ev.title}${time}`;
+                            }).join('\n')}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-zinc-800 dark:border-t-zinc-700" />
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const renderDay = (day: DayInfo, idx: number) => {
         const { date, dateStr, isCurrent, lunarDay, lunarFull, festivals } = day;
         const dow = date.getDay();
@@ -152,31 +218,41 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({
                     </div>
                 </div>
 
-                {/* 下半区：农历 / 节日名 —— 水平居中 */}
+                {/* 下半区：事件横条（iOS 风格）或 农历/节日 + 圆点回退 */}
                 {isCurrent && (
-                    <div className="text-center">
-                        <span className={[
-                            'text-[11px] md:text-xs truncate block',
-                            isHolidayDay ? 'text-red-400 font-medium dark:text-red-400/90' : 'text-gray-400 dark:text-zinc-500',
-                            isWorkdayDay && 'text-emerald-600/70 dark:text-emerald-400/70',
-                        ].filter(Boolean).join(' ')}>
-                            {subText}
-                        </span>
-                        {/* 事件标记：琥珀点=未完成待办 / 绿点=待办全部完成 / 紫点=会议 */}
-                        {marks && (marks.todo > 0 || marks.meeting > 0) && (
-                            <div className="flex items-center justify-center gap-1 mt-0.5">
-                                {marks.todo > 0 && (
-                                    <span
-                                        className={`w-1.5 h-1.5 rounded-full ${pendingTodo > 0 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                                        title={pendingTodo > 0 ? `${pendingTodo} 项待办` : '待办已全部完成'}
-                                    />
-                                )}
-                                {marks.meeting > 0 && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500" title={`${marks.meeting} 个会议`} />
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    marks?.events && marks.events.length > 0 ? (
+                        <>
+                            {/* 农历信息保持可见：小号弱化文字，位于事件条上方 */}
+                            <span className="text-[9px] text-zinc-400 dark:text-zinc-500 leading-tight truncate block text-center">
+                                {subText}
+                            </span>
+                            {renderEventBars(marks.events)}
+                        </>
+                    ) : (
+                        <div className="text-center">
+                            <span className={[
+                                'text-[11px] md:text-xs truncate block',
+                                isHolidayDay ? 'text-red-400 font-medium dark:text-red-400/90' : 'text-gray-400 dark:text-zinc-500',
+                                isWorkdayDay && 'text-emerald-600/70 dark:text-emerald-400/70',
+                            ].filter(Boolean).join(' ')} title={subText}>
+                                {subText}
+                            </span>
+                            {/* 事件标记：琥珀点=未完成待办 / 绿点=待办全部完成 / 紫点=会议 */}
+                            {marks && (marks.todo > 0 || marks.meeting > 0) && (
+                                <div className="flex items-center justify-center gap-1 mt-0.5">
+                                    {marks.todo > 0 && (
+                                        <span
+                                            className={`w-1.5 h-1.5 rounded-full ${pendingTodo > 0 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                            title={pendingTodo > 0 ? `${pendingTodo} 项待办` : '待办已全部完成'}
+                                        />
+                                    )}
+                                    {marks.meeting > 0 && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500" title={`${marks.meeting} 个会议`} />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )
                 )}
             </div>
         );

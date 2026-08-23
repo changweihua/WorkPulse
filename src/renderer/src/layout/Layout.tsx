@@ -105,7 +105,7 @@ export default function Layout() {
     return (
         <div className="h-screen flex flex-col">
             {/* 标题栏与内容区同色涂装 */}
-            <div className="bg-white/50 dark:bg-[#28282b]/88">
+            <div className="bg-[#eef4ff]/70 dark:bg-[#28282b]/88">
                 <TitleBar />
             </div>
             <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/20 dark:border-zinc-700/20">

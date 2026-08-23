@@ -228,7 +228,7 @@ export default function ContributionGrid3D({ data }: { data: DailyStats[] }) {
         camera={{
           position: [camDist * 0.95, camDist * 1.2, camDist * 0.95],
           fov: 28,
-          zoom: 1,
+          zoom: 3.5,
           near: 0.1,
           far: 2000
         }}
