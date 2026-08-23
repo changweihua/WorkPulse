@@ -64,7 +64,7 @@ function DroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-25 rounded-lg transition-colors ${isOver ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}
+      className={`min-h-25 rounded-lg transition-colors ${isOver ? 'surface-card' : ''}`}
     >
       {children}
     </div>
@@ -133,7 +133,7 @@ function DatePickerPortal({
         }}
         onBlur={onClose}
         onKeyDown={(e) => e.key === 'Escape' && onClose()}
-        className="text-xs border border-zinc-300 dark:border-zinc-600 rounded px-1.5 py-0.5 outline-none bg-white dark:bg-zinc-700 dark:text-zinc-200 shadow-lg"
+        className="text-xs border border-zinc-300 dark:border-zinc-600 rounded px-1.5 py-0.5 outline-none surface-input dark:text-zinc-200 shadow-lg"
       />
     </div>,
     document.body
@@ -245,7 +245,7 @@ function SortableTaskCard({
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="w-full px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100"
+              className="w-full px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
               placeholder={t('kanban.taskTitle')}
             />
 
@@ -253,14 +253,14 @@ function SortableTaskCard({
             <textarea
               value={editDesc}
               onChange={(e) => setEditDesc(e.target.value)}
-              className="w-full px-2 py-1 text-xs border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 bg-white dark:bg-zinc-700 dark:text-zinc-100 resize-none"
+              className="w-full px-2 py-1 text-xs border border-zinc-300 dark:border-zinc-600 rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100 resize-none"
               placeholder={t('kanban.descriptionPlaceholder')}
               rows={2}
             />
 
             {/* 新增：Markdown 预览 */}
             {editDesc && (
-              <div className="mt-1.5 p-2 border border-zinc-200 dark:border-zinc-700 rounded bg-zinc-50 dark:bg-zinc-800/50">
+              <div className="mt-1.5 p-2 border border-zinc-200 dark:border-zinc-700 rounded surface-inset">
                 <p className="text-[10px] text-zinc-400 mb-0.5">预览：</p>
                 <div className="text-xs prose prose-sm max-w-none dark:prose-invert">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>

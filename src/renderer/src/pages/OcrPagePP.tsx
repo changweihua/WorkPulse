@@ -169,7 +169,7 @@ function OcrPageContent() {
 
     return (
         <div className="flex flex-col h-full bg-gray-50 dark:bg-zinc-900/40 text-gray-800 dark:text-zinc-100 overflow-hidden">
-            <header className="flex items-center gap-4 px-6 py-3 border-b border-gray-200 dark:border-zinc-700/70 bg-white dark:bg-zinc-900/60 shrink-0">
+            <header className="flex items-center gap-4 px-6 py-3 border-b border-gray-200 dark:border-zinc-700/70 surface-card shrink-0">
                 <h1 className="text-xl font-semibold">浏览器端 OCR</h1>
                 <span className="px-3 py-1 text-xs border border-blue-300 bg-blue-50 text-blue-600 rounded-full">
                     PP-OCRv6 tiny + onnxruntime-web
@@ -215,7 +215,7 @@ function OcrPageContent() {
                 {/* 右侧：状态、进度、结果 */}
                 <div className="w-full lg:w-96 flex-shrink-0 space-y-4 flex flex-col min-h-0 overflow-hidden">
                     {/* 模型状态 */}
-                    <div className="bg-white dark:bg-zinc-900/60 border border-gray-200 dark:border-zinc-700/70 rounded-lg p-4 shrink-0">
+                    <div className="surface-card border border-gray-200 dark:border-zinc-700/70 rounded-lg p-4 shrink-0">
                         <div className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                             模型状态
                         </div>
@@ -247,7 +247,7 @@ function OcrPageContent() {
 
                     {/* OCR 进度（运行时） */}
                     {isRunning && (
-                        <div className="bg-white dark:bg-zinc-900/60 border border-gray-200 dark:border-zinc-700/70 rounded-lg p-4 shrink-0">
+                        <div className="surface-card border border-gray-200 dark:border-zinc-700/70 rounded-lg p-4 shrink-0">
                             <div className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                                 OCR 进度
                             </div>
@@ -285,7 +285,7 @@ function OcrPageContent() {
                     </div>
 
                     {/* 识别结果 */}
-                    <div className="bg-white dark:bg-zinc-900/60 border border-gray-200 dark:border-zinc-700/70 rounded-lg flex-1 min-h-0 overflow-hidden flex flex-col">
+                    <div className="surface-card border border-gray-200 dark:border-zinc-700/70 rounded-lg flex-1 min-h-0 overflow-hidden flex flex-col">
                         <div className="flex justify-between items-center px-4 py-2 border-b border-gray-200 dark:border-zinc-700/70 shrink-0">
                             <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                                 识别结果
@@ -334,7 +334,7 @@ function OcrPageContent() {
             </div>
 
             {/* 底部状态栏 */}
-            <div className="text-xs text-gray-400 dark:text-zinc-500 text-center py-2 border-t border-gray-200 dark:border-zinc-700/70 bg-white dark:bg-zinc-900/60 shrink-0">
+            <div className="text-xs text-gray-400 dark:text-zinc-500 text-center py-2 border-t border-gray-200 dark:border-zinc-700/70 surface-card shrink-0">
                 WebGPU 未启用 ｜ 状态：{status}
             </div>
         </div>

@@ -525,7 +525,7 @@ function ProcessorCore() {
     return (
         <div className="flex flex-col lg:flex-row gap-8 p-6 h-full bg-gray-50 dark:bg-zinc-900/40 overflow-hidden">
             {/* 左侧：原图预览 + 控制 */}
-            <div className="flex-1 flex flex-col bg-white dark:bg-zinc-900/60 p-4 rounded-xl shadow-md min-h-0 min-w-0 overflow-hidden">
+            <div className="flex-1 flex flex-col surface-card p-4 rounded-xl shadow-md min-h-0 min-w-0 overflow-hidden">
                 <div className="flex justify-between items-center mb-3 shrink-0">
                     <h3 className="text-lg font-bold text-gray-800 dark:text-zinc-100">📷 原图</h3>
                     <button
@@ -625,7 +625,7 @@ function ProcessorCore() {
             </div>
 
             {/* 右侧：预览区 */}
-            <div className="flex-1 flex flex-col bg-white dark:bg-zinc-900/60 p-4 rounded-xl shadow-md min-w-0 min-h-0 overflow-hidden">
+            <div className="flex-1 flex flex-col surface-card p-4 rounded-xl shadow-md min-w-0 min-h-0 overflow-hidden">
                 <div className="flex-1 flex flex-col items-center min-h-0 overflow-y-auto">
                     <div className="flex flex-col items-center mb-4 w-full">
                         <h4 className="text-sm font-semibold text-gray-700 dark:text-zinc-200 mb-1">☀️ 加亮</h4>

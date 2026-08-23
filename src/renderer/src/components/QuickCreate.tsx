@@ -76,7 +76,7 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
 
       {/* Panel */}
       <motion.div
-        className="relative w-full max-w-lg mx-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden"
+        className="relative w-full max-w-lg mx-4 surface-elevated backdrop-blur-sm rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden"
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25, ease: MOTION_EASE }}
@@ -118,7 +118,7 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
             onKeyDown={handleKeyDown}
             placeholder={mode === 'log' ? t('quick.logPlaceholder') : t('quick.taskPlaceholder')}
             disabled={submitting}
-            className="w-full px-3 py-2.5 text-base border border-zinc-300 dark:border-zinc-600 rounded-lg outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 bg-white dark:bg-zinc-800 dark:text-zinc-100 disabled:opacity-50"
+            className="w-full px-3 py-2.5 text-base border border-zinc-300 dark:border-zinc-600 rounded-lg outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100 disabled:opacity-50"
           />
           <div className="flex items-center justify-between mt-3">
             <span className="text-xs text-zinc-400">

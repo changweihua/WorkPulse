@@ -75,7 +75,7 @@ function ShortcutCapture({
       className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-mono transition-all outline-none
         ${capturing
           ? 'border-zinc-500 ring-2 ring-zinc-200 dark:ring-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
-          : 'border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 cursor-pointer'
+          : 'border-zinc-300 dark:border-zinc-600 surface-input text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 cursor-pointer'
         }`}
     >
       <Keyboard className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
@@ -526,7 +526,7 @@ function SettingsPage(): ReactNode {
               <p className="text-xs text-zinc-400 mb-2">{t('settings.apiKeyHelp')}</p>
               {hasKey && !editing ? (
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 px-3 py-2 bg-zinc-100 dark:bg-zinc-800 rounded-md text-sm text-zinc-600 dark:text-zinc-400 font-mono">
+                  <code className="flex-1 px-3 py-2 surface-inset rounded-md text-sm text-zinc-600 dark:text-zinc-400 font-mono">
                     {showKey ? apiKey : maskKey(apiKey)}
                   </code>
                   <button
@@ -557,7 +557,7 @@ function SettingsPage(): ReactNode {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder={t('settings.apiKeyPlaceholder')}
-                    className="flex-1 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                    className="flex-1 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100"
                   />
                   <button
                     onClick={handleSaveKey}
@@ -586,7 +586,7 @@ function SettingsPage(): ReactNode {
               <select
                 value={provider}
                 onChange={(e) => handleProviderChange(e.target.value)}
-                className="px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                className="px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100"
               >
                 <option value="openai">OpenAI</option>
                 <option value="anthropic">Anthropic (Claude)</option>
@@ -606,7 +606,7 @@ function SettingsPage(): ReactNode {
                 onChange={(e) => setBaseUrl(e.target.value)}
                 onBlur={handleBaseUrlBlur}
                 placeholder={provider === 'openai' ? 'https://api.openai.com' : provider === 'deepseek' ? 'https://api.deepseek.com' : 'https://api.anthropic.com'}
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 bg-white dark:bg-zinc-800 dark:text-zinc-100 font-mono"
+                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100 font-mono"
               />
             </div>
             {/* Model */}
@@ -621,7 +621,7 @@ function SettingsPage(): ReactNode {
                 onChange={(e) => setModel(e.target.value)}
                 onBlur={handleModelBlur}
                 placeholder={provider === 'openai' ? 'gpt-4o-mini' : provider === 'deepseek' ? 'deepseek-chat' : 'claude-sonnet-4-20250514'}
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 bg-white dark:bg-zinc-800 dark:text-zinc-100 font-mono"
+                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100 font-mono"
               />
             </div>
           </section>
@@ -637,7 +637,7 @@ function SettingsPage(): ReactNode {
                 <select
                   value={reportLanguage}
                   onChange={(e) => handleLanguageChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100"
                 >
                   <option value="中文">中文</option>
                   <option value="English">English</option>
@@ -648,7 +648,7 @@ function SettingsPage(): ReactNode {
                 <select
                   value={style}
                   onChange={(e) => handleStyleChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100"
                 >
                   {!styleOptions.includes(style) && <option value={style}>{style}</option>}
                   {styleOptions.map((option) => (
@@ -679,7 +679,7 @@ function SettingsPage(): ReactNode {
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 onBlur={handleSystemPromptBlur}
                 rows={8}
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 bg-white dark:bg-zinc-800 dark:text-zinc-100 font-mono leading-relaxed resize-y"
+                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100 font-mono leading-relaxed resize-y"
               />
             </div>
 
@@ -704,7 +704,7 @@ function SettingsPage(): ReactNode {
                 onChange={(e) => setReportTemplate(e.target.value)}
                 onBlur={handleReportTemplateBlur}
                 rows={10}
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 bg-white dark:bg-zinc-800 dark:text-zinc-100 font-mono leading-relaxed resize-y"
+                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100 font-mono leading-relaxed resize-y"
               />
             </div>
           </section>
@@ -736,7 +736,7 @@ function SettingsPage(): ReactNode {
               </div>
             </div>
 
-            <div className="mt-4 p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg">
+            <div className="mt-4 p-3 surface-inset rounded-lg">
               <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-2">{t('settings.otherShortcuts')}</p>
               <div className="space-y-1">
                 {[
@@ -766,7 +766,7 @@ function SettingsPage(): ReactNode {
               <select
                 value={appLanguage}
                 onChange={(e) => handleAppLanguageChange(e.target.value as AppLanguage)}
-                className="px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 bg-white dark:bg-zinc-800 dark:text-zinc-100"
+                className="px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100"
               >
                 <option value="system">{t('settings.languageSystem')}</option>
                 <option value="zh">{t('settings.languageZh')}</option>
@@ -889,7 +889,7 @@ function SettingsPage(): ReactNode {
                   value={reminderLead}
                   onChange={(e) => void handleReminderLeadChange(e.target.value)}
                   disabled={!reminderEnabled}
-                  className="px-2 py-1.5 text-xs rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 disabled:opacity-50"
+                  className="px-2 py-1.5 text-xs rounded-md border border-zinc-200 dark:border-zinc-700 surface-input text-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 disabled:opacity-50"
                 >
                   <option value="5">提前 5 分钟</option>
                   <option value="10">提前 10 分钟</option>

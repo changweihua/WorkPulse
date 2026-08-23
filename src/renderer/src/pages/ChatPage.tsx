@@ -177,7 +177,7 @@ function ThinkingPanel({ reasoning }: { reasoning: string }) {
         <div className="mb-2 border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
             <button
                 onClick={() => setExpanded(!expanded)}
-                className="w-full px-3 py-1.5 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 transition"
+                className="w-full px-3 py-1.5 surface-card hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 transition"
             >
                 <span className="text-sm">🧠</span>
                 <span>思考过程</span>
@@ -185,7 +185,7 @@ function ThinkingPanel({ reasoning }: { reasoning: string }) {
                 <span className="ml-auto text-xs">{expanded ? '▼' : '▶'}</span>
             </button>
             {expanded && (
-                <div className="px-3 py-2 bg-zinc-50/50 dark:bg-zinc-800/50 text-xs text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap font-mono max-h-48 overflow-y-auto leading-relaxed">
+                                <div className="px-3 py-2 surface-inset text-xs text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap font-mono max-h-48 overflow-y-auto leading-relaxed">
                     {reasoning}
                 </div>
             )}
@@ -736,7 +736,7 @@ function ConfigDrawer({
 
                             {/* 导入弹窗 */}
                             {importMode && (
-                                <div className="px-4 py-3 border-t border-[var(--color-border)] space-y-3 bg-zinc-50/50 dark:bg-zinc-800/30">
+                                <div className="px-4 py-3 border-t border-[var(--color-border)] space-y-3 surface-inset">
                                     <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
                                         <span className="flex items-center gap-1.5"><FileJson size={13} /> 导入配置 (JSON)</span>
                                         <button onClick={() => setImportMode(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"><X size={14} /></button>
@@ -835,13 +835,13 @@ function ConfigDrawer({
                             </div>
 
                             {/* 测试连接 */}
-                            <div className="p-3 bg-zinc-50/50 dark:bg-zinc-800/30 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
+                            <div className="p-3 surface-inset rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">连接测试</span>
                                     <button
                                         onClick={testConnection}
                                         disabled={testing}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition disabled:opacity-50"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg surface-card border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition disabled:opacity-50"
                                     >
                                         <RefreshCw size={12} className={testing ? 'animate-spin' : ''} />
                                         {testing ? '测试中...' : '测试连接'}
@@ -866,7 +866,7 @@ function ConfigDrawer({
                                     <ChevronRight size={12} className={`transition-transform ${showAdvanced ? 'rotate-90' : ''}`} />
                                 </button>
                                 {showAdvanced && (
-                                    <div className="grid grid-cols-3 gap-3 p-3 bg-zinc-50/50 dark:bg-zinc-800/30 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
+                                    <div className="grid grid-cols-3 gap-3 p-3 surface-inset rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
                                         <NumberField label="Temperature" step={0.1} min={0} max={2} value={formData.temperature ?? 0.7} onChange={(v) => setFormData({ ...formData, temperature: v })} />
                                         <NumberField label="Max Tokens" step={256} min={256} value={formData.max_tokens ?? 4096} onChange={(v) => setFormData({ ...formData, max_tokens: v })} />
                                         <NumberField label="Top P" step={0.05} min={0} max={1} value={formData.top_p ?? 0.9} onChange={(v) => setFormData({ ...formData, top_p: v })} />
@@ -1215,7 +1215,7 @@ export default function ChatPage() {
     };
 
     return (
-        <div className="h-full overflow-hidden flex bg-white/50 dark:bg-zinc-900/50">
+        <div className="h-full overflow-hidden flex surface-card">
             {/* 左侧：会话列表 */}
             {showSidebar && (
                 <div className="shrink-0 w-[240px] h-full border-r border-[var(--color-border)] surface-card">

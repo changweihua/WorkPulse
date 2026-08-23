@@ -302,7 +302,7 @@ const CalendarPage: React.FC = () => {
 
                         {/* 新增/编辑表单 */}
                         {showForm && (
-                            <Fade className="shrink-0 p-4 space-y-2.5 bg-zinc-50/60 dark:bg-zinc-800/30 border-b border-[var(--color-border)]">
+                            <Fade className="shrink-0 p-4 space-y-2.5 surface-inset border-b border-[var(--color-border)]">
                                 <input
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
