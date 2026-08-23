@@ -50,6 +50,51 @@
   --color-info-subtle: rgb(59 130 246 / 10%);
 }
 
+/* ===== Accent themes（用户可选主题色）===== */
+/* 重映射 Tailwind 的 blue/sky 色阶变量：全应用所有 blue/sky 工具类随 data-accent 即时切换，
+   组件零改动。默认 blue 不需要覆盖。 */
+[data-accent='indigo'] {
+  --color-blue-50: #eef2ff; --color-blue-100: #e0e7ff; --color-blue-400: #818cf8;
+  --color-blue-500: #6366f1; --color-blue-600: #4f46e5; --color-blue-700: #4338ca;
+  --color-blue-900: #312e81;
+  --color-sky-500: #6366f1;
+}
+
+[data-accent='violet'] {
+  --color-blue-50: #f5f3ff; --color-blue-100: #ede9fe; --color-blue-400: #c084fc;
+  --color-blue-500: #a855f7; --color-blue-600: #9333ea; --color-blue-700: #7e22ce;
+  --color-blue-900: #581c87;
+  --color-sky-500: #a855f7;
+}
+
+[data-accent='cyan'] {
+  --color-blue-50: #ecfeff; --color-blue-100: #cffafe; --color-blue-400: #22d3ee;
+  --color-blue-500: #06b6d4; --color-blue-600: #0891b2; --color-blue-700: #0e7490;
+  --color-blue-900: #164e63;
+  --color-sky-500: #06b6d4;
+}
+
+[data-accent='emerald'] {
+  --color-blue-50: #ecfdf5; --color-blue-100: #d1fae5; --color-blue-400: #34d399;
+  --color-blue-500: #10b981; --color-blue-600: #059669; --color-blue-700: #047857;
+  --color-blue-900: #064e3b;
+  --color-sky-500: #10b981;
+}
+
+[data-accent='orange'] {
+  --color-blue-50: #fff7ed; --color-blue-100: #ffedd5; --color-blue-400: #fb923c;
+  --color-blue-500: #f97316; --color-blue-600: #ea580c; --color-blue-700: #c2410c;
+  --color-blue-900: #7c2d12;
+  --color-sky-500: #f97316;
+}
+
+[data-accent='rose'] {
+  --color-blue-50: #fff1f2; --color-blue-100: #ffe4e6; --color-blue-400: #fb7185;
+  --color-blue-500: #f43f5e; --color-blue-600: #e11d48; --color-blue-700: #be123c;
+  --color-blue-900: #881337;
+  --color-sky-500: #f43f5e;
+}
+
 /* ===== Dark mode tokens ===== */
 .dark {
   /* 深色表面：足够的不透明度稳定背景亮度，保证文字对比度 */

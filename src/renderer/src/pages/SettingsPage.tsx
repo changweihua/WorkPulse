@@ -20,7 +20,7 @@ Droplets,
   FolderOpen
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
-import { useThemeStore, type Theme } from '../stores/themeStore'
+import { useThemeStore, ACCENTS, type Theme } from '../stores/themeStore'
 import { useI18n, useLanguageStore } from '../stores/languageStore'
 import type { AppLanguage, ResolvedLanguage } from '../lib/i18n'
 import { useNavigate } from 'react-router-dom'
@@ -179,7 +179,7 @@ function SettingsPage(): ReactNode {
     currentVersion: ''
   })
   const toast = useToast()
-  const { theme, setTheme } = useThemeStore()
+  const { theme, setTheme, accent, setAccent } = useThemeStore()
   const styleOptions = [
     t('settings.styleConcise'),
     t('settings.styleDetailed'),
@@ -794,6 +794,24 @@ function SettingsPage(): ReactNode {
                     <Icon className="w-4 h-4" />
                     {label}
                   </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('settings.accent')}</label>
+              <p className="text-xs text-zinc-400 mb-2">{t('settings.accentHelp')}</p>
+              <div className="flex gap-2.5 flex-wrap">
+                {ACCENTS.map(({ id, color, labelKey }) => (
+                  <button
+                    key={id}
+                    onClick={() => void setAccent(id)}
+                    title={t(labelKey)}
+                    aria-label={t(labelKey)}
+                    className={`w-8 h-8 rounded-full transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 ${
+                      accent === id ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 ring-offset-white dark:ring-offset-zinc-900 scale-110' : ''
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
                 ))}
               </div>
             </div>
