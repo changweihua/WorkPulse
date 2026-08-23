@@ -317,10 +317,13 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
   const { t } = useI18n()
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstance = useRef<echarts.ECharts | null>(null)
+  const tRef = useRef(t)
+  tRef.current = t
   const [isDark, setIsDark] = useState(() =>
     document.documentElement.classList.contains('dark')
   )
 
+  // Theme observer
   useEffect(() => {
     const obs = new MutationObserver(() =>
       setIsDark(document.documentElement.classList.contains('dark'))
@@ -329,13 +332,20 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
     return () => obs.disconnect()
   }, [])
 
+  // Init chart ONCE
   useEffect(() => {
     if (!chartRef.current) return
-
-    if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current)
+    chartInstance.current = echarts.init(chartRef.current)
+    return () => {
+      chartInstance.current?.dispose()
+      chartInstance.current = null
     }
+  }, [])
+
+  // Update options only on data/theme change (NOT t)
+  useEffect(() => {
     const chart = chartInstance.current
+    if (!chart) return
 
     const dates = data.map((d) => {
       const day = new Date(d.date + 'T00:00:00')
@@ -376,7 +386,7 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
       },
       series: [
         {
-          name: t('stats.logLegend'),
+          name: tRef.current('stats.logLegend'),
           type: 'bar',
           stack: 'total',
           barWidth: '50%',
@@ -391,7 +401,7 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
           }
         },
         {
-          name: t('stats.doneLegend'),
+          name: tRef.current('stats.doneLegend'),
           type: 'bar',
           stack: 'total',
           barWidth: '50%',
@@ -410,20 +420,16 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
       animationEasing: 'elasticOut',
       animationDelay: (idx: number) => idx * 40,
       animationDurationUpdate: 500,
-      animationEasingUpdate: 'cubicInOut'
+      animationEasingUpdate: 'cubicInOut',
+      animationDelayUpdate: (idx: number) => idx * 30
     })
+  }, [data, isDark])
 
-    return () => {}
-  }, [data, isDark, t])
-
+  // Resize
   useEffect(() => {
     const handleResize = () => chartInstance.current?.resize()
     window.addEventListener('resize', handleResize)
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      chartInstance.current?.dispose()
-      chartInstance.current = null
-    }
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   return (
