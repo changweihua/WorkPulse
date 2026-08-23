@@ -407,7 +407,10 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
         }
       ],
       animationDuration: 800,
-      animationEasing: 'cubicOut'
+      animationEasing: 'elasticOut',
+      animationDelay: (idx: number) => idx * 40,
+      animationDurationUpdate: 500,
+      animationEasingUpdate: 'cubicInOut'
     })
 
     return () => {}
@@ -520,10 +523,10 @@ function StatsPage(): ReactNode {
                 <button
                   key={r}
                   onClick={() => setRange(r)}
-                  className={`px-3 py-1.5 text-xs font-medium transition ${
+                  className={`px-4 py-2 text-sm font-semibold rounded-md transition ${
                     range === r
-                      ? 'bg-blue-500 text-white'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                      ? 'bg-blue-500 text-white shadow-sm'
+                      : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                   }`}
                 >
                   {t(RANGE_LABELS[r])}
