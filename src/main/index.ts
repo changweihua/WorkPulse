@@ -495,10 +495,10 @@ function createWindow(): void {
   // 当窗口准备就绪后，最大化并显示（原生 Mica 无需最大化后重应用）
   mainWindow.once('ready-to-show', () => {
     closeSplashWindow()
-    // DWM 材质应用后重设图标，防止任务栏回退到 electron.exe 默认图标
-    mainWindow.setIcon(APP_ICON_PATH)
     mainWindow.maximize()
     mainWindow.show()
+    // 必须在 show() 之后设置图标：无边框窗口在 show 前 setIcon 不生效（dev 环境）
+    mainWindow.setIcon(APP_ICON_PATH)
   })
   if (process.platform !== 'darwin') {
     mainWindow.on('close', (event) => {

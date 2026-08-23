@@ -5,25 +5,24 @@ import { useHuggingFaceModel, ModelOption } from './useHuggingFaceModel';
 export const MODEL_GROUPS = [
     { id: 'ultra-light', label: '超轻量级 (< 1B)' },
     { id: 'light', label: '轻量级 (1B ~ 4B)' },
-    { id: 'medium', label: '中量级 (7B ~ 8B)' },
 ] as const;
 export type ModelGroupId = (typeof MODEL_GROUPS)[number]['id'];
 
 // ---------- 可用模型列表 ----------
 export const AVAILABLE_MODELS: (ModelOption & { groupId: ModelGroupId })[] = [
     // 超轻量级
-    { id: 'onnx-community/functiongemma-270m-it-ONNX', label: 'FunctionGemma 270M', groupId: 'ultra-light' },
-    { id: 'onnx-community/Bitnet-SmolLM-135M-ONNX', label: 'Bitnet-SmolLM 135M', groupId: 'ultra-light' },
-    { id: 'onnx-community/gpt2-mini-ONNX', label: 'GPT2-Mini', groupId: 'ultra-light' },
-    { id: 'onnx-community/trlm-135m-ONNX', label: 'TRLM 135M', groupId: 'ultra-light' },
+    { id: 'onnx-community/Qwen3-0.6B-ONNX', label: 'Qwen3 0.6B (Thinking)', groupId: 'ultra-light' },
+    { id: 'onnx-community/SmolLM2-135M-Instruct-ONNX-GQA', label: 'SmolLM2 135M GQA', groupId: 'ultra-light' },
+    { id: 'onnx-community/LFM2.5-350M-ONNX', label: 'LFM2.5 350M', groupId: 'ultra-light' },
     { id: 'onnx-community/gemma-3-270m-it-ONNX', label: 'Gemma 3 270M', groupId: 'ultra-light' },
     // 轻量级
+    { id: 'onnx-community/Qwen3-4B-ONNX', label: 'Qwen3 4B (旗舰)', groupId: 'light' },
+    { id: 'onnx-community/Qwen3-1.7B-ONNX', label: 'Qwen3 1.7B (Thinking)', groupId: 'light' },
+    { id: 'onnx-community/Phi-4-mini-instruct-ONNX-GQA', label: 'Phi-4 Mini 3.8B', groupId: 'light' },
+    { id: 'onnx-community/gemma-3-1b-it-ONNX-GQA', label: 'Gemma 3 1B GQA', groupId: 'light' },
+    { id: 'LiquidAI/LFM2.5-1.2B-Base-ONNX', label: 'LFM2.5 1.2B', groupId: 'light' },
+    { id: 'onnx-community/Qwen2.5-1.5B-Instruct', label: 'Qwen2.5 1.5B', groupId: 'light' },
     { id: 'onnx-community/Llama-3.2-1B-Instruct-ONNX', label: 'Llama 3.2 1B', groupId: 'light' },
-    { id: 'onnx-community/LFM2-1.2B-ONNX', label: 'LFM2 1.2B', groupId: 'light' },
-    { id: 'onnxruntime/DeepSeek-R1-Distill-ONNX', label: 'DeepSeek-R1 1.5B', groupId: 'light' },
-    { id: 'microsoft/Phi-3-mini-4k-instruct-onnx-web', label: 'Phi-3 Mini 4K', groupId: 'light' },
-    // 中量级
-    { id: 'onnx-community/DeepSeek-R1-Distill-Llama-8B-ONNX-DirectML-GenAI-INT4', label: 'DeepSeek-R1 8B', groupId: 'medium' },
 ];
 
 export const getModelsByGroup = (groupId: ModelGroupId) =>
