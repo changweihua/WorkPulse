@@ -383,7 +383,7 @@ const CalendarPage: React.FC = () => {
                         )}
 
                         {/* 列表 */}
-                        <div className="flex-1 overflow-y-auto px-3 py-2" style={{ scrollbarGutter: 'stable' }}>
+                        <div className="flex-1 overflow-y-auto px-3 py-2">
                             {activeTab === 'todo' ? (
                                 todos.length === 0 && !showForm ? (
                                     <EmptyState icon={<ListTodo size={24} />} text="当天暂无待办，点击 + 添加" />

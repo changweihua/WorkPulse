@@ -458,3 +458,12 @@ body,
 .dark .divider-fluent {
   background: linear-gradient(90deg, transparent, rgb(255 255 255 / 8%), transparent);
 }
+
+/* 全局隐藏滚动条，不占页面空间 */
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}

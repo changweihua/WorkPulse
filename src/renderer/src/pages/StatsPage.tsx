@@ -132,35 +132,90 @@ function StatCard({
 
 function DonutChart({ logs, tasks }: { logs: number; tasks: number }): ReactNode {
   const { t } = useI18n()
-  const total = logs + tasks
-  const r = 54
-  const c = 2 * Math.PI * r
-  const logFrac = total > 0 ? logs / total : 0
-  const logLen = logFrac * c
-  const taskLen = c - logLen
+  const chartRef = useRef<HTMLDivElement>(null)
+  const chartInstance = useRef<echarts.ECharts | null>(null)
+  const tRef = useRef(t)
+  tRef.current = t
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains('dark')
+  )
+
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(document.documentElement.classList.contains('dark'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!chartRef.current) return
+    chartInstance.current = echarts.init(chartRef.current)
+    return () => { chartInstance.current?.dispose(); chartInstance.current = null }
+  }, [])
+
+  useEffect(() => {
+    const chart = chartInstance.current
+    if (!chart) return
+    const total = logs + tasks
+    chart.setOption({
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: isDark ? 'rgba(24,24,27,0.95)' : 'rgba(255,255,255,0.95)',
+        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+        borderWidth: 1,
+        textStyle: { color: isDark ? '#e5e7eb' : '#111827', fontSize: 12, fontFamily: FONT_FAMILY },
+        formatter: (p: { name: string; value: number; percent: number }) =>
+          `${p.name}: ${p.value} (${p.percent}%)`
+      },
+      legend: { show: false },
+      series: [{
+        type: 'pie',
+        radius: ['58%', '78%'],
+        center: ['50%', '50%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 6,
+          borderColor: isDark ? '#18181b' : '#ffffff',
+          borderWidth: 3
+        },
+        label: {
+          show: true,
+          position: 'center',
+          formatter: [
+            `{total|${total}}`,
+            `{label|${tRef.current('stats.total')}}`
+          ].join('\n'),
+          rich: {
+            total: { fontSize: 24, fontWeight: 'bold', color: isDark ? '#e5e7eb' : '#111827', lineHeight: 34 },
+            label: { fontSize: 11, color: isDark ? '#71717a' : '#a1a1aa', lineHeight: 18 }
+          }
+        },
+        emphasis: {
+          scaleSize: 6,
+          label: { fontSize: 14 }
+        },
+        data: [
+          { value: logs, name: tRef.current('stats.logLegend'), itemStyle: { color: '#2dd4bf' } },
+          { value: tasks, name: tRef.current('stats.doneTasks'), itemStyle: { color: '#facc15' } }
+        ],
+        animationType: 'scale',
+        animationEasing: 'elasticOut',
+        animationDuration: 800,
+        animationDelay: (idx: number) => idx * 200
+      }]
+    }, true)
+  }, [logs, tasks, isDark])
+
+  useEffect(() => {
+    const handleResize = () => chartInstance.current?.resize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-40 h-40">
-        <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
-          <circle cx="70" cy="70" r={r} fill="none" stroke="rgb(0 0 0 / 6%)" strokeWidth="16" />
-          <circle
-            cx="70" cy="70" r={r} fill="none" stroke="#2dd4bf" strokeWidth="16"
-            strokeDasharray={`${logLen} ${c - logLen}`} strokeLinecap="round"
-          />
-          <circle
-            cx="70" cy="70" r={r} fill="none" stroke="#facc15" strokeWidth="16"
-            strokeDasharray={`${taskLen} ${c - taskLen}`} strokeDashoffset={-logLen}
-            strokeLinecap="round"
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
-            {total}
-          </span>
-          <span className="text-[11px] text-zinc-400">{t('stats.total')}</span>
-        </div>
-      </div>
+      <div ref={chartRef} className="w-40 h-40" />
       <div className="flex items-center gap-5 mt-4 text-xs">
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#2dd4bf]" />
@@ -233,12 +288,30 @@ function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
 
 function CategoryBreakdown({ range }: { range: number }): ReactNode {
   const { t } = useI18n()
-  const [categories, setCategories] = useState<{ name: string; count: number }[]>([])
-  const [loading, setLoading] = useState(true)
-
-  // t 每次渲染都是新引用，不能放进依赖，否则无限循环导致闪烁
+  const chartRef = useRef<HTMLDivElement>(null)
+  const chartInstance = useRef<echarts.ECharts | null>(null)
   const tRef = useRef(t)
   tRef.current = t
+  const [loading, setLoading] = useState(true)
+  const [hasData, setHasData] = useState(false)
+
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains('dark')
+  )
+
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setIsDark(document.documentElement.classList.contains('dark'))
+    )
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!chartRef.current) return
+    chartInstance.current = echarts.init(chartRef.current)
+    return () => { chartInstance.current?.dispose(); chartInstance.current = null }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -256,21 +329,74 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
           const key = log.category?.trim() || tRef.current('stats.uncategorized')
           counts.set(key, (counts.get(key) || 0) + 1)
         }
-        setCategories(
-          [...counts.entries()]
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 6)
-        )
-      })
-      .catch(() => !cancelled && setCategories([]))
-      .finally(() => !cancelled && setLoading(false))
-    return () => {
-      cancelled = true
-    }
-  }, [range])
+        const cats = [...counts.entries()]
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 8)
 
-  const total = categories.reduce((s, c) => s + c.count, 0)
+        setHasData(cats.length > 0)
+        const chart = chartInstance.current
+        if (!chart || cats.length === 0) return
+
+        const reversed = [...cats].reverse()
+        chart.setOption({
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            backgroundColor: isDark ? 'rgba(24,24,27,0.95)' : 'rgba(255,255,255,0.95)',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+            borderWidth: 1,
+            textStyle: { color: isDark ? '#e5e7eb' : '#111827', fontSize: 12, fontFamily: FONT_FAMILY }
+          },
+          grid: { left: 0, right: 45, top: 4, bottom: 0, containLabel: true },
+          xAxis: { type: 'value', show: false },
+          yAxis: {
+            type: 'category',
+            data: reversed.map((c) => c.name),
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: {
+              color: isDark ? '#a1a1aa' : '#71717a',
+              fontSize: 11,
+              fontFamily: FONT_FAMILY,
+              width: 80,
+              overflow: 'truncate'
+            }
+          },
+          series: [{
+            type: 'bar',
+            data: reversed.map((c, i) => ({
+              value: c.count,
+              itemStyle: {
+                color: CATEGORY_COLORS[(cats.length - 1 - i) % CATEGORY_COLORS.length],
+                borderRadius: [0, 4, 4, 0]
+              }
+            })),
+            barWidth: '60%',
+            label: {
+              show: true,
+              position: 'right',
+              fontSize: 11,
+              color: isDark ? '#a1a1aa' : '#71717a',
+              fontFamily: FONT_FAMILY,
+              formatter: '{c}'
+            }
+          }],
+          animationDuration: 800,
+          animationEasing: 'elasticOut',
+          animationDelay: (idx: number) => idx * 100
+        }, true)
+      })
+      .catch(() => !cancelled && setHasData(false))
+      .finally(() => !cancelled && setLoading(false))
+    return () => { cancelled = true }
+  }, [range, isDark])
+
+  useEffect(() => {
+    const handleResize = () => chartInstance.current?.resize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   return (
     <FadeIn className="surface-card rounded-xl p-5" delay={0.24}>
@@ -280,32 +406,10 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
       </h3>
       {loading ? (
         <div className="flex items-center justify-center py-8 text-zinc-400 text-xs">{t('common.loading')}</div>
-      ) : categories.length === 0 ? (
+      ) : !hasData ? (
         <div className="flex items-center justify-center py-8 text-zinc-400 text-xs">{t('stats.noData')}</div>
       ) : (
-        <div className="space-y-3">
-          {categories.map((cat, idx) => {
-            const pct = total > 0 ? Math.round((cat.count / total) * 100) : 0
-            return (
-              <div key={cat.name}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-zinc-600 dark:text-zinc-300 truncate max-w-[70%]" title={cat.name}>
-                    {cat.name}
-                  </span>
-                  <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums shrink-0 ml-2">
-                    {cat.count} · {pct}%
-                  </span>
-                </div>
-                <div className="h-1.5 w-full bg-olack/5 dark:bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-[width] duration-700 ease-out"
-                    style={{ width: `${pct}%`, backgroundColor: CATEGORY_COLORS[idx % CATEGORY_COLORS.length] }}
-                  />
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <div ref={chartRef} className="h-52 w-full" />
       )}
     </FadeIn>
   )
@@ -514,15 +618,19 @@ function StatsPage(): ReactNode {
 
   return (
     <div className="h-full overflow-hidden">
-      <div className="hide-scrollbar h-full overflow-y-auto px-6 py-6">
-        {/* 标题 + 时间范围 — sticky 固定顶部 */}
-        <FadeIn className="sticky top-0 z-10 flex flex-wrap items-end justify-between gap-3 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-200/50 dark:border-zinc-800/50">
+      <div className="hide-scrollbar h-full overflow-y-auto px-6 py-6 space-y-5">
+        {/* 标题 */}
+        <FadeIn>
             <div>
               <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
                 {t('stats.title')}
               </h1>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t('stats.subtitle')}</p>
             </div>
+        </FadeIn>
+
+        {/* 范围按钮 — fixed 固定顶部，无背景 */}
+        <div className="fixed top-30 right-0 z-10">
             <div className="flex items-center rounded-lg border border-[var(--color-border)] surface-input overflow-hidden">
               {RANGE_OPTIONS.map((r) => (
                 <button
@@ -538,7 +646,7 @@ function StatsPage(): ReactNode {
                 </button>
               ))}
             </div>
-          </FadeIn>
+        </div>
 
           <motion.div
             className="grid grid-cols-2 lg:grid-cols-4 gap-3"

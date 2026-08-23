@@ -80,7 +80,7 @@ function ModelPanel({
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4" style={{ scrollbarGutter: 'stable' }}>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
                 {/* 运行状态 */}
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-zinc-50/80 dark:bg-zinc-800/40 border border-[var(--color-border-subtle)]">
                     <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
@@ -354,7 +354,7 @@ function OcrPageContent() {
                     )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarGutter: 'stable' }}>
+                <div className="flex-1 overflow-y-auto p-4">
                     <div className="max-w-3xl mx-auto space-y-4">
                         {/* 图片上传区 */}
                         {!imageUrl ? (
