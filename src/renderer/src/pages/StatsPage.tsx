@@ -42,7 +42,7 @@ function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
-function useCountUp(target: number, duration = 600): number {
+function useCountUp(target: number, duration = 1200): number {
   const [value, setValue] = useState(0)
   const startTime = useRef<number | null>(null)
   const frameRef = useRef<number>(0)
@@ -69,7 +69,7 @@ function useCountUp(target: number, duration = 600): number {
 
 const STATS_GRID_VARIANTS = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.06 } }
+  show: { transition: { staggerChildren: 0.1 } }
 }
 
 const STATS_ITEM_VARIANTS = {
@@ -514,10 +514,9 @@ function StatsPage(): ReactNode {
 
   return (
     <div className="h-full overflow-hidden">
-      <div className="h-full overflow-y-auto px-6 py-6" style={{ scrollbarGutter: 'stable' }}>
-        <div className="space-y-5">
-          {/* 标题 + 时间范围 + 刷新 */}
-          <FadeIn className="flex flex-wrap items-end justify-between gap-3">
+      <div className="hide-scrollbar h-full overflow-y-auto px-6 py-6">
+        {/* 标题 + 时间范围 — sticky 固定顶部 */}
+        <FadeIn className="sticky top-0 z-10 flex flex-wrap items-end justify-between gap-3 -mx-6 -mt-6 px-6 pt-6 pb-3 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-200/50 dark:border-zinc-800/50">
             <div>
               <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
                 {t('stats.title')}
@@ -612,7 +611,6 @@ function StatsPage(): ReactNode {
           <BarChart data={filled} />
 
           <CategoryBreakdown range={range} />
-        </div>
       </div>
     </div>
   )
