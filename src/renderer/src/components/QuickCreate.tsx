@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, ReactNode } from 'react'
+import { motion } from 'motion/react'
 import { ClipboardList, Columns3 } from 'lucide-react'
+import { Fade, MOTION_EASE } from './Motion'
 import { useWorkLogStore } from '../stores/worklogStore'
 import { useTaskStore } from '../stores/taskStore'
 import { useToast } from './Toast'
@@ -70,11 +72,14 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/20 animate-fade-in" />
+      <Fade className="absolute inset-0 bg-black/20" />
 
       {/* Panel */}
-      <div
-        className="relative w-full max-w-lg mx-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden animate-slide-down"
+      <motion.div
+        className="relative w-full max-w-lg mx-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden"
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: MOTION_EASE }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Mode toggle */}
@@ -128,7 +133,7 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

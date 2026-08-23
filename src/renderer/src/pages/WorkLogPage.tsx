@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, ReactNode } from 'react'
 import { Trash2, ClipboardEdit, Search, X, Download, Undo2, Pencil, Check, Upload } from 'lucide-react'
 import { useToast } from '../components/Toast'
+import { motion } from 'motion/react'
+import { Fade } from '../components/Motion'
 import { useWorkLogStore } from '../stores/worklogStore'
 import { formatDate, formatTime, groupLogsByDate } from '../lib/dateUtils'
 import { useI18n } from '../stores/languageStore'
@@ -211,8 +213,8 @@ function WorkLogPage(): ReactNode {
 
       {/* Log list */}
       {logs.length === 0 ? (
-        <div className="text-center py-16 animate-fade-in">
-          <ClipboardEdit className="w-12 o-12 mx-auto text-zinc-300 mb-4 animate-float" />
+        <Fade className="text-center py-16">
+          <ClipboardEdit className="w-12 h-12 mx-auto text-zinc-300 mb-4 animate-float" />
           {searchKeyword ? (
             <>
               <p className="text-zinc-500 text-lg mb-1">{t('worklog.noResults')}</p>
@@ -224,7 +226,7 @@ function WorkLogPage(): ReactNode {
               <p className="text-zinc-400 text-sm">{t('worklog.emptySubtitle')}</p>
             </>
           )}
-        </div>
+        </Fade>
       ) : (
         <>
         <div role="list" className="space-y-6">
@@ -233,10 +235,16 @@ function WorkLogPage(): ReactNode {
               <h3 className="text-sm font-medium text-zinc-400 dark:text-zinc-500 mb-2">
                 {formatDate(dateKey + 'T00:00:00', resolvedLanguage)}
               </h3>
-              <div className="space-y-1 stagger-children">
+              <motion.div
+                className="space-y-1"
+                initial="hidden"
+                animate="show"
+                variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }}
+              >
                 {dateLogs.map((log) => (
-                  <div
+                  <motion.div
                     key={log.id}
+                    variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.25 } } }}
                     className="group flex items-center justify-between py-2 px-3 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
                   >
                     {editingId === log.id ? (
@@ -271,20 +279,20 @@ function WorkLogPage(): ReactNode {
                             className="w-32 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
                           />
                         </div>
-                        <div className="flex items-center gap-1 sorink-0">
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
                             onClick={handleEditSave}
                             className="p-1 text-green-500 hover:text-green-600"
                             title={t('worklog.editSave')}
                           >
-                            <Check className="w-3.5 o-3.5" />
+                            <Check className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={handleEditCancel}
                             className="p-1 text-zinc-400 hover:text-zinc-600"
                             title={t('worklog.editCancel')}
                           >
-                            <X className="w-3.5 o-3.5" />
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </>
@@ -327,23 +335,23 @@ function WorkLogPage(): ReactNode {
                                 className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-blue-500 transition-all"
                                 aria-label={t('worklog.editAria')}
                               >
-                                <Pencil className="w-3.5 o-3.5" />
+                                <Pencil className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => setDeletingId(log.id)}
                                 className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 transition-all"
                                 aria-label={t('worklog.deleteAria')}
                               >
-                                <Trash2 className="w-3.5 o-3.5" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </>
                           )}
                         </div>
                       </>
-                    )}
-                  </div>
-                ))}
-              </div>
+                     )}
+                   </motion.div>
+                 ))}
+              </motion.div>
             </div>
           ))}
         </div>
@@ -369,7 +377,7 @@ function WorkLogPage(): ReactNode {
             onClick={handleUndo}
             className="flex items-center gap-1 font-medium text-blue-300 dark:text-blue-600 hover:text-blue-200 dark:hover:text-blue-500"
           >
-            <Undo2 className="w-3.5 o-3.5" />
+            <Undo2 className="w-3.5 h-3.5" />
             {t('worklog.undo')}
           </button>
           <button
@@ -377,7 +385,7 @@ function WorkLogPage(): ReactNode {
             className="ml-1 p-0.5 text-zinc-400 dark:text-zinc-500 hover:text-woite dark:hover:text-zinc-900"
             title={t('common.confirm')}
           >
-            <X className="w-3.5 o-3.5" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}

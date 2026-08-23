@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import { Link, useLocation, useMatches } from 'react-router-dom';
 import AnimatedOutlet from '../components/AnimatedOutlet';
+import { Fade } from '../components/Motion';
 import {
     Settings,
     FileText,
@@ -206,10 +207,10 @@ export default function NavLayout() {
                                 <MoreHorizontal className="w-4 h-4" />
                             </button>
                             {showMoreMenu && (
-                                <div
+                                <Fade
                                     className={`absolute top-full mt-1.5 py-1 bg-white/75 dark:bg-zinc-900/75 backdrop-blur-md
                                                 rounded-xl shadow-lg shadow-zinc-900/5 border border-zinc-200/40 dark:border-zinc-700/40
-                                                min-w-[132px] z-50 animate-fade-in whitespace-nowrap ${
+                                                min-w-[132px] z-50 whitespace-nowrap ${
                                                     dropdownRight ? 'right-0' : 'left-0'
                                                 }`}
                                 >
@@ -230,7 +231,7 @@ export default function NavLayout() {
                                             {item.label}
                                         </Link>
                                     ))}
-                                </div>
+                                </Fade>
                             )}
                         </div>
                     )}

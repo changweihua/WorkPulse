@@ -221,9 +221,6 @@ body,
 /* ===== Animation Classes ===== */
 
 .animate-shake { animation: shake 0.4s ease-in-out; }
-.animate-fade-in { animation: fadeIn 0.3s ease-out both; }
-.animate-slide-up { animation: slideUp 0.35s ease-out both; }
-.animate-slide-down { animation: slideDown 0.3s ease-out both; }
 .animate-slide-in-right { animation: slideInRight 0.3s ease-out both; }
 .animate-slide-in-left { animation: slideInLeft 0.3s ease-out both; }
 .animate-scale-in { animation: scaleIn 0.25s ease-out both; }
@@ -236,17 +233,6 @@ body,
 .animate-celebrate { animation: celebrate 0.6s ease-in-out; }
 .animate-bar-grow { animation: bar-grow 0.6s ease-out both; transform-origin: bottom; }
 .animate-undo-slide-up { animation: undoSlideUp 0.35s ease-out both; }
-
-/* Staggered children animation */
-.stagger-children > * { animation: slideUp 0.3s ease-out both; }
-.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 40ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 80ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 120ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 160ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 200ms; }
-.stagger-children > *:nth-child(7) { animation-delay: 240ms; }
-.stagger-children > *:nth-child(8) { animation-delay: 280ms; }
 
 /* ===== Micro-interactions ===== */
 
@@ -385,23 +371,6 @@ body,
 }
 .streaming-border {
   animation: stream-border 2.2s ease-in-out infinite;
-}
-
-/* ===== Route Transition Animations ===== */
-
-.route-transition {
-  animation: routeFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes routeFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* Subtle divider (Fluent layer stroke) */

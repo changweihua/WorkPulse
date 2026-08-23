@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback, ReactNode } from 'react'
 import { motion } from 'motion/react'
+import { FadeIn } from '../components/Motion'
 import { Flame, FileText, CheckCircle2, ListTodo, Tag, TrendingUp, Calendar } from 'lucide-react'
 import * as echarts from 'echarts'
 import { useI18n } from '../stores/languageStore'
@@ -183,7 +184,7 @@ function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
   ]
 
   return (
-    <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '120ms' }}>
+    <FadeIn className="surface-card rounded-xl p-5" delay={0.12}>
       <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
         {t('stats.weeklySummary')}
       </h3>
@@ -197,7 +198,7 @@ function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
           </div>
         ))}
       </div>
-    </div>
+    </FadeIn>
   )
 }
 
@@ -243,7 +244,7 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
   const total = categories.reduce((s, c) => s + c.count, 0)
 
   return (
-    <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '240ms' }}>
+    <FadeIn className="surface-card rounded-xl p-5" delay={0.24}>
       <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4 flex items-center gap-1.5">
         <Tag size={14} className="text-blue-500" />
         {t('stats.categoryDist')}
@@ -277,7 +278,7 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
           })}
         </div>
       )}
-    </div>
+    </FadeIn>
   )
 }
 
@@ -394,12 +395,12 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
   }, [])
 
   return (
-    <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '200ms' }}>
+    <FadeIn className="surface-card rounded-xl p-5" delay={0.2}>
       <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
         {t('stats.dailyActivity')}
       </h3>
       <div ref={chartRef} className="h-52 w-full" />
-    </div>
+    </FadeIn>
   )
 }
 
@@ -449,7 +450,7 @@ function StatsPage(): ReactNode {
       <div className="h-full overflow-y-auto px-6 py-6" style={{ scrollbarGutter: 'stable' }}>
         <div className="space-y-5">
           {/* 标题 + 时间范围 + 刷新 */}
-          <div className="flex flex-wrap items-end justify-between gap-3 animate-slide-up">
+          <FadeIn className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
                 {t('stats.title')}
@@ -471,7 +472,7 @@ function StatsPage(): ReactNode {
                 </button>
               ))}
             </div>
-          </div>
+          </FadeIn>
 
           <motion.div
             className="grid grid-cols-2 md:grid-cols-4 gap-4"
@@ -511,22 +512,22 @@ function StatsPage(): ReactNode {
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div className="lg:col-span-2 surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '100ms' }}>
+            <FadeIn className="lg:col-span-2 surface-card rounded-xl p-5" delay={0.1}>
               <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3 flex items-center gap-1.5">
                 <Calendar size={14} className="text-violet-500" />
                 {t('stats.contributionGraph')}
               </h3>
               <ContributionGrid3D data={stats.daily} />
-            </div>
+            </FadeIn>
 
             <div className="space-y-5">
-              <div className="surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '160ms' }}>
+              <FadeIn className="surface-card rounded-xl p-5" delay={0.16}>
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4 flex items-center gap-1.5">
                   <TrendingUp size={14} className="text-teal-500" />
                   {t('stats.logsVsTasks')}
                 </h3>
                 <DonutChart logs={stats.totalLogs} tasks={stats.totalTasksDone} />
-              </div>
+              </FadeIn>
               <WeeklySummary data={stats.daily} />
             </div>
           </div>

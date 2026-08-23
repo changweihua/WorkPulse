@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef, useCallback, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { motion } from 'motion/react'
+import { FadeIn, MOTION_EASE } from '../components/Motion'
 import {
   DndContext,
   DragOverlay,
@@ -219,10 +221,13 @@ function SortableTaskCard({
   const closePicker = useCallback(() => setPickerRect(null), [])
 
   return (
-    <div
+    <motion.div
       ref={setNodeRef}
       style={style}
-      className="group flex items-start gap-2 p-3 surface-card rounded-lg shadow-sm hover:shadow-md transition-all duration-200 card-hover animate-pop-in"
+      className="group flex items-start gap-2 p-3 surface-card rounded-lg shadow-sm hover:shadow-md transition-all duration-200 card-hover"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3, ease: MOTION_EASE }}
     >
       <button
         {...attributes}
@@ -351,7 +356,7 @@ function SortableTaskCard({
           </button>
         </div>
       )}
-    </div>
+    </motion.div>
   )
 }
 
@@ -394,9 +399,14 @@ function CompleteDialog({
     }
   }
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-fade-in">
-      <div className="surface-elevated rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 animate-scale-in">
+return createPortal(
+<FadeIn className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <motion.div
+        className="surface-elevated rounded-xl shadow-2xl w-full max-w-md mx-4 p-6"
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.25, ease: MOTION_EASE }}
+      >
         <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('kanban.completeTitle')}</h3>
         <p className="text-sm text-zinc-500 mb-4">
           {t('kanban.completePrompt')}
@@ -429,8 +439,8 @@ function CompleteDialog({
             {t('kanban.completeOnly')}
           </button>
         </div>
-      </div>
-    </div>,
+      </motion.div>
+    </FadeIn>,
     document.body
   )
 }
@@ -650,7 +660,7 @@ function KanbanPage(): ReactNode {
               </button>
             </div>
             {showDescInput && (
-              <div className="mt-2 flex gap-2 animate-slide-up">
+              <FadeIn className="mt-2 flex gap-2">
                 <input
                   type="text"
                   value={newTaskDesc}
@@ -665,7 +675,7 @@ function KanbanPage(): ReactNode {
                   onChange={(e) => setNewTaskDate(e.target.value)}
                   className="px-2 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100"
                 />
-              </div>
+              </FadeIn>
             )}
           </div>
 

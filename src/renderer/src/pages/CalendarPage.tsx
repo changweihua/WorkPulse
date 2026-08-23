@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import ChineseLunarCalendar from '../components/ChineseLunarCalendar';
 import { useHolidays, isHolidayDate, isWorkdaySwap, getHolidayName } from '../lib/holiday';
+import { Fade } from '../components/Motion';
 import {
     Plus,
     Trash2,
@@ -301,7 +302,7 @@ const CalendarPage: React.FC = () => {
 
                         {/* 新增/编辑表单 */}
                         {showForm && (
-                            <div className="shrink-0 p-4 space-y-2.5 bg-zinc-50/60 dark:bg-zinc-800/30 border-b border-[var(--color-border)] animate-fade-in">
+                            <Fade className="shrink-0 p-4 space-y-2.5 bg-zinc-50/60 dark:bg-zinc-800/30 border-b border-[var(--color-border)]">
                                 <input
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
@@ -358,7 +359,7 @@ const CalendarPage: React.FC = () => {
                                     <Check size={14} />
                                     {editingEvent ? '保存修改' : `添加${activeTab === 'todo' ? '待办' : '会议'}`}
                                 </button>
-                            </div>
+                            </Fade>
                         )}
 
                         {/* 列表 */}
