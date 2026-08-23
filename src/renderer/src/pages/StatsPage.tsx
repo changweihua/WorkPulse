@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback, ReactNode } from 'react'
+import { motion } from 'motion/react'
 import { Flame, FileText, CheckCircle2, ListTodo, Tag, TrendingUp, Calendar } from 'lucide-react'
 import * as echarts from 'echarts'
 import { useI18n } from '../stores/languageStore'
@@ -65,14 +66,23 @@ function useCountUp(target: number, duration = 600): number {
   return value
 }
 
+const STATS_GRID_VARIANTS = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } }
+}
+
+const STATS_ITEM_VARIANTS = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } }
+}
+
 function StatCard({
   icon: Icon,
   label,
   value,
   suffix,
   color,
-  gradient,
-  delay = 0
+  gradient
 }: {
   icon: typeof Flame
   label: string
@@ -80,14 +90,14 @@ function StatCard({
   suffix?: string
   color: string
   gradient: string
-  delay?: number
 }): ReactNode {
   const displayValue = useCountUp(value)
 
   return (
-    <div
-      className="flex items-center gap-4 p-5 surface-card rounded-xl card-hover animate-slide-up"
-      style={{ animationDelay: `${delay}ms`, backgroundImage: gradient }}
+    <motion.div
+      variants={STATS_ITEM_VARIANTS}
+      className="flex items-center gap-4 p-5 surface-card rounded-xl card-hover"
+      style={{ backgroundImage: gradient }}
     >
       <div className={`p-3 rounded-xl ${color}`}>
         <Icon className="w-6 h-6" />
@@ -98,7 +108,7 @@ function StatCard({
         </p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5">{label}</p>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -463,7 +473,12 @@ function StatsPage(): ReactNode {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <motion.div
+            className="grid grid-cols-2 md:grid-cols-4 gap-4"
+            variants={STATS_GRID_VARIANTS}
+            initial="hidden"
+            animate="show"
+          >
             <StatCard
               icon={Flame}
               label={t('stats.streak')}
@@ -471,7 +486,6 @@ function StatsPage(): ReactNode {
               suffix={t('stats.days')}
               color={`bg-orange-100 dark:bg-orange-900/30 text-orange-600 ${stats.streak >= 7 ? 'streak-glow' : ''}`}
               gradient="linear-gradient(135deg, rgba(249,115,22,0.12), rgba(249,115,22,0))"
-              delay={0}
             />
             <StatCard
               icon={FileText}
@@ -479,7 +493,6 @@ function StatsPage(): ReactNode {
               value={stats.totalLogs}
               color="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
               gradient="linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0))"
-              delay={60}
             />
             <StatCard
               icon={CheckCircle2}
@@ -487,7 +500,6 @@ function StatsPage(): ReactNode {
               value={stats.totalTasksDone}
               color="bg-green-100 dark:bg-green-900/30 text-green-600"
               gradient="linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0))"
-              delay={120}
             />
             <StatCard
               icon={ListTodo}
@@ -495,9 +507,8 @@ function StatsPage(): ReactNode {
               value={stats.totalTasksActive}
               color="bg-purple-100 dark:bg-purple-900/30 text-purple-600"
               gradient="linear-gradient(135deg, rgba(168,85,247,0.12), rgba(168,85,247,0))"
-              delay={180}
             />
-          </div>
+          </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="lg:col-span-2 surface-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '100ms' }}>
