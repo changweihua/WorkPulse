@@ -1,6 +1,25 @@
+import { execSync } from 'node:child_process'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater'
+
+// 构建版本号：取当前 git 短哈希（应用启动时计算一次）。
+// 生产打包环境通常没有 git，失败时回退为不带构建信息的纯版本号。
+let buildHash: string | null = null
+try {
+  buildHash = execSync('git rev-parse --short HEAD', {
+    cwd: app.getAppPath(),
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore']
+  }).trim()
+} catch {
+  buildHash = null
+}
+
+export function getFullAppVersion(): string {
+  const version = app.getVersion()
+  return buildHash ? `v${version} (${buildHash})` : `v${version}`
+}
 
 export type UpdateStatus =
   | 'idle'
@@ -224,7 +243,7 @@ export async function checkForUpdates(): Promise<AppUpdateState> {
 }
 
 export function registerUpdateIpc(): void {
-  ipcMain.handle('app:get-version', () => app.getVersion())
+  ipcMain.handle('app:get-version', () => getFullAppVersion())
   ipcMain.handle('app:updates:get-state', () => updateState)
   ipcMain.handle('app:updates:check', () => checkForUpdates())
   ipcMain.handle('app:updates:install', () => {

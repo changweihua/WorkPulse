@@ -983,7 +983,7 @@ function SettingsPage(): ReactNode {
 
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.about')}</h2>
             <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">WorkPulse v{currentVersion}</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">WorkPulse {currentVersion}</p>
             <p className="text-xs text-zinc-400 mt-1">{t('settings.aboutText')}</p>
             <button
               onClick={async () => {

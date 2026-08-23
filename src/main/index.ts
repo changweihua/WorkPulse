@@ -10,7 +10,7 @@ import { initDatabase, getSetting, setSetting } from './db'
 import { startScheduler } from './scheduler'
 import { registerIpcHandlers } from './ipc'
 import { tMain, type AppLanguage } from './i18n'
-import { configureAutoUpdater, registerUpdateIpc, startUpdateCheck } from './updater'
+import { configureAutoUpdater, getFullAppVersion, registerUpdateIpc, startUpdateCheck } from './updater'
 import {
   registerTitleBarListener,
   attachTitleBarToWindow
@@ -247,7 +247,7 @@ function setupContextMenu(window: BrowserWindow): void {
       // 显示页面信息
       items.push({ type: 'separator' })
       items.push({
-        label: `WorkPulse v${app.getVersion()}`,
+        label: `WorkPulse ${getFullAppVersion()}`,
         enabled: false,
       })
 
