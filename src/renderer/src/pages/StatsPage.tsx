@@ -399,17 +399,17 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
   }, [])
 
   return (
-    <FadeIn className="surface-card rounded-xl p-5" delay={0.24}>
+    <FadeIn className="surface-card rounded-xl p-5 relative" delay={0.24}>
       <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4 flex items-center gap-1.5">
         <Tag size={14} className="text-blue-500" />
         {t('stats.categoryDist')}
       </h3>
-      {loading ? (
-        <div className="flex items-center justify-center py-8 text-zinc-400 text-xs">{t('common.loading')}</div>
-      ) : !hasData ? (
-        <div className="flex items-center justify-center py-8 text-zinc-400 text-xs">{t('stats.noData')}</div>
-      ) : (
-        <div ref={chartRef} className="h-52 w-full" />
+      <div ref={chartRef} className="h-52 w-full" />
+      {loading && (
+        <div className="flex items-center justify-center py-8 text-zinc-400 text-xs absolute inset-0">{t('common.loading')}</div>
+      )}
+      {!loading && !hasData && (
+        <div className="flex items-center justify-center py-8 text-zinc-400 text-xs absolute inset-0">{t('stats.noData')}</div>
       )}
     </FadeIn>
   )
