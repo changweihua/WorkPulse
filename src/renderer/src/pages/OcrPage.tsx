@@ -80,7 +80,7 @@ function ModelPanel({
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
                 {/* 运行状态 */}
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-zinc-50/80 dark:bg-zinc-800/40 border border-[var(--color-border-subtle)]">
                     <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
@@ -313,7 +313,7 @@ function OcrPageContent() {
     const charCount = ocrResult.replace(/\s/g, '').length;
 
     return (
-        <div className="h-full overflow-hidden flex bg-white/50 dark:bg-zinc-900/50">
+        <div className="h-full overflow-hidden flex gap-4 bg-white/50 dark:bg-zinc-900/50">
             <ModelPanel
                 status={status}
                 currentModel={currentModel}
@@ -455,7 +455,7 @@ function OcrPageContent() {
                         {/* 识别结果 */}
                         {(ocrResult || isGenerating) && (
                             <div className="surface-card rounded-xl p-4 relative group">
-                                <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                                         识别结果
                                     </h3>

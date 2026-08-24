@@ -239,7 +239,7 @@ function ReportPage(): ReactNode {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5" style={{ height: '100%' }}>
         <div className="lg:col-span-3 min-w-0 flex flex-col gap-3 overflow-hidden">
           {isViewingHistory && (
-            <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 surface-card shrink-0">
+            <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 surface-card rounded-xl shrink-0">
               <button onClick={handleBackToNew} className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                 &larr; {t('report.backToGenerate')}
               </button>
@@ -254,7 +254,7 @@ function ReportPage(): ReactNode {
           )}
 
           {!isViewingHistory && (
-            <div className="surface-card p-4 shrink-0">
+            <div className="surface-card rounded-xl p-4 shrink-0">
               <div className="flex flex-wrap gap-2 mb-3">
                 {presets.map((p) => (
                   <button
@@ -301,7 +301,7 @@ function ReportPage(): ReactNode {
           )}
 
           {status === 'no_key' && !isViewingHistory && (
-            <div className="flex items-start gap-3 p-4 surface-card border-l-4 border-l-amber-400 shrink-0">
+            <div className="flex items-start gap-3 p-4 surface-card rounded-xl border-l-4 border-l-amber-400 shrink-0">
               <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{t('report.noKeyTitle')}</p>
@@ -311,7 +311,7 @@ function ReportPage(): ReactNode {
           )}
 
           {status === 'no_data' && !isViewingHistory && (
-            <div className="text-center py-10 surface-card shrink-0">
+            <div className="text-center py-10 surface-card rounded-xl shrink-0">
               <FileText className="w-10 h-10 mx-auto text-zinc-300 dark:text-zinc-600 mb-3" />
               <p className="text-zinc-600 dark:text-zinc-400 font-medium mb-1">{t('report.noDataTitle')}</p>
               <p className="text-zinc-400 dark:text-zinc-500 text-sm">{t('report.noDataSubtitle')}</p>
@@ -319,7 +319,7 @@ function ReportPage(): ReactNode {
           )}
 
           {status === 'error' && !isViewingHistory && (
-            <div className="flex items-start gap-3 p-4 surface-card border-l-4 border-l-red-400 shrink-0">
+            <div className="flex items-start gap-3 p-4 surface-card rounded-xl border-l-4 border-l-red-400 shrink-0">
               <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-red-800 dark:text-red-300">{errorMsg}</p>
@@ -349,11 +349,11 @@ function ReportPage(): ReactNode {
                 </div>
                 <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg p-0.5">
                   <button onClick={() => setEditing(false)}
-                    className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${!editing ? 'surface-card text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'}`}>
+                    className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${!editing ? 'surface-card rounded-xl text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'}`}>
                     <Eye className="w-3.5 h-3.5" />{t('report.preview')}
                   </button>
                   <button onClick={() => setEditing(true)}
-                    className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${editing ? 'surface-card text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'}`}>
+                    className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${editing ? 'surface-card rounded-xl text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'}`}>
                     <Pencil className="w-3.5 h-3.5" />{t('report.edit')}
                   </button>
                 </div>
@@ -399,7 +399,7 @@ function ReportPage(): ReactNode {
           )}
 
           {status === 'idle' && !isViewingHistory && !reportContent && (
-            <div className="hidden lg:flex flex-1 flex-col items-center justify-center surface-card p-8">
+            <div className="hidden lg:flex flex-1 flex-col items-center justify-center surface-card rounded-xl p-8">
               <div className="w-16 h-16 mb-5 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 dark:from-zinc-100 dark:to-zinc-200 flex items-center justify-center shadow-fluent">
                 <Sparkles className="w-8 h-8 text-white dark:text-zinc-900" />
               </div>
@@ -430,7 +430,7 @@ function ReportPage(): ReactNode {
         </div>
 
         <div className="lg:col-span-2 min-w-0 overflow-hidden flex flex-col" style={{ height: '100%' }}>
-          <div className="surface-card p-4 flex flex-col h-full">
+          <div className="surface-card rounded-xl p-4 flex flex-col h-full">
             <div className="flex items-center gap-2 mb-3 shrink-0">
               <Clock className="w-4 h-4 text-zinc-400" />
               <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('report.history')}</h3>

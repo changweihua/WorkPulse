@@ -53,12 +53,14 @@
 
 | Token | 浅色 | 暗色 | 用途 |
 |---|---|---|---|
-| `--color-surface-card` | `rgb(255 255 255 / 0.50)` | `rgb(40 40 43 / 0.60)` | 卡片 |
+| `--color-surface-card` | `rgb(255 255 255 / 0.72)` | `rgb(40 40 43 / 0.72)` | 卡片（毛玻璃） |
 | `--color-surface-elevated` | `rgb(255 255 255 / 0.65)` | `rgb(40 40 43 / 0.75)` | 浮层 / 下拉 |
-| `--color-surface-input` | `rgb(255 255 255 / 0.75)` | `rgb(40 40 43 / 0.85)` | 输入框 |
+| `--color-surface-input` | `rgb(255 255 255 / 0.72)` | `rgb(40 40 43 / 0.72)` | 输入框（毛玻璃） |
 | `--color-surface-inset` | `rgb(0 0 0 / 4%)` | `rgb(255 255 255 / 5%)` | 内嵌区域 |
 
 对应工具类：`.surface-card` `.surface-elevated` `.surface-input` `.surface-inset`
+
+> **毛玻璃（glassmorphism）**：`.surface-card` / `.surface-input` / `.stat-card` 均叠加 `backdrop-filter: blur(16px) saturate(180%)`，背景走 `--color-surface-card` / `--color-surface-input` 半透明 token，边框走 `--glass-border`、阴影走 `--glass-shadow`（均在 `:root` / `.dark` 定义，**禁止在规则里硬编码 rgba**）。卡片暗色用 zinc-800（`rgb(40 40 43)`），须比浮层 `.surface-elevated` 更亮，以维持「浮层 > 卡片」的层级关系。
 
 #### 文字（Text）
 

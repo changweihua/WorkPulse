@@ -64,7 +64,7 @@ function DroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-25 rounded-lg transition-colors ${isOver ? 'surface-card' : ''}`}
+      className={`min-h-25 rounded-lg transition-colors ${isOver ? 'surface-card rounded-xl' : ''}`}
     >
       {children}
     </div>

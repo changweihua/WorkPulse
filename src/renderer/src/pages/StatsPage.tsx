@@ -103,7 +103,7 @@ function StatCard({
   return (
     <motion.div
       variants={STATS_ITEM_VARIANTS}
-      className="stat-card group relative flex items-center justify-between p-4 pr-5 surface-card rounded-2xl overflow-hidden"
+      className="stat-card group relative flex items-center justify-between p-4 pr-5 rounded-2xl overflow-hidden"
       style={{ backgroundImage: gradient }}
     >
       <div className="flex-1 min-w-0">
@@ -630,7 +630,7 @@ function StatsPage(): ReactNode {
         </FadeIn>
 
         {/* 范围按钮 — fixed 固定顶部，无背景 */}
-        <div className="fixed top-30 right-0 z-10">
+        <div className="fixed top-30 right-6 z-10">
             <div className="flex items-center rounded-lg border border-[var(--color-border)] surface-input overflow-hidden">
               {RANGE_OPTIONS.map((r) => (
                 <button

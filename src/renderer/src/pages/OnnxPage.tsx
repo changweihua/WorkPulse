@@ -86,7 +86,7 @@ function ModelPanel({
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
                 {/* 运行状态 */}
                 <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-zinc-50/80 dark:bg-zinc-800/40 border border-[var(--color-border-subtle)]">
                     <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
@@ -308,7 +308,7 @@ function OnnxPageContent() {
     );
 
     return (
-        <div className="h-full overflow-hidden flex bg-white/50 dark:bg-zinc-900/50">
+        <div className="h-full overflow-hidden flex gap-4 bg-white/50 dark:bg-zinc-900/50">
             <ModelPanel
                 status={status}
                 currentModel={currentModel}
@@ -350,7 +350,7 @@ function OnnxPageContent() {
                 </div>
 
                 {/* 消息列表 */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
                     {messages.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center">
                             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-4 shadow-lg shadow-violet-500/20">

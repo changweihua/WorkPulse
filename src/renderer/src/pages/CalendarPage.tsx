@@ -238,7 +238,7 @@ const CalendarPage: React.FC = () => {
                 {/* 右侧面板 */}
                 <div className="lg:w-2/5 xl:w-[420px] flex flex-col gap-4 min-h-0 overflow-y-auto">
                     {/* 选中日期卡片 */}
-                    <div className="surface-card p-4 border-l-4 border-blue-500 shrink-0">
+                    <div className="surface-card rounded-xl p-4 border-l-4 border-blue-500 shrink-0">
                         <div className="flex items-center justify-between">
                             <div>
                                 <h3 className="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-0.5">当前选中</h3>
@@ -276,7 +276,7 @@ const CalendarPage: React.FC = () => {
                     </div>
 
                     {/* 待办 / 会议 面板 */}
-                    <div className="surface-card flex flex-col flex-1 min-h-[300px] overflow-hidden">
+                    <div className="surface-card rounded-xl flex flex-col flex-1 min-h-[300px] overflow-hidden">
                         {/* Tabs */}
                         <div className="shrink-0 flex items-center border-b border-[var(--color-border)]">
                             <button

@@ -218,7 +218,7 @@ function ConversationSidebar({
                     新建会话
                 </button>
             </div>
-            <div className="flex-1 overflow-y-auto py-1">
+            <div className="flex-1 overflow-y-auto py-2 space-y-1.5">
                 {conversations.length === 0 && (
                     <div className="px-4 py-8 text-center text-zinc-400 dark:text-zinc-500 text-sm">
                         <MessageSquare size={32} className="mx-auto mb-2 opacity-40" />
@@ -1215,7 +1215,7 @@ export default function ChatPage() {
     };
 
     return (
-        <div className="h-full overflow-hidden flex surface-card">
+        <div className="h-full overflow-hidden flex gap-4 surface-card">
             {/* 左侧：会话列表 */}
             {showSidebar && (
                 <div className="shrink-0 w-[240px] h-full border-r border-[var(--color-border)] surface-card">
@@ -1296,7 +1296,7 @@ export default function ChatPage() {
                                     {isUser ? <User size={15} /> : <Bot size={15} />}
                                 </div>
 
-                                <div className={`max-w-[75%] space-y-1 ${isUser ? 'items-end' : 'items-start'}`}>
+                                <div className={`max-w-[75%] space-y-2 ${isUser ? 'items-end' : 'items-start'}`}>
                                     {!isUser && msg.reasoning && <ThinkingPanel reasoning={msg.reasoning} />}
                                     <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                                         isUser
