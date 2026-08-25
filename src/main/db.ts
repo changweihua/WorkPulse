@@ -494,6 +494,105 @@ export function getStats(days = 30): {
   return { daily, totalLogs, totalTasksDone, totalTasksActive, streak }
 }
 
+export interface WeeklyReport {
+  period: { start: string; end: string }
+  summary: {
+    totalLogs: number
+    totalTasksDone: number
+    totalTasksActive: number
+    meetingsAttended: number
+    activeDays: number
+  }
+  dailyBreakdown: Array<{
+    date: string
+    logs: number
+    tasksDone: number
+    meetings: number
+    topCategories: Array<{ category: string; count: number }>
+  }>
+  highlights: string[] // top 3 most productive days
+}
+
+export function generateWeeklyReport(startDate: string, endDate: string): WeeklyReport {
+  const logs = getWorkLogsByDateRange(startDate, endDate)
+  const allTasks = getTasks()
+  const events = getEventsByRange(startDate, endDate)
+  const meetings = events.filter((e) => e.type === 'meeting')
+
+  // Group logs by date
+  const logsByDate = new Map<string, WorkLog[]>()
+  for (const log of logs) {
+    const date = log.created_at.slice(0, 10)
+    const arr = logsByDate.get(date) || []
+    arr.push(log)
+    logsByDate.set(date, arr)
+  }
+
+  // Group completed tasks by date (within range)
+  const tasksDoneByDate = new Map<string, number>()
+  for (const task of allTasks) {
+    if (task.status === 'done' && task.completed_at) {
+      const date = task.completed_at.slice(0, 10)
+      if (date >= startDate && date <= endDate) {
+        tasksDoneByDate.set(date, (tasksDoneByDate.get(date) || 0) + 1)
+      }
+    }
+  }
+
+  // Group meetings by date
+  const meetingsByDate = new Map<string, number>()
+  for (const m of meetings) {
+    meetingsByDate.set(m.event_date, (meetingsByDate.get(m.event_date) || 0) + 1)
+  }
+
+  // Build daily breakdown across the full date range
+  const dailyBreakdown: WeeklyReport['dailyBreakdown'] = []
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const dateStr = formatLocalDate(d)
+    const dayLogs = logsByDate.get(dateStr) || []
+    const logsCount = dayLogs.length
+    const tasksDone = tasksDoneByDate.get(dateStr) || 0
+    const meetingsCount = meetingsByDate.get(dateStr) || 0
+
+    const catCounts = new Map<string, number>()
+    for (const log of dayLogs) {
+      const cat = log.category?.trim() || '未分类'
+      catCounts.set(cat, (catCounts.get(cat) || 0) + 1)
+    }
+    const topCategories = [...catCounts.entries()]
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3)
+
+    dailyBreakdown.push({ date: dateStr, logs: logsCount, tasksDone, meetings: meetingsCount, topCategories })
+  }
+
+  const totalLogs = logs.length
+  const totalTasksDone = [...tasksDoneByDate.values()].reduce((s, n) => s + n, 0)
+  const totalTasksActive = allTasks.filter(
+    (t) => t.status === 'todo' || t.status === 'in_progress'
+  ).length
+  const meetingsAttended = meetings.length
+  const activeDays = dailyBreakdown.filter((d) => d.logs + d.tasksDone + d.meetings > 0).length
+
+  // Highlights: top 3 most productive days by total activities
+  const highlights = [...dailyBreakdown]
+    .map((d) => ({ date: d.date, count: d.logs + d.tasksDone + d.meetings }))
+    .filter((d) => d.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3)
+    .map((d) => d.date)
+
+  return {
+    period: { start: startDate, end: endDate },
+    summary: { totalLogs, totalTasksDone, totalTasksActive, meetingsAttended, activeDays },
+    dailyBreakdown,
+    highlights
+  }
+}
+
 export function getAllWorkLogs(): WorkLog[] {
   return db.prepare('SELECT * FROM work_logs ORDER BY created_at DESC').all() as WorkLog[]
 }

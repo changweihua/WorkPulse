@@ -17,6 +17,25 @@ interface Report {
   generated_at: string
 }
 
+interface WeeklyReport {
+  period: { start: string; end: string }
+  summary: {
+    totalLogs: number
+    totalTasksDone: number
+    totalTasksActive: number
+    meetingsAttended: number
+    activeDays: number
+  }
+  dailyBreakdown: Array<{
+    date: string
+    logs: number
+    tasksDone: number
+    meetings: number
+    topCategories: Array<{ category: string; count: number }>
+  }>
+  highlights: string[]
+}
+
 interface Task {
   id: number
   title: string
@@ -152,6 +171,7 @@ interface API {
   }
   report: {
     generate: (dateFrom: string, dateTo: string) => Promise<Report>
+    weekly: (start: string, end: string) => Promise<WeeklyReport>
     create: (type: string, dateFrom: string, dateTo: string, content: string) => Promise<Report>
     list: (limit?: number) => Promise<Report[]>
     update: (id: number, content: string) => Promise<Report | null>

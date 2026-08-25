@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback, ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { FadeIn } from '../components/Motion'
-import { Tag, TrendingUp, Calendar } from 'lucide-react'
+import { Tag, TrendingUp, Calendar, Sparkles } from 'lucide-react'
 import * as echarts from 'echarts'
 import { useI18n } from '../stores/languageStore'
 import type { TranslationKey } from '../lib/i18n'
@@ -417,6 +417,47 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
 
 const FONT_FAMILY = '"JetBrains Maple Mono", "Maple Mono NF CN", "Source Han Serif SC", "思源宋体", sans-serif'
 
+function AISummary({ stats }: { stats: Stats }): ReactNode {
+  const { t } = useI18n()
+  const today = formatLocalDate(new Date())
+  const todayEntry = stats.daily.find((d) => d.date === today)
+  const todayLogs = todayEntry?.log_count ?? 0
+  const todayTasks = todayEntry?.task_completed ?? 0
+
+  const bestDay = stats.daily.reduce(
+    (best, d) => {
+      const count = d.log_count + d.task_completed
+      return count > best.count ? { date: d.date, count } : best
+    },
+    { date: '', count: 0 }
+  )
+
+  const pending = stats.totalTasksActive
+
+  const lines = [
+    t('stats.aiToday', { tasks: todayTasks, logs: todayLogs }),
+    bestDay.count > 0 ? t('stats.aiBestDay', { day: bestDay.date.slice(5), count: bestDay.count }) : null,
+    t('stats.aiPending', { count: pending })
+  ].filter(Boolean) as string[]
+
+  return (
+    <FadeIn className="surface-card rounded-xl p-5" delay={0.28}>
+      <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4 flex items-center gap-1.5">
+        <Sparkles className="w-4 h-4 text-sky-500" />
+        {t('stats.aiSummary')}
+      </h3>
+      <ul className="space-y-2.5">
+        {lines.map((line, idx) => (
+          <li key={idx} className="flex items-start gap-2.5 text-sm text-zinc-600 dark:text-zinc-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 mt-2 shrink-0" />
+            <span>{line}</span>
+          </li>
+        ))}
+      </ul>
+    </FadeIn>
+  )
+}
+
 function BarChart({ data }: { data: DailyStats[] }): ReactNode {
   const { t } = useI18n()
   const chartRef = useRef<HTMLDivElement>(null)
@@ -719,6 +760,8 @@ function StatsPage(): ReactNode {
           <BarChart data={filled} />
 
           <CategoryBreakdown range={range} />
+
+          <AISummary stats={stats} />
       </div>
     </div>
   )

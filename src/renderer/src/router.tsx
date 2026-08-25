@@ -3,6 +3,7 @@ import TitleBarLayout from './layout/TitleBarLayout';
 import NavLayout from './layout/NavLayout';
 import WorkLogPage from './pages/WorkLogPage';
 import ReportPage from './pages/ReportPage';
+import ReportsPage from './pages/ReportsPage';
 import KanbanPage from './pages/KanbanPage';
 import StatsPage from './pages/StatsPage';
 import SettingsPage from './pages/SettingsPage';
@@ -36,6 +37,7 @@ export const router = createHashRouter([
                     { path: 'worklog', element: <WorkLogPage /> },
                     { path: 'kanban', element: <KanbanPage />, handle: { fluid: true } },
                     { path: 'report', element: <ReportPage />, handle: { fluid: true } },
+                    { path: 'reports', element: <ReportsPage />, handle: { fluid: true } },
                     { path: 'stats', element: <StatsPage />, handle: { fluid: true } },
                     { path: 'calendar', element: <CalendarPage />, handle: { fluid: true } },
                     { path: 'chat', element: <ChatPage />, handle: { fluid: true } },

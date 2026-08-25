@@ -14,6 +14,7 @@ import {
   saveReport,
   getReports,
   updateReportContent,
+  generateWeeklyReport,
   getSetting,
   setSetting,
   deleteSetting,
@@ -120,6 +121,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('report:update', (_event, id: number, content: string) => {
     return updateReportContent(id, content)
+  })
+
+  ipcMain.handle('report:weekly', (_event, startDate: string, endDate: string) => {
+    return generateWeeklyReport(startDate, endDate)
   })
 
   ipcMain.handle('ai:stream-chat', async (event, prompt: string) => {
