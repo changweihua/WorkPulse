@@ -502,11 +502,13 @@ function createWindow(): void {
     }
   })
 
-  // 当窗口准备就绪后，最大化但不显示（启动后默认隐藏主窗口，只显示径向菜单）
+  // 当窗口准备就绪后，最大化并显示
   mainWindow.once('ready-to-show', () => {
     closeSplashWindow()
+    // 必须先 show 再 maximize，否则无边框窗口最大化不生效
+    mainWindow.show()
     mainWindow.maximize()
-    // 不调用 mainWindow.show() — 用户通过径向菜单或快捷键打开主窗口
+    mainWindow.hide() // 隐藏主窗口，通过径向菜单打开
     // 必须设置图标（无边框窗口需要）
     mainWindow.setIcon(APP_ICON_PATH)
     // 自动显示径向悬浮窗

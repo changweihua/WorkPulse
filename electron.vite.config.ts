@@ -34,8 +34,11 @@ export default defineConfig(({ mode }) => {
       define,  // ✅ 预加载进程也能读取
       build: {
         rolldownOptions: {
-          input: { index: resolve(__dirname, 'src/preload/index.ts') },
-          splash: resolve(__dirname, 'src/preload/splash.ts'), // 编译 preload
+          input: {
+            index: resolve(__dirname, 'src/preload/index.ts'),
+            splash: resolve(__dirname, 'src/preload/splash.ts'),
+            radial: resolve(__dirname, 'src/preload/radial.ts'),
+          }
         }
       }
     },
@@ -65,6 +68,14 @@ export default defineConfig(({ mode }) => {
       resolve: {
         alias: {
           '@': resolve('src/renderer/src')
+        }
+      },
+      build: {
+        rollupOptions: {
+          input: {
+            index: resolve(__dirname, 'src/renderer/index.html'),
+            radial: resolve(__dirname, 'src/renderer/radial.html'), // 径向菜单独立入口
+          }
         }
       },
       plugins: [react(), tailwindcss()]
