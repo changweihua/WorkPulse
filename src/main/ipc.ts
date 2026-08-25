@@ -30,13 +30,15 @@ import {
   deleteEvent,
   type CalendarEventInput,
   updateWorkLog,
-  workLogExists
+  workLogExists,
+  getDatabase
 } from './db'
 import { generateReport, streamChat } from './ai'
 import { ensureModelFiles, setModelProgressSender } from './model-files'
 import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey } from './secureSettings'
 import { sendNotification } from './notifier'
 import { tMain } from './i18n'
+import { registerAttachmentIPC } from './attachments'
 import OpenAI from 'openai';
 import { join } from 'path'
 import log from 'electron-log/main';
@@ -508,6 +510,10 @@ export function registerIpcHandlers(): void {
       event.sender.send('ai-stream-error', String(error));
     }
   });
+
+  // --- Attachments ---
+
+  registerAttachmentIPC(getDatabase())
 
   // --- App ---
 

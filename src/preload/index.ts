@@ -146,6 +146,12 @@ const api = {
     report: (content: string, dateRange: string) =>
       ipcRenderer.invoke('export:report', content, dateRange)
   },
+  attachment: {
+    add: (workLogId: number, data: any) => ipcRenderer.invoke('attachment:add', workLogId, data),
+    list: (workLogId: number) => ipcRenderer.invoke('attachment:list', workLogId),
+    delete: (id: number) => ipcRenderer.invoke('attachment:delete', id),
+    pickFile: () => ipcRenderer.invoke('attachment:pickFile'),
+  },
   // 新增：窗口控制
   window: {
     minimize: () => ipcRenderer.send('window-control', 'minimize'),

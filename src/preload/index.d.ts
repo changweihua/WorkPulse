@@ -43,6 +43,19 @@ interface CalendarEvent {
   created_at: string
 }
 
+interface Attachment {
+  id: number
+  work_log_id: number
+  type: 'file' | 'screenshot' | 'link'
+  original_name: string
+  stored_path: string | null
+  mime_type: string | null
+  url: string | null
+  file_size: number | null
+  thumbnail_path: string | null
+  created_at: string
+}
+
 type QuickCreateType = 'log' | 'task'
 type NavigatePage = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings'
 type AppLanguage = 'system' | 'zh' | 'en'
@@ -169,6 +182,19 @@ interface API {
   export: {
     logs: (format: 'csv' | 'markdown') => Promise<string | null>
     report: (content: string, dateRange: string) => Promise<string | null>
+  }
+  attachment: {
+    add: (workLogId: number, data: {
+      type: 'file' | 'screenshot' | 'link'
+      originalName: string
+      filePath?: string
+      base64Data?: string
+      mimeType?: string
+      url?: string
+    }) => Promise<Attachment>
+    list: (workLogId: number) => Promise<Attachment[]>
+    delete: (id: number) => Promise<boolean>
+    pickFile: () => Promise<{ path: string; name: string }[] | null>
   }
   window: {
     minimize: () => void

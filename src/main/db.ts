@@ -2,6 +2,9 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, copyFileSync, mkdirSync } from 'fs'
+import { createAttachmentTable, type Attachment } from './attachments'
+
+export type { Attachment }
 
 let db: Database.Database
 
@@ -105,6 +108,8 @@ function createTables(): void {
     CREATE INDEX IF NOT EXISTS idx_reports_dates ON reports(date_from, date_to);
     CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
   `)
+
+  createAttachmentTable(db)
 }
 
 function runMigrations(): void {
