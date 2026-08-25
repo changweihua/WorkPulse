@@ -196,7 +196,7 @@ export function RadialMenu(): ReactNode {
         )}
       </AnimatePresence>
 
-      {/* 图标 + 文字标签（始终可见，定位在每个扇区弧中心） */}
+      {/* 图标 + hover tooltip（定位在每个扇区弧中心） */}
       <AnimatePresence>
         {expanded &&
           ITEMS.map((item, i) => {
@@ -204,10 +204,13 @@ export function RadialMenu(): ReactNode {
             const iconRadius = (INNER_R + OUTER_R) / 2
             const pos = angleToXY(midDeg, iconRadius, CX, CY)
             const isHover = hovered === item.key
+            // tooltip 偏移方向：沿半径向外
+            const tipRadius = OUTER_R + 18
+            const tipPos = angleToXY(midDeg, tipRadius, CX, CY)
             return (
               <motion.div
                 key={`label-${item.key}`}
-                className="absolute flex flex-col items-center justify-center pointer-events-none"
+                className="absolute pointer-events-none"
                 style={{ left: pos.x, top: pos.y, zIndex: 3, transform: 'translate(-50%, -50%)' }}
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -220,18 +223,43 @@ export function RadialMenu(): ReactNode {
                   delay: expanded ? i * 0.05 : (numItems - 1 - i) * 0.05,
                 }}
               >
-                <span className="text-lg drop-shadow-sm" style={{ opacity: isHover ? 1 : 0.85 }}>
+                <span className="text-xl drop-shadow-sm" style={{ opacity: isHover ? 1 : 0.9 }}>
                   {item.emoji}
-                </span>
-                <span
-                  className="mt-0.5 whitespace-nowrap text-[10px] font-medium text-zinc-700 dark:text-zinc-100"
-                  style={{ opacity: 0.8 }}
-                >
-                  {item.label}
                 </span>
               </motion.div>
             )
           })}
+      </AnimatePresence>
+
+      {/* Hover tooltip（扇形外侧） */}
+      <AnimatePresence>
+        {expanded && hovered && (() => {
+          const item = ITEMS.find((it) => it.key === hovered)
+          if (!item) return null
+          const tipRadius = OUTER_R + 20
+          const tipPos = angleToXY(item.angle, tipRadius, CX, CY)
+          return (
+            <motion.div
+              key="tooltip"
+              className="absolute pointer-events-none whitespace-nowrap rounded-lg px-2.5 py-1
+                         text-xs font-medium text-zinc-700 dark:text-zinc-200"
+              style={{
+                left: tipPos.x, top: tipPos.y, zIndex: 4,
+                transform: 'translate(-50%, -50%)',
+                background: 'rgba(255,255,255,0.85)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15 }}
+            >
+              {item.label}
+            </motion.div>
+          )
+        })()}
       </AnimatePresence>
 
       {/* 中心圆形（可拖拽 / 点击展开收起） */}
@@ -260,20 +288,24 @@ export function RadialMenu(): ReactNode {
         <span className="text-[13px] font-bold tracking-tight text-zinc-800 dark:text-zinc-100">
           WorkPulse
         </span>
-        <button
+        {/* 关闭按钮：默认隐藏，展开菜单才显示，点击收起菜单（不关窗口） */}
+        <motion.button
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            window.radialApi.close()
+            setExpanded(false)
           }}
-          className="mt-1 flex h-5 w-5 items-center justify-center rounded-full
+          className="flex h-5 w-5 items-center justify-center rounded-full
                      bg-zinc-900/5 dark:bg-white/10 text-zinc-500 dark:text-zinc-300
                      hover:bg-zinc-900/10 dark:hover:bg-white/20 transition-colors"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          aria-label="Close"
+          aria-label="Collapse"
+          initial={{ opacity: 0, scale: 0 }}
+          animate={expanded ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0 }}
+          transition={{ duration: 0.2 }}
         >
           <span className="text-[10px] leading-none">✕</span>
-        </button>
+        </motion.button>
       </motion.div>
     </div>
   )
