@@ -5,9 +5,6 @@ import { is } from '@electron-toolkit/utils'
 let radialWindow: BrowserWindow | null = null
 let mainWin: BrowserWindow | null = null
 
-/**
- * 获取主窗口引用（由 index.ts 注册）
- */
 export function setMainWindow(win: BrowserWindow): void {
   mainWin = win
 }
@@ -17,7 +14,6 @@ function getMainWindow(): BrowserWindow | null {
 }
 
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
-  // 默认居中屏幕
   const display = screen.getPrimaryDisplay()
   const size = 320
   const x = Math.round(display.workArea.x + (display.workArea.width - size) / 2)
@@ -44,14 +40,12 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     },
   })
 
-  // Load the radial entry point
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     radialWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/radial.html`)
   } else {
     radialWindow.loadFile(join(__dirname, '../renderer/radial.html'))
   }
 
-  // Tell renderer to animate in
   radialWindow.webContents.on('did-finish-load', () => {
     radialWindow?.webContents.send('radial:show')
   })
@@ -71,7 +65,6 @@ export function showRadialWindow(parent: BrowserWindow): void {
 /** 切换径向菜单 ↔ 主窗口（互斥） */
 export function toggleRadialWindow(parent: BrowserWindow): void {
   if (radialWindow && !radialWindow.isDestroyed()) {
-    // 径向菜单当前可见 → 关闭径向菜单，打开主窗口
     hideRadialWindow()
     const win = getMainWindow()
     if (win) {
@@ -79,7 +72,6 @@ export function toggleRadialWindow(parent: BrowserWindow): void {
       win.focus()
     }
   } else {
-    // 径向菜单当前不可见 → 打开径向菜单，关闭主窗口
     createRadialWindow(parent)
     const win = getMainWindow()
     if (win && win.isVisible()) {
@@ -105,8 +97,7 @@ export function showMainWindow(): void {
   }
 }
 
-// --- IPC: radial menu actions ---
-// 渲染进程通过 radialApi 调用，这里把动作转发给主窗口并隐藏径向菜单。
+// --- IPC ---
 ipcMain.handle('radial:action', (_event, action: string) => {
   const win = getMainWindow()
   if (win) {
@@ -114,7 +105,6 @@ ipcMain.handle('radial:action', (_event, action: string) => {
     win.focus()
     win.webContents.send('radial:action', action)
   }
-  // 执行操作后隐藏径向菜单
   hideRadialWindow()
   return true
 })
@@ -122,4 +112,20 @@ ipcMain.handle('radial:action', (_event, action: string) => {
 ipcMain.handle('radial:close', () => {
   hideRadialWindow()
   return true
+})
+
+// 拖拽：renderer 发送鼠标偏移，主进程移动窗口
+let dragOffset = { x: 0, y: 0 }
+
+ipcMain.on('radial:drag-start', (event, mouseX: number, mouseY: number) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win || win.isDestroyed()) return
+  const [winX, winY] = win.getPosition()
+  dragOffset = { x: mouseX - winX, y: mouseY - winY }
+})
+
+ipcMain.on('radial:drag-move', (event, mouseX: number, mouseY: number) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win || win.isDestroyed()) return
+  win.setPosition(mouseX - dragOffset.x, mouseY - dragOffset.y)
 })

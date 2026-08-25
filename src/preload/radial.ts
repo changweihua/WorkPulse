@@ -4,10 +4,13 @@ contextBridge.exposeInMainWorld('radialApi', {
   onShow: (cb: () => void) => {
     ipcRenderer.on('radial:show', () => cb())
   },
-  // Actions the radial menu can trigger
+  // Actions
   createLog: () => ipcRenderer.invoke('radial:action', 'log'),
   createTask: () => ipcRenderer.invoke('radial:action', 'task'),
   createMeeting: () => ipcRenderer.invoke('radial:action', 'meeting'),
   openAI: () => ipcRenderer.invoke('radial:action', 'ai'),
   close: () => ipcRenderer.invoke('radial:close'),
+  // 拖拽
+  dragStart: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-start', mouseX, mouseY),
+  dragMove: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-move', mouseX, mouseY),
 })

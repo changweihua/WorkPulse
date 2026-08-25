@@ -17,6 +17,8 @@ interface RadialApi {
   createMeeting: () => Promise<void>
   openAI: () => Promise<void>
   close: () => Promise<void>
+  dragStart: (mouseX: number, mouseY: number) => void
+  dragMove: (mouseX: number, mouseY: number) => void
 }
 
 declare global {
