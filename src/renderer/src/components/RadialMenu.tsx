@@ -251,7 +251,7 @@ export function RadialMenu(): ReactNode {
         initial={{ scale: 0, opacity: 0 }}
         animate={show ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
         transition={SPRING}
-        onClick={toggleExpand}
+        onDoubleClick={toggleExpand}
         onMouseDown={handleDragStart}
       >
         {/* 程序图标：收起时显示 */}
@@ -278,6 +278,7 @@ export function RadialMenu(): ReactNode {
           style={{
             width: CENTER_SIZE, height: CENTER_SIZE,
             WebkitAppRegion: 'no-drag',
+            pointerEvents: expanded ? 'auto' : 'none',
           } as React.CSSProperties}
           aria-label="Collapse menu"
           initial={{ opacity: 0 }}
