@@ -2,6 +2,7 @@ import { BrowserWindow, screen, ipcMain } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { getSetting, setSetting } from './db'
+import { appBus, SHOW_MAIN, SHOW_RADIAL } from './event-bus'
 
 let radialWindow: BrowserWindow | null = null
 let mainWin: BrowserWindow | null = null
@@ -63,30 +64,17 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   return radialWindow
 }
 
-/** 显示径向菜单，同时隐藏主窗口 */
+/** 显示径向菜单，同时隐藏主窗口（通过事件总线） */
 export function showRadialWindow(parent: BrowserWindow): void {
-  if (radialWindow && !radialWindow.isDestroyed()) {
-    radialWindow.show()
-    return
-  }
-  createRadialWindow(parent)
+  appBus.emit(SHOW_RADIAL, parent)
 }
 
-/** 切换径向菜单 ↔ 主窗口（互斥） */
+/** 切换径向菜单 ↔ 主窗口（互斥，通过事件总线） */
 export function toggleRadialWindow(parent: BrowserWindow): void {
   if (radialWindow && !radialWindow.isDestroyed()) {
-    hideRadialWindow()
-    const win = getMainWindow()
-    if (win) {
-      if (!win.isVisible()) win.show()
-      win.focus()
-    }
+    appBus.emit(SHOW_MAIN)
   } else {
-    createRadialWindow(parent)
-    const win = getMainWindow()
-    if (win && win.isVisible()) {
-      win.hide()
-    }
+    appBus.emit(SHOW_RADIAL, parent)
   }
 }
 
@@ -97,14 +85,14 @@ export function hideRadialWindow(): void {
   }
 }
 
-/** 托盘显示主窗口：隐藏径向菜单 */
+/** 托盘显示主窗口：隐藏径向菜单（通过事件总线） */
 export function showMainWindow(): void {
-  hideRadialWindow()
-  const win = getMainWindow()
-  if (win) {
-    if (!win.isVisible()) win.show()
-    win.focus()
-  }
+  appBus.emit(SHOW_MAIN)
+}
+
+/** 获取当前径向菜单窗口引用（供事件处理器使用） */
+export function getRadialWindow(): BrowserWindow | null {
+  return radialWindow && !radialWindow.isDestroyed() ? radialWindow : null
 }
 
 // --- IPC ---
@@ -116,10 +104,9 @@ const RADIAL_ROUTES: Record<string, string> = {
 }
 
 ipcMain.handle('radial:action', (_event, action: string) => {
+  appBus.emit(SHOW_MAIN)
   const win = getMainWindow()
   if (win) {
-    if (!win.isVisible()) win.show()
-    win.focus()
     const route = RADIAL_ROUTES[action] ?? action
     win.webContents.send('navigate', route)
   }
@@ -158,7 +145,7 @@ ipcMain.handle('radial:set-config', (_event, items: unknown) => {
 })
 
 ipcMain.handle('radial:close', () => {
-  hideRadialWindow()
+  appBus.emit(SHOW_RADIAL)
   return true
 })
 

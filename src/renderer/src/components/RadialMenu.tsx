@@ -27,8 +27,6 @@ const ITEMS: RadialItem[] = [
   { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 180, action: () => window.radialApi.openAI() },
 ]
 
-const SPRING = { type: 'spring' as const, stiffness: 420, damping: 24, mass: 0.7 }
-
 /**
  * 生成环形扇区 SVG path（平行切口版本）
  * 内弧间隙角度 > 外弧间隙角度，两侧切口呈平行直线。
@@ -70,16 +68,25 @@ export function RadialMenu(): ReactNode {
     window.radialApi.onShow(() => setShow(true))
   }, [])
 
-  // 拖拽结束后持久化窗口位置
+  // 拖拽结束后持久化窗口位置 + 拖拽移动
   useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (dragRef.current.active) {
+        window.radialApi.dragMove(e.screenX, e.screenY)
+      }
+    }
     const handleMouseUp = () => {
       if (dragRef.current.active) {
         dragRef.current.active = false
         window.radialApi.dragEnd()
       }
     }
+    window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
-    return () => window.removeEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
   }, [])
 
   const toggleExpand = useCallback(() => {
@@ -91,6 +98,12 @@ export function RadialMenu(): ReactNode {
     if (target.closest('button')) return
     dragRef.current = { active: true, startX: e.screenX, startY: e.screenY }
     window.radialApi.dragStart(e.screenX, e.screenY)
+  }, [])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (dragRef.current.active) {
+      window.radialApi.dragMove(e.screenX, e.screenY)
+    }
   }, [])
 
   const numItems = ITEMS.length
@@ -156,7 +169,7 @@ export function RadialMenu(): ReactNode {
                     stiffness: 420,
                     damping: 24,
                     mass: 0.7,
-                    delay: expanded ? i * 0.06 : (numItems - 1 - i) * 0.06,
+                    delay: expanded ? i * 0.06 : (numItems - 1 - i) * 0.04,
                   }}
                   onMouseEnter={() => setHovered(item.key)}
                   onMouseLeave={() => setHovered(null)}
@@ -190,7 +203,7 @@ export function RadialMenu(): ReactNode {
                   stiffness: 420,
                   damping: 24,
                   mass: 0.7,
-                  delay: expanded ? i * 0.06 : (numItems - 1 - i) * 0.06,
+                  delay: expanded ? i * 0.06 : (numItems - 1 - i) * 0.04,
                 }}
               >
                 <span className="text-2xl drop-shadow-sm">{item.emoji}</span>
@@ -246,11 +259,20 @@ export function RadialMenu(): ReactNode {
             'inset 0 1px 3px rgba(255,255,255,0.5), inset 0 -1px 0 rgba(255,255,255,0.15), 0 8px 32px rgba(0,0,0,0.12)',
           border: '1px solid rgba(255,255,255,0.4)',
           zIndex: 2,
-          WebkitAppRegion: 'drag',
         } as React.CSSProperties}
         initial={{ scale: 0, opacity: 0 }}
-        animate={show ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
-        transition={SPRING}
+        animate={
+          show
+            ? {
+                scale: expanded ? [1, 1.08, 1] : 1,
+                opacity: 1,
+                boxShadow: expanded
+                  ? 'inset 0 1px 3px rgba(255,255,255,0.5), inset 0 -1px 0 rgba(255,255,255,0.15), 0 12px 40px rgba(0,0,0,0.18)'
+                  : 'inset 0 1px 3px rgba(255,255,255,0.5), inset 0 -1px 0 rgba(255,255,255,0.15), 0 8px 32px rgba(0,0,0,0.12)',
+              }
+            : { scale: 0, opacity: 1 }
+        }
+        transition={{ type: 'spring', stiffness: 420, damping: 20, mass: 0.8 }}
         onDoubleClick={toggleExpand}
         onMouseDown={handleDragStart}
       >
@@ -259,7 +281,7 @@ export function RadialMenu(): ReactNode {
           src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzg0MDg1MDIzMjc1IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjI0Mzk3IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxwYXRoIGQ9Ik02NTEuNjEwOTA5IDEwMjMuOTkySDI3OS4yNzc4MThsOS4yNTU5MjgtNC42Mzk5NjRhMTg2LjE1ODU0NiAxODYuMTU4NTQ2IDAgMCAwIDEwMC4wOTUyMTgtMTM0LjIwNjk1MWwxOC44NzE4NTItMTA3LjAzOTE2NGE5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAxIDkyLjE1OTI4LTc5LjkzNTM3NUg2MTcuNDM1MTc2YzQ2LjMxOTYzOCAwIDg1LjU5OTMzMSAzNC4wNzk3MzQgOTIuMTU5MjggNzkuOTM1Mzc1bDM0LjE1OTczMyAxMzkuNjMwOTA5YzcuMjc5OTQzIDUwLjg5NTYwMi0yOC4wODc3ODEgOTguMDQ3MjM0LTc4Ljk4MzM4MyAxMDUuMzE5MTc3LTQuMzU5OTY2IDAuNjIzOTk1LTguNzU5OTMyIDAuOTM1OTkzLTEzLjE2Nzg5NyAwLjkzNTk5M3oiIGZpbGw9IiM5OTlBQUMiIHAtaWQ9IjI0Mzk4Ij48L3BhdGg+PHBhdGggZD0iTTc0Mi4yOTgyMDEgOTExLjczNjg3N2wtMy44NjM5Ny0xNS44MTU4NzYtNS40Nzk5NTctMjIuMzY3ODI2LTYuMjcxOTUxLTI1LjYzMTc5OS02LjI3MTk1MS0yNS42Mzk4LTUuNDc5OTU3LTIyLjM2NzgyNS0zLjg2Mzk3LTE1LjgwNzg3Ny0xLjQ3MTk4OS01Ljk5OTk1M2E5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAwLTkyLjE1OTI4LTc5LjkzNTM3NWgtMi41NTk5OGEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAwIDAgNDYuNTUxNjM2aDIuNTU5OThhNDYuNzY3NjM1IDQ2Ljc2NzYzNSAwIDAgMSA0Ni4wNzk2NCAzOS45NTk2ODhjMC4yMTU5OTggMS41MDM5ODggMC41MDM5OTYgMi45OTk5NzcgMC44NzE5OTMgNC40Nzk5NjVsMzMuNTM1NzM4IDEzNy4wNDY5MjlhNDYuNTU5NjM2IDQ2LjU1OTYzNiAwIDAgMS00Ni4zMTE2MzggNTEuMjM5NkgyNTUuOTk4QTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDAgMjU1Ljk5OCAxMDIzLjk5MmgzOTUuNjEyOTA5YzUxLjM4MzU5OSAwLjAzMiA5My4wNzEyNzMtNDEuNTk5Njc1IDkzLjEwMzI3My05Mi45NzUyNzQgMC00LjQ0Nzk2NS0wLjMxOTk5OC04Ljg3OTkzMS0wLjk0Mzk5My0xMy4yNzk4OTZsLTEuNDcxOTg4LTUuOTk5OTUzeiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQzOTkiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA3NDQuNzE0MTgyaDkzLjEwMzI3M2E2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAgMTM5LjYzODkwOUg0ODguNzE2MTgyYTY5LjgyMzQ1NSA2OS44MjM0NTUgMCAwIDEgMC0xMzkuNjMwOTA5eiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQ0MDAiPjwvcGF0aD48cGF0aCBkPSJNOTMuMDk1MjczIDBoODM3LjgwMTQ1NEM5ODIuMzEyMzI2IDAgMTAyMy45OTIgNDEuNjc5Njc0IDEwMjMuOTkyIDkzLjA5NTI3M3Y2MDUuMDc1MjczYzAgNTEuNDE1NTk4LTQxLjY3OTY3NCA5My4wOTUyNzMtOTMuMDk1MjczIDkzLjA5NTI3Mkg5My4wOTUyNzNDNDEuNjc5Njc0IDc5MS4yNzM4MTggMCA3NDkuNTk0MTQ0IDAgNjk4LjE3MDU0NlY5My4wOTUyNzNDMCA0MS42Nzk2NzQgNDEuNjc5Njc0IDAgOTMuMDk1MjczIDB6IiBmaWxsPSIjOTk5QUFDIiBwLWlkPSIyNDQwMSI+PC9wYXRoPjxwYXRoIGQ9Ik05My4wOTUyNzMgMGg2OTguMTcwNTQ1YzUxLjQxNTU5OCAwIDkzLjA4NzI3MyA0MS42Nzk2NzQgOTMuMDg3MjczIDkzLjA5NTI3M3Y2MDUuMDc1MjczYzAgNTEuNDE1NTk4LTQxLjY3OTY3NCA5My4wOTUyNzMtOTMuMDg3MjczIDkzLjA5NTI3Mkg5My4wOTUyNzNDNDEuNjc5Njc0IDc5MS4yNzM4MTggMCA3NDkuNTk0MTQ0IDAgNjk4LjE3MDU0NlY5My4wOTUyNzNDMCA0MS42Nzk2NzQgNDEuNjc5Njc0IDAgOTMuMDk1MjczIDB6IiBmaWxsPSIjQ0FDQUQ0IiBwLWlkPSIyNDQwMiI+PC9wYXRoPjxwYXRoIGQ9Ik05MjkuNTkyNzM4IDIyLjkxOTgyMWE0Ny43NTk2MjcgNDcuNzU5NjI3IDAgMCAwLTcuODM5OTM5IDAuNjYzOTk1IDQ3LjMzNTYzIDQ3LjMzNTYzIDAgMCAwLTM4LjYyMzY5OCA1NC4zMTk1NzV2MC4wMzJsMC4wMTU5OTkgMC4wOCAwLjI4Nzk5OCAxLjg5NTk4NSAwLjE3NTk5OSAxLjA3OTk5MWMwLjA0IDAuNDYzOTk2IDAuMDc5OTk5IDAuOTI3OTkzIDAuMTQzOTk5IDEuMzk5OTg5IDAuMjU1OTk4IDIuMzExOTgyIDAuNDMxOTk3IDQuNjM5OTY0IDAuNTI3OTk2IDcuMDA3OTQ2bDAuMDA3OTk5IDAuMTU5OTk4djAuMDA4bDAuMDA4IDAuMTUxOTk5djAuMDI0bDAuMDA4IDAuMTQzOTk5djAuMDE2bDAuMDE2IDAuNjU1OTk1djAuMDE1OTk5bDAuMDA4IDAuMTUxOTk5djAuMTk5OTk5bDAuMDA4IDAuMTE5OTk5djAuNjk1OTk0bDAuMDE2IDAuMDMydjYwNy42MjcyNTNsLTAuMDA4IDAuMTAzOTk5djAuMzM1OTk3bC0wLjAwOCAwLjEyNzk5OVY3MDAuMjkwNTI5bC0wLjAwOCAwLjEzNTk5OXYwLjE2Nzk5OWwtMC4wMDggMC4yNzE5OTd2MC4wMjRsLTAuMDA4IDAuMTM1OTk5VjcwMS4zMzA1MjFsLTAuMDI0IDAuMjg3OTk4djAuMzExOTk3bC0wLjAxNTk5OSAwLjE0Mzk5OXYwLjI5NTk5OGEzLjU4Mzk3MiAzLjU4Mzk3MiAwIDAgMC0wLjAyNCAwLjI5NTk5N3YwLjAwOGMtMC4zNDM5OTcgNy4zNTk5NDMtMS41Njc5ODggMTQuNjQ3ODg2LTMuNjM5OTcyIDIxLjcxOTgzMWE0Ni41NTE2MzYgNDYuNTUxNjM2IDAgMCAwIDg5LjMzNTMwMiAyNi4xNjc3OTVjNC45ODM5NjEtMTcuMDE1ODY3IDcuNTExOTQxLTM0LjY1NTcyOSA3LjUwMzk0Mi01Mi4zOTE1OVY5My4wOTUyNzNjMC03LjA3OTk0NS0wLjM5OTk5Ny0xNC4xNTE4ODktMS4xOTk5OTEtMjEuMTc1ODM1YTU0LjQ3OTU3NCA1NC40Nzk1NzQgMCAwIDAtMC4yNzE5OTgtMi4wMTU5ODQgNTEuOTU5NTk0IDUxLjk1OTU5NCAwIDAgMC0wLjM3NTk5Ny0zLjA2Mzk3NmwtMC43ODM5OTQtNS4wNTU5NjFhNDUuNzc1NjQyIDQ1Ljc3NTY0MiAwIDAgMC00NS4yMzE2NDYtMzguODYzNjk2eiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQ0MDMiPjwvcGF0aD48cGF0aCBkPSJNNzkxLjI3MzgxOCAwSDkzLjA4NzI3M0M0MS42Nzk2NzQgMCAwIDQxLjY3OTY3NCAwIDkzLjA4NzI3M3Y1MTEuOTk2aDg4NC4zNjEwOTF2LTUxMS45OTZDODg0LjM2MTA5MSA0MS42Nzk2NzQgODQyLjY4MTQxNyAwIDc5MS4yNjU4MTggMHoiIGZpbGw9IiMyQzJGNTMiIHAtaWQ9IjI0NDA0Ij48L3BhdGg+PHBhdGggZD0iTTQ2NS40NTIzNjQgNjk4LjE3MDU0NmE0Ni41NDM2MzYgNDYuNTQzNjM2IDAgMSAxLTkzLjA4NzI3MyAwIDQ2LjU0MzYzNiA0Ni41NDM2MzYgMCAxIDEgOTMuMDg3MjczIDB6IiBmaWxsPSIjNEM0RjZFIiBwLWlkPSIyNDQwNSI+PC9wYXRoPjxwYXRoIGQ9Ik05NTQuMTY4NTQ2IDEzOS42MzA5MDlhMjMuMjc5ODE4IDIzLjI3OTgxOCAwIDAgMSAyMy4yNzk4MTggMjMuMjc5ODE4djIzMi43MTgxODJhMjMuMjcxODE4IDIzLjI3MTgxOCAwIDEgMS00Ni41NTE2MzcgMHYtMjMyLjcxODE4MmEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAxIDIzLjI3OTgxOC0yMy4yNzk4MTh6IiBmaWxsPSIjMkMyRjUzIiBwLWlkPSIyNDQwNiI+PC9wYXRoPjxwYXRoIGQ9Ik02OS44MjM0NTUgNjA1LjA5MTI3M2g3NDQuNzE0MTgxYTIzLjI3MTgxOCAyMy4yNzE4MTggMCAxIDEgMCA0Ni41MzU2MzZINjkuODIzNDU1YTIzLjI3MTgxOCAyMy4yNzE4MTggMCAxIDEgMC00Ni41MzU2MzZ6IiBmaWxsPSIjRUFFQUVFIiBwLWlkPSIyNDQwNyI+PC9wYXRoPjxwYXRoIGQ9Ik05My4wOTUyNzMgNDY1LjQ1MjM2NGg2OTguMTcwNTQ1YTQ2LjU1MTYzNiA0Ni41NTE2MzYgMCAwIDEgMCA5My4wODcyNzJIOTMuMDk1MjczYTQ2LjU0MzYzNiA0Ni41NDM2MzYgMCAwIDEgMC05My4wODcyNzJ6IiBmaWxsPSIjNEM0RjZFIiBwLWlkPSIyNDQwOCI+PC9wYXRoPjxwYXRoIGQ9Ik0xMzkuNjMwOTA5IDQxOC45MDA3MjdhNDYuNTQzNjM2IDQ2LjU0MzYzNiAwIDEgMSAwIDkzLjA5NTI3MyA0Ni41NDM2MzYgNDYuNTQzNjM2IDAgMCAxIDAtOTMuMDk1MjczeiIgZmlsbD0iIzExQ0JFNSIgcC1pZD0iMjQ0MDkiPjwvcGF0aD48cGF0aCBkPSJNMTE2LjM2NzA5MSA0MTguOTAwNzI3YTIzLjI3MTgxOCAyMy4yNzE4MTggMCAxIDEtMC4wMDggNDYuNTQzNjM3IDIzLjI3MTgxOCAyMy4yNzE4MTggMCAwIDEgMC00Ni41NDM2Mzd6IiBmaWxsPSIjQkNGNEY1IiBwLWlkPSIyNDQxMCI+PC9wYXRoPjxwYXRoIGQ9Ik0zMjUuODIxNDU1IDQxOC45MDA3MjdhNDYuNTUxNjM2IDQ2LjU1MTYzNiAwIDEgMS0wLjAxNiA5My4xMDMyNzMgNDYuNTUxNjM2IDQ2LjU1MTYzNiAwIDAgMSAwLjAxNi05My4xMDMyNzN6IiBmaWxsPSIjOTFFREY4IiBwLWlkPSIyNDQxMSI+PC9wYXRoPjxwYXRoIGQ9Ik01MTEuOTk2IDQxOC45MDA3MjdhNDYuNTUxNjM2IDQ2LjU1MTYzNiAwIDEgMS0wLjAwOCA5My4xMDMyNzNBNDYuNTUxNjM2IDQ2LjU1MTYzNiAwIDAgMSA1MTEuOTk2IDQxOC45MDA3Mjd6IiBmaWxsPSIjRkRCOEJGIiBwLWlkPSIyNDQxMiI+PC9wYXRoPjxwYXRoIGQ9Ik02OTguMTcwNTQ2IDQxOC45MDA3MjdhNDYuNTQzNjM2IDQ2LjU0MzYzNiAwIDEgMSAwIDkzLjA5NTI3MyA0Ni41NDM2MzYgNDYuNTQzNjM2IDAgMCAxIDAtOTMuMDk1MjczeiIgZmlsbD0iI0ZBNDY1OSIgcC1pZD0iMjQ0MTMiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA0MTguOTAwNzI3YTIzLjI3OTgxOCAyMy4yNzk4MTggMCAxIDEgMCA0Ni41NTk2MzcgMjMuMjc5ODE4IDIzLjI3OTgxOCAwIDAgMSAwLTQ2LjU1OTYzN3pNNjc0Ljg5ODcyNyA0MTguOTAwNzI3YTIzLjI3MTgxOCAyMy4yNzE4MTggMCAxIDEgMCA0Ni41NDM2MzcgMjMuMjcxODE4IDIzLjI3MTgxOCAwIDAgMSAwLTQ2LjU0MzYzN3oiIGZpbGw9IiNGRURFRTEiIHAtaWQ9IjI0NDE0Ij48L3BhdGg+PHBhdGggZD0iTTMwMi41NDE2MzYgNDE4LjkwMDcyN2EyMy4yNzk4MTggMjMuMjc5ODE4IDAgMSAxIDAgNDYuNTU5NjM3IDIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDEgMC00Ni41NTk2Mzd6IiBmaWxsPSIjRTlGRkY1IiBwLWlkPSIyNDQxNSI+PC9wYXRoPjxwYXRoIGQ9Ik0yMDkuNDU0MzY0IDk3Ny40NDgzNjRoMjMyLjcxODE4MmEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAxIDAgNDYuNTQzNjM2aC0yMzIuNzE4MTgyYTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDEgMC00Ni41NDM2MzZ6IiBmaWxsPSIjQ0FDQUQ0IiBwLWlkPSIyNDQxNiI+PC9wYXRoPjwvc3ZnPg=="
           alt="WorkPulse"
           className="pointer-events-none"
-          style={{ width: 52, height: 52, objectFit: 'contain', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          style={{ width: 52, height: 52, objectFit: 'contain' } as React.CSSProperties}
           initial={{ opacity: 1 }}
           animate={{ opacity: expanded ? 0 : 1 }}
           transition={{ duration: 0.2 }}
@@ -277,15 +299,15 @@ export function RadialMenu(): ReactNode {
                      hover:bg-zinc-900/10 dark:hover:bg-white/20 transition-colors"
           style={{
             width: CENTER_SIZE, height: CENTER_SIZE,
-            WebkitAppRegion: 'no-drag',
             pointerEvents: expanded ? 'auto' : 'none',
           } as React.CSSProperties}
           aria-label="Collapse menu"
           initial={{ opacity: 0 }}
           animate={{ opacity: expanded ? 1 : 0 }}
+          whileHover={{ scale: 1.12 }}
           transition={{ duration: 0.2 }}
         >
-          <span className="text-lg leading-none">✕</span>
+          <span className="text-2xl leading-none">✕</span>
         </motion.button>
       </motion.div>
     </div>
