@@ -7,6 +7,7 @@ import { Readable } from 'stream'
 import { getModelsDir } from './model-files'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, getSetting, setSetting } from './db'
+import { registerAttachmentProtocol } from './attachments'
 import { startScheduler } from './scheduler'
 import { registerIpcHandlers } from './ipc'
 import { tMain, type AppLanguage } from './i18n'
@@ -19,6 +20,7 @@ import contextMenu from 'electron-context-menu'
 import { loadDotNet } from './asar-dotnet-loader';
 import fs from 'fs/promises';
 import log from 'electron-log/main';
+import { showRadialWindow, hideRadialWindow, toggleRadialWindow } from './radial-window';
 
 log.initialize(); // 只需调用一次
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'info';
@@ -77,6 +79,14 @@ export function reregisterGlobalShortcuts(
 ): { log: boolean; task: boolean } {
   globalShortcut.unregisterAll()
   const { log, task } = getShortcuts(overrides)
+
+  // 径向快捷菜单：Cmd/Ctrl + Shift + Space
+  globalShortcut.register('CmdOrCtrl+Shift+Space', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) {
+      toggleRadialWindow(win)
+    }
+  })
 
   return {
     log: registerShortcut(log, 'quick-create:log'),
@@ -492,13 +502,15 @@ function createWindow(): void {
     }
   })
 
-  // 当窗口准备就绪后，最大化并显示（原生 Mica 无需最大化后重应用）
+  // 当窗口准备就绪后，最大化但不显示（启动后默认隐藏主窗口，只显示径向菜单）
   mainWindow.once('ready-to-show', () => {
     closeSplashWindow()
     mainWindow.maximize()
-    mainWindow.show()
-    // 必须在 show() 之后设置图标：无边框窗口在 show 前 setIcon 不生效（dev 环境）
+    // 不调用 mainWindow.show() — 用户通过径向菜单或快捷键打开主窗口
+    // 必须设置图标（无边框窗口需要）
     mainWindow.setIcon(APP_ICON_PATH)
+    // 自动显示径向悬浮窗
+    showRadialWindow(mainWindow)
   })
   if (process.platform !== 'darwin') {
     mainWindow.on('close', (event) => {
@@ -590,6 +602,7 @@ app.whenReady().then(async () => {
   }
 
   // 模型本地缓存协议：appmodel://models/<modelId>/resolve/main/<file>
+  registerAttachmentProtocol()
   protocol.handle('appmodel', async (request) => {
     try {
       const u = new URL(request.url)
