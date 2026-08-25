@@ -519,10 +519,17 @@ function createWindow(): void {
           app.quit()
         } else {
           mainWindow.hide()
+          // 主窗口隐藏后自动显示径向悬浮窗
+          showRadialWindow(mainWindow)
         }
       }
     })
   }
+
+  // 主窗口最小化时自动显示径向悬浮窗
+  mainWindow.on('minimize', () => {
+    showRadialWindow(mainWindow)
+  })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
