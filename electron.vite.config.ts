@@ -71,7 +71,7 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
-        rollupOptions: {
+        rolldownOptions: {
           input: {
             index: resolve(__dirname, 'src/renderer/index.html'),
             radial: resolve(__dirname, 'src/renderer/radial.html'), // 径向菜单独立入口
