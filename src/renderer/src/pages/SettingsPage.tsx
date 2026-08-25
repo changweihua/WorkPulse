@@ -197,6 +197,15 @@ function SettingsPage(): ReactNode {
   const [reminderEnabled, setReminderEnabled] = useState(true)
   const [reminderLead, setReminderLead] = useState('10')
 
+  // 径向菜单设置
+  const [radialEnabled, setRadialEnabled] = useState(true)
+  const [radialItems, setRadialItems] = useState([
+    { key: 'log', label: 'Work Log', emoji: '📝', enabled: true },
+    { key: 'task', label: 'Task', emoji: '📋', enabled: true },
+    { key: 'meeting', label: 'Meeting', emoji: '📅', enabled: true },
+    { key: 'ai', label: 'AI Generate', emoji: '🤖', enabled: true },
+  ])
+
   useEffect(() => {
     loadSettings()
 
@@ -223,6 +232,16 @@ function SettingsPage(): ReactNode {
     })
     void window.api.settings.get('reminder_lead').then((v) => {
       if (v !== null) setReminderLead(v)
+    })
+
+    // 加载径向菜单设置
+    void window.api.settings.get('radial_enabled').then((v) => {
+      if (v !== null) setRadialEnabled(v === '1')
+    })
+    void window.api.settings.get('radial_items').then((v) => {
+      if (v) {
+        try { setRadialItems(JSON.parse(v)) } catch {}
+      }
     })
 
     return () => {
@@ -493,6 +512,18 @@ function SettingsPage(): ReactNode {
       setReminderLead(prev)
       toast.error('❌ 操作失败，请重试')
     }
+  }
+
+  // 切换径向菜单开关
+  const handleSaveRadialEnabled = async (enabled: boolean): Promise<void> => {
+    await window.api.settings.set('radial_enabled', enabled ? '1' : '0')
+    setRadialEnabled(enabled)
+  }
+
+  // 保存径向菜单项配置
+  const handleSaveRadialItems = async (items: typeof radialItems): Promise<void> => {
+    await window.api.settings.set('radial_items', JSON.stringify(items))
+    setRadialItems(items)
   }
 
   const currentVersion = appVersion || updateState.currentVersion || '-'
@@ -927,6 +958,62 @@ function SettingsPage(): ReactNode {
               </div>
             </div>
           </section>
+
+          {/* 径向菜单 */}
+          <section>
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">径向菜单</h2>
+            <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">启用径向菜单</p>
+                <p className="text-xs text-zinc-400">在快速操作入口显示径向菜单</p>
+              </div>
+              <button
+                onClick={() => void handleSaveRadialEnabled(!radialEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${radialEnabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'
+                  }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${radialEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                />
+              </button>
+            </div>
+
+            {radialEnabled && (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs text-zinc-400 mb-2">菜单项（顺序即显示顺序，可单独开关）</p>
+                {radialItems.map((item, index) => (
+                  <div
+                    key={item.key}
+                    className="flex items-center justify-between px-3 py-2 surface-inset rounded-lg"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base leading-none">{item.emoji}</span>
+                      <span className="text-sm text-zinc-700 dark:text-zinc-300">{item.label}</span>
+                      <span className="text-xs text-zinc-400">#{index + 1}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const next = radialItems.map((it) =>
+                          it.key === item.key ? { ...it, enabled: !it.enabled } : it
+                        )
+                        void handleSaveRadialItems(next)
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${item.enabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'
+                        }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.enabled ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                      />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           <section>
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.updates')}</h2>
             <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />

@@ -19,6 +19,7 @@ interface RadialApi {
   close: () => Promise<void>
   dragStart: (mouseX: number, mouseY: number) => void
   dragMove: (mouseX: number, mouseY: number) => void
+  dragEnd: () => void
 }
 
 declare global {

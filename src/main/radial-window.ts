@@ -1,6 +1,7 @@
 import { BrowserWindow, screen, ipcMain } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
+import { getSetting, setSetting } from './db'
 
 let radialWindow: BrowserWindow | null = null
 let mainWin: BrowserWindow | null = null
@@ -16,8 +17,17 @@ function getMainWindow(): BrowserWindow | null {
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   const display = screen.getPrimaryDisplay()
   const size = 320
-  const x = Math.round(display.workArea.x + (display.workArea.width - size) / 2)
-  const y = Math.round(display.workArea.y + (display.workArea.height - size) / 2)
+
+  const savedX = getSetting('radial_pos_x')
+  const savedY = getSetting('radial_pos_y')
+  const x =
+    savedX !== null && savedY !== null
+      ? Math.round(Number(savedX))
+      : Math.round(display.workArea.x + (display.workArea.width - size) / 2)
+  const y =
+    savedX !== null && savedY !== null
+      ? Math.round(Number(savedY))
+      : Math.round(display.workArea.y + (display.workArea.height - size) / 2)
 
   radialWindow = new BrowserWindow({
     width: size,
@@ -98,14 +108,52 @@ export function showMainWindow(): void {
 }
 
 // --- IPC ---
+const RADIAL_ROUTES: Record<string, string> = {
+  log: '/worklog',
+  task: '/kanban',
+  meeting: '/calendar',
+  ai: '/chat',
+}
+
 ipcMain.handle('radial:action', (_event, action: string) => {
   const win = getMainWindow()
   if (win) {
     if (!win.isVisible()) win.show()
     win.focus()
-    win.webContents.send('radial:action', action)
+    const route = RADIAL_ROUTES[action] ?? action
+    win.webContents.send('navigate', route)
   }
   hideRadialWindow()
+  return true
+})
+
+ipcMain.on('radial:drag-end', () => {
+  if (radialWindow && !radialWindow.isDestroyed()) {
+    const [x, y] = radialWindow.getPosition()
+    setSetting('radial_pos_x', String(x))
+    setSetting('radial_pos_y', String(y))
+  }
+})
+
+const DEFAULT_RADIAL_ITEMS = [
+  { id: 'log', label: 'Work Log', route: '/worklog' },
+  { id: 'task', label: 'Tasks', route: '/kanban' },
+  { id: 'meeting', label: 'Meetings', route: '/calendar' },
+  { id: 'ai', label: 'AI Chat', route: '/chat' },
+]
+
+ipcMain.handle('radial:get-config', () => {
+  const saved = getSetting('radial_items')
+  if (saved === null) return DEFAULT_RADIAL_ITEMS
+  try {
+    return JSON.parse(saved)
+  } catch {
+    return DEFAULT_RADIAL_ITEMS
+  }
+})
+
+ipcMain.handle('radial:set-config', (_event, items: unknown) => {
+  setSetting('radial_items', JSON.stringify(items))
   return true
 })
 

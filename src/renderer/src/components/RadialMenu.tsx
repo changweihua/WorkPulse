@@ -11,7 +11,7 @@ interface RadialItem {
 const CENTER_SIZE = 130      // 中心圆直径
 const RING_INNER = 82        // 环形内半径（紧贴中心圆外）
 const RING_OUTER = 148       // 环形外半径
-const GAP_DEG = 12           // 扇区间间距（度）
+const GAP_DEG = 6            // 扇区间间距（度）—— 平行切口
 const WINDOW_SIZE = 320      // 窗口尺寸
 
 const ITEMS: RadialItem[] = [
@@ -82,7 +82,13 @@ export function RadialMenu(): ReactNode {
       if (!isDragging.current) return
       window.radialApi.dragMove(e.screenX, e.screenY)
     }
-    const handleMouseUp = () => { isDragging.current = false }
+    const handleMouseUp = () => {
+      if (isDragging.current) {
+        isDragging.current = false
+        // 拖拽结束，持久化窗口位置
+        window.radialApi.dragEnd()
+      }
+    }
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
     return () => {
@@ -104,12 +110,15 @@ export function RadialMenu(): ReactNode {
   const segmentDeg = 360 / numItems
   const usableDeg = segmentDeg - GAP_DEG
 
+  // 每个间隙中点角度（扇区之间的边界）
+  const gapAngles = ITEMS.map((_, i) => i * segmentDeg)
+
   return (
     <div
       className="relative select-none"
       style={{ width: WINDOW_SIZE, height: WINDOW_SIZE }}
     >
-      {/* SVG 环形扇区 */}
+      {/* SVG 环形扇区 + 平行切口 */}
       <svg
         width={WINDOW_SIZE}
         height={WINDOW_SIZE}
@@ -135,6 +144,26 @@ export function RadialMenu(): ReactNode {
               onMouseEnter={() => setHovered(item.key)}
               onMouseLeave={() => setHovered(null)}
               onClick={item.action}
+            />
+          )
+        })}
+
+        {/* 平行切口：在每两个相邻扇区之间画一条垂直于半径（沿切线方向）的直线 */}
+        {gapAngles.map((gapDeg, i) => {
+          // 间隙中点角度。切口从内半径偏一侧到外半径偏另一侧，形成一条近似垂直于半径的弦线
+          const half = GAP_DEG / 2
+          const p1 = angleToXY(gapDeg - half, RING_INNER, cx, cy)
+          const p2 = angleToXY(gapDeg + half, RING_OUTER, cx, cy)
+          return (
+            <line
+              key={`cut-${i}`}
+              x1={p1.x}
+              y1={p1.y}
+              x2={p2.x}
+              y2={p2.y}
+              stroke="rgba(255,255,255,0.4)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
             />
           )
         })}
@@ -213,14 +242,14 @@ export function RadialMenu(): ReactNode {
             >
               <span className="text-xl drop-shadow-sm">{item.emoji}</span>
             </button>
-            {/* 文字标签 */}
+            {/* 文字标签（始终可见） */}
             <span
               className="absolute whitespace-nowrap text-[10px] font-medium text-zinc-600 dark:text-zinc-300 pointer-events-none"
               style={{
                 top: labelPos.y - cy + (WINDOW_SIZE / 2) - pos.y + 20,
                 left: '50%',
                 transform: 'translateX(-50%)',
-                opacity: isHover ? 1 : 0.6,
+                opacity: isHover ? 1 : 0.85,
                 transition: 'opacity 0.15s',
               }}
             >
