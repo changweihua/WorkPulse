@@ -6,6 +6,7 @@ import { useThemeStore } from './stores/themeStore';
 import { useLanguageStore } from './stores/languageStore';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AnimatedBackground } from './components/AnimatedBackground';
 
 function App() {
   const initTheme = useThemeStore((s) => s.init);
@@ -19,6 +20,7 @@ function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
+        <AnimatedBackground />
         <RouterProvider router={router} />
       </ToastProvider>
     </ErrorBoundary>
