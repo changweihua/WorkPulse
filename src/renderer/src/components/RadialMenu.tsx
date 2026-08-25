@@ -20,13 +20,6 @@ interface RadialItem {
   action: () => void
 }
 
-const ITEMS: RadialItem[] = [
-  { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, action: () => window.radialApi.createLog() },
-  { key: 'task', label: 'Task', emoji: '📋', angle: 0, action: () => window.radialApi.createTask() },
-  { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 90, action: () => window.radialApi.createMeeting() },
-  { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 180, action: () => window.radialApi.openAI() },
-]
-
 /**
  * 生成环形扇区 SVG path（平行切口版本）
  * 内弧间隙角度 > 外弧间隙角度，两侧切口呈平行直线。
@@ -62,7 +55,25 @@ export function RadialMenu(): ReactNode {
   const [expanded, setExpanded] = useState(false)
   const [show, setShow] = useState(false)
   const [hovered, setHovered] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const dragRef = useRef({ active: false, startX: 0, startY: 0 })
+
+  const ITEMS: RadialItem[] = [
+    { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, action: () => window.radialApi.createLog() },
+    { key: 'task', label: 'Task', emoji: '📋', angle: -18, action: () => window.radialApi.createTask() },
+    { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 54, action: () => window.radialApi.createMeeting() },
+    { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 126, action: () => window.radialApi.openAI() },
+    { key: 'screenshot', label: 'Screenshot', emoji: '📸', angle: 198, action: async () => {
+      try {
+        const result = await window.radialApi.capture()
+        setToast(`📸 Saved (${result.width}×${result.height})`)
+        setTimeout(() => setToast(null), 2500)
+      } catch {
+        setToast('❌ Capture failed')
+        setTimeout(() => setToast(null), 2500)
+      }
+    } },
+  ]
 
   useEffect(() => {
     window.radialApi.onShow(() => setShow(true))
@@ -242,6 +253,31 @@ export function RadialMenu(): ReactNode {
             </motion.div>
           )
         })()}
+      </AnimatePresence>
+
+      {/* ═══ Toast ═══ */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key="toast"
+            className="absolute left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
+                       text-sm font-medium text-zinc-700 dark:text-zinc-100"
+            style={{
+              bottom: 8, zIndex: 10,
+              background: 'rgba(255,255,255,0.92)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+              border: '1px solid rgba(255,255,255,0.4)',
+            }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.2 }}
+          >
+            {toast}
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* ═══ 中心圆形：程序图标 + 收起按钮（均居中） ═══ */}

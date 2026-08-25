@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('radialApi', {
   createTask: () => ipcRenderer.invoke('radial:action', 'task'),
   createMeeting: () => ipcRenderer.invoke('radial:action', 'meeting'),
   openAI: () => ipcRenderer.invoke('radial:action', 'ai'),
+  capture: () => ipcRenderer.invoke('screenshot:capture'),
   close: () => ipcRenderer.invoke('radial:close'),
   // 拖拽
   dragStart: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-start', mouseX, mouseY),

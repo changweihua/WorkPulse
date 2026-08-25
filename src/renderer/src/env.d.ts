@@ -16,6 +16,7 @@ interface RadialApi {
   createTask: () => Promise<void>
   createMeeting: () => Promise<void>
   openAI: () => Promise<void>
+  capture: () => Promise<{ file: string; width: number; height: number }>
   close: () => Promise<void>
   dragStart: (mouseX: number, mouseY: number) => void
   dragMove: (mouseX: number, mouseY: number) => void

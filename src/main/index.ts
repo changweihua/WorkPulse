@@ -1,8 +1,9 @@
 // 必须最先加载：让主进程读取项目根目录 .env（BARK_KEY 等）
 import 'dotenv/config'
-import { app, protocol, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain } from 'electron'
+import { app, protocol, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, desktopCapturer, screen, clipboard } from 'electron'
 import path, { join } from 'path'
-import { readFileSync, createReadStream } from 'fs'
+import { readFileSync, createReadStream, mkdirSync, writeFileSync } from 'fs'
+import { homedir } from 'os'
 import { Readable } from 'stream'
 import { getModelsDir } from './model-files'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -692,6 +693,32 @@ app.whenReady().then(async () => {
   registerIpcHandlers()
   registerShortcutIpc()
   registerUpdateIpc()
+
+  // 截图：捕获主屏幕，自动复制到剪贴板并保存到文件
+  ipcMain.handle('screenshot:capture', async () => {
+    const primary = screen.getPrimaryDisplay()
+    const { scaleFactor, bounds } = primary
+    const thumbnailSize = {
+      width: Math.floor(bounds.width * scaleFactor),
+      height: Math.floor(bounds.height * scaleFactor),
+    }
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize,
+    })
+    const source = sources.find(
+      (s) => s.display_id === String(primary.id)
+    ) || sources[0]
+    const image = source.thumbnail
+    // Auto-copy to clipboard in main process (most reliable)
+    clipboard.writeImage(image)
+    // Save to file
+    const dir = join(homedir(), 'Pictures', 'WorkPulse')
+    mkdirSync(dir, { recursive: true })
+    const file = join(dir, `screenshot-${Date.now()}.png`)
+    writeFileSync(file, image.toPNG())
+    return { file, width: image.getSize().width, height: image.getSize().height }
+  })
   buildMenu()
   createTray()
 
