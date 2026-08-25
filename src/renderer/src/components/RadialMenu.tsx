@@ -30,11 +30,11 @@ export function RadialMenu(): ReactNode {
 
   return (
     <div className="relative w-[320px] h-[320px] select-none">
-      {/* Central hub: liquid glass disc with logo + close */}
+      {/* Central hub: liquid glass disc with logo + drag handle */}
       <motion.div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
                    flex flex-col items-center justify-center rounded-full
-                   surface-card"
+                   surface-card cursor-grab active:cursor-grabbing"
         style={{
           width: 132,
           height: 132,
@@ -42,12 +42,21 @@ export function RadialMenu(): ReactNode {
             'linear-gradient(135deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 45%, rgba(120,150,255,0.10) 100%), var(--color-surface-card)',
           boxShadow:
             'inset 0 1px 2px rgba(255,255,255,0.30), inset 0 -1px 0 rgba(255,255,255,0.08), var(--glass-shadow)',
-        }}
+          // 启用原生窗口拖拽
+          WebkitAppRegion: 'drag',
+        } as React.CSSProperties}
         initial={{ scale: 0, opacity: 0 }}
         animate={show ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
         transition={SPRING}
+        onMouseDown={(e) => {
+          // 拖拽时不阻止，让 -webkit-app-region 处理
+          // 但如果点击的是按钮，阻止冒泡
+          const target = e.target as HTMLElement
+          if (target.closest('button')) return
+        }}
       >
-        <span className="text-[15px] font-semibold tracking-tight text-zinc-800 dark:text-zinc-100">
+        <span className="text-[15px] font-semibold tracking-tight text-zinc-800 dark:text-zinc-100"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           WorkPulse
         </span>
         <button
@@ -56,13 +65,14 @@ export function RadialMenu(): ReactNode {
           className="mt-1 flex h-7 w-7 items-center justify-center rounded-full
                      bg-zinc-900/5 dark:bg-white/10 text-zinc-500 dark:text-zinc-300
                      hover:bg-zinc-900/10 dark:hover:bg-white/20 transition-colors"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           aria-label="Close radial menu"
         >
           <span className="text-sm leading-none">✕</span>
         </button>
       </motion.div>
 
-      {/* Action buttons arranged in a circle */}
+      {/* Action buttons arranged evenly in a circle */}
       {ITEMS.map((item, i) => {
         const rad = (item.angle * Math.PI) / 180
         const tx = Math.cos(rad) * RADIUS
@@ -87,7 +97,8 @@ export function RadialMenu(): ReactNode {
                 'linear-gradient(135deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.03) 45%, rgba(120,150,255,0.08) 100%), var(--color-surface-card)',
               boxShadow:
                 'inset 0 1px 2px rgba(255,255,255,0.28), inset 0 -1px 0 rgba(255,255,255,0.06), var(--glass-shadow)',
-            }}
+              WebkitAppRegion: 'no-drag',
+            } as React.CSSProperties}
             initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
             animate={
               show
@@ -105,7 +116,6 @@ export function RadialMenu(): ReactNode {
               className="pointer-events-none absolute whitespace-nowrap rounded-lg px-2.5 py-1
                          text-xs font-medium text-zinc-700 dark:text-zinc-200 surface-card"
               style={{
-                // place tooltip outward from center
                 left: '50%',
                 top: '50%',
                 x: item.angle === 0 ? 52 : item.angle === 180 ? -52 : 0,

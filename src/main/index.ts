@@ -20,7 +20,7 @@ import contextMenu from 'electron-context-menu'
 import { loadDotNet } from './asar-dotnet-loader';
 import fs from 'fs/promises';
 import log from 'electron-log/main';
-import { showRadialWindow, hideRadialWindow, toggleRadialWindow } from './radial-window';
+import { setMainWindow, showRadialWindow, hideRadialWindow, toggleRadialWindow, showMainWindow } from './radial-window';
 
 log.initialize(); // 只需调用一次
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'info';
@@ -43,7 +43,9 @@ let splashWindow: BrowserWindow | null = null
 // --- Helpers ---
 
 function getMainWindow(): BrowserWindow | null {
-  return BrowserWindow.getAllWindows()[0] || null
+  // 优先查找主窗口（非径向菜单）
+  const wins = BrowserWindow.getAllWindows()
+  return wins.find((w) => !w.isDestroyed() && w.getTitle() === appTitle) ?? wins[0] ?? null
 }
 
 function sendToRenderer(channel: string): void {
@@ -307,8 +309,7 @@ function buildTrayMenu(): Electron.Menu {
       label: tMain('showApp'),
       icon: showIcon,
       click: () => {
-        const win = getMainWindow()
-        if (win) { win.show(); win.focus() }
+        showMainWindow()
       }
     },
     { type: 'separator' },
@@ -350,17 +351,9 @@ function createTray(): void {
   tray.setToolTip('WorkPulse')
   tray.setContextMenu(buildTrayMenu())
 
-  // Click on tray icon shows/focuses the window
+  // Click on tray icon shows/focuses the main window (hides radial menu)
   tray.on('click', () => {
-    const win = getMainWindow()
-    if (win) {
-      if (win.isVisible() && win.isFocused()) {
-        win.hide()
-      } else {
-        win.show()
-        win.focus()
-      }
-    }
+    showMainWindow()
   })
 }
 
@@ -505,6 +498,8 @@ function createWindow(): void {
   // 当窗口准备就绪后，最大化并显示
   mainWindow.once('ready-to-show', () => {
     closeSplashWindow()
+    // 注册主窗口引用到径向菜单模块
+    setMainWindow(mainWindow)
     // 必须先 show 再 maximize，否则无边框窗口最大化不生效
     mainWindow.show()
     mainWindow.maximize()

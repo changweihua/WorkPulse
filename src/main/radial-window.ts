@@ -3,17 +3,21 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 
 let radialWindow: BrowserWindow | null = null
+let mainWin: BrowserWindow | null = null
 
 /**
- * 找到主窗口（排除 radial 自身），用于把 radial 的动作转发过去。
+ * 获取主窗口引用（由 index.ts 注册）
  */
-function getTargetWindow(): BrowserWindow | null {
-  const wins = BrowserWindow.getAllWindows()
-  return wins.find((w) => w !== radialWindow) ?? wins[0] ?? null
+export function setMainWindow(win: BrowserWindow): void {
+  mainWin = win
 }
 
-export function createRadialWindow(parent: BrowserWindow): BrowserWindow {
-  // 默认居中屏幕；toggle 时跟随光标
+function getMainWindow(): BrowserWindow | null {
+  return mainWin && !mainWin.isDestroyed() ? mainWin : null
+}
+
+export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
+  // 默认居中屏幕
   const display = screen.getPrimaryDisplay()
   const size = 320
   const x = Math.round(display.workArea.x + (display.workArea.width - size) / 2)
@@ -31,6 +35,7 @@ export function createRadialWindow(parent: BrowserWindow): BrowserWindow {
     skipTaskbar: true,
     hasShadow: false,
     roundedCorners: true,
+    movable: true,
     backgroundColor: '#00000000',
     webPreferences: {
       preload: join(__dirname, '../preload/radial.js'),
@@ -54,6 +59,7 @@ export function createRadialWindow(parent: BrowserWindow): BrowserWindow {
   return radialWindow
 }
 
+/** 显示径向菜单，同时隐藏主窗口 */
 export function showRadialWindow(parent: BrowserWindow): void {
   if (radialWindow && !radialWindow.isDestroyed()) {
     radialWindow.show()
@@ -62,11 +68,23 @@ export function showRadialWindow(parent: BrowserWindow): void {
   createRadialWindow(parent)
 }
 
+/** 切换径向菜单 ↔ 主窗口（互斥） */
 export function toggleRadialWindow(parent: BrowserWindow): void {
   if (radialWindow && !radialWindow.isDestroyed()) {
+    // 径向菜单当前可见 → 关闭径向菜单，打开主窗口
     hideRadialWindow()
+    const win = getMainWindow()
+    if (win) {
+      if (!win.isVisible()) win.show()
+      win.focus()
+    }
   } else {
+    // 径向菜单当前不可见 → 打开径向菜单，关闭主窗口
     createRadialWindow(parent)
+    const win = getMainWindow()
+    if (win && win.isVisible()) {
+      win.hide()
+    }
   }
 }
 
@@ -77,16 +95,27 @@ export function hideRadialWindow(): void {
   }
 }
 
+/** 托盘显示主窗口：隐藏径向菜单 */
+export function showMainWindow(): void {
+  hideRadialWindow()
+  const win = getMainWindow()
+  if (win) {
+    if (!win.isVisible()) win.show()
+    win.focus()
+  }
+}
+
 // --- IPC: radial menu actions ---
-// 渲染进程通过 radialApi 调用，这里把动作转发给主窗口并关闭 radial。
+// 渲染进程通过 radialApi 调用，这里把动作转发给主窗口并隐藏径向菜单。
 ipcMain.handle('radial:action', (_event, action: string) => {
-  const win = getTargetWindow()
+  const win = getMainWindow()
   if (win) {
     if (!win.isVisible()) win.show()
     win.focus()
     win.webContents.send('radial:action', action)
   }
-  // 不关闭窗口，保持常驻
+  // 执行操作后隐藏径向菜单
+  hideRadialWindow()
   return true
 })
 
