@@ -5,28 +5,66 @@ interface RadialItem {
   key: string
   label: string
   emoji: string
-  angle: number // degrees, 0 = top, clockwise
   action: () => void
 }
 
-const RING_RADIUS = 120 // 菜单项到圆心的距离
-const ITEM_SIZE = 60
-const CENTER_SIZE = 140
+const CENTER_SIZE = 130      // 中心圆直径
+const RING_INNER = 82        // 环形内半径（紧贴中心圆外）
+const RING_OUTER = 148       // 环形外半径
+const GAP_DEG = 12           // 扇区间间距（度）
+const WINDOW_SIZE = 320      // 窗口尺寸
 
-// 均匀分布4个菜单项，从顶部(-90°)开始
 const ITEMS: RadialItem[] = [
-  { key: 'log', label: 'Work Log', emoji: '📝', angle: 0, action: () => window.radialApi.createLog() },
-  { key: 'task', label: 'Task', emoji: '📋', angle: 90, action: () => window.radialApi.createTask() },
-  { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 180, action: () => window.radialApi.createMeeting() },
-  { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 270, action: () => window.radialApi.openAI() },
+  { key: 'log', label: 'Work Log', emoji: '📝', action: () => window.radialApi.createLog() },
+  { key: 'task', label: 'Task', emoji: '📋', action: () => window.radialApi.createTask() },
+  { key: 'meeting', label: 'Meeting', emoji: '📅', action: () => window.radialApi.createMeeting() },
+  { key: 'ai', label: 'AI Generate', emoji: '🤖', action: () => window.radialApi.openAI() },
 ]
 
 const SPRING = { type: 'spring' as const, stiffness: 400, damping: 22, mass: 0.8 }
 
-/** 角度转坐标（0°=上方，顺时针） */
-function angleToXY(deg: number, radius: number): { x: number; y: number } {
-  const rad = ((deg - 90) * Math.PI) / 180 // -90 让 0° 指向正上方
-  return { x: Math.cos(rad) * radius, y: Math.sin(rad) * radius }
+/**
+ * 生成环形扇区的 SVG path
+ * @param cx 中心x
+ * @param cy 中心y
+ * @param innerR 内半径
+ * @param outerR 外半径
+ * @param startDeg 起始角度（度，0=上方，顺时针）
+ * @param endDeg 结束角度
+ */
+function describeArc(
+  cx: number, cy: number,
+  innerR: number, outerR: number,
+  startDeg: number, endDeg: number
+): string {
+  const toRad = (deg: number) => ((deg - 90) * Math.PI) / 180
+  const startRad = toRad(startDeg)
+  const endRad = toRad(endDeg)
+
+  const outerX1 = cx + outerR * Math.cos(startRad)
+  const outerY1 = cy + outerR * Math.sin(startRad)
+  const outerX2 = cx + outerR * Math.cos(endRad)
+  const outerY2 = cy + outerR * Math.sin(endRad)
+  const innerX1 = cx + innerR * Math.cos(endRad)
+  const innerY1 = cy + innerR * Math.sin(endRad)
+  const innerX2 = cx + innerR * Math.cos(startRad)
+  const innerY2 = cy + innerR * Math.sin(startRad)
+
+  const largeArc = endDeg - startDeg > 180 ? 1 : 0
+
+  return [
+    `M ${outerX1} ${outerY1}`,
+    `A ${outerR} ${outerR} 0 ${largeArc} 1 ${outerX2} ${outerY2}`,
+    `L ${innerX1} ${innerY1}`,
+    `A ${innerR} ${innerR} 0 ${largeArc} 0 ${innerX2} ${innerY2}`,
+    'Z',
+  ].join(' ')
+}
+
+/** 角度转坐标 */
+function angleToXY(deg: number, radius: number, cx: number, cy: number): { x: number; y: number } {
+  const rad = ((deg - 90) * Math.PI) / 180
+  return { x: cx + Math.cos(rad) * radius, y: cy + Math.sin(rad) * radius }
 }
 
 export function RadialMenu(): ReactNode {
@@ -60,8 +98,48 @@ export function RadialMenu(): ReactNode {
     window.radialApi.dragStart(e.screenX, e.screenY)
   }
 
+  const cx = WINDOW_SIZE / 2
+  const cy = WINDOW_SIZE / 2
+  const numItems = ITEMS.length
+  const segmentDeg = 360 / numItems
+  const usableDeg = segmentDeg - GAP_DEG
+
   return (
-    <div className="relative w-[320px] h-[320px] select-none">
+    <div
+      className="relative select-none"
+      style={{ width: WINDOW_SIZE, height: WINDOW_SIZE }}
+    >
+      {/* SVG 环形扇区 */}
+      <svg
+        width={WINDOW_SIZE}
+        height={WINDOW_SIZE}
+        className="absolute inset-0"
+        style={{ overflow: 'visible' }}
+      >
+        {ITEMS.map((item, i) => {
+          const startDeg = i * segmentDeg + GAP_DEG / 2
+          const endDeg = startDeg + usableDeg
+          const path = describeArc(cx, cy, RING_INNER, RING_OUTER, startDeg, endDeg)
+          return (
+            <path
+              key={item.key}
+              d={path}
+              fill={hovered === item.key ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.32)'}
+              stroke="rgba(255,255,255,0.25)"
+              strokeWidth="1"
+              style={{
+                transition: 'fill 0.2s ease',
+                cursor: 'pointer',
+                filter: hovered === item.key ? 'blur(0px) brightness(1.05)' : 'blur(0px)',
+              }}
+              onMouseEnter={() => setHovered(item.key)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={item.action}
+            />
+          )
+        })}
+      </svg>
+
       {/* 中心圆形 */}
       <motion.div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
@@ -75,13 +153,14 @@ export function RadialMenu(): ReactNode {
           boxShadow:
             'inset 0 1px 3px rgba(255,255,255,0.4), inset 0 -1px 0 rgba(255,255,255,0.1), 0 8px 32px rgba(0,0,0,0.08)',
           border: '1px solid rgba(255,255,255,0.3)',
+          zIndex: 2,
         }}
         initial={{ scale: 0, opacity: 0 }}
         animate={show ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
         transition={SPRING}
         onMouseDown={handleDragStart}
       >
-        <span className="text-[16px] font-bold tracking-tight text-zinc-800 dark:text-zinc-100">
+        <span className="text-[15px] font-bold tracking-tight text-zinc-800 dark:text-zinc-100">
           WorkPulse
         </span>
         <button
@@ -96,89 +175,58 @@ export function RadialMenu(): ReactNode {
         </button>
       </motion.div>
 
-      {/* 环形菜单项 */}
+      {/* 菜单项图标 + 文字（定位在每个扇区的弧中心） */}
       {ITEMS.map((item, i) => {
-        const pos = angleToXY(item.angle, RING_RADIUS)
+        const midDeg = i * segmentDeg + GAP_DEG / 2 + usableDeg / 2
+        const iconRadius = (RING_INNER + RING_OUTER) / 2
+        const pos = angleToXY(midDeg, iconRadius, cx, cy)
         const isHover = hovered === item.key
 
+        // 文字在环形外侧
+        const labelRadius = RING_OUTER + 14
+        const labelPos = angleToXY(midDeg, labelRadius, cx, cy)
+
         return (
-          <motion.button
+          <motion.div
             key={item.key}
-            type="button"
-            onClick={item.action}
-            onHoverStart={() => setHovered(item.key)}
-            onHoverEnd={() => setHovered((h) => (h === item.key ? null : h))}
-            className="absolute left-1/2 top-1/2 flex flex-col items-center justify-center"
-            style={{
-              width: ITEM_SIZE,
-              height: ITEM_SIZE,
-              marginLeft: -ITEM_SIZE / 2,
-              marginTop: -ITEM_SIZE / 2,
-            }}
-            initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+            className="absolute flex flex-col items-center"
+            style={{ zIndex: 3 }}
+            initial={{ x: cx, y: cy, scale: 0, opacity: 0 }}
             animate={
               show
-                ? { x: pos.x, y: pos.y, scale: 1, opacity: 1 }
-                : { x: 0, y: 0, scale: 0, opacity: 0 }
+                ? { x: pos.x - 20, y: pos.y - 20, scale: 1, opacity: 1 }
+                : { x: cx, y: cy, scale: 0, opacity: 0 }
             }
             transition={{ ...SPRING, delay: show ? 0.06 * i : 0 }}
-            whileHover={{ scale: 1.15 }}
-            whileTap={{ scale: 0.9 }}
           >
-            {/* 图标：方形毛玻璃 */}
-            <div
-              className="flex items-center justify-center rounded-2xl text-2xl"
+            <button
+              type="button"
+              onClick={item.action}
+              onMouseEnter={() => setHovered(item.key)}
+              onMouseLeave={() => setHovered(null)}
+              className="flex items-center justify-center rounded-full transition-transform"
               style={{
-                width: ITEM_SIZE,
-                height: ITEM_SIZE,
-                background: 'rgba(255,255,255,0.35)',
-                backdropFilter: 'blur(20px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                boxShadow:
-                  'inset 0 1px 2px rgba(255,255,255,0.35), inset 0 -1px 0 rgba(255,255,255,0.08), 0 4px 16px rgba(0,0,0,0.06)',
-                border: '1px solid rgba(255,255,255,0.25)',
+                width: 40,
+                height: 40,
+                transform: isHover ? 'scale(1.15)' : 'scale(1)',
               }}
             >
-              <span className="drop-shadow-sm">{item.emoji}</span>
-            </div>
-
-            {/* 文字标签：沿圆环外侧分布 */}
-            <motion.span
-              className="absolute whitespace-nowrap text-[10px] font-medium text-zinc-600 dark:text-zinc-300"
+              <span className="text-xl drop-shadow-sm">{item.emoji}</span>
+            </button>
+            {/* 文字标签 */}
+            <span
+              className="absolute whitespace-nowrap text-[10px] font-medium text-zinc-600 dark:text-zinc-300 pointer-events-none"
               style={{
-                // 文字在图标外侧，沿径向偏移
-                top: pos.y > 0 ? `calc(50% + ${ITEM_SIZE / 2 + 8}px)` : undefined,
-                bottom: pos.y < 0 ? `calc(50% + ${ITEM_SIZE / 2 + 8}px)` : undefined,
-                left: pos.x > 0 ? `calc(50% + ${ITEM_SIZE / 2 + 4}px)` : undefined,
-                right: pos.x < 0 ? `calc(50% + ${ITEM_SIZE / 2 + 4}px)` : undefined,
-                // 对于水平位置(0°/180°)的特殊处理
-                ...(item.angle === 0 || item.angle === 180
-                  ? {
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      ...(item.angle === 0
-                        ? { left: `calc(50% + ${ITEM_SIZE / 2 + 8}px)` }
-                        : { right: `calc(50% + ${ITEM_SIZE / 2 + 8}px)` }),
-                    }
-                  : {}),
-                // 对于垂直位置(90°/270°)的特殊处理
-                ...(item.angle === 90 || item.angle === 270
-                  ? {
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      ...(item.angle === 90
-                        ? { top: `calc(50% + ${ITEM_SIZE / 2 + 8}px)` }
-                        : { bottom: `calc(50% + ${ITEM_SIZE / 2 + 8}px)` }),
-                    }
-                  : {}),
+                top: labelPos.y - cy + (WINDOW_SIZE / 2) - pos.y + 20,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                opacity: isHover ? 1 : 0.6,
+                transition: 'opacity 0.15s',
               }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: isHover ? 1 : 0.7 }}
-              transition={{ duration: 0.15 }}
             >
               {item.label}
-            </motion.span>
-          </motion.button>
+            </span>
+          </motion.div>
         )
       })}
     </div>
