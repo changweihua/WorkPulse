@@ -10,4 +10,19 @@ interface ImportMeta {
     readonly env: ImportMetaEnv
 }
 
+interface RadialApi {
+  onShow: (cb: () => void) => void
+  createLog: () => Promise<void>
+  createTask: () => Promise<void>
+  createMeeting: () => Promise<void>
+  openAI: () => Promise<void>
+  close: () => Promise<void>
+}
+
+declare global {
+  interface Window {
+    radialApi: RadialApi
+  }
+}
+
 export {}
