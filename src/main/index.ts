@@ -20,7 +20,8 @@ import contextMenu from 'electron-context-menu'
 import { loadDotNet } from './asar-dotnet-loader';
 import fs from 'fs/promises';
 import log from 'electron-log/main';
-import { setMainWindow, showRadialWindow, hideRadialWindow, toggleRadialWindow, showMainWindow } from './radial-window';
+import { setMainWindow, hideRadialWindow, toggleRadialWindow, getRadialWindow, createRadialWindow } from './radial-window';
+import { appBus, SHOW_MAIN, SHOW_RADIAL } from './event-bus';
 
 log.initialize(); // 只需调用一次
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'info';
@@ -309,7 +310,7 @@ function buildTrayMenu(): Electron.Menu {
       label: tMain('showApp'),
       icon: showIcon,
       click: () => {
-        showMainWindow()
+        appBus.emit(SHOW_MAIN)
       }
     },
     { type: 'separator' },
@@ -353,7 +354,7 @@ function createTray(): void {
 
   // Click on tray icon shows/focuses the main window (hides radial menu)
   tray.on('click', () => {
-    showMainWindow()
+    appBus.emit(SHOW_MAIN)
   })
 }
 
@@ -507,7 +508,7 @@ function createWindow(): void {
     // 必须设置图标（无边框窗口需要）
     mainWindow.setIcon(APP_ICON_PATH)
     // 自动显示径向悬浮窗
-    showRadialWindow(mainWindow)
+    appBus.emit(SHOW_RADIAL, mainWindow)
   })
   if (process.platform !== 'darwin') {
     mainWindow.on('close', (event) => {
@@ -520,7 +521,7 @@ function createWindow(): void {
         } else {
           mainWindow.hide()
           // 主窗口隐藏后自动显示径向悬浮窗
-          showRadialWindow(mainWindow)
+          appBus.emit(SHOW_RADIAL, mainWindow)
         }
       }
     })
@@ -528,7 +529,7 @@ function createWindow(): void {
 
   // 主窗口最小化时自动显示径向悬浮窗
   mainWindow.on('minimize', () => {
-    showRadialWindow(mainWindow)
+    appBus.emit(SHOW_RADIAL, mainWindow)
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -693,6 +694,28 @@ app.whenReady().then(async () => {
   registerUpdateIpc()
   buildMenu()
   createTray()
+
+  // ===== 事件驱动：主窗口 ↔ 径向菜单互斥显示 =====
+  // 实际窗口显隐逻辑集中在此处，由事件总线触发（窗口创建后注册）
+  appBus.on(SHOW_MAIN, () => {
+    hideRadialWindow()
+    const main = getMainWindow()
+    if (main) {
+      if (!main.isVisible()) main.show()
+      main.focus()
+    }
+  })
+
+  appBus.on(SHOW_RADIAL, (parent?: BrowserWindow) => {
+    const main = parent && !parent.isDestroyed() ? parent : getMainWindow()
+    if (main && main.isVisible()) main.hide()
+    const radial = getRadialWindow()
+    if (radial && !radial.isDestroyed()) {
+      radial.show()
+    } else if (main) {
+      createRadialWindow(main)
+    }
+  })
 
   // +++++ 在创建主窗口之前，先创建并显示启动窗口 +++++
   createSplashWindow()
