@@ -36,7 +36,6 @@ function ScreenshotOverlay(): React.ReactNode {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Waiting state: dark overlay with loading text
   if (!info) {
     return (
       <div
@@ -53,12 +52,7 @@ function ScreenshotOverlay(): React.ReactNode {
           userSelect: 'none',
         }}
       >
-        <div style={{
-          color: 'white',
-          fontSize: 18,
-          fontFamily: 'system-ui, sans-serif',
-          opacity: 0.8,
-        }}>
+        <div style={{ color: 'white', fontSize: 18, fontFamily: 'system-ui, sans-serif', opacity: 0.8 }}>
           截图准备中...
         </div>
       </div>
@@ -107,7 +101,6 @@ function ScreenshotOverlay(): React.ReactNode {
         padding: 0,
         cursor: 'crosshair',
         userSelect: 'none',
-        // Screenshot as background
         backgroundImage: `url(${info.dataUrl})`,
         backgroundSize: '100% 100%',
         backgroundRepeat: 'no-repeat',
@@ -116,16 +109,7 @@ function ScreenshotOverlay(): React.ReactNode {
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
     >
-      {/* Dark overlay - always present, dims the entire screen */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'rgba(0,0,0,0.4)',
-          pointerEvents: 'none',
-        }}
-      />
-      {/* Selection rect - clears the dark overlay in selected area */}
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', pointerEvents: 'none' }} />
       {sel && sel.w > 0 && sel.h > 0 && (
         <div
           style={{
@@ -141,7 +125,6 @@ function ScreenshotOverlay(): React.ReactNode {
           }}
         />
       )}
-      {/* Hint text at bottom */}
       <div
         style={{
           position: 'absolute',

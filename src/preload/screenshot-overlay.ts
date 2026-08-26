@@ -7,20 +7,24 @@ interface ScreenshotReadyInfo {
   scaleFactor: number
 }
 
-interface ScreenshotRect {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+// Eager IPC listener — buffers data if handler not yet set
+let readyHandler: ((info: ScreenshotReadyInfo) => void) | null = null
+let pendingReady: ScreenshotReadyInfo | null = null
+
+ipcRenderer.on('screenshot:ready', (_event, info: ScreenshotReadyInfo) => {
+  if (readyHandler) readyHandler(info)
+  else pendingReady = info
+})
 
 contextBridge.exposeInMainWorld('screenshotOverlayApi', {
-  // 主进程推送截图数据
   onReady: (cb: (info: ScreenshotReadyInfo) => void) => {
-    ipcRenderer.on('screenshot:ready', (_event, info: ScreenshotReadyInfo) => cb(info))
+    readyHandler = cb
+    if (pendingReady) {
+      cb(pendingReady)
+      pendingReady = null
+    }
   },
-  // 提交裁剪区域（坐标为 CSS 像素，主进程会乘以 scaleFactor）
-  crop: (rect: ScreenshotRect) => ipcRenderer.invoke('screenshot:crop', rect),
-  // 取消截图
+  crop: (rect: { x: number; y: number; width: number; height: number }) =>
+    ipcRenderer.invoke('screenshot:crop', rect),
   cancel: () => ipcRenderer.invoke('screenshot:cancel'),
 })

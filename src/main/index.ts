@@ -698,9 +698,14 @@ app.whenReady().then(async () => {
   let screenshotOverlayWindow: BrowserWindow | null = null
   let screenshotFullImage: Electron.NativeImage | null = null
   let screenshotScaleFactor = 1
+  let screenshotBusy = false
 
   // 开始截图：隐藏径向菜单 → 捕获全屏 → 创建透明覆盖窗口
   ipcMain.handle('screenshot:start', async () => {
+    // Guard against rapid double-click
+    if (screenshotBusy) return { ok: false, error: 'Already in progress' }
+    screenshotBusy = true
+
     // 1. 隐藏径向菜单（不销毁，便于后续重新显示）
     const radial = getRadialWindow()
     if (radial && !radial.isDestroyed()) radial.hide()
@@ -716,6 +721,10 @@ app.whenReady().then(async () => {
       types: ['screen'],
       thumbnailSize,
     })
+    if (!sources || sources.length === 0) {
+      screenshotBusy = false
+      return { ok: false, error: 'No capture sources available' }
+    }
     const source = sources.find(
       (s) => s.display_id === String(primary.id)
     ) || sources[0]
@@ -728,18 +737,19 @@ app.whenReady().then(async () => {
     // 3. 创建全屏透明覆盖窗口
     if (!screenshotOverlayWindow || screenshotOverlayWindow.isDestroyed()) {
       screenshotOverlayWindow = new BrowserWindow({
-        x: bounds.x,
-        y: bounds.y,
-        width: bounds.width,
-        height: bounds.height,
+        x: primary.bounds.x,
+        y: primary.bounds.y,
+        width: primary.bounds.width,
+        height: primary.bounds.height,
         transparent: true,
         frame: false,
         alwaysOnTop: true,
-        fullscreen: true,
+        fullscreenable: false,        // CHANGED: was fullscreen:true — breaks hit-testing on Windows
         skipTaskbar: true,
         focusable: true,
         hasShadow: false,
-        backgroundColor: '#00000000',
+        show: false,                  // CHANGED: show only after ready
+        backgroundColor: '#01FFFFFF', // CHANGED: minimal alpha makes window hit-testable on Windows (#30116)
         webPreferences: {
           preload: join(__dirname, '../preload/screenshot-overlay.js'),
           sandbox: false,
@@ -749,16 +759,10 @@ app.whenReady().then(async () => {
     }
 
     const win = screenshotOverlayWindow
-    // 始终显示并聚焦（覆盖窗口若已存在，ready-to-show 不会再次触发）
-    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-      win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/screenshot-overlay.html`)
-    } else {
-      win.loadFile(join(__dirname, '../renderer/screenshot-overlay.html'))
-    }
-    win.show()
-    win.focus()
-    // 4. 页面加载完成后推送截图数据（did-finish-load 作为兜底，确保可靠显示与数据送达）
-    win.webContents.once('did-finish-load', () => {
+    win.setAlwaysOnTop(true, 'screen-saver')
+
+    // Register handler BEFORE loadURL to avoid race condition
+    const readyHandler = () => {
       if (!win.isDestroyed()) {
         win.show()
         win.focus()
@@ -769,8 +773,15 @@ app.whenReady().then(async () => {
           scaleFactor,
         })
       }
-    })
-    return true
+    }
+    win.webContents.once('did-finish-load', readyHandler)
+
+    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+      win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/screenshot-overlay.html`)
+    } else {
+      win.loadFile(join(__dirname, '../renderer/screenshot-overlay.html'))
+    }
+    return { ok: true }
   })
 
   // 裁剪选定区域：按 scaleFactor 换算到设备像素，复制 + 保存
@@ -797,6 +808,7 @@ app.whenReady().then(async () => {
     }
     screenshotOverlayWindow = null
     screenshotFullImage = null
+    screenshotBusy = false
 
     // 重新显示径向菜单并提示结果
     const radial = getRadialWindow()
@@ -819,6 +831,7 @@ app.whenReady().then(async () => {
     }
     screenshotOverlayWindow = null
     screenshotFullImage = null
+    screenshotBusy = false
     const radial = getRadialWindow()
     if (radial && !radial.isDestroyed()) {
       radial.show()
