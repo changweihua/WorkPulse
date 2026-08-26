@@ -164,7 +164,7 @@ export function RadialMenu(): ReactNode {
             <stop offset="100%" stopColor="rgba(225,228,234,0.92)" />
           </linearGradient>
         </defs>
-        {ITEMS.map((item) => {
+        {ITEMS.map((item, index) => {
           const segStart = item.angle - segAngle / 2
           const segEnd = item.angle + segAngle / 2
           const path = describeArc(
@@ -174,20 +174,44 @@ export function RadialMenu(): ReactNode {
           )
           const isHover = hovered === item.key
           return (
-            <path
+            <motion.g
               key={item.key}
-              d={path}
-              fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{
+                delay: index * 0.06,
+                type: 'spring',
+                stiffness: 300,
+                damping: 22,
+              }}
               style={{
                 cursor: 'pointer',
-                transition: 'fill 0.2s ease',
-                backdropFilter: 'blur(32px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(32px) saturate(180%)',
+                transformBox: 'fill-box',
+                transformOrigin: 'center',
               }}
               onMouseEnter={() => setHovered(item.key)}
               onMouseLeave={() => setHovered(null)}
               onClick={item.action}
-            />
+            >
+              <motion.path
+                d={path}
+                fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
+                style={{
+                  transition: 'fill 0.2s ease, filter 0.2s ease',
+                  backdropFilter: 'blur(32px) saturate(180%)',
+                  WebkitBackdropFilter: 'blur(32px) saturate(180%)',
+                  transformBox: 'fill-box',
+                  transformOrigin: 'center',
+                  filter: isHover
+                    ? 'drop-shadow(0 0 10px rgba(120,140,180,0.55))'
+                    : 'drop-shadow(0 0 0 rgba(0,0,0,0))',
+                }}
+                whileHover={{
+                  scale: 1.06,
+                  transition: { type: 'spring', stiffness: 400, damping: 15 },
+                }}
+              />
+            </motion.g>
           )
         })}
       </svg>
@@ -195,6 +219,7 @@ export function RadialMenu(): ReactNode {
       {/* ═══ 扇区图标 ═══ */}
       {ITEMS.map((item) => {
         const pos = angleToXY(item.angle, iconRadius, CX, CY)
+        const isHover = hovered === item.key
         return (
           <div
             key={`icon-${item.key}`}
@@ -205,7 +230,13 @@ export function RadialMenu(): ReactNode {
               transform: 'translate(-50%, -50%)',
             }}
           >
-            <span className="text-2xl drop-shadow-sm">{item.emoji}</span>
+            <motion.span
+              className="text-2xl drop-shadow-sm"
+              animate={isHover ? { scale: 1.3, rotate: [0, -5, 5, 0] } : { scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+            >
+              {item.emoji}
+            </motion.span>
           </div>
         )
       })}
@@ -237,7 +268,7 @@ export function RadialMenu(): ReactNode {
               initial={{ opacity: 0, scale: 0.8, y: 4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8, y: 4 }}
-              transition={{ duration: 0.15 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
             >
               {TOOLTIP_LABELS[item.key]?.[lang] ?? item.label}
             </motion.div>
@@ -263,7 +294,7 @@ export function RadialMenu(): ReactNode {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.2 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           >
             {toast}
           </motion.div>
@@ -272,28 +303,33 @@ export function RadialMenu(): ReactNode {
 
       {/* ═══ 中心圆形：程序图标（拖拽 + 点击打开主窗口） ═══ */}
       <div
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-                   flex items-center justify-center rounded-full
-                   cursor-grab active:cursor-grabbing"
-        style={{
-          width: CENTER_SIZE,
-          height: CENTER_SIZE,
-          background: 'rgba(240,242,246,0.96)',
-          backdropFilter: 'blur(32px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(32px) saturate(180%)',
-          boxShadow:
-            'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)',
-          border: '1px solid rgba(0,0,0,0.08)',
-          zIndex: 2,
-        } as React.CSSProperties}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={{ zIndex: 2 }}
         onMouseDown={handleMouseDown}
       >
-        <img
-          src={ICON_SVG}
-          alt="WorkPulse"
-          className="pointer-events-none"
-          style={{ width: CENTER_R * 1.2, height: CENTER_R * 1.2, objectFit: 'contain' }}
-        />
+        <motion.div
+          className="flex items-center justify-center rounded-full
+                     cursor-grab active:cursor-grabbing"
+          style={{
+            width: CENTER_SIZE,
+            height: CENTER_SIZE,
+            background: 'rgba(240,242,246,0.96)',
+            backdropFilter: 'blur(32px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(32px) saturate(180%)',
+            boxShadow:
+              'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)',
+            border: '1px solid rgba(0,0,0,0.08)',
+          } as React.CSSProperties}
+          animate={{ scale: [1, 1.03, 1] }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <img
+            src={ICON_SVG}
+            alt="WorkPulse"
+            className="pointer-events-none"
+            style={{ width: CENTER_R * 1.2, height: CENTER_R * 1.2, objectFit: 'contain' }}
+          />
+        </motion.div>
       </div>
     </div>
   )
