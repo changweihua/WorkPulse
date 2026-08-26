@@ -472,9 +472,7 @@ function ToolButton({ def }: { def: ToolDef }): React.ReactNode {
     >
       <Icon size={20} strokeWidth={1.8} color="rgba(255,255,255,0.92)" />
       <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.72)', lineHeight: 1, letterSpacing: 0.3 }}>{label}</span>
-      {hint ? (
-        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', lineHeight: 1 }}>{hint}</span>
-      ) : null}
+      {/* hint removed — no number labels on buttons */}
     </button>
   )
 }
