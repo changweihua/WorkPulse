@@ -57,7 +57,17 @@ function ScreenshotOverlay(): React.ReactNode {
   const tbRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    window.screenshotOverlayApi.onReady((data: ReadyInfo) => setInfo(data))
+    window.screenshotOverlayApi.onReady((data: ReadyInfo) => {
+      // Reset all state for fresh screenshot session (window is reused)
+      setInfo(data)
+      setSel(null)
+      setDragging(false)
+      setCaptured(false)
+      setShowToolbar(false)
+      setToast(false)
+      setToastMsg('')
+      capturedRef.current = false
+    })
   }, [])
 
   // 清理定时器，避免窗口关闭后误触

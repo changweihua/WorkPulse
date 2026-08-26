@@ -764,29 +764,41 @@ app.whenReady().then(async () => {
     screenshotOverlayOrigin = { x: overlayX, y: overlayY }
 
     // 3. 创建全屏透明覆盖窗口（先覆盖，稍后选区完成才真正截图）
-    if (!screenshotOverlayWindow || screenshotOverlayWindow.isDestroyed()) {
-      screenshotOverlayWindow = new BrowserWindow({
-        x: overlayX,
-        y: overlayY,
-        width: overlayW,
-        height: overlayH,
-        // 透明窗口：用户透过覆盖层看到真实屏幕，选区完成后再截图
-        frame: false,
-        alwaysOnTop: true,
-        fullscreenable: false,
-        skipTaskbar: true,
-        focusable: true,
-        hasShadow: false,
-        transparent: true,
-        backgroundColor: '#00000000',
-        show: false,
-        webPreferences: {
-          preload: join(__dirname, '../preload/screenshotOverlay.js'),
-          sandbox: false,
-          contextIsolation: true,
-        },
+    if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
+      // REUSE: window already has HTML loaded, just reposition and show
+      screenshotOverlayWindow.setBounds({ x: overlayX, y: overlayY, width: overlayW, height: overlayH })
+      screenshotOverlayWindow.setAlwaysOnTop(true, 'screen-saver')
+      screenshotOverlayWindow.setIgnoreMouseEvents(false)
+      screenshotOverlayWindow.show()
+      screenshotOverlayWindow.focus()
+      screenshotOverlayWindow.webContents.send('screenshot:ready', {
+        x: 0, y: 0, width: overlayW, height: overlayH
       })
+      return { ok: true }
     }
+
+    // FIRST TIME: create new BrowserWindow
+    screenshotOverlayWindow = new BrowserWindow({
+      x: overlayX,
+      y: overlayY,
+      width: overlayW,
+      height: overlayH,
+      // 透明窗口：用户透过覆盖层看到真实屏幕，选区完成后再截图
+      frame: false,
+      alwaysOnTop: true,
+      fullscreenable: false,
+      skipTaskbar: true,
+      focusable: true,
+      hasShadow: false,
+      transparent: true,
+      backgroundColor: '#00000000',
+      show: false,
+      webPreferences: {
+        preload: join(__dirname, '../preload/screenshotOverlay.js'),
+        sandbox: false,
+        contextIsolation: true,
+      },
+    })
 
     const win = screenshotOverlayWindow
     win.setAlwaysOnTop(true, 'screen-saver')
@@ -892,9 +904,9 @@ app.whenReady().then(async () => {
   // 取消截图：关闭覆盖窗口并恢复径向菜单
   ipcMain.handle('screenshot:cancel', async () => {
     if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
-      screenshotOverlayWindow.close()
+      screenshotOverlayWindow.hide()
     }
-    screenshotOverlayWindow = null
+    // Do NOT set screenshotOverlayWindow = null — keep reference for reuse
     screenshotBusy = false
     const radial = getRadialWindow()
     if (radial && !radial.isDestroyed()) {
