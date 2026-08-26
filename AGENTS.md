@@ -4,6 +4,8 @@
 
 使用 `git-commit-emoji` 格式（extend: `git-commit-emoji`）。
 
+**必须 emoji 前缀，格式：`emoji type: subject`**
+
 **允许的 type：**
 - `🎉 init` — 项目初始化
 - `✨ feat` — 新功能
@@ -18,7 +20,7 @@
 - `🐳 chore` — 其他杂项（发布、版本号等）
 - `↩ revert` — 回滚
 
-**格式：** `type: subject`（subject 必须小写开头，不能 sentence-case/start-case/pascal-case/upper-case）
+**格式：** `emoji type: subject`（subject 必须小写开头，不能 sentence-case/start-case/pascal-case/upper-case）
 
 **示例：**
 - `✨ feat: add radial menu navigation`
@@ -32,3 +34,9 @@
 
 - **只 commit，不 push**，除非用户明确说"推送"
 - 违反此规则将导致不可控的发布，严重违规
+
+## 截图规范
+
+- **悬浮窗背景必须透明**：overlay 窗口背景使用 `background: 'transparent'`，不允许有蒙版颜色
+- **截图区域边框使用高分辨度颜色**：选区边框用亮色（如 `#00e5ff`），不要用半透明填充
+- **capture 时隐藏所有 overlay 内容**：选区边框、十字线、工具栏等在截图瞬间必须隐藏，避免被截取进图片

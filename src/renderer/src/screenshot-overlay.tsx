@@ -242,7 +242,7 @@ function ScreenshotOverlay(): React.ReactNode {
         transition={{ duration: 0.2 }}
         style={{
           position: 'fixed', inset: 0, margin: 0, padding: 0,
-          background: 'rgba(0,0,0,0.01)', cursor: 'crosshair',
+          background: 'transparent', cursor: 'crosshair',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           userSelect: 'none',
         }}
@@ -294,7 +294,7 @@ function ScreenshotOverlay(): React.ReactNode {
         style={{
           position: 'fixed', inset: 0,
           margin: 0, padding: 0,
-          background: 'rgba(0,0,0,0.01)',
+          background: 'transparent',
           cursor: captured ? 'default' : dragging ? 'grabbing' : showToolbar ? 'default' : 'crosshair',
           userSelect: 'none',
         }}
@@ -319,7 +319,7 @@ function ScreenshotOverlay(): React.ReactNode {
 
         {/* Selection rect (semi-transparent fill + border) */}
         <AnimatePresence>
-          {sel && sel.w > 0 && sel.h > 0 && (
+          {sel && sel.w > 0 && sel.h > 0 && !captured && (
             <motion.div
               key="selection"
               initial={{ opacity: 0, scale: 0.985 }}
@@ -329,8 +329,8 @@ function ScreenshotOverlay(): React.ReactNode {
               style={{
                 position: 'absolute',
                 left: sel.x, top: sel.y, width: sel.w, height: sel.h,
-                background: 'rgba(100,150,255,0.15)',
-                border: '1.5px solid rgba(120,170,255,0.95)',
+                background: 'transparent',
+                border: '2px solid #00e5ff',
                 boxSizing: 'border-box',
                 pointerEvents: 'none',
               }}
