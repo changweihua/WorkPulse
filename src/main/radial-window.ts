@@ -62,6 +62,24 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   radialWindow.show()
   radialWindow.setAlwaysOnTop(true, 'screen-saver')
 
+  // Windows 透明窗口极不可靠：失去焦点、hide/show 切换都可能丢失置顶
+  // 通过多事件持续重新断言 + 跨桌面可见来加固
+  const enforceOnTop = (): void => {
+    if (radialWindow && !radialWindow.isDestroyed()) {
+      radialWindow.setAlwaysOnTop(true, 'screen-saver')
+    }
+  }
+
+  radialWindow.on('focus', enforceOnTop)
+  radialWindow.on('blur', () => {
+    // 失去焦点后延迟重新断言（等其他窗口 Z-order 稳定）
+    setTimeout(enforceOnTop, 100)
+  })
+  radialWindow.on('show', enforceOnTop)
+
+  // 跨桌面可见（macOS Spaces / Linux workspaces）
+  radialWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
   radialWindow.webContents.on('did-finish-load', () => {
     radialWindow?.webContents.send('radial:show')
   })
@@ -85,8 +103,8 @@ export function toggleRadialWindow(parent: BrowserWindow): void {
 
 export function hideRadialWindow(): void {
   if (radialWindow && !radialWindow.isDestroyed()) {
-    radialWindow.close()
-    radialWindow = null
+    radialWindow.hide()
+    // 不销毁窗口 — 保留引用，下次 show() 直接用，避免重建延迟和置顶丢失
   }
 }
 

@@ -903,11 +903,12 @@ app.whenReady().then(async () => {
     if (main && main.isVisible()) main.hide()
     const radial = getRadialWindow()
     if (radial && !radial.isDestroyed()) {
-      radial.setAlwaysOnTop(true, 'screen-saver')
       radial.show()
+      // show 后重新断言置顶（Windows 透明窗口可能在 hide→show 后丢失）
+      radial.setAlwaysOnTop(true, 'screen-saver')
     } else if (main) {
       const newRadial = createRadialWindow(main)
-      newRadial.setAlwaysOnTop(true, 'screen-saver')
+      // createRadialWindow 内部已设置 setAlwaysOnTop
       newRadial.show()
     }
   })
