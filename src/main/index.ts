@@ -741,6 +741,7 @@ app.whenReady().then(async () => {
       radial.show()
     } else if (main) {
       createRadialWindow(main)
+      getRadialWindow()?.show()
     }
   })
 

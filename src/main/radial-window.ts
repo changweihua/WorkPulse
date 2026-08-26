@@ -57,6 +57,9 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     radialWindow.loadFile(join(__dirname, '../renderer/radial.html'))
   }
 
+  // 显式调用 show()，避免 Windows 透明窗口静默创建不显示
+  radialWindow.show()
+
   radialWindow.webContents.on('did-finish-load', () => {
     radialWindow?.webContents.send('radial:show')
   })
