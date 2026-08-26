@@ -19,4 +19,6 @@ contextBridge.exposeInMainWorld('radialApi', {
   dragStart: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-start', mouseX, mouseY),
   dragMove: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-move', mouseX, mouseY),
   dragEnd: () => ipcRenderer.send('radial:drag-end'),
+  // 透明区域鼠标穿透：交互元素 mouseenter/mouseleave 时动态切换
+  setIgnoreMouseEvents: (ignore: boolean) => ipcRenderer.send('radial:set-ignore-mouse-events', ignore),
 })
