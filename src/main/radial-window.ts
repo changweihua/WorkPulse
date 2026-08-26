@@ -62,10 +62,6 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   radialWindow.show()
   radialWindow.setAlwaysOnTop(true, 'screen-saver')
 
-  // 透明区域鼠标穿透：圆外的透明四角不阻挡下方窗口
-  // forward: true 保留 mousemove（光标跟踪），renderer 通过 IPC 动态切换
-  radialWindow.setIgnoreMouseEvents(true, { forward: true })
-
   // Windows 透明窗口极不可靠：失去焦点、hide/show 切换都可能丢失置顶
   // 通过多事件持续重新断言 + 跨桌面可见来加固
   const enforceOnTop = (): void => {
@@ -193,14 +189,6 @@ ipcMain.handle('radial:navigate-to', (_event, page: string) => {
 
 // 拖拽：renderer 发送鼠标偏移，主进程移动窗口
 let dragOffset = { x: 0, y: 0 }
-
-// 透明区域鼠标穿透：renderer 动态切换
-ipcMain.on('radial:set-ignore-mouse-events', (event, ignore: boolean) => {
-  const win = BrowserWindow.fromWebContents(event.sender)
-  if (win && !win.isDestroyed()) {
-    win.setIgnoreMouseEvents(ignore, { forward: true })
-  }
-})
 
 ipcMain.on('radial:drag-start', (event, mouseX: number, mouseY: number) => {
   const win = BrowserWindow.fromWebContents(event.sender)
