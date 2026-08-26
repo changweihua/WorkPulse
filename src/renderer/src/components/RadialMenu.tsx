@@ -98,8 +98,6 @@ export function RadialMenu(): ReactNode {
     const DRAG_THRESHOLD = 5
     let dragStarted = false
     const handleMouseMove = (e: MouseEvent) => {
-      // 转发 mousemove 到主进程，用于动态切换鼠标穿透
-      window.radialApi.reportMouseMove(e.offsetX, e.offsetY)
       const ref = dragRef.current
       if (dragStarted) {
         window.radialApi.dragMove(e.screenX, e.screenY)
