@@ -15,6 +15,25 @@ function getMainWindow(): BrowserWindow | null {
   return mainWin && !mainWin.isDestroyed() ? mainWin : null
 }
 
+/**
+ * 生成圆形区域的矩形近似（用于 setShape）
+ * 将圆按扫描线拆分为若干矩形，圆外区域的点击会穿透到下层窗口
+ */
+function circleShape(cx: number, cy: number, r: number, step = 2): Electron.Rectangle[] {
+  const rects: Electron.Rectangle[] = []
+  for (let y = 0; y < 2 * r; y += step) {
+    const dy = y - r + 0.5 * step
+    const half = Math.sqrt(Math.max(0, r * r - dy * dy))
+    rects.push({
+      x: Math.round(cx - half),
+      y: Math.round(y),
+      width: Math.round(half * 2),
+      height: step,
+    })
+  }
+  return rects
+}
+
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   const display = screen.getPrimaryDisplay()
   const size = 206
@@ -61,6 +80,12 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   // Windows 透明窗口必须用 'screen-saver' 级别才能真正置顶
   radialWindow.show()
   radialWindow.setAlwaysOnTop(true, 'screen-saver')
+
+  // 圆形区域点击穿透：setShape 定义可交互区域，圆外的点击穿透到下层窗口
+  // 不需要 setIgnoreMouseEvents — setShape 是 OS 级别的窗口区域裁剪
+  if (process.platform !== 'darwin') {
+    radialWindow.setShape(circleShape(size / 2, size / 2, size / 2))
+  }
 
   // Windows 透明窗口极不可靠：失去焦点、hide/show 切换都可能丢失置顶
   // 通过多事件持续重新断言 + 跨桌面可见来加固
