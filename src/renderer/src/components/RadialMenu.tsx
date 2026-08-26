@@ -179,8 +179,8 @@ export function RadialMenu(): ReactNode {
                 cursor: 'pointer',
                 transition: 'fill 0.2s ease',
               }}
-              onMouseEnter={() => setHovered(item.key)}
-              onMouseLeave={() => setHovered(null)}
+              onMouseEnter={() => { setHovered(item.key); window.radialApi.setIgnoreMouseEvents(false) }}
+              onMouseLeave={() => { setHovered(null); window.radialApi.setIgnoreMouseEvents(true) }}
               onClick={() => { item.action() }}
             />
           )
@@ -264,6 +264,8 @@ export function RadialMenu(): ReactNode {
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ zIndex: 2 }}
         onMouseDown={handleMouseDown}
+        onMouseEnter={() => window.radialApi.setIgnoreMouseEvents(false)}
+        onMouseLeave={() => window.radialApi.setIgnoreMouseEvents(true)}
       >
         <motion.div
           className="flex items-center justify-center rounded-full
