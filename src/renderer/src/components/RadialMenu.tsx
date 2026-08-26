@@ -62,7 +62,6 @@ function angleToXY(deg: number, radius: number, cx: number, cy: number): { x: nu
 }
 
 export function RadialMenu(): ReactNode {
-  const [expanded, setExpanded] = useState(false)
   const [hovered, setHovered] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const dragRef = useRef({ active: false, startX: 0, startY: 0 })
@@ -135,145 +134,108 @@ export function RadialMenu(): ReactNode {
     dragRef.current = { active: false, startX: e.screenX, startY: e.screenY }
   }, [])
 
-  // 手动双击检测：不依赖浏览器 dblclick（透明窗口上不可靠）
-  const clickTimerRef = useRef<number | null>(null)
-  const handleCenterClick = useCallback(() => {
-    if (clickTimerRef.current) {
-      // 双击 → 切换展开/收起
-      clearTimeout(clickTimerRef.current)
-      clickTimerRef.current = null
-      setExpanded((v) => !v)
-      setHovered(null)
-    } else {
-      // 单击 → 等 280ms 看有没有第二次点击
-      clickTimerRef.current = window.setTimeout(() => {
-        clickTimerRef.current = null
-        // 单击：展开时收起
-        if (expanded) {
-          setExpanded(false)
-          setHovered(null)
-        }
-      }, 280)
-    }
-  }, [expanded])
-
-  // 清理计时器
-  useEffect(() => {
-    return () => {
-      if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
-    }
-  }, [])
-
   const numItems = ITEMS.length
   const segAngle = 360 / numItems
   const gapOuterDeg = (GAP_PX / OUTER_R) * (180 / Math.PI)
   const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI)
-  // 图标位置：内外弧间距不同，视觉中心向外偏移补偿
-  const iconRadius = INNER_R + (OUTER_R - INNER_R) * 0.52
+  // 图标位置：内外弧中点
+  const iconRadius = (INNER_R + OUTER_R) / 2
 
   return (
     <div
       className="relative select-none"
       style={{ width: WIDGET_SIZE, height: WIDGET_SIZE }}
     >
-      {/* ═══ 环形扇区 + 图标（双击展开/收起） ═══ */}
-      <AnimatePresence>
-        {expanded && (
-          <>
-            {/* SVG 环形扇区 */}
-            <svg
-              key="ring"
-              width={WIDGET_SIZE}
-              height={WIDGET_SIZE}
-              className="absolute inset-0"
-              style={{ zIndex: 1 }}
+      {/* ═══ 环形扇区 + 图标（始终显示） ═══ */}
+      {/* SVG 环形扇区 */}
+      <svg
+        key="ring"
+        width={WIDGET_SIZE}
+        height={WIDGET_SIZE}
+        className="absolute inset-0"
+        style={{ zIndex: 1 }}
+      >
+        <defs>
+          <linearGradient id="segGlass" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(240,242,246,0.96)" />
+            <stop offset="100%" stopColor="rgba(225,228,234,0.92)" />
+          </linearGradient>
+        </defs>
+        {ITEMS.map((item, index) => {
+          const segStart = item.angle - segAngle / 2
+          const segEnd = item.angle + segAngle / 2
+          const path = describeArc(
+            CX, CY, INNER_R, OUTER_R,
+            segStart + gapOuterDeg / 2, segEnd - gapOuterDeg / 2,
+            segStart + gapInnerDeg / 2, segEnd - gapInnerDeg / 2,
+          )
+          const isHover = hovered === item.key
+          return (
+            <motion.g
+              key={item.key}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{
+                delay: index * 0.06,
+                type: 'spring',
+                stiffness: 300,
+                damping: 22,
+              }}
+              style={{ cursor: 'pointer' }}
+              onMouseEnter={() => setHovered(item.key)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={() => { item.action() }}
             >
-              <defs>
-                <linearGradient id="segGlass" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="rgba(240,242,246,0.96)" />
-                  <stop offset="100%" stopColor="rgba(225,228,234,0.92)" />
-                </linearGradient>
-              </defs>
-              {ITEMS.map((item, index) => {
-                const segStart = item.angle - segAngle / 2
-                const segEnd = item.angle + segAngle / 2
-                const path = describeArc(
-                  CX, CY, INNER_R, OUTER_R,
-                  segStart + gapOuterDeg / 2, segEnd - gapOuterDeg / 2,
-                  segStart + gapInnerDeg / 2, segEnd - gapInnerDeg / 2,
-                )
-                const isHover = hovered === item.key
-                return (
-                  <motion.g
-                    key={item.key}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{
-                      delay: index * 0.06,
-                      type: 'spring',
-                      stiffness: 300,
-                      damping: 22,
-                    }}
-                    style={{ cursor: 'pointer' }}
-                    onMouseEnter={() => setHovered(item.key)}
-                    onMouseLeave={() => setHovered(null)}
-                    onClick={() => { item.action(); setExpanded(false); setHovered(null) }}
-                  >
-                    <motion.path
-                      d={path}
-                      fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
-                      style={{
-                        transition: 'fill 0.2s ease, filter 0.2s ease',
-                        filter: isHover
-                          ? 'drop-shadow(0 0 10px rgba(120,140,180,0.55))'
-                          : 'drop-shadow(0 0 0 rgba(0,0,0,0))',
-                      }}
-                    />
-                  </motion.g>
-                )
-              })}
-            </svg>
+              <motion.path
+                d={path}
+                fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
+                style={{
+                  transition: 'fill 0.2s ease, filter 0.2s ease',
+                  filter: isHover
+                    ? 'drop-shadow(0 0 10px rgba(120,140,180,0.55))'
+                    : 'drop-shadow(0 0 0 rgba(0,0,0,0))',
+                }}
+              />
+            </motion.g>
+          )
+        })}
+      </svg>
 
-            {/* 扇区图标 */}
-            {ITEMS.map((item) => {
-              const pos = angleToXY(item.angle, iconRadius, CX, CY)
-              const isHover = hovered === item.key
-              return (
-                <motion.div
-                  key={`icon-${item.key}`}
-                  className="absolute flex items-center justify-center pointer-events-none"
-                  style={{
-                    left: pos.x, top: pos.y, zIndex: 3,
-                    width: 40, height: 40,
-                    transform: 'translate(-50%, -50%)',
-                  }}
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.5 }}
-                  transition={{
-                    delay: ITEMS.indexOf(item) * 0.06,
-                    type: 'spring',
-                    stiffness: 400,
-                    damping: 15,
-                  }}
-                >
-                  <motion.span
-                    className="text-2xl drop-shadow-sm"
-                    animate={isHover ? { scale: 1.3, rotate: [0, -5, 5, 0] } : { scale: 1, rotate: 0 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                  >
-                    {item.emoji}
-                  </motion.span>
-                </motion.div>
-              )
-            })}
-          </>
-        )}
-      </AnimatePresence>
+      {/* 扇区图标 */}
+      {ITEMS.map((item) => {
+        const pos = angleToXY(item.angle, iconRadius, CX, CY)
+        const isHover = hovered === item.key
+        return (
+          <motion.div
+            key={`icon-${item.key}`}
+            className="absolute flex items-center justify-center pointer-events-none"
+            style={{
+              left: pos.x, top: pos.y, zIndex: 3,
+              width: 40, height: 40,
+              transform: 'translate(-50%, -50%)',
+            }}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{
+              delay: ITEMS.indexOf(item) * 0.06,
+              type: 'spring',
+              stiffness: 400,
+              damping: 15,
+            }}
+          >
+            <motion.span
+              className="text-2xl drop-shadow-sm"
+              animate={isHover ? { scale: 1.3, rotate: [0, -5, 5, 0] } : { scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+            >
+              {item.emoji}
+            </motion.span>
+          </motion.div>
+        )
+      })}
 
-      {/* ═══ Hover tooltip（仅展开时 hover） ═══ */}
-      {expanded && (() => {
+      {/* ═══ Hover tooltip（hover 时显示） ═══ */}
+      {(() => {
         const item = ITEMS.find((it) => it.key === hovered)
         if (!item) return null
         const lang = document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
@@ -325,12 +287,11 @@ export function RadialMenu(): ReactNode {
         )}
       </AnimatePresence>
 
-      {/* ═══ 中心圆形：拖拽 + 单击收起/双击切换 ═══ */}
+      {/* ═══ 中心圆形：拖拽 ═══ */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ zIndex: 2 }}
         onMouseDown={handleMouseDown}
-        onClick={handleCenterClick}
       >
         <motion.div
           className="flex items-center justify-center rounded-full
@@ -345,35 +306,16 @@ export function RadialMenu(): ReactNode {
               'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)',
             border: '1px solid rgba(0,0,0,0.08)',
           } as React.CSSProperties}
-          animate={{ scale: expanded ? [1, 1.08, 1] : [1, 1.03, 1] }}
-          transition={{ duration: expanded ? 0.3 : 3, repeat: expanded ? 0 : Infinity, ease: 'easeInOut' }}
+          animate={{ scale: [1, 1.03, 1] }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
         >
-          <AnimatePresence mode="wait">
-            {expanded ? (
-              <motion.span
-                key="close"
-                className="text-lg font-bold leading-none text-zinc-500"
-                initial={{ opacity: 0, rotate: -90 }}
-                animate={{ opacity: 1, rotate: 0 }}
-                exit={{ opacity: 0, rotate: 90 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-              >
-                ✕
-              </motion.span>
-            ) : (
-              <motion.img
-                key="icon"
-                src={ICON_SVG}
-                alt="WorkPulse"
-                className="pointer-events-none"
-                style={{ width: CENTER_R * 1.2, height: CENTER_R * 1.2, objectFit: 'contain' }}
-                initial={{ opacity: 0, rotate: 90 }}
-                animate={{ opacity: 1, rotate: 0 }}
-                exit={{ opacity: 0, rotate: -90 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-              />
-            )}
-          </AnimatePresence>
+          <motion.img
+            key="icon"
+            src={ICON_SVG}
+            alt="WorkPulse"
+            className="pointer-events-none"
+            style={{ width: CENTER_R, height: CENTER_R, objectFit: 'contain' }}
+          />
         </motion.div>
       </div>
     </div>
