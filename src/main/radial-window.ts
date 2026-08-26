@@ -58,8 +58,9 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   }
 
   // 显式调用 show()，避免 Windows 透明窗口静默创建不显示
+  // Windows 透明窗口必须用 'screen-saver' 级别才能真正置顶
   radialWindow.show()
-  radialWindow.setAlwaysOnTop(true)
+  radialWindow.setAlwaysOnTop(true, 'screen-saver')
 
   radialWindow.webContents.on('did-finish-load', () => {
     radialWindow?.webContents.send('radial:show')

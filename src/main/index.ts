@@ -903,11 +903,11 @@ app.whenReady().then(async () => {
     if (main && main.isVisible()) main.hide()
     const radial = getRadialWindow()
     if (radial && !radial.isDestroyed()) {
-      radial.setAlwaysOnTop(true)
+      radial.setAlwaysOnTop(true, 'screen-saver')
       radial.show()
     } else if (main) {
       const newRadial = createRadialWindow(main)
-      newRadial.setAlwaysOnTop(true)
+      newRadial.setAlwaysOnTop(true, 'screen-saver')
       newRadial.show()
     }
   })
