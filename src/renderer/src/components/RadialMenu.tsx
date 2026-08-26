@@ -140,11 +140,20 @@ export function RadialMenu(): ReactNode {
     setHovered(null)
   }, [])
 
+  // 单击中心圆 = 收起菜单（展开时）
+  const handleCenterClick = useCallback(() => {
+    if (expanded) {
+      setExpanded(false)
+      setHovered(null)
+    }
+  }, [expanded])
+
   const numItems = ITEMS.length
   const segAngle = 360 / numItems
   const gapOuterDeg = (GAP_PX / OUTER_R) * (180 / Math.PI)
   const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI)
-  const iconRadius = (INNER_R + OUTER_R) / 2
+  // 图标位置：内外弧间距不同，视觉中心向外偏移补偿
+  const iconRadius = INNER_R + (OUTER_R - INNER_R) * 0.52
 
   return (
     <div
@@ -181,20 +190,16 @@ export function RadialMenu(): ReactNode {
                 return (
                   <motion.g
                     key={item.key}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.6 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     transition={{
                       delay: index * 0.06,
                       type: 'spring',
                       stiffness: 300,
                       damping: 22,
                     }}
-                    style={{
-                      cursor: 'pointer',
-                      transformBox: 'fill-box',
-                      transformOrigin: 'center',
-                    }}
+                    style={{ cursor: 'pointer' }}
                     onMouseEnter={() => setHovered(item.key)}
                     onMouseLeave={() => setHovered(null)}
                     onClick={() => { item.action(); setExpanded(false); setHovered(null) }}
@@ -204,17 +209,9 @@ export function RadialMenu(): ReactNode {
                       fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
                       style={{
                         transition: 'fill 0.2s ease, filter 0.2s ease',
-                        backdropFilter: 'blur(32px) saturate(180%)',
-                        WebkitBackdropFilter: 'blur(32px) saturate(180%)',
-                        transformBox: 'fill-box',
-                        transformOrigin: 'center',
                         filter: isHover
                           ? 'drop-shadow(0 0 10px rgba(120,140,180,0.55))'
                           : 'drop-shadow(0 0 0 rgba(0,0,0,0))',
-                      }}
-                      whileHover={{
-                        scale: 1.06,
-                        transition: { type: 'spring', stiffness: 400, damping: 15 },
                       }}
                     />
                   </motion.g>
@@ -259,40 +256,33 @@ export function RadialMenu(): ReactNode {
         )}
       </AnimatePresence>
 
-      {/* ═══ Hover tooltip（仅展开时） ═══ */}
-      <AnimatePresence>
-        {expanded && hovered && (() => {
-          const item = ITEMS.find((it) => it.key === hovered)
-          if (!item) return null
-          const lang = document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
-          // New: inward direction (toward center, between center and inner edge)
-          const tipR = INNER_R - 20
-          const tipPos = angleToXY(item.angle, tipR, CX, CY)
-          return (
-            <motion.div
-              key="tooltip"
-              className="absolute pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
-                         text-sm font-medium text-zinc-800 dark:text-zinc-100"
-              style={{
-                left: tipPos.x, top: tipPos.y, zIndex: 10,
-                transform: 'translate(-50%, -50%)',
-                textAlign: 'center',
-                background: 'rgba(240,242,246,0.96)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                border: '1px solid rgba(0,0,0,0.08)',
-              }}
-              initial={{ opacity: 0, scale: 0.8, y: 4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.8, y: 4 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-            >
-              {TOOLTIP_LABELS[item.key]?.[lang] ?? item.label}
-            </motion.div>
-          )
-        })()}
-      </AnimatePresence>
+      {/* ═══ Hover tooltip（仅展开时 hover） ═══ */}
+      {expanded && (() => {
+        const item = ITEMS.find((it) => it.key === hovered)
+        if (!item) return null
+        const lang = document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
+        const tipR = INNER_R - 20
+        const tipPos = angleToXY(item.angle, tipR, CX, CY)
+        return (
+          <div
+            key="tooltip"
+            className="absolute pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
+                       text-sm font-medium text-zinc-800 dark:text-zinc-100"
+            style={{
+              left: tipPos.x, top: tipPos.y, zIndex: 10,
+              transform: 'translate(-50%, -50%)',
+              textAlign: 'center',
+              background: 'rgba(240,242,246,0.96)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+              border: '1px solid rgba(0,0,0,0.08)',
+            }}
+          >
+            {TOOLTIP_LABELS[item.key]?.[lang] ?? item.label}
+          </div>
+        )
+      })()}
 
       {/* ═══ Toast ═══ */}
       <AnimatePresence>
@@ -319,12 +309,13 @@ export function RadialMenu(): ReactNode {
         )}
       </AnimatePresence>
 
-      {/* ═══ 中心圆形：拖拽 + 双击切换展开 ═══ */}
+      {/* ═══ 中心圆形：拖拽 + 双击展开/单击收起 ═══ */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ zIndex: 2 }}
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
+        onClick={handleCenterClick}
       >
         <motion.div
           className="flex items-center justify-center rounded-full
