@@ -2,11 +2,22 @@ import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 
 /* ── 尺寸参数 ── */
-const OUTER_R = 140
-const INNER_R = 58
-const GAP_PX = 4
-const CENTER_R = 34
-const WIDGET_SIZE = 308
+const OUTER_R = 94
+const INNER_R = 38
+const GAP_PX = 3
+const CENTER_R = 24
+const WIDGET_SIZE = 206
+
+// Simple work pulse icon: checkmark in circle
+const ICON_SVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%2316a34a' opacity='0.9'/%3E%3Cpath d='M30 52 L44 66 L72 36' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E`
+
+const TOOLTIP_LABELS: Record<string, { zh: string; en: string }> = {
+  log: { zh: '日志', en: 'Work Log' },
+  task: { zh: '任务', en: 'Task' },
+  meeting: { zh: '日程', en: 'Meeting' },
+  ai: { zh: 'AI 生成', en: 'AI Generate' },
+  screenshot: { zh: '截图', en: 'Screenshot' },
+}
 
 const CENTER_SIZE = CENTER_R * 2 // 68px diameter
 const CX = WIDGET_SIZE / 2
@@ -204,7 +215,9 @@ export function RadialMenu(): ReactNode {
         {hovered && (() => {
           const item = ITEMS.find((it) => it.key === hovered)
           if (!item) return null
-          const tipR = OUTER_R + 28
+          const lang = document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
+          // New: inward direction (toward center, between center and inner edge)
+          const tipR = INNER_R - 20
           const tipPos = angleToXY(item.angle, tipR, CX, CY)
           return (
             <motion.div
@@ -214,6 +227,7 @@ export function RadialMenu(): ReactNode {
               style={{
                 left: tipPos.x, top: tipPos.y, zIndex: 10,
                 transform: 'translate(-50%, -50%)',
+                textAlign: 'center',
                 background: 'rgba(240,242,246,0.96)',
                 backdropFilter: 'blur(20px)',
                 WebkitBackdropFilter: 'blur(20px)',
@@ -225,7 +239,7 @@ export function RadialMenu(): ReactNode {
               exit={{ opacity: 0, scale: 0.8, y: 4 }}
               transition={{ duration: 0.15 }}
             >
-              {item.label}
+              {TOOLTIP_LABELS[item.key]?.[lang] ?? item.label}
             </motion.div>
           )
         })()}
@@ -275,10 +289,10 @@ export function RadialMenu(): ReactNode {
         onMouseDown={handleMouseDown}
       >
         <img
-          src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzg0MDg1MDIzMjc1IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjI0Mzk3IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxwYXRoIGQ9Ik02NTEuNjEwOTA5IDEwMjMuOTkySDI3OS4yNzc4MThsOS4yNTU5MjgtNC42Mzk5NjRhMTg2LjE1ODU0NiAxODYuMTU4NTQ2IDAgMCAwIDEwMC4wOTUyMTgtMTM0LjIwNjk1MWwxOC44NzE4NTItMTA3LjAzOTE2NGE5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAxIDkyLjE1OTI4LTc5LjkzNTM3NUg2MTcuNDM1MTc2YzQ2LjMxOTYzOCAwIDg1LjU5OTMzMSAzNC4wNzk3MzQgOTIuMTU5MjggNzkuOTM1Mzc1bDM0LjE1OTczMyAxMzkuNjMwOTA5YzcuMjc5OTQzIDUwLjg5NTYwMi0yOC4wODc3ODEgOTguMDQ3MjM0LTc4Ljk4MzM4MyAxMDUuMzE5MTc3LTQuMzU5OTY2IDAuNjIzOTk1LTguNzU5OTMyIDAuOTM1OTkzLTEzLjE2Nzg5NyAwLjkzNTk5M3oiIGZpbGw9IiM5OTlBQUMiIHAtaWQ9IjI0Mzk4Ij48L3BhdGg+PHBhdGggZD0iTTc0Mi4yOTgyMDEgOTExLjczNjg3N2wtMy44NjM5Ny0xNS44MTU4NzYtNS40Nzk5NTctMjIuMzY3ODI2LTYuMjcxOTUxLTI1LjYzMTc5OS02LjI3MTk1MS0yNS42Mzk4LTUuNDc5OTU3LTIyLjM2NzgyNS0zLjg2Mzk3LTE1LjgwNzg3Ny0xLjQ3MTk4OS01Ljk5OTk1M2E5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAwLTkyLjE1OTI4LTc5LjkzNTM3NWgtMi41NTk5OGEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAwIDAgNDYuNTUxNjM2aDIuNTU5OThhNDYuNzY3NjM1IDQ2Ljc2NzYzNSAwIDAgMSA0Ni4wNzk2NCAzOS45NTk2ODhjMC4yMTU5OTggMS41MDM5ODggMC41MDM5OTYgMi45OTk5NzcgMC44NzE5OTMgNC40Nzk5NjVsMzMuNTM1NzM4IDEzNy4wNDY5MjlhNDYuNTU5NjM2IDQ2LjU1OTYzNiAwIDAgMS00Ni4zMTE2MzggNTEuMjM5NkgyNTUuOTk4QTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDAgMjU1Ljk5OCAxMDIzLjk5MmgzOTUuNjEyOTA5YzUxLjM4MzU5OSAwLjAzMiA5My4wNzEyNzMtNDEuNTk5Njc1IDkzLjEwMzI3My05Mi45NzUyNzQgMC00LjQ0Nzk2NS0wLjMxOTk5OC04Ljg3OTkzMS0wLjk0Mzk5My0xMy4yNzk4OTZsLTEuNDcxOTg4LTUuOTk5OTUzeiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQzOTkiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA3NDQuNzE0MTgyaDkzLjEwMzI3M2E2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAgMTM5LjYzODkwOUg0ODguNzE...gZmlsbD0iI0U4NUQ5QyIgcC1pZD0iMjQ0MDAiPjwvcGF0aD48cGF0aCBkPSJNNjA4LjI2NDk2MyAzMzUuMjAxODI1aC0xOC44NzE4NTRhMTMuNDQyNzg3IDEzLjQ0Mjc4NyAwIDAgMC0xMy40NDI3ODcgMTMuNDQyNzg3djQ2LjU1MTYzNmMwIDcuNDIxMzA2IDYuMDIxNDgxIDEzLjQ0Mjc4NyAxMy40NDI3ODcgMTMuNDQyNzg3aDE4Ljg3MTg1NGE0LjQ4MDkzIDQuNDgwOTMgMCAwIDAgNDQuODA5MzAxLTQuNDgwOTMxdi00Ni41NTE2MzZhMTMuNDQyNzg3IDEzLjQ0Mjc4NyAwIDAgMC0xMy40NDI3ODctMTMuNDQyNzg3eiIgZmlsbD0iI0U4NUQ5QyIgcC1pZD0iMjQ0MDEiPjwvcGF0aD48L3N2Zz4="
+          src={ICON_SVG}
           alt="WorkPulse"
           className="pointer-events-none"
-          style={{ width: 32, height: 32, objectFit: 'contain' } as React.CSSProperties}
+          style={{ width: CENTER_R * 1.2, height: CENTER_R * 1.2, objectFit: 'contain' }}
         />
       </div>
     </div>

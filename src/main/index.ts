@@ -749,15 +749,19 @@ app.whenReady().then(async () => {
     }
 
     const win = screenshotOverlayWindow
-    win.once('ready-to-show', () => win.show())
+    // 始终显示并聚焦（覆盖窗口若已存在，ready-to-show 不会再次触发）
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
       win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/screenshot-overlay.html`)
     } else {
       win.loadFile(join(__dirname, '../renderer/screenshot-overlay.html'))
     }
-    // 4. 页面加载完成后推送截图数据
+    win.show()
+    win.focus()
+    // 4. 页面加载完成后推送截图数据（did-finish-load 作为兜底，确保可靠显示与数据送达）
     win.webContents.once('did-finish-load', () => {
       if (!win.isDestroyed()) {
+        win.show()
+        win.focus()
         win.webContents.send('screenshot:ready', {
           dataUrl,
           width: bounds.width,
@@ -840,10 +844,12 @@ app.whenReady().then(async () => {
     if (main && main.isVisible()) main.hide()
     const radial = getRadialWindow()
     if (radial && !radial.isDestroyed()) {
+      radial.setAlwaysOnTop(true)
       radial.show()
     } else if (main) {
-      createRadialWindow(main)
-      getRadialWindow()?.show()
+      const newRadial = createRadialWindow(main)
+      newRadial.setAlwaysOnTop(true)
+      newRadial.show()
     }
   })
 
@@ -851,6 +857,14 @@ app.whenReady().then(async () => {
   createSplashWindow()
 
   createWindow()
+  // 预创建径向菜单窗口（减少首次显示延迟）
+  const mainWin = getMainWindow()
+  if (mainWin) {
+    createRadialWindow(mainWin)
+    // 初始隐藏，由SHOW_RADIAL事件显示
+    const radial = getRadialWindow()
+    if (radial) radial.hide()
+  }
   startUpdateCheck()
 
   app.on('activate', () => {

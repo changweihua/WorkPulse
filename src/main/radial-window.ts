@@ -17,7 +17,7 @@ function getMainWindow(): BrowserWindow | null {
 
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   const display = screen.getPrimaryDisplay()
-  const size = 308
+  const size = 206
 
   const savedX = getSetting('radial_pos_x')
   const savedY = getSetting('radial_pos_y')
@@ -59,6 +59,7 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
 
   // 显式调用 show()，避免 Windows 透明窗口静默创建不显示
   radialWindow.show()
+  radialWindow.setAlwaysOnTop(true)
 
   radialWindow.webContents.on('did-finish-load', () => {
     radialWindow?.webContents.send('radial:show')
