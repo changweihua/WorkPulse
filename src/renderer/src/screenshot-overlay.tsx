@@ -101,9 +101,6 @@ function ScreenshotOverlay(): React.ReactNode {
     setShowToolbar(false)
     showToolbarRef.current = false
 
-    setToastMsg('Capturing...')
-    setToast(true)
-
     let ok = false
     try {
       const res = await window.screenshotOverlayApi.crop(rect, action, full)
@@ -117,8 +114,19 @@ function ScreenshotOverlay(): React.ReactNode {
       return
     }
 
-    // 裁剪完成：系统通知已由主进程发送，overlay 直接关闭
-    window.screenshotOverlayApi.cancel()
+    // 裁剪完成：显示操作结果 toast 后自动关闭
+    const msg =
+      action === 'copy'
+        ? '✓ 已复制到剪贴板'
+        : action === 'save'
+          ? '✓ 已保存到文件'
+          : '✓ 已复制并保存'
+    setToastMsg(msg)
+    setToast(true)
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = window.setTimeout(() => {
+      window.screenshotOverlayApi.cancel()
+    }, 700)
   }
 
   // 工具栏真实动作：Copy / Save / Copy+Save
