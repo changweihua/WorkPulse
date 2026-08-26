@@ -23,6 +23,7 @@ interface RadialApi {
   dragStart: (mouseX: number, mouseY: number) => void
   dragMove: (mouseX: number, mouseY: number) => void
   dragEnd: () => void
+  reportMouseMove: (clientX: number, clientY: number) => void
 }
 
 interface ScreenshotOverlayApi {
