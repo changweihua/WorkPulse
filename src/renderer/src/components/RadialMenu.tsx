@@ -79,18 +79,34 @@ export function RadialMenu(): ReactNode {
     window.radialApi.onShow(() => setShow(true))
   }, [])
 
-  // 拖拽结束后持久化窗口位置 + 拖拽移动
+  // 拖拽：延迟判定，超过阈值才启动
   useEffect(() => {
+    const DRAG_THRESHOLD = 5
+    let dragStarted = false
     const handleMouseMove = (e: MouseEvent) => {
-      if (dragRef.current.active) {
+      const ref = dragRef.current
+      if (dragStarted) {
         window.radialApi.dragMove(e.screenX, e.screenY)
+      } else if (
+        ref.startX !== 0 || ref.startY !== 0
+      ) {
+        const dx = e.screenX - ref.startX
+        const dy = e.screenY - ref.startY
+        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+          dragStarted = true
+          ref.active = true
+          window.radialApi.dragStart(e.screenX, e.screenY)
+        }
       }
     }
     const handleMouseUp = () => {
-      if (dragRef.current.active) {
+      if (dragStarted) {
+        dragStarted = false
         dragRef.current.active = false
         window.radialApi.dragEnd()
       }
+      dragRef.current.startX = 0
+      dragRef.current.startY = 0
     }
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
@@ -104,11 +120,11 @@ export function RadialMenu(): ReactNode {
     setExpanded((e) => !e)
   }, [])
 
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement
     if (target.closest('button')) return
-    dragRef.current = { active: true, startX: e.screenX, startY: e.screenY }
-    window.radialApi.dragStart(e.screenX, e.screenY)
+    // 记录起始位置，不立即启动拖拽——等 mousemove 超过阈值再启动
+    dragRef.current = { active: false, startX: e.screenX, startY: e.screenY }
   }, [])
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -310,7 +326,7 @@ export function RadialMenu(): ReactNode {
         }
         transition={{ type: 'spring', stiffness: 420, damping: 20, mass: 0.8 }}
         onDoubleClick={toggleExpand}
-        onMouseDown={handleDragStart}
+        onMouseDown={handleMouseDown}
       >
         {/* 程序图标：收起时显示 */}
         <motion.img
