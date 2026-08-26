@@ -81,18 +81,6 @@ export function RadialMenu(): ReactNode {
     } },
   ]
 
-  // 监听主进程截图结果，显示提示
-  useEffect(() => {
-    window.radialApi.onScreenshotResult((result) => {
-      if (result.ok && result.width && result.height) {
-        setToast(`📸 Saved (${result.width}×${result.height})`)
-      } else {
-        setToast('❌ Capture failed')
-      }
-      setTimeout(() => setToast(null), 2500)
-    })
-  }, [])
-
   // 拖拽：延迟判定，超过阈值才启动
   useEffect(() => {
     const DRAG_THRESHOLD = 5

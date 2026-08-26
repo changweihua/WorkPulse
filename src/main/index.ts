@@ -887,18 +887,23 @@ app.whenReady().then(async () => {
     // 不清空忙碌标记：由渲染层在展示提示后调用 cancel() 关闭窗口并恢复径向菜单
     screenshotBusy = false
 
-    // 重新显示径向菜单并提示结果
+    // 系统通知替代 overlay/radial 内的 toast（避免重复提示）
+    const w = cropped.getSize().width
+    const h = cropped.getSize().height
+    const actionLabel = action === 'copy' ? '已复制到剪贴板' : action === 'save' ? `已保存到 ${file ?? '文件'}` : `已复制并保存`
+    showNotification({
+      title: '截图完成',
+      body: `${w}×${h} ${actionLabel}`,
+      tag: 'screenshot-result',
+      group: 'workpulse',
+    })
+
+    // 重新显示径向菜单（不再发送 screenshot:result，toast 已由系统通知替代）
     const radial = getRadialWindow()
     if (radial && !radial.isDestroyed()) {
       radial.show()
-      radial.webContents.send('screenshot:result', {
-        ok: true,
-        file,
-        width: cropped.getSize().width,
-        height: cropped.getSize().height,
-      })
     }
-    return { ok: true, file, width: cropped.getSize().width, height: cropped.getSize().height }
+    return { ok: true, file, width: w, height: h }
   })
 
   // 取消截图：关闭覆盖窗口并恢复径向菜单

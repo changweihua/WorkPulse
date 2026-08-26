@@ -117,18 +117,8 @@ function ScreenshotOverlay(): React.ReactNode {
       return
     }
 
-    // 裁剪完成：短暂提示后自动关闭覆盖窗口（cancel 会恢复径向菜单）
-    const msg =
-      action === 'both'
-        ? '✓ 已复制并保存到文件'
-        : action === 'copy'
-          ? '✓ 已复制到剪贴板'
-          : '✓ 已保存到文件'
-    setToastMsg(msg)
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = window.setTimeout(() => {
-      window.screenshotOverlayApi.cancel()
-    }, 700)
+    // 裁剪完成：系统通知已由主进程发送，overlay 直接关闭
+    window.screenshotOverlayApi.cancel()
   }
 
   // 工具栏真实动作：Copy / Save / Copy+Save
