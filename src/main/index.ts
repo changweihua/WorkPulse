@@ -804,11 +804,9 @@ app.whenReady().then(async () => {
     const file = join(dir, `screenshot-${Date.now()}.png`)
     writeFileSync(file, cropped.toPNG())
 
-    // 关闭覆盖窗口
-    if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
-      screenshotOverlayWindow.close()
-    }
-    screenshotOverlayWindow = null
+    // 注意：不再在此处关闭覆盖窗口。
+    // 由渲染层（screenshot-overlay.tsx）在展示「已复制」提示 2 秒后再调用 cancel() 关闭，
+    // 以获得更平滑的反馈体验。这里仅清空截图图像与忙碌标记。
     screenshotFullImage = null
     screenshotBusy = false
 
