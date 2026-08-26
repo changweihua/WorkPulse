@@ -135,18 +135,34 @@ export function RadialMenu(): ReactNode {
     dragRef.current = { active: false, startX: e.screenX, startY: e.screenY }
   }, [])
 
-  const handleDoubleClick = useCallback(() => {
-    setExpanded((v) => !v)
-    setHovered(null)
-  }, [])
-
-  // 单击中心圆 = 收起菜单（展开时）
+  // 手动双击检测：不依赖浏览器 dblclick（透明窗口上不可靠）
+  const clickTimerRef = useRef<number | null>(null)
   const handleCenterClick = useCallback(() => {
-    if (expanded) {
-      setExpanded(false)
+    if (clickTimerRef.current) {
+      // 双击 → 切换展开/收起
+      clearTimeout(clickTimerRef.current)
+      clickTimerRef.current = null
+      setExpanded((v) => !v)
       setHovered(null)
+    } else {
+      // 单击 → 等 280ms 看有没有第二次点击
+      clickTimerRef.current = window.setTimeout(() => {
+        clickTimerRef.current = null
+        // 单击：展开时收起
+        if (expanded) {
+          setExpanded(false)
+          setHovered(null)
+        }
+      }, 280)
     }
   }, [expanded])
+
+  // 清理计时器
+  useEffect(() => {
+    return () => {
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+    }
+  }, [])
 
   const numItems = ITEMS.length
   const segAngle = 360 / numItems
@@ -309,12 +325,11 @@ export function RadialMenu(): ReactNode {
         )}
       </AnimatePresence>
 
-      {/* ═══ 中心圆形：拖拽 + 双击展开/单击收起 ═══ */}
+      {/* ═══ 中心圆形：拖拽 + 单击收起/双击切换 ═══ */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ zIndex: 2 }}
         onMouseDown={handleMouseDown}
-        onDoubleClick={handleDoubleClick}
         onClick={handleCenterClick}
       >
         <motion.div
