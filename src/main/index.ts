@@ -768,7 +768,7 @@ app.whenReady().then(async () => {
       // REUSE: window already has HTML loaded, just reposition and show
       screenshotOverlayWindow.setBounds({ x: overlayX, y: overlayY, width: overlayW, height: overlayH })
       screenshotOverlayWindow.setAlwaysOnTop(true, 'screen-saver')
-      screenshotOverlayWindow.setIgnoreMouseEvents(true, { forward: true })
+      screenshotOverlayWindow.setIgnoreMouseEvents(false)
       screenshotOverlayWindow.show()
       screenshotOverlayWindow.focus()
       screenshotOverlayWindow.webContents.send('screenshot:ready', {
@@ -802,7 +802,7 @@ app.whenReady().then(async () => {
 
     const win = screenshotOverlayWindow
     win.setAlwaysOnTop(true, 'screen-saver')
-    win.setIgnoreMouseEvents(true, { forward: true }) // Start with mouse passthrough; renderer toggles via IPC
+    win.setIgnoreMouseEvents(false) // Explicit: ensure window receives mouse input on Windows
 
     // Register handler BEFORE loadURL to avoid race condition
     const readyHandler = () => {
@@ -902,12 +902,6 @@ app.whenReady().then(async () => {
   })
 
   // 取消截图：关闭覆盖窗口并恢复径向菜单
-  ipcMain.handle('screenshot:set-ignore-mouse-events', (_event, ignore: boolean) => {
-    if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
-      screenshotOverlayWindow.setIgnoreMouseEvents(ignore, { forward: true })
-    }
-  })
-
   ipcMain.handle('screenshot:cancel', async () => {
     if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
       screenshotOverlayWindow.hide()
