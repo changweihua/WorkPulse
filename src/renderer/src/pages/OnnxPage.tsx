@@ -200,7 +200,7 @@ function ModelPanel({
 }
 
 // ---------- 右侧：对话区 ----------
-function ResultBlock({ content }: { content: string }) {
+function ResultBlock({ content, cursor }: { content: string; cursor?: boolean }) {
     const [copied, setCopied] = useState(false);
     const copy = async () => {
         await navigator.clipboard.writeText(content);
@@ -216,7 +216,12 @@ function ResultBlock({ content }: { content: string }) {
             >
                 {copied ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
             </button>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-800 dark:text-zinc-100 pr-6">{content}</p>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-800 dark:text-zinc-100 pr-6">
+                {content}
+                {cursor && (
+                    <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-violet-500 animate-pulse rounded-sm" />
+                )}
+            </p>
         </div>
     );
 }
@@ -230,7 +235,7 @@ function OnnxPageContent() {
         loadingMessage,
         currentModel,
         pendingModel,
-        generate,
+        generateStream,
         switchModel,
         isLoading,
         isReady,
@@ -241,6 +246,7 @@ function OnnxPageContent() {
 
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState<ChatMsg[]>([]);
+    const [streamingId, setStreamingId] = useState<string | null>(null);
     const [selectedGroup, setSelectedGroup] = useState<ModelGroupId>(MODEL_GROUPS[0].id);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -277,19 +283,28 @@ function OnnxPageContent() {
             userMsg,
             { id: assistantId, role: 'assistant', content: '' },
         ]);
+        setStreamingId(assistantId);
         setInput('');
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
         try {
-            const result = await generate(userMsg.content);
-            // 模型可能把 prompt 一起返回，截掉前缀
-            let text = result || '';
-            if (text.startsWith(userMsg.content)) {
-                text = text.slice(userMsg.content.length).trimStart();
-            }
+            // 流式生成：每个 token 立即追加到助手消息，形成打字机效果
+            await generateStream(userMsg.content, (token: string) => {
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === assistantId ? { ...m, content: m.content + token } : m
+                    )
+                );
+            });
+            // 兜底：模型可能把 prompt 一起返回，截掉前缀
             setMessages((prev) =>
-                prev.map((m) =>
-                    m.id === assistantId ? { ...m, content: text || '（模型未返回内容）' } : m
-                )
+                prev.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    let text = m.content || '';
+                    if (text.startsWith(userMsg.content)) {
+                        text = text.slice(userMsg.content.length).trimStart();
+                    }
+                    return { ...m, content: text || '（模型未返回内容）' };
+                })
             );
         } catch (err) {
             setMessages((prev) =>
@@ -299,8 +314,10 @@ function OnnxPageContent() {
                         : m
                 )
             );
+        } finally {
+            setStreamingId(null);
         }
-    }, [input, isReady, isGenerating, generate]);
+    }, [input, isReady, isGenerating, generateStream]);
 
     const modelName = useMemo(
         () => (pendingModel || currentModel || '').split('/').pop()?.replace(/-ONNX.*$/i, '') || '',
@@ -380,7 +397,7 @@ function OnnxPageContent() {
                                                 {msg.content}
                                             </div>
                                         ) : msg.content ? (
-                                            <ResultBlock content={msg.content} />
+                                            <ResultBlock content={msg.content} cursor={streamingId === msg.id && isGenerating} />
                                         ) : (
                                             <div className="inline-flex items-center gap-2 surface-card rounded-xl px-3.5 py-2.5">
                                                 <Loader2 size={14} className="animate-spin text-violet-500" />

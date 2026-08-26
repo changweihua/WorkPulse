@@ -4,11 +4,10 @@ import { usePPOCR } from '../hooks/usePPOCR';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 
 function OcrPageContent() {
-    const { status, error, progress, results, runOCR, setImageData } = usePPOCR();
+    const { status, error, progress, results, imageData, runOCR, setImageData } = usePPOCR();
 
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imageUrl, setImageUrl] = useState<string | null>(null);
-    const [displayResults, setDisplayResults] = useState<typeof results>([]);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dragCounter = useRef(0);
@@ -52,11 +51,12 @@ function OcrPageContent() {
         []
     );
 
+    // 渐进式重绘：每当识别结果或图像变化时，在 Canvas 上叠加文本框
     useEffect(() => {
-        if (results.length > 0 && canvasRef.current) {
-            // draw 会在 handleOCR 后调用
+        if (imageData && canvasRef.current) {
+            drawImageWithBoxes(imageData, results);
         }
-    }, [results]);
+    }, [results, imageData, drawImageWithBoxes]);
 
     const loadImage = useCallback(
         (file: File) => {
@@ -75,7 +75,6 @@ function OcrPageContent() {
                     setImageData(imgData);
                     setImageFile(file);
                     setImageUrl(URL.createObjectURL(file));
-                    setDisplayResults([]);
                 };
                 img.src = e.target?.result as string;
             };
@@ -89,13 +88,12 @@ function OcrPageContent() {
         if (!canvas) return;
         const imgData = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
         try {
-            const result = await runOCR(imgData);
-            setDisplayResults(result);
-            drawImageWithBoxes(imgData, result);
+            // 推理在 Worker 中执行，结果通过 results 状态渐进式回传并自动重绘
+            await runOCR(imgData);
         } catch (err) {
             console.error(err);
         }
-    }, [runOCR, drawImageWithBoxes]);
+    }, [runOCR]);
 
     const handleClear = useCallback(() => {
         const canvas = canvasRef.current;
@@ -106,7 +104,6 @@ function OcrPageContent() {
         setImageFile(null);
         releaseImageUrl();
         setImageUrl(null);
-        setDisplayResults([]);
         setImageData(null);
     }, [releaseImageUrl, setImageData]);
 
@@ -291,16 +288,16 @@ function OcrPageContent() {
                                 识别结果
                             </span>
                             <span className="text-xs text-blue-500">
-                                {displayResults.length > 0 ? `${displayResults.length} 个文本块` : '等待识别'}
+                                {results.length > 0 ? `${results.length} 个文本块` : '等待识别'}
                             </span>
                         </div>
                         <div className="p-4 overflow-y-auto font-mono text-sm space-y-2 flex-1">
-                            {displayResults.length === 0 ? (
+                            {results.length === 0 ? (
                                 <div className="text-gray-400 dark:text-zinc-500 text-sm">
                                     {status === 'idle' ? '加载模型后，上传图片开始识别...' : '上传图片并识别'}
                                 </div>
                             ) : (
-                                displayResults.map((r, i) => {
+                                results.map((r, i) => {
                                     const conf = r.confidence || 0.05;
                                     const color =
                                         conf > 0.04 ? '#00aa55' : conf > 0.02 ? '#cc8800' : '#cc6600';
@@ -320,11 +317,11 @@ function OcrPageContent() {
                                     );
                                 })
                             )}
-                            {displayResults.length > 0 && (
+                            {results.length > 0 && (
                                 <div className="border-t border-gray-200 dark:border-zinc-700/70 mt-2 pt-2">
                                     <div className="text-xs text-gray-500 dark:text-zinc-400 mb-1">全文：</div>
                                     <div className="text-sm text-gray-800 dark:text-zinc-100 whitespace-pre-wrap">
-                                        {displayResults.map((r) => r.text).join('\n')}
+                                        {results.map((r) => r.text).join('\n')}
                                     </div>
                                 </div>
                             )}

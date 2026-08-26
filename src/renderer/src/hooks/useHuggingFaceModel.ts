@@ -1,6 +1,6 @@
 // src/renderer/src/hooks/useHuggingFaceModel.ts
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { pipeline, env, PipelineType } from '@huggingface/transformers';
+import { PipelineType } from '@huggingface/transformers';
 
 // ---------- 类型定义 ----------
 export type ModelStatus = 'idle' | 'loading' | 'ready' | 'generating' | 'error';
@@ -80,15 +80,39 @@ const weightFileFor = (dtype: DType): string => {
     }
 };
 
-// 禁止尝试本地模型路径，避免先请求 localhost 失败浪费时间
-env.allowLocalModels = false;
-env.remoteHost = REMOTE_HOST;
+// ---------- WebWorker 单例（跨页面、跨挂载复用，模型保留在 worker 内供秒开） ----------
+let worker: Worker | null = null;
+const messageHandlers = new Map<number, (msg: any) => void>();
 
-// ---------- 模块级 pipeline 缓存 ----------
-// 跨页面、跨挂载复用已加载的模型：再次进入页面立即就绪，不重复拉取
-const pipelineCache = new Map<string, any>();
-const cacheKey = (task: string, modelId: string, dtype: string, device: string) =>
-    `${task}|${modelId}|${dtype}|${device}`;
+function getWorker(): Worker {
+    if (!worker) {
+        worker = new Worker(new URL('../workers/hf-pipeline.worker.ts', import.meta.url), {
+            type: 'module',
+        });
+        worker.onmessage = (e: MessageEvent) => {
+            const msg = e.data;
+            const handler = messageHandlers.get(msg.rid);
+            if (handler) handler(msg);
+        };
+    }
+    return worker;
+}
+
+// 将 HTMLImageElement 转为可序列化（跨 worker 边界）的 data URL
+async function toSerializableImage(src: HTMLImageElement | string): Promise<string> {
+    if (typeof src === 'string') return src;
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = src.naturalWidth || src.width;
+        canvas.height = src.naturalHeight || src.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return src.src;
+        ctx.drawImage(src, 0, 0);
+        return canvas.toDataURL('image/png');
+    } catch {
+        return src.src;
+    }
+}
 
 export function useHuggingFaceModel<T extends PipelineType>({
     task,
@@ -107,13 +131,26 @@ export function useHuggingFaceModel<T extends PipelineType>({
     const [pendingModel, setPendingModel] = useState<string | null>(null);
 
     // ---------- Refs ----------
-    const pipeRef = useRef<any>(null);
-    const loadIdRef = useRef<number>(0);
+    const loadIdRef = useRef<number>(0); // 每次 loadModel 自增，用于丢弃过期加载
+    const reqIdRef = useRef<number>(0); // worker 请求自增 id
     const pendingModelRef = useRef<string | null>(null);
+    const loadedComboRef = useRef<{ dtype: DType; device: DeviceType } | null>(null);
+    const mountedRef = useRef<boolean>(true);
+    const myRidsRef = useRef<Set<number>>(new Set()); // 本 hook 实例发起的请求，卸载时清理
 
     useEffect(() => {
         pendingModelRef.current = pendingModel;
     }, [pendingModel]);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            // 卸载时清理本实例注册的 worker 回调，避免对已卸载组件 setState
+            myRidsRef.current.forEach((rid) => messageHandlers.delete(rid));
+            myRidsRef.current.clear();
+        };
+    }, []);
 
     // ---------- 主进程下载进度合并（本地文件夹缓存） ----------
     useEffect(() => {
@@ -134,27 +171,26 @@ export function useHuggingFaceModel<T extends PipelineType>({
         return off;
     }, [status, currentModel]);
 
-    // ---------- 加载模型（带回退链 + 缓存复用） ----------
+    // ---------- 加载模型（带回退链 + worker 内缓存复用） ----------
     const loadModel = useCallback(
         async (modelId: string) => {
-            const currentLoadId = ++loadIdRef.current;
+            const myLoadId = ++loadIdRef.current;
+            if (!mountedRef.current) return;
             setStatus('loading');
             setError(null);
             setProgressItems([]);
             setOverallProgress(0);
-            pipeRef.current = null;
+            loadedComboRef.current = null;
 
             const requestedDtype = pipelineOptions.dtype || 'q4f16';
             const requestedDevice = pipelineOptions.device || 'webgpu';
 
             // 回退链：请求的组合 → webgpu+q8 → wasm+q8
-            // 很多模型没有 q4f16 权重文件（404），或环境不支持 WebGPU
             const combos: { device: DeviceType; dtype: DType }[] = [
                 { device: requestedDevice, dtype: requestedDtype },
                 { device: 'webgpu', dtype: 'q8' },
                 { device: 'wasm', dtype: 'q8' },
             ];
-            // 去重
             const seen = new Set<string>();
             const attempts = combos.filter((c) => {
                 const key = `${c.device}/${c.dtype}`;
@@ -166,87 +202,84 @@ export function useHuggingFaceModel<T extends PipelineType>({
             let lastError: Error | null = null;
 
             for (let i = 0; i < attempts.length; i++) {
-                if (currentLoadId !== loadIdRef.current) return;
+                if (myLoadId !== loadIdRef.current) return;
                 const { device, dtype } = attempts[i];
 
-                // 缓存命中：直接复用已加载的模型，不重复拉取
-                const key = cacheKey(task, modelId, dtype, device);
-                const cached = pipelineCache.get(key);
-                if (cached) {
-                    pipeRef.current = cached;
-                    setCurrentModel(modelId);
-                    setPendingModel(null);
-                    setStatus('ready');
-                    return;
+                // 先经主进程把文件下载到本地文件夹（已存在则秒过），
+                // 成功则走 appmodel:// 协议本地回放；失败则回退直连镜像
+                let host = REMOTE_HOST;
+                try {
+                    const res = await window.api.models.ensure(
+                        modelId,
+                        [...BASE_FILES, weightFileFor(dtype)],
+                        OPTIONAL_FILES
+                    );
+                    if (res?.ok) host = LOCAL_HOST;
+                } catch {
+                    /* 主进程不可用时直连镜像 */
                 }
 
-                try {
-                    setProgressItems([]);
-                    setOverallProgress(0);
-
-                    // 先经主进程把文件下载到本地文件夹（已存在则秒过），
-                    // 成功则走 appmodel:// 协议本地回放；失败则回退直连镜像
-                    let host = REMOTE_HOST;
-                    try {
-                        const res = await window.api.models.ensure(
-                            modelId,
-                            [...BASE_FILES, weightFileFor(dtype)],
-                            OPTIONAL_FILES
-                        );
-                        if (res?.ok) host = LOCAL_HOST;
-                    } catch {
-                        /* 主进程不可用时直连镜像 */
-                    }
-                    env.remoteHost = host;
-
-                    const pipe = await pipeline(
+                const ok = await new Promise<boolean>((resolve) => {
+                    const rid = ++reqIdRef.current;
+                    myRidsRef.current.add(rid);
+                    messageHandlers.set(rid, (msg: any) => {
+                        if (msg.type === 'progress') {
+                            if (myLoadId !== loadIdRef.current || !mountedRef.current) return;
+                            if (msg.status === 'progress_total') {
+                                setOverallProgress(Math.round(msg.progress || 0));
+                            } else if (msg.status === 'progress' && msg.file) {
+                                setProgressItems((prev) => {
+                                    const existing = prev.find((item) => item.file === msg.file);
+                                    if (existing) {
+                                        return prev.map((item) =>
+                                            item.file === msg.file
+                                                ? { ...item, progress: Math.round(msg.progress || 0) }
+                                                : item
+                                        );
+                                    }
+                                    return [
+                                        ...prev,
+                                        { file: msg.file, progress: Math.round(msg.progress || 0) },
+                                    ];
+                                });
+                            }
+                        } else if (msg.type === 'loaded') {
+                            messageHandlers.delete(rid);
+                            myRidsRef.current.delete(rid);
+                            if (myLoadId !== loadIdRef.current || !mountedRef.current) {
+                                resolve(false);
+                                return;
+                            }
+                            loadedComboRef.current = { dtype, device };
+                            setCurrentModel(modelId);
+                            setPendingModel(null);
+                            setStatus('ready');
+                            resolve(true);
+                        } else if (msg.type === 'error') {
+                            messageHandlers.delete(rid);
+                            myRidsRef.current.delete(rid);
+                            lastError = new Error(msg.message || '未知错误');
+                            resolve(false);
+                        }
+                    });
+                    getWorker().postMessage({
+                        type: 'load',
+                        rid,
                         task,
                         modelId,
-                        {
-                            dtype,
-                            device,
-                            progress_callback: (info: any) => {
-                                if (currentLoadId !== loadIdRef.current) return;
-                                if (info.status === 'progress_total') {
-                                    setOverallProgress(Math.round(info.progress || 0));
-                                    return;
-                                }
-                                if (info.status === 'progress' && info.file) {
-                                    setProgressItems((prev) => {
-                                        const existing = prev.find((item) => item.file === info.file);
-                                        if (existing) {
-                                            return prev.map((item) =>
-                                                item.file === info.file
-                                                    ? { ...item, progress: Math.round(info.progress || 0) }
-                                                    : item
-                                            );
-                                        }
-                                        return [...prev, { file: info.file, progress: Math.round(info.progress || 0) }];
-                                    });
-                                }
-                            },
-                        }
-                    );
+                        dtype,
+                        device,
+                        host,
+                    });
+                });
 
-                    // 即使加载期间用户已切换，也放入缓存供下次秒开
-                    pipelineCache.set(key, pipe);
-                    if (currentLoadId !== loadIdRef.current) return;
-
-                    pipeRef.current = pipe;
-                    setCurrentModel(modelId);
-                    setPendingModel(null);
-                    setStatus('ready');
-                    return;
-                } catch (err) {
-                    lastError = err as Error;
-                    console.warn(`模型加载失败 (${device}/${dtype})，尝试下一配置...`, err);
-                    if (currentLoadId !== loadIdRef.current) return;
-                }
+                if (ok) return;
+                if (myLoadId !== loadIdRef.current) return;
             }
 
-            if (currentLoadId !== loadIdRef.current) return;
+            if (myLoadId !== loadIdRef.current || !mountedRef.current) return;
             setStatus('error');
-            const msg = lastError?.message || '未知错误';
+            const msg = (lastError as Error | null)?.message || '未知错误';
             setError(
                 msg.includes('404') || msg.toLowerCase().includes('could not locate')
                     ? `该模型缺少可用的权重文件（已尝试 ${attempts.map((a) => `${a.device}/${a.dtype}`).join('、')}）。请更换其他模型。`
@@ -257,48 +290,109 @@ export function useHuggingFaceModel<T extends PipelineType>({
         [task, pipelineOptions.dtype, pipelineOptions.device]
     );
 
-    // ---------- 推理（文本生成） ----------
-    const generate = useCallback(
-        async (prompt: string): Promise<string> => {
-            if (!pipeRef.current) throw new Error('模型未加载');
+    // ---------- 推理（文本生成，流式 token） ----------
+    // onToken 每产生一个 token 即被调用，用于实现打字机效果
+    const generateStream = useCallback(
+        async (prompt: string, onToken?: (text: string) => void): Promise<string> => {
+            if (!loadedComboRef.current) throw new Error('模型未加载');
+            if (!mountedRef.current) throw new Error('组件已卸载');
             setStatus('generating');
             setError(null);
-            try {
-                const result = await pipeRef.current(prompt, {
-                    max_new_tokens: pipelineOptions.max_new_tokens || 256,
-                    temperature: pipelineOptions.temperature || 0.7,
-                    do_sample: pipelineOptions.do_sample ?? true,
+            const { dtype, device } = loadedComboRef.current;
+            const rid = ++reqIdRef.current;
+            myRidsRef.current.add(rid);
+            return new Promise<string>((resolve, reject) => {
+                messageHandlers.set(rid, (msg: any) => {
+                    if (msg.type === 'token') {
+                        onToken?.(msg.text);
+                    } else if (msg.type === 'done') {
+                        messageHandlers.delete(rid);
+                        myRidsRef.current.delete(rid);
+                        if (!mountedRef.current) return;
+                        setStatus('ready');
+                        resolve(msg.fullText || '');
+                    } else if (msg.type === 'error') {
+                        messageHandlers.delete(rid);
+                        myRidsRef.current.delete(rid);
+                        if (!mountedRef.current) return;
+                        setStatus('error');
+                        setError(msg.message);
+                        reject(new Error(msg.message));
+                    }
                 });
-                setStatus('ready');
-                return result[0]?.generated_text || '';
-            } catch (err) {
-                setStatus('error');
-                setError((err as Error).message);
-                throw err;
-            }
+                getWorker().postMessage({
+                    type: 'generate',
+                    rid,
+                    task,
+                    modelId: currentModel,
+                    dtype,
+                    device,
+                    prompt,
+                    options: {
+                        max_new_tokens: pipelineOptions.max_new_tokens || 256,
+                        temperature: pipelineOptions.temperature || 0.7,
+                        do_sample: pipelineOptions.do_sample ?? true,
+                    },
+                });
+            });
         },
-        [pipelineOptions.max_new_tokens, pipelineOptions.temperature, pipelineOptions.do_sample]
+        [task, currentModel, pipelineOptions.max_new_tokens, pipelineOptions.temperature, pipelineOptions.do_sample]
     );
 
-    // ---------- 推理（OCR 图像识别） ----------
+    // 兼容旧调用：一次性返回完整文本
+    const generate = useCallback(
+        async (prompt: string): Promise<string> => generateStream(prompt),
+        [generateStream]
+    );
+
+    // ---------- 推理（OCR 图像识别，worker 内执行，支持流式 token） ----------
     const recognize = useCallback(
-        async (imageSource: HTMLImageElement | string): Promise<string> => {
-            if (!pipeRef.current) throw new Error('模型未加载');
+        async (
+            imageSource: HTMLImageElement | string,
+            onToken?: (text: string) => void
+        ): Promise<string> => {
+            if (!loadedComboRef.current) throw new Error('模型未加载');
+            if (!mountedRef.current) throw new Error('组件已卸载');
             setStatus('generating');
             setError(null);
-            try {
-                const result = await pipeRef.current(imageSource, {
-                    max_new_tokens: pipelineOptions.max_new_tokens || 128,
+            const { dtype, device } = loadedComboRef.current;
+            const imageData = await toSerializableImage(imageSource);
+            const rid = ++reqIdRef.current;
+            myRidsRef.current.add(rid);
+            return new Promise<string>((resolve, reject) => {
+                messageHandlers.set(rid, (msg: any) => {
+                    if (msg.type === 'token') {
+                        onToken?.(msg.text);
+                    } else if (msg.type === 'result') {
+                        messageHandlers.delete(rid);
+                        myRidsRef.current.delete(rid);
+                        if (!mountedRef.current) return;
+                        setStatus('ready');
+                        resolve(msg.data || '');
+                    } else if (msg.type === 'error') {
+                        messageHandlers.delete(rid);
+                        myRidsRef.current.delete(rid);
+                        if (!mountedRef.current) return;
+                        setStatus('error');
+                        setError(msg.message);
+                        reject(new Error(msg.message));
+                    }
                 });
-                setStatus('ready');
-                return result[0]?.generated_text || '';
-            } catch (err) {
-                setStatus('error');
-                setError((err as Error).message);
-                throw err;
-            }
+                getWorker().postMessage({
+                    type: 'recognize',
+                    rid,
+                    task,
+                    modelId: currentModel,
+                    dtype,
+                    device,
+                    imageData,
+                    options: {
+                        max_new_tokens: pipelineOptions.max_new_tokens || 128,
+                    },
+                });
+            });
         },
-        [pipelineOptions.max_new_tokens]
+        [task, currentModel, pipelineOptions.max_new_tokens]
     );
 
     // ---------- 切换模型 ----------
@@ -316,7 +410,7 @@ export function useHuggingFaceModel<T extends PipelineType>({
         return loadModel(currentModel);
     }, [currentModel, loadModel]);
 
-    // ---------- 首次加载（卸载时不销毁，模型保留在缓存中供下次复用） ----------
+    // ---------- 首次加载（卸载时不销毁 worker，模型保留在 worker 内供下次复用） ----------
     useEffect(() => {
         loadModel(currentModel);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -345,6 +439,7 @@ export function useHuggingFaceModel<T extends PipelineType>({
         currentModel,
         pendingModel,
         generate,
+        generateStream,
         recognize,
         switchModel,
         retry,

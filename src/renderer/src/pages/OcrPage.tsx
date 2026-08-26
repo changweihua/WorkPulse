@@ -284,8 +284,12 @@ function OcrPageContent() {
             setOcrResult('⏳ 图片加载中，请稍候...');
             return;
         }
+        setOcrResult('');
         try {
-            const result = await recognize(imgRef.current);
+            // 流式识别：每个 token 立即追加，形成渐进式结果
+            const result = await recognize(imgRef.current, (token: string) => {
+                setOcrResult((prev) => prev + token);
+            });
             setOcrResult(result);
         } catch (err) {
             setOcrResult(`❌ 识别失败：${(err as Error).message}`);
