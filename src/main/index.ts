@@ -741,15 +741,16 @@ app.whenReady().then(async () => {
         y: primary.bounds.y,
         width: primary.bounds.width,
         height: primary.bounds.height,
-        transparent: true,
+        // NOT transparent — avoids Windows DWM click-through issues entirely
+        // Screenshot + dark overlay + selection rect all rendered by React
         frame: false,
         alwaysOnTop: true,
-        fullscreenable: false,        // CHANGED: was fullscreen:true — breaks hit-testing on Windows
+        fullscreenable: false,
         skipTaskbar: true,
         focusable: true,
         hasShadow: false,
-        show: false,                  // CHANGED: show only after ready
-        backgroundColor: '#01FFFFFF', // CHANGED: minimal alpha makes window hit-testable on Windows (#30116)
+        show: false,
+        backgroundColor: '#000000', // Match the dark overlay — no flash on load
         webPreferences: {
           preload: join(__dirname, '../preload/screenshot-overlay.js'),
           sandbox: false,
@@ -760,6 +761,7 @@ app.whenReady().then(async () => {
 
     const win = screenshotOverlayWindow
     win.setAlwaysOnTop(true, 'screen-saver')
+    win.setIgnoreMouseEvents(false) // Explicit: ensure window receives mouse input on Windows
 
     // Register handler BEFORE loadURL to avoid race condition
     const readyHandler = () => {

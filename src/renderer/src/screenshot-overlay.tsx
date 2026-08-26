@@ -101,6 +101,7 @@ function ScreenshotOverlay(): React.ReactNode {
         padding: 0,
         cursor: 'crosshair',
         userSelect: 'none',
+        backgroundColor: 'black', // REQUIRED: CSS background-image alone is hit-test-transparent on Windows
         backgroundImage: `url(${info.dataUrl})`,
         backgroundSize: '100% 100%',
         backgroundRepeat: 'no-repeat',
