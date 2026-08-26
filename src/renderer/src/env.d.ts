@@ -26,7 +26,7 @@ interface RadialApi {
 
 interface ScreenshotOverlayApi {
   onReady: (cb: (info: { dataUrl: string; width: number; height: number; scaleFactor: number }) => void) => void
-  crop: (rect: { x: number; y: number; width: number; height: number }) => Promise<{ ok: boolean; file?: string; width?: number; height?: number }>
+  crop: (rect: { x: number; y: number; width: number; height: number }, action?: 'copy' | 'save' | 'both') => Promise<{ ok: boolean; file?: string; width?: number; height?: number }>
   cancel: () => Promise<boolean>
 }
 

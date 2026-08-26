@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('screenshotOverlayApi', {
       pendingReady = null
     }
   },
-  crop: (rect: { x: number; y: number; width: number; height: number }) =>
-    ipcRenderer.invoke('screenshot:crop', rect),
+  crop: (rect: { x: number; y: number; width: number; height: number }, action?: 'copy' | 'save' | 'both') =>
+    ipcRenderer.invoke('screenshot:crop', rect, action || 'both'),
   cancel: () => ipcRenderer.invoke('screenshot:cancel'),
 })

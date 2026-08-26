@@ -825,8 +825,8 @@ app.whenReady().then(async () => {
     return { ok: true }
   })
 
-  // 裁剪选定区域：按 scaleFactor 换算到设备像素，复制 + 保存
-  ipcMain.handle('screenshot:crop', async (_event, rect: { x: number; y: number; width: number; height: number }) => {
+  // 裁剪选定区域：按 scaleFactor 换算到设备像素，按 action 决定复制 / 保存 / 两者
+  ipcMain.handle('screenshot:crop', async (_event, rect: { x: number; y: number; width: number; height: number }, action: 'copy' | 'save' | 'both' = 'both') => {
     if (!screenshotFullImage) return { ok: false }
     const sf = screenshotScaleFactor
     const x = Math.max(0, Math.round(rect.x * sf))
@@ -835,13 +835,20 @@ app.whenReady().then(async () => {
     const h = Math.max(1, Math.round(rect.height * sf))
     const cropped = screenshotFullImage.crop({ x, y, width: w, height: h })
 
-    // 复制到剪贴板
-    clipboard.writeImage(cropped)
-    // 保存到文件
-    const dir = join(homedir(), 'Pictures', 'WorkPulse')
-    mkdirSync(dir, { recursive: true })
-    const file = join(dir, `screenshot-${Date.now()}.png`)
-    writeFileSync(file, cropped.toPNG())
+    let file: string | undefined
+
+    if (action === 'copy' || action === 'both') {
+      // 复制到剪贴板
+      clipboard.writeImage(cropped)
+    }
+    if (action === 'save' || action === 'both') {
+      // 保存到文件
+      const dir = join(homedir(), 'Pictures', 'WorkPulse')
+      mkdirSync(dir, { recursive: true })
+      const f = join(dir, `screenshot-${Date.now()}.png`)
+      writeFileSync(f, cropped.toPNG())
+      file = f
+    }
 
     // 注意：不再在此处关闭覆盖窗口。
     // 由渲染层（screenshot-overlay.tsx）在展示「已复制」提示 2 秒后再调用 cancel() 关闭，
