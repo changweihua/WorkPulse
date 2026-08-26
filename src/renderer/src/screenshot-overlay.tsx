@@ -15,6 +15,12 @@ interface Rect {
   h: number
 }
 
+/**
+ * Screenshot overlay using SurfSense pattern:
+ * - <img> for screenshot (pointer-events: none)
+ * - Full-screen veil div for mouse events (covers every pixel)
+ * - Selection rect inside veil
+ */
 function ScreenshotOverlay(): React.ReactNode {
   const [info, setInfo] = useState<ReadyInfo | null>(null)
   const [sel, setSel] = useState<Rect | null>(null)
@@ -36,22 +42,15 @@ function ScreenshotOverlay(): React.ReactNode {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // Loading state: solid background, no interaction needed
   if (!info) {
     return (
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          margin: 0,
-          padding: 0,
-          background: 'rgba(0,0,0,0.5)',
-          cursor: 'crosshair',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          userSelect: 'none',
-        }}
-      >
+      <div style={{
+        position: 'fixed', inset: 0, margin: 0, padding: 0,
+        background: '#000', cursor: 'crosshair',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        userSelect: 'none',
+      }}>
         <div style={{ color: 'white', fontSize: 18, fontFamily: 'system-ui, sans-serif', opacity: 0.8 }}>
           截图准备中...
         </div>
@@ -93,53 +92,64 @@ function ScreenshotOverlay(): React.ReactNode {
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        margin: 0,
-        padding: 0,
-        cursor: 'crosshair',
-        userSelect: 'none',
-        backgroundColor: 'black', // REQUIRED: CSS background-image alone is hit-test-transparent on Windows
-        backgroundImage: `url(${info.dataUrl})`,
-        backgroundSize: '100% 100%',
-        backgroundRepeat: 'no-repeat',
-      }}
-      onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
-    >
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', pointerEvents: 'none' }} />
-      {sel && sel.w > 0 && sel.h > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            left: sel.x,
-            top: sel.y,
-            width: sel.w,
-            height: sel.h,
-            border: '2px solid rgba(255,255,255,0.9)',
-            boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-            boxSizing: 'border-box',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
-      <div
+    <div style={{ position: 'fixed', inset: 0, margin: 0, padding: 0, overflow: 'hidden' }}>
+      {/* Layer 1: Screenshot image — pointer-events: none, covers entire window */}
+      <img
+        src={info.dataUrl}
+        alt="Screenshot"
+        draggable={false}
         style={{
-          position: 'absolute',
-          bottom: 40,
-          left: 0,
-          right: 0,
-          textAlign: 'center',
-          color: 'rgba(255,255,255,0.7)',
-          fontSize: 14,
-          fontFamily: 'system-ui, sans-serif',
+          position: 'fixed', inset: 0,
+          width: '100vw', height: '100vh',
+          objectFit: 'fill',
+          userSelect: 'none',
           pointerEvents: 'none',
         }}
+      />
+
+      {/* Layer 2: Dark veil — receives ALL mouse events, covers every pixel */}
+      <div
+        style={{
+          position: 'fixed', inset: 0,
+          margin: 0, padding: 0,
+          background: 'rgba(0,0,0,0.4)',
+          cursor: 'crosshair',
+          userSelect: 'none',
+        }}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
       >
-        拖拽选择截图区域 · ESC 取消
+        {/* Selection rect */}
+        {sel && sel.w > 0 && sel.h > 0 && (
+          <>
+            {/* Clear area inside selection — shows screenshot underneath */}
+            <div
+              style={{
+                position: 'absolute',
+                left: sel.x, top: sel.y, width: sel.w, height: sel.h,
+                background: 'transparent',
+                border: '2px solid rgba(255,255,255,0.9)',
+                boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
+                boxSizing: 'border-box',
+                pointerEvents: 'none',
+              }}
+            />
+          </>
+        )}
+
+        {/* Hint text */}
+        <div
+          style={{
+            position: 'absolute', bottom: 40, left: 0, right: 0,
+            textAlign: 'center',
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: 14, fontFamily: 'system-ui, sans-serif',
+            pointerEvents: 'none',
+          }}
+        >
+          拖拽选择截图区域 · ESC 取消
+        </div>
       </div>
     </div>
   )
