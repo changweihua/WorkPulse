@@ -138,8 +138,8 @@ export function RadialMenu(): ReactNode {
   const segAngle = 360 / numItems
   const gapOuterDeg = (GAP_PX / OUTER_R) * (180 / Math.PI)
   const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI)
-  // 图标位置：内外弧中点
-  const iconRadius = (INNER_R + OUTER_R) / 2
+  // 图标位置：内外弧间距不同，视觉中心向外偏移补偿
+  const iconRadius = INNER_R + (OUTER_R - INNER_R) * 0.52
 
   return (
     <div
