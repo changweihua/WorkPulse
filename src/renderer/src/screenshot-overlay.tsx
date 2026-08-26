@@ -46,15 +46,31 @@ function ScreenshotOverlay(): React.ReactNode {
   const [toast, setToast] = useState(false)
   const [toastMsg, setToastMsg] = useState('Capturing...')
   const [tbSize, setTbSize] = useState({ w: 0, h: 0 })
+  const [drawMode, setDrawMode] = useState(false) // false = passthrough, true = can draw
 
   const drawingRef = useRef(false)
   const startRef = useRef<Point | null>(null)
   const selRef = useRef<Rect | null>(null)
   const capturedRef = useRef(false)
   const showToolbarRef = useRef(false)
+  const drawModeRef = useRef(false)
   const pendingCancelRef = useRef<number | null>(null)
   const toastTimerRef = useRef<number | null>(null)
   const tbRef = useRef<HTMLDivElement | null>(null)
+
+  // Toggle between passthrough and draw mode
+  const enterDrawMode = () => {
+    if (drawModeRef.current) return
+    drawModeRef.current = true
+    setDrawMode(true)
+    window.screenshotOverlayApi.setIgnoreMouseEvents(false)
+  }
+  const exitDrawMode = () => {
+    if (!drawModeRef.current || capturedRef.current || showToolbarRef.current) return
+    drawModeRef.current = false
+    setDrawMode(false)
+    window.screenshotOverlayApi.setIgnoreMouseEvents(true)
+  }
 
   useEffect(() => {
     window.screenshotOverlayApi.onReady((data: ReadyInfo) => {
@@ -67,6 +83,10 @@ function ScreenshotOverlay(): React.ReactNode {
       setToast(false)
       setToastMsg('')
       capturedRef.current = false
+      drawModeRef.current = false
+      setDrawMode(false)
+      // Start in passthrough mode — mouse clicks pass through to windows behind
+      window.screenshotOverlayApi.setIgnoreMouseEvents(true)
     })
   }, [])
 
@@ -209,6 +229,16 @@ function ScreenshotOverlay(): React.ReactNode {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Space: toggle draw mode (passthrough ↔ capture)
+      if (e.code === 'Space' && !e.repeat && !capturedRef.current) {
+        e.preventDefault()
+        if (drawModeRef.current) {
+          exitDrawMode()
+        } else {
+          enterDrawMode()
+        }
+        return
+      }
       if (e.key === 'Escape') {
         clearTimers()
         window.screenshotOverlayApi.cancel()
@@ -386,7 +416,9 @@ function ScreenshotOverlay(): React.ReactNode {
           >
             {showToolbar
               ? 'Enter 复制并保存 · 1/C 复制 · 2/S 保存 · ESC 取消'
-              : '拖拽选择截图区域 · ESC 取消 · 按住 Shift 等比缩放 · 双击全屏'}
+              : drawMode
+                ? '拖拽选择截图区域 · Space 退出绘制 · Shift 等比 · 双击全屏 · ESC 取消'
+                : '按住 Space 进入绘制 · 双击全屏 · ESC 取消'}
           </div>
         )}
       </motion.div>

@@ -27,4 +27,6 @@ contextBridge.exposeInMainWorld('screenshotOverlayApi', {
   crop: (rect: { x: number; y: number; width: number; height: number }, action?: 'copy' | 'save' | 'both', full?: boolean) =>
     ipcRenderer.invoke('screenshot:crop', rect, action || 'both', full || false),
   cancel: () => ipcRenderer.invoke('screenshot:cancel'),
+  setIgnoreMouseEvents: (ignore: boolean) =>
+    ipcRenderer.invoke('screenshot:set-ignore-mouse-events', ignore),
 })
