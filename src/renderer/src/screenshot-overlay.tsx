@@ -98,6 +98,7 @@ function ScreenshotOverlay(): React.ReactNode {
         src={info.dataUrl}
         alt="Screenshot"
         draggable={false}
+        onError={() => console.error('[Screenshot] img failed to load, dataUrl length:', info.dataUrl?.length)}
         style={{
           position: 'fixed', inset: 0,
           width: '100vw', height: '100vh',
@@ -112,7 +113,7 @@ function ScreenshotOverlay(): React.ReactNode {
         style={{
           position: 'fixed', inset: 0,
           margin: 0, padding: 0,
-          background: 'rgba(0,0,0,0.15)',
+          background: 'rgba(0,0,0,0.05)',
           cursor: 'crosshair',
           userSelect: 'none',
         }}
