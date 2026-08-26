@@ -67,10 +67,10 @@ export function RadialMenu(): ReactNode {
   const dragRef = useRef({ active: false, startX: 0, startY: 0 })
 
   const ITEMS: RadialItem[] = [
-    { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, action: () => window.radialApi.createLog() },
-    { key: 'task', label: 'Task', emoji: '📋', angle: -18, action: () => window.radialApi.createTask() },
-    { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 54, action: () => window.radialApi.createMeeting() },
-    { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 126, action: () => window.radialApi.openAI() },
+    { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, action: () => window.radialApi.navigateTo('worklog') },
+    { key: 'task', label: 'Task', emoji: '📋', angle: -18, action: () => window.radialApi.navigateTo('kanban') },
+    { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 54, action: () => window.radialApi.navigateTo('calendar') },
+    { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 126, action: () => window.radialApi.navigateTo('chat') },
     { key: 'screenshot', label: 'Screenshot', emoji: '📸', angle: 198, action: async () => {
       try {
         await window.radialApi.startCapture()

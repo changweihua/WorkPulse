@@ -3,7 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import { exposeUIKit } from '@electron-uikit/core/preload'
 
 type QuickCreateType = 'log' | 'task'
-type NavigatePage = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings'
+type NavigatePage = 'worklog' | 'kanban' | 'report' | 'reports' | 'stats' | 'calendar' | 'chat' | 'xray' | 'onnx' | 'ocr' | 'pp' | 'settings'
 type AppLanguage = 'system' | 'zh' | 'en'
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'not_available' | 'downloading' | 'downloaded' | 'error'
 
@@ -185,7 +185,7 @@ const api = {
       }
     },
     navigate: (cb: (page: NavigatePage) => void) => {
-      const pages: NavigatePage[] = ['worklog', 'kanban', 'report', 'stats', 'settings']
+      const pages: NavigatePage[] = ['worklog', 'kanban', 'report', 'reports', 'stats', 'calendar', 'chat', 'xray', 'onnx', 'ocr', 'pp', 'settings']
       const handlers = pages.map((page) => {
         const handler = (): void => cb(page)
         ipcRenderer.on(`navigate:${page}`, handler)

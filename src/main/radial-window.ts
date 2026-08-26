@@ -130,8 +130,12 @@ ipcMain.handle('radial:action', (_event, action: string) => {
   appBus.emit(SHOW_MAIN)
   const win = getMainWindow()
   if (win) {
-    const route = RADIAL_ROUTES[action] ?? action
-    win.webContents.send('navigate', route)
+    const route = RADIAL_ROUTES[action]
+    if (route) {
+      // 发送正确的 channel 格式：navigate:worklog, navigate:kanban 等
+      const page = route.replace('/', '')
+      win.webContents.send(`navigate:${page}`)
+    }
   }
   hideRadialWindow()
   return true
@@ -169,6 +173,17 @@ ipcMain.handle('radial:set-config', (_event, items: unknown) => {
 
 ipcMain.handle('radial:close', () => {
   appBus.emit(SHOW_RADIAL)
+  return true
+})
+
+// 径向菜单按钮 → 打开主窗口 + 导航到对应页面
+ipcMain.handle('radial:navigate-to', (_event, page: string) => {
+  appBus.emit(SHOW_MAIN)
+  const win = getMainWindow()
+  if (win) {
+    win.webContents.send(`navigate:${page}`)
+  }
+  hideRadialWindow()
   return true
 })
 

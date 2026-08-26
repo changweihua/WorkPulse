@@ -76,7 +76,7 @@ interface Attachment {
 }
 
 type QuickCreateType = 'log' | 'task'
-type NavigatePage = 'worklog' | 'kanban' | 'report' | 'stats' | 'settings'
+type NavigatePage = 'worklog' | 'kanban' | 'report' | 'reports' | 'stats' | 'calendar' | 'chat' | 'xray' | 'onnx' | 'ocr' | 'pp' | 'settings'
 type AppLanguage = 'system' | 'zh' | 'en'
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'not_available' | 'downloading' | 'downloaded' | 'error'
 

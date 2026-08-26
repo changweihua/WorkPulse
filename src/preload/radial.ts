@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('radialApi', {
     ipcRenderer.on('screenshot:result', (_event, result) => cb(result))
   },
   close: () => ipcRenderer.invoke('radial:close'),
+  navigateTo: (page: string) => ipcRenderer.invoke('radial:navigate-to', page),
   // 拖拽
   dragStart: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-start', mouseX, mouseY),
   dragMove: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-move', mouseX, mouseY),

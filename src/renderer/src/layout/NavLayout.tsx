@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect, useLayoutEffect } from 'react';
-import { Link, useLocation, useMatches } from 'react-router-dom';
+import { Link, useLocation, useMatches, useNavigate } from 'react-router-dom';
 import AnimatedOutlet from '../components/AnimatedOutlet';
 import { Fade } from '../components/Motion';
 import {
@@ -39,7 +39,16 @@ export default function NavLayout() {
     const moreBtnRef = useRef<HTMLButtonElement>(null);
     const [dropdownRight, setDropdownRight] = useState(false);
 
-    const fluid =
+    // 监听主进程导航 IPC（从径向菜单/托盘/快捷键触发）
+  const navigate = useNavigate();
+  useEffect(() => {
+    const cleanup = window.api.on.navigate((page) => {
+      navigate(`/${page}`);
+    });
+    return cleanup;
+  }, [navigate]);
+
+  const fluid =
         (matches[matches.length - 1]?.handle as { fluid?: boolean })?.fluid ?? false;
 
     // Close dropdown on outside click via react-use

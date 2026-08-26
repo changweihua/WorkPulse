@@ -19,6 +19,7 @@ interface RadialApi {
   startCapture: () => Promise<boolean>
   onScreenshotResult: (cb: (result: { ok: boolean; file?: string; width?: number; height?: number }) => void) => void
   close: () => Promise<void>
+  navigateTo: (page: string) => Promise<boolean>
   dragStart: (mouseX: number, mouseY: number) => void
   dragMove: (mouseX: number, mouseY: number) => void
   dragEnd: () => void
