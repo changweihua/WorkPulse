@@ -694,8 +694,18 @@ app.whenReady().then(async () => {
   registerShortcutIpc()
   registerUpdateIpc()
 
-  // 截图：捕获主屏幕，自动复制到剪贴板并保存到文件
-  ipcMain.handle('screenshot:capture', async () => {
+  // ===== 区域截图：主进程管理覆盖窗口 + 裁剪 =====
+  let screenshotOverlayWindow: BrowserWindow | null = null
+  let screenshotFullImage: Electron.NativeImage | null = null
+  let screenshotScaleFactor = 1
+
+  // 开始截图：隐藏径向菜单 → 捕获全屏 → 创建透明覆盖窗口
+  ipcMain.handle('screenshot:start', async () => {
+    // 1. 隐藏径向菜单（不销毁，便于后续重新显示）
+    const radial = getRadialWindow()
+    if (radial && !radial.isDestroyed()) radial.hide()
+
+    // 2. 捕获当前主屏幕（在创建覆盖窗口之前）
     const primary = screen.getPrimaryDisplay()
     const { scaleFactor, bounds } = primary
     const thumbnailSize = {
@@ -710,14 +720,106 @@ app.whenReady().then(async () => {
       (s) => s.display_id === String(primary.id)
     ) || sources[0]
     const image = source.thumbnail
-    // Auto-copy to clipboard in main process (most reliable)
-    clipboard.writeImage(image)
-    // Save to file
+    screenshotFullImage = image
+    screenshotScaleFactor = scaleFactor
+
+    const dataUrl = image.toDataURL()
+
+    // 3. 创建全屏透明覆盖窗口
+    if (!screenshotOverlayWindow || screenshotOverlayWindow.isDestroyed()) {
+      screenshotOverlayWindow = new BrowserWindow({
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+        transparent: true,
+        frame: false,
+        alwaysOnTop: true,
+        fullscreen: true,
+        skipTaskbar: true,
+        focusable: true,
+        hasShadow: false,
+        backgroundColor: '#00000000',
+        webPreferences: {
+          preload: join(__dirname, '../preload/screenshot-overlay.js'),
+          sandbox: false,
+          contextIsolation: true,
+        },
+      })
+    }
+
+    const win = screenshotOverlayWindow
+    win.once('ready-to-show', () => win.show())
+    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+      win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/screenshot-overlay.html`)
+    } else {
+      win.loadFile(join(__dirname, '../renderer/screenshot-overlay.html'))
+    }
+    // 4. 页面加载完成后推送截图数据
+    win.webContents.once('did-finish-load', () => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('screenshot:ready', {
+          dataUrl,
+          width: bounds.width,
+          height: bounds.height,
+          scaleFactor,
+        })
+      }
+    })
+    return true
+  })
+
+  // 裁剪选定区域：按 scaleFactor 换算到设备像素，复制 + 保存
+  ipcMain.handle('screenshot:crop', async (_event, rect: { x: number; y: number; width: number; height: number }) => {
+    if (!screenshotFullImage) return { ok: false }
+    const sf = screenshotScaleFactor
+    const x = Math.max(0, Math.round(rect.x * sf))
+    const y = Math.max(0, Math.round(rect.y * sf))
+    const w = Math.max(1, Math.round(rect.width * sf))
+    const h = Math.max(1, Math.round(rect.height * sf))
+    const cropped = screenshotFullImage.crop({ x, y, width: w, height: h })
+
+    // 复制到剪贴板
+    clipboard.writeImage(cropped)
+    // 保存到文件
     const dir = join(homedir(), 'Pictures', 'WorkPulse')
     mkdirSync(dir, { recursive: true })
     const file = join(dir, `screenshot-${Date.now()}.png`)
-    writeFileSync(file, image.toPNG())
-    return { file, width: image.getSize().width, height: image.getSize().height }
+    writeFileSync(file, cropped.toPNG())
+
+    // 关闭覆盖窗口
+    if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
+      screenshotOverlayWindow.close()
+    }
+    screenshotOverlayWindow = null
+    screenshotFullImage = null
+
+    // 重新显示径向菜单并提示结果
+    const radial = getRadialWindow()
+    if (radial && !radial.isDestroyed()) {
+      radial.show()
+      radial.webContents.send('screenshot:result', {
+        ok: true,
+        file,
+        width: cropped.getSize().width,
+        height: cropped.getSize().height,
+      })
+    }
+    return { ok: true, file, width: cropped.getSize().width, height: cropped.getSize().height }
+  })
+
+  // 取消截图：关闭覆盖窗口并恢复径向菜单
+  ipcMain.handle('screenshot:cancel', async () => {
+    if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
+      screenshotOverlayWindow.close()
+    }
+    screenshotOverlayWindow = null
+    screenshotFullImage = null
+    const radial = getRadialWindow()
+    if (radial && !radial.isDestroyed()) {
+      radial.show()
+    }
+    return true
   })
   buildMenu()
   createTray()

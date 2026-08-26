@@ -9,7 +9,10 @@ contextBridge.exposeInMainWorld('radialApi', {
   createTask: () => ipcRenderer.invoke('radial:action', 'task'),
   createMeeting: () => ipcRenderer.invoke('radial:action', 'meeting'),
   openAI: () => ipcRenderer.invoke('radial:action', 'ai'),
-  capture: () => ipcRenderer.invoke('screenshot:capture'),
+  startCapture: () => ipcRenderer.invoke('screenshot:start'),
+  onScreenshotResult: (cb: (result: { ok: boolean; file?: string; width?: number; height?: number }) => void) => {
+    ipcRenderer.on('screenshot:result', (_event, result) => cb(result))
+  },
   close: () => ipcRenderer.invoke('radial:close'),
   // 拖拽
   dragStart: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-start', mouseX, mouseY),

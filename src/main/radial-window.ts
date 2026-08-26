@@ -17,7 +17,7 @@ function getMainWindow(): BrowserWindow | null {
 
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   const display = screen.getPrimaryDisplay()
-  const size = 340
+  const size = 308
 
   const savedX = getSetting('radial_pos_x')
   const savedY = getSetting('radial_pos_y')

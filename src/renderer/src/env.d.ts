@@ -16,16 +16,24 @@ interface RadialApi {
   createTask: () => Promise<void>
   createMeeting: () => Promise<void>
   openAI: () => Promise<void>
-  capture: () => Promise<{ file: string; width: number; height: number }>
+  startCapture: () => Promise<boolean>
+  onScreenshotResult: (cb: (result: { ok: boolean; file?: string; width?: number; height?: number }) => void) => void
   close: () => Promise<void>
   dragStart: (mouseX: number, mouseY: number) => void
   dragMove: (mouseX: number, mouseY: number) => void
   dragEnd: () => void
 }
 
+interface ScreenshotOverlayApi {
+  onReady: (cb: (info: { dataUrl: string; width: number; height: number; scaleFactor: number }) => void) => void
+  crop: (rect: { x: number; y: number; width: number; height: number }) => Promise<{ ok: boolean; file?: string; width?: number; height?: number }>
+  cancel: () => Promise<boolean>
+}
+
 declare global {
   interface Window {
     radialApi: RadialApi
+    screenshotOverlayApi: ScreenshotOverlayApi
   }
 }
 
