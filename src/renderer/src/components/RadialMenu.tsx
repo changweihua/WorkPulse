@@ -138,8 +138,8 @@ export function RadialMenu(): ReactNode {
   const segAngle = 360 / numItems
   const gapOuterDeg = (GAP_PX / OUTER_R) * (180 / Math.PI)
   const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI)
-  // 图标位置：内外弧间距不同，视觉中心向外偏移补偿
-  const iconRadius = INNER_R + (OUTER_R - INNER_R) * 0.52
+  // 图标位置：内外弧中点
+  const iconRadius = (INNER_R + OUTER_R) / 2
 
   return (
     <div
@@ -161,7 +161,7 @@ export function RadialMenu(): ReactNode {
             <stop offset="100%" stopColor="rgba(225,228,234,0.92)" />
           </linearGradient>
         </defs>
-        {ITEMS.map((item, index) => {
+        {ITEMS.map((item) => {
           const segStart = item.angle - segAngle / 2
           const segEnd = item.angle + segAngle / 2
           const path = describeArc(
@@ -171,32 +171,18 @@ export function RadialMenu(): ReactNode {
           )
           const isHover = hovered === item.key
           return (
-            <motion.g
+            <path
               key={item.key}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{
-                delay: index * 0.06,
-                type: 'spring',
-                stiffness: 300,
-                damping: 22,
+              d={path}
+              fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
+              style={{
+                cursor: 'pointer',
+                transition: 'fill 0.2s ease',
               }}
-              style={{ cursor: 'pointer' }}
               onMouseEnter={() => setHovered(item.key)}
               onMouseLeave={() => setHovered(null)}
               onClick={() => { item.action() }}
-            >
-              <motion.path
-                d={path}
-                fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
-                style={{
-                  transition: 'fill 0.2s ease, filter 0.2s ease',
-                  filter: isHover
-                    ? 'drop-shadow(0 0 10px rgba(120,140,180,0.55))'
-                    : 'drop-shadow(0 0 0 rgba(0,0,0,0))',
-                }}
-              />
-            </motion.g>
+            />
           )
         })}
       </svg>
@@ -206,7 +192,7 @@ export function RadialMenu(): ReactNode {
         const pos = angleToXY(item.angle, iconRadius, CX, CY)
         const isHover = hovered === item.key
         return (
-          <motion.div
+          <div
             key={`icon-${item.key}`}
             className="absolute flex items-center justify-center pointer-events-none"
             style={{
@@ -214,23 +200,9 @@ export function RadialMenu(): ReactNode {
               width: 40, height: 40,
               transform: 'translate(-50%, -50%)',
             }}
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{
-              delay: ITEMS.indexOf(item) * 0.06,
-              type: 'spring',
-              stiffness: 400,
-              damping: 15,
-            }}
           >
-            <motion.span
-              className="text-2xl drop-shadow-sm"
-              animate={isHover ? { scale: 1.3, rotate: [0, -5, 5, 0] } : { scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-            >
-              {item.emoji}
-            </motion.span>
-          </motion.div>
+            <span className="text-2xl drop-shadow-sm">{item.emoji}</span>
+          </div>
         )
       })}
 
