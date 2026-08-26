@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 interface ScreenshotReadyInfo {
-  dataUrl: string
+  dataUrl?: string
   width: number
   height: number
   scaleFactor: number
@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('screenshotOverlayApi', {
       pendingReady = null
     }
   },
-  crop: (rect: { x: number; y: number; width: number; height: number }, action?: 'copy' | 'save' | 'both') =>
-    ipcRenderer.invoke('screenshot:crop', rect, action || 'both'),
+  crop: (rect: { x: number; y: number; width: number; height: number }, action?: 'copy' | 'save' | 'both', full?: boolean) =>
+    ipcRenderer.invoke('screenshot:crop', rect, action || 'both', full || false),
   cancel: () => ipcRenderer.invoke('screenshot:cancel'),
 })

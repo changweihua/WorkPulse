@@ -735,8 +735,7 @@ app.whenReady().then(async () => {
 
   // ===== 区域截图：主进程管理覆盖窗口 + 裁剪 =====
   let screenshotOverlayWindow: BrowserWindow | null = null
-  let screenshotFullImage: Electron.NativeImage | null = null
-  let screenshotScaleFactor = 1
+  let screenshotOverlayOrigin = { x: 0, y: 0 }
   let screenshotBusy = false
 
   // 开始截图：隐藏径向菜单 → 捕获全屏 → 创建透明覆盖窗口
@@ -749,47 +748,38 @@ app.whenReady().then(async () => {
     const radial = getRadialWindow()
     if (radial && !radial.isDestroyed()) radial.hide()
 
-    // 2. 捕获当前主屏幕（在创建覆盖窗口之前）
-    const primary = screen.getPrimaryDisplay()
-    const { scaleFactor, bounds } = primary
-    const thumbnailSize = {
-      width: Math.floor(bounds.width * scaleFactor),
-      height: Math.floor(bounds.height * scaleFactor),
+    // 2. 计算所有显示器的联合边界，使覆盖窗口横跨全部屏幕
+    const displays = screen.getAllDisplays()
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const d of displays) {
+      minX = Math.min(minX, d.bounds.x)
+      minY = Math.min(minY, d.bounds.y)
+      maxX = Math.max(maxX, d.bounds.x + d.bounds.width)
+      maxY = Math.max(maxY, d.bounds.y + d.bounds.height)
     }
-    const sources = await desktopCapturer.getSources({
-      types: ['screen'],
-      thumbnailSize,
-    })
-    if (!sources || sources.length === 0) {
-      screenshotBusy = false
-      return { ok: false, error: 'No capture sources available' }
-    }
-    const source = sources.find(
-      (s) => s.display_id === String(primary.id)
-    ) || sources[0]
-    const image = source.thumbnail
-    screenshotFullImage = image
-    screenshotScaleFactor = scaleFactor
+    const overlayX = minX
+    const overlayY = minY
+    const overlayW = maxX - minX
+    const overlayH = maxY - minY
+    screenshotOverlayOrigin = { x: overlayX, y: overlayY }
 
-    const dataUrl = image.toDataURL()
-
-    // 3. 创建全屏透明覆盖窗口
+    // 3. 创建全屏透明覆盖窗口（先覆盖，稍后选区完成才真正截图）
     if (!screenshotOverlayWindow || screenshotOverlayWindow.isDestroyed()) {
       screenshotOverlayWindow = new BrowserWindow({
-        x: primary.bounds.x,
-        y: primary.bounds.y,
-        width: primary.bounds.width,
-        height: primary.bounds.height,
-        // NOT transparent — avoids Windows DWM click-through issues entirely
-        // Screenshot + dark overlay + selection rect all rendered by React
+        x: overlayX,
+        y: overlayY,
+        width: overlayW,
+        height: overlayH,
+        // 透明窗口：用户透过覆盖层看到真实屏幕，选区完成后再截图
         frame: false,
         alwaysOnTop: true,
         fullscreenable: false,
         skipTaskbar: true,
         focusable: true,
         hasShadow: false,
+        transparent: true,
+        backgroundColor: '#00000000',
         show: false,
-        backgroundColor: '#000000', // Match the dark overlay — no flash on load
         webPreferences: {
           preload: join(__dirname, '../preload/screenshotOverlay.js'),
           sandbox: false,
@@ -808,10 +798,9 @@ app.whenReady().then(async () => {
         win.show()
         win.focus()
         win.webContents.send('screenshot:ready', {
-          dataUrl,
-          width: bounds.width,
-          height: bounds.height,
-          scaleFactor,
+          width: overlayW,
+          height: overlayH,
+          scaleFactor: 1,
         })
       }
     }
@@ -825,15 +814,48 @@ app.whenReady().then(async () => {
     return { ok: true }
   })
 
-  // 裁剪选定区域：按 scaleFactor 换算到设备像素，按 action 决定复制 / 保存 / 两者
-  ipcMain.handle('screenshot:crop', async (_event, rect: { x: number; y: number; width: number; height: number }, action: 'copy' | 'save' | 'both' = 'both') => {
-    if (!screenshotFullImage) return { ok: false }
-    const sf = screenshotScaleFactor
-    const x = Math.max(0, Math.round(rect.x * sf))
-    const y = Math.max(0, Math.round(rect.y * sf))
-    const w = Math.max(1, Math.round(rect.width * sf))
-    const h = Math.max(1, Math.round(rect.height * sf))
-    const cropped = screenshotFullImage.crop({ x, y, width: w, height: h })
+  // 裁剪选定区域：此刻才真正捕获屏幕，按 scaleFactor 换算到设备像素，按 action 决定复制 / 保存 / 两者
+  ipcMain.handle('screenshot:crop', async (_event, rect: { x: number; y: number; width: number; height: number }, action: 'copy' | 'save' | 'both' = 'both', full = false) => {
+    // 1. 将窗口局部坐标转换为全局屏幕坐标，定位目标显示器
+    const gx = rect.x + screenshotOverlayOrigin.x
+    const gy = rect.y + screenshotOverlayOrigin.y
+    const target = screen.getDisplayNearestPoint({ x: gx, y: gy })
+    const sf = target.scaleFactor
+    const { x: dx, y: dy, width: dw, height: dh } = target.bounds
+
+    // 2. 此刻才真正捕获屏幕（覆盖模式：先选后截）
+    const thumbnailSize = {
+      width: Math.floor(dw * sf),
+      height: Math.floor(dh * sf),
+    }
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize,
+    })
+    if (!sources || sources.length === 0) {
+      screenshotBusy = false
+      return { ok: false, error: 'No capture sources available' }
+    }
+    const source = sources.find((s) => s.display_id === String(target.id)) || sources[0]
+    const image = source.thumbnail
+
+    // 3. 计算裁剪区域（设备像素）
+    let cx: number, cy: number, cw: number, ch: number
+    if (full) {
+      cx = 0
+      cy = 0
+      cw = thumbnailSize.width
+      ch = thumbnailSize.height
+    } else {
+      // 选区坐标：窗口局部 → 全局 → 相对显示器 → 设备像素
+      const localX = gx - dx
+      const localY = gy - dy
+      cx = Math.max(0, Math.round(localX * sf))
+      cy = Math.max(0, Math.round(localY * sf))
+      cw = Math.max(1, Math.round(rect.width * sf))
+      ch = Math.max(1, Math.round(rect.height * sf))
+    }
+    const cropped = image.crop({ x: cx, y: cy, width: cw, height: ch })
 
     let file: string | undefined
 
@@ -850,10 +872,7 @@ app.whenReady().then(async () => {
       file = f
     }
 
-    // 注意：不再在此处关闭覆盖窗口。
-    // 由渲染层（screenshot-overlay.tsx）在展示「已复制」提示 2 秒后再调用 cancel() 关闭，
-    // 以获得更平滑的反馈体验。这里仅清空截图图像与忙碌标记。
-    screenshotFullImage = null
+    // 不清空忙碌标记：由渲染层在展示提示后调用 cancel() 关闭窗口并恢复径向菜单
     screenshotBusy = false
 
     // 重新显示径向菜单并提示结果
@@ -876,7 +895,6 @@ app.whenReady().then(async () => {
       screenshotOverlayWindow.close()
     }
     screenshotOverlayWindow = null
-    screenshotFullImage = null
     screenshotBusy = false
     const radial = getRadialWindow()
     if (radial && !radial.isDestroyed()) {
