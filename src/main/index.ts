@@ -752,7 +752,7 @@ app.whenReady().then(async () => {
         show: false,
         backgroundColor: '#000000', // Match the dark overlay — no flash on load
         webPreferences: {
-          preload: join(__dirname, '../preload/screenshot-overlay.js'),
+          preload: join(__dirname, '../preload/screenshotOverlay.js'),
           sandbox: false,
           contextIsolation: true,
         },
