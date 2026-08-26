@@ -112,7 +112,7 @@ function ScreenshotOverlay(): React.ReactNode {
         style={{
           position: 'fixed', inset: 0,
           margin: 0, padding: 0,
-          background: 'rgba(0,0,0,0.4)',
+          background: 'rgba(0,0,0,0.15)',
           cursor: 'crosshair',
           userSelect: 'none',
         }}
@@ -130,7 +130,7 @@ function ScreenshotOverlay(): React.ReactNode {
                 left: sel.x, top: sel.y, width: sel.w, height: sel.h,
                 background: 'transparent',
                 border: '2px solid rgba(255,255,255,0.9)',
-                boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
+                boxShadow: '0 0 0 9999px rgba(0,0,0,0.25)',
                 boxSizing: 'border-box',
                 pointerEvents: 'none',
               }}
