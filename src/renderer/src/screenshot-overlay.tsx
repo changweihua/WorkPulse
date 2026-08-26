@@ -36,9 +36,33 @@ function ScreenshotOverlay(): React.ReactNode {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // Waiting state: dark overlay with loading text
   if (!info) {
-    // 尚未收到截图数据：透明全屏 + 十字光标
-    return <div style={{ width: '100vw', height: '100vh', cursor: 'crosshair' }} />
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          margin: 0,
+          padding: 0,
+          background: 'rgba(0,0,0,0.5)',
+          cursor: 'crosshair',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          userSelect: 'none',
+        }}
+      >
+        <div style={{
+          color: 'white',
+          fontSize: 18,
+          fontFamily: 'system-ui, sans-serif',
+          opacity: 0.8,
+        }}>
+          截图准备中...
+        </div>
+      </div>
+    )
   }
 
   const updateSel = (next: Rect | null) => {
@@ -70,7 +94,6 @@ function ScreenshotOverlay(): React.ReactNode {
     if (r && r.w > 3 && r.h > 3) {
       window.screenshotOverlayApi.crop({ x: r.x, y: r.y, width: r.w, height: r.h })
     } else {
-      // 选区过小，视为取消
       window.screenshotOverlayApi.cancel()
     }
   }
@@ -84,6 +107,7 @@ function ScreenshotOverlay(): React.ReactNode {
         padding: 0,
         cursor: 'crosshair',
         userSelect: 'none',
+        // Screenshot as background
         backgroundImage: `url(${info.dataUrl})`,
         backgroundSize: '100% 100%',
         backgroundRepeat: 'no-repeat',
@@ -92,6 +116,16 @@ function ScreenshotOverlay(): React.ReactNode {
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
     >
+      {/* Dark overlay - always present, dims the entire screen */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0,0,0,0.4)',
+          pointerEvents: 'none',
+        }}
+      />
+      {/* Selection rect - clears the dark overlay in selected area */}
       {sel && sel.w > 0 && sel.h > 0 && (
         <div
           style={{
@@ -107,6 +141,22 @@ function ScreenshotOverlay(): React.ReactNode {
           }}
         />
       )}
+      {/* Hint text at bottom */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 40,
+          left: 0,
+          right: 0,
+          textAlign: 'center',
+          color: 'rgba(255,255,255,0.7)',
+          fontSize: 14,
+          fontFamily: 'system-ui, sans-serif',
+          pointerEvents: 'none',
+        }}
+      >
+        拖拽选择截图区域 · ESC 取消
+      </div>
     </div>
   )
 }
