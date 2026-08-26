@@ -23,6 +23,7 @@ import fs from 'fs/promises';
 import log from 'electron-log/main';
 import { setMainWindow, hideRadialWindow, toggleRadialWindow, getRadialWindow, createRadialWindow } from './radial-window';
 import { appBus, SHOW_MAIN, SHOW_RADIAL } from './event-bus';
+import { initNotifications, showNotification, handleProtocolArgv, setProtocolHandler } from './notification';
 
 log.initialize(); // 只需调用一次
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'info';
@@ -577,6 +578,9 @@ function registerShortcutIpc(): void {
   })
 }
 
+// ===== 协议注册（必须在 app.ready 之前） =====
+initNotifications()
+
 // ===== 单实例锁 =====
 const gotTheLock = app.requestSingleInstanceLock()
 
@@ -586,6 +590,28 @@ if (!gotTheLock) {
 } else {
   // 获得锁，监听第二个实例启动事件
   app.on('second-instance', (_event, commandLine, workingDirectory) => {
+    // 处理 workpulse:// 协议激活（从 Action Center 点击通知触发）
+    const protocolUrl = commandLine.find((arg) =>
+      arg.toLowerCase().startsWith('workpulse://')
+    )
+    if (protocolUrl) {
+      setProtocolHandler((url) => {
+        const u = new URL(url)
+        const action = u.searchParams.get('action')
+        if (action === 'click') {
+          // 点击通知：显示主窗口
+          const win = getMainWindow()
+          if (win) {
+            if (win.isMinimized()) win.restore()
+            win.focus()
+            win.show()
+          }
+        }
+      })
+      // 触发协议处理
+      import('./notification').then(({ handleProtocolArgv }) => handleProtocolArgv())
+    }
+
     // 当另一个实例启动时，聚焦到已有窗口
     const win = getMainWindow()
     if (win) {
@@ -693,6 +719,19 @@ app.whenReady().then(async () => {
   registerIpcHandlers()
   registerShortcutIpc()
   registerUpdateIpc()
+
+  // ===== Windows 系统通知 IPC =====
+  ipcMain.handle('notification:show', (_event, options: {
+    title: string
+    body: string
+    group?: string
+    tag?: string
+    urgency?: 'normal' | 'low' | 'critical'
+    silent?: boolean
+  }) => {
+    showNotification(options)
+    return { ok: true }
+  })
 
   // ===== 区域截图：主进程管理覆盖窗口 + 裁剪 =====
   let screenshotOverlayWindow: BrowserWindow | null = null

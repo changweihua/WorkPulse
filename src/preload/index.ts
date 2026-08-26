@@ -140,6 +140,16 @@ const api = {
     set: (key: string, value: string) => ipcRenderer.invoke('settings:set', key, value),
     delete: (key: string) => ipcRenderer.invoke('settings:delete', key)
   },
+  notification: {
+    show: (options: {
+      title: string
+      body: string
+      group?: string
+      tag?: string
+      urgency?: 'normal' | 'low' | 'critical'
+      silent?: boolean
+    }) => ipcRenderer.invoke('notification:show', options)
+  },
   shortcut: {
     update: (key: string, value: string) => ipcRenderer.invoke('shortcut:update', key, value)
   },

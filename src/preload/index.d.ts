@@ -196,6 +196,16 @@ interface API {
     set: (key: string, value: string) => Promise<void>
     delete: (key: string) => Promise<void>
   }
+  notification: {
+    show: (options: {
+      title: string
+      body: string
+      group?: string
+      tag?: string
+      urgency?: 'normal' | 'low' | 'critical'
+      silent?: boolean
+    }) => Promise<{ ok: boolean }>
+  }
   shortcut: {
     update: (key: string, value: string) => Promise<boolean>
   }
