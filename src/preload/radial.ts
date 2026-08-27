@@ -18,6 +18,10 @@ contextBridge.exposeInMainWorld('radialApi', {
   // 折叠 / 展开
   expand: () => ipcRenderer.send('radial:expand'),
   collapse: () => ipcRenderer.send('radial:collapse'),
+  // 光标位置（主进程轮询）
+  onCursor: (cb: (info: { x: number; y: number; dist: number; isOverCenter: boolean }) => void) => {
+    ipcRenderer.on('radial:cursor', (_event, info) => cb(info))
+  },
   // 拖拽
   dragStart: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-start', mouseX, mouseY),
   dragMove: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-move', mouseX, mouseY),

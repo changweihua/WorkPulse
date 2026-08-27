@@ -25,6 +25,7 @@ interface RadialApi {
   dragStart: (mouseX: number, mouseY: number) => void
   dragMove: (mouseX: number, mouseY: number) => void
   dragEnd: () => void
+  onCursor: (cb: (info: { x: number; y: number; dist: number; isOverCenter: boolean }) => void) => void
 }
 
 interface ScreenshotOverlayApi {

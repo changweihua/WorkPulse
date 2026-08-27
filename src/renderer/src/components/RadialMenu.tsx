@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion } from 'motion/react'
 
 /* ── 尺寸参数 ── */
 const OUTER_R = 94
@@ -7,10 +7,11 @@ const INNER_R = 38
 const GAP_PX = 3
 const CENTER_R = 24
 const WIDGET_SIZE = 206
-const COLLAPSED_SIZE = 48
+const CX = WIDGET_SIZE / 2
+const CY = WIDGET_SIZE / 2
 
 // WorkPulse program icon
-const ICON_SVG = `data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzg0MDg1MDIzMjc1IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjI0Mzk3IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxwYXRoIGQ9Ik02NTEuNjEwOTA5IDEwMjMuOTkySDI3OS4yNzc4MThsOS4yNTU5MjgtNC42Mzk5NjRhMTg2LjE1ODU0NiAxODYuMTU4NTQ2IDAgMCAwIDEwMC4wOTUyMTgtMTM0LjIwNjk1MWwxOC44NzE4NTItMTA3LjAzOTE2NGE5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAxIDkyLjE1OTI4LTc5LjkzNTM3NUg2MTcuNDM1MTc2YzQ2LjMxOTYzOCAwIDg1LjU5OTMzMSAzNC4wNzk3MzQgOTIuMTU5MjggNzkuOTM1Mzc1bDM0LjE1OTczMyAxMzkuNjMwOTA5YzcuMjc5OTQzIDUwLjg5NTYwMi0yOC4wODc3ODEgOTguMDQ3MjM0LTc4Ljk4MzM4MyAxMDUuMzE5MTc3LTQuMzU5OTY2IDAuNjIzOTk1LTguNzU5OTMyIDAuOTM1OTkzLTEzLjE2Nzg5NyAwLjkzNTk5M3oiIGZpbGw9IiM5OTlBQUMiIHAtaWQ9IjI0Mzk4Ij48L3BhdGg+PHBhdGggZD0iTTc0Mi4yOTgyMDEgOTExLjczNjg3N2wtMy44NjM5Ny0xNS44MTU4NzYtNS40Nzk5NTctMjIuMzY3ODI2LTYuMjcxOTUxLTI1LjYzMTc5OS02LjI3MTk1MS0yNS42Mzk4LTUuNDc5OTU3LTIyLjM2NzgyNS0zLjg2Mzk3LTE1LjgwNzg3Ny0xLjQ3MTk4OS01Ljk5OTk1M2E5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAwLTkyLjE1OTI4LTc5LjkzNTM3NWgtMi41NTk5OGEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAwIDAgNDYuNTUxNjM2aDIuNTU5OThhNDYuNzY3NjM1IDQ2Ljc2NzYzNSAwIDAgMSA0Ni4wNzk2NCAzOS45NTk2ODhjMC4yMTU5OTggMS41MDM5ODggMC41MDM5OTYgMi45OTk5NzcgMC44NzE5OTMgNC40Nzk5NjVsMzMuNTM1NzM4IDEzNy4wNDY5MjlhNDYuNTU5NjM2IDQ2LjU1OTYzNiAwIDAgMS00Ni4zMTE2MzggNTEuMjM5NkgyNTUuOTk4QTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDAgMjU1Ljk5OCAxMDIzLjk5MmgzOTUuNjEyOTA5YzUxLjM4MzU5OSAwLjAzMiA5My4wNzEyNzMtNDEuNTk5Njc1IDkzLjEwMzI3My05Mi45NzUyNzQgMC00LjQ0Nzk2NS0wLjMxOTk5OC04Ljg3OTkzMS0wLjk0Mzk5My0xMy4yNzk4OTZsLTEuNDcxOTg4LTUuOTk5OTUzeiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQzOTkiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA3NDQuNzE0MTgyaDkzLjEwMzI3M2E2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAgMTM5LjYzODkwOUg0ODguNzE2MTgydjEzOS42Mzg5MDlINDEzLjU4NjE4MmE2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAtMTM5LjYzODkwOWg3NS4xMjk5OTl6bTAtNDYuNTUxNjM2SDQxMy41ODYxODJBNzUuMTI5OTk5IDc1LjEyOTk5OSAwIDAgMCAwIDY5OC4xNjI1NDZoNzUuMTI5OTk5di00Ni41NTE2MzZ6IiBmaWxsPSIjNkQ1QkZFIiBwLWlkPSIyNDQwMCI+PC9wYXRoPjwvc3ZnPg==`
+const ICON_SVG = `data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzg0MDg1MDIzMjc1IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjI0Mzk3IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxwYXRoIGQ9Ik02NTEuNjEwOTA5IDEwMjMuOTkySDI3OS4yNzc4MThsOS4yNTU5MjgtNC42Mzk5NjRhMTg2LjE1ODU0NiAxODYuMTU4NTQ2IDAgMCAwIDEwMC4wOTUyMTgtMTM0LjIwNjk1MWwxOC44NzE4NTItMTA3LjAzOTE2NGE5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAxIDkyLjE1OTI4LTc5LjkzNTM3NUg2MTcuNDM1MTc2YzQ2LjMxOTYzOCAwIDg1LjU5OTMzMSAzNC4wNzk3MzQgOTIuMTU5MjggNzkuOTM1Mzc1bDM0LjE1OTczMyAxMzkuNjMwOTA5YzcuMjc5OTQzIDUwLjg5NTYwMi0yOC4wODc3ODEgOTguMDQ3MjM0LTc4Ljk4MzM4MyAxMDUuMzE5MTc3LTQuMzU5OTY2IDAuNjIzOTk1LTguNzU5OTMyIDAuOTM1OTkzLTEzLjE2Nzg5NyAwLjkzNTk5M3oiIGZpbGw9IiM5OTlBQUMiIHAtaWQ9IjI0Mzk4Ij48L3BhdGg+PHBhdGggZD0iTTc0Mi4yOTgyMDEgOTExLjczNjg3N2wtMy44NjM5Ny0xNS44MTU4NzYtNS40Nzk5NTctMjIuMzY3ODI2LTYuMjcxOTUxLTI1LjYzMTc5OS02LjI3MTk1MS0yNS42Mzk4LTUuNDc5OTU3LTIyLjM2NzgyNS0zLjg2Mzk3LTE1LjgwNzg3Ny0xLjQ3MTk4OS01Ljk5OTk1M2E5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAwLTkyLjE1OTI4LTc5LjkzNTM3NWgtMi41NTk5OGEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAwIDAgNDYuNTUxNjM2aDIuNTU5OThhNDYuNzY3NjM1IDQ2Ljc2NzYzNSAwIDAgMSA0Ni4wNzk2NCAzOS45NTk2ODhjMC4yMTU5OTggMS41MDM5ODggMC41MDM5OTYgMi45OTk5NzcgMC44NzE5OTMgNC40Nzk5NjVsMzMuNTM1NzM4IDEzNy4wNDY5MjlhNDYuNTU5NjM2IDQ2LjU1OTYzNiAwIDAgMS00Ni4zMTE2MzggNTEuMjM5NkgyNTUuOTk4QTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDAgMjU1Ljk5OCAxMDIzLjk5MmgzOTUuNjEyOTA5YzUxLjM4MzU5OSAwLjAzMiA5My4wNzEyNzMtNDEuNTk5Njc1IDkzLjEwMzI3My05Mi45NzUyNzQgMC00LjQ0Nzk2NS0wLjMxOTk5OC04Ljg3OTkzMS0wLjk0Mzk5My0xMy4yNzk4OTZsLTEuNDcxOTg4LTUuOTk5OTUzeiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQzOTkiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA3NDQuNzE0MTgyaDkzLjEwMzI3M2E2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAgMTM5LjYzODkwOUg0ODguNzE2MTgydj0xMzkuNjM4OTA5SjI1NS45OThhMjMuMjc5ODE4IDIzLjI3OTgxOCAwIDAgMSAwLTQ2LjU1MTYzNmg0MzIuNzE4MTgyek00ODguNzE2MTgyIDQ2NS44NDcxNDN2MTM5LjYzODkwOUgyNTUuOTk4YTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDEgMC00Ni41NTE2MzZoNDMyLjcxODE4MnoiIGZpbGw9IiM3QzdGOTUiIHAtaWQ9IjI0NDAwIj48L3BhdGg+PC9zdmc+`
 
 const TOOLTIP_LABELS: Record<string, { zh: string; en: string }> = {
   log: { zh: '日志', en: 'Work Log' },
@@ -20,16 +21,14 @@ const TOOLTIP_LABELS: Record<string, { zh: string; en: string }> = {
   screenshot: { zh: '截图', en: 'Screenshot' },
 }
 
-const CENTER_SIZE = CENTER_R * 2 // 48px diameter
-const CX = WIDGET_SIZE / 2
-const CY = WIDGET_SIZE / 2
+const CENTER_SIZE = CENTER_R * 2
 
 interface RadialItem {
   key: string
   label: string
   emoji: string
   angle: number
-  action: () => void
+  route: string
 }
 
 /**
@@ -62,28 +61,82 @@ function angleToXY(deg: number, radius: number, cx: number, cy: number): { x: nu
   return { x: cx + Math.cos(rad) * radius, y: cy + Math.sin(rad) * radius }
 }
 
+/**
+ * 方案 C（Meel 架构）：纯视觉渲染 + 主进程轮询光标位置
+ *
+ * - 窗口固定 206×206，不 resize，无闪烁
+ * - 主进程每 8ms 轮询 screen.getCursorScreenPoint()
+ * - 发送 radial:cursor IPC 给 renderer（光标相对于窗口的坐标 + dist + isOverCenter）
+ * - Renderer 用光标角度做命中检测：判断光标在哪个扇区上 → 高亮
+ * - 拖拽仍由 DOM mousedown/mousemove/mouseup 处理（setShape 范围内有效）
+ * - clip-path circle() 做展开/收起动画
+ */
 export function RadialMenu(): ReactNode {
   const [hovered, setHovered] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
   const expandedRef = useRef(false)
-  const dragRef = useRef({ active: false, startX: 0, startY: 0, moved: false, onCenter: false })
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, moved: false })
+  // 主进程轮询的光标位置（相对于窗口坐标）
+  const cursorRef = useRef({ x: 0, y: 0, isOverCenter: false })
 
   const ITEMS: RadialItem[] = [
-    { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, action: () => window.radialApi.navigateTo('worklog') },
-    { key: 'task', label: 'Task', emoji: '📋', angle: -18, action: () => window.radialApi.navigateTo('kanban') },
-    { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 54, action: () => window.radialApi.navigateTo('calendar') },
-    { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 126, action: () => window.radialApi.navigateTo('chat') },
-    { key: 'screenshot', label: 'Screenshot', emoji: '📸', angle: 198, action: async () => {
-      try {
-        await window.radialApi.startCapture()
-      } catch {
-        setToast('❌ Capture failed')
-        setTimeout(() => setToast(null), 2500)
-      }
-    } },
+    { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, route: 'worklog' },
+    { key: 'task', label: 'Task', emoji: '📋', angle: -18, route: 'kanban' },
+    { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 54, route: 'calendar' },
+    { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 126, route: 'chat' },
+    { key: 'screenshot', label: 'Screenshot', emoji: '📸', angle: 198, route: '' },
   ]
 
+  const numItems = ITEMS.length
+  const segAngle = 360 / numItems
+  const gapOuterDeg = (GAP_PX / OUTER_R) * (180 / Math.PI)
+  const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI)
+  const iconRadius = (INNER_R + OUTER_R) / 2
+
+  // ─── 方案 C：监听主进程光标轮询 IPC ───
+  useEffect(() => {
+    window.radialApi.onCursor((info) => {
+      cursorRef.current = info
+
+      if (!expandedRef.current) {
+        // 折叠态：仅中心按钮可见，不在环上 → 清除 hover
+        setHovered(null)
+        return
+      }
+
+      // 展开态：根据光标角度判断命中哪个扇区
+      const dx = info.x - CX
+      const dy = info.y - CY
+      const dist = Math.sqrt(dx * dx + dy * dy)
+
+      // 光标不在环形区域内
+      if (dist < INNER_R || dist > OUTER_R) {
+        setHovered(null)
+        return
+      }
+
+      // 计算光标角度（0=上方，顺时针，与 ITEMS.angle 一致）
+      let angle = (Math.atan2(dx, -dy) * 180) / Math.PI
+      if (angle < 0) angle += 360
+
+      // 找到角度最近的扇区
+      let bestKey: string | null = null
+      let bestDist = Infinity
+      for (const item of ITEMS) {
+        // 角度差（处理跨越 360° 边界）
+        let diff = Math.abs(angle - item.angle)
+        if (diff > 180) diff = 360 - diff
+        if (diff < segAngle / 2 && diff < bestDist) {
+          bestDist = diff
+          bestKey = item.key
+        }
+      }
+      setHovered(bestKey)
+    })
+  }, [])
+
+  // ─── 展开/折叠 ───
   const handleExpand = useCallback(() => {
     expandedRef.current = true
     setExpanded(true)
@@ -92,12 +145,12 @@ export function RadialMenu(): ReactNode {
 
   const handleCollapse = useCallback(() => {
     expandedRef.current = false
-    // 先动画 clip-path 收缩，动画结束后再发送 collapse IPC（resize 回 48×48）
-    window.radialApi.collapse()
     setExpanded(false)
+    window.radialApi.collapse()
+    setHovered(null)
   }, [])
 
-  // ─── 拖拽：延迟判定，超过阈值才启动；未移动则视为点击（折叠态点击中心 → 展开） ───
+  // ─── 拖拽（setShape 范围内 DOM 事件有效） ───
   useEffect(() => {
     const DRAG_THRESHOLD = 5
     let dragStarted = false
@@ -122,11 +175,11 @@ export function RadialMenu(): ReactNode {
         dragStarted = false
         ref.active = false
         window.radialApi.dragEnd()
-      } else if (ref.onCenter && !expandedRef.current) {
-        // 折叠态下点击中心圆 → 展开
+      } else if (!ref.moved && !expandedRef.current) {
+        // 折叠态下点击中心圆 → 展开（未拖动时）
         handleExpand()
       }
-      dragRef.current = { active: false, startX: 0, startY: 0, moved: false, onCenter: false }
+      dragRef.current = { active: false, startX: 0, startY: 0, moved: false }
     }
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
@@ -140,18 +193,22 @@ export function RadialMenu(): ReactNode {
     if (expandedRef.current) return
     const target = e.target as HTMLElement
     if (target.closest('button')) return
-    dragRef.current = { active: false, startX: e.screenX, startY: e.screenY, moved: false, onCenter: true }
+    dragRef.current = { active: false, startX: e.screenX, startY: e.screenY, moved: false }
   }, [])
 
-  const numItems = ITEMS.length
-  const segAngle = 360 / numItems
-  const gapOuterDeg = (GAP_PX / OUTER_R) * (180 / Math.PI)
-  const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI)
-  const iconRadius = (INNER_R + OUTER_R) / 2
+  // ─── 扇区点击（展开态：点击扇区导航） ───
+  const handleSegmentClick = useCallback((item: RadialItem) => {
+    if (item.key === 'screenshot') {
+      window.radialApi.startCapture().catch(() => {
+        setToast('❌ Capture failed')
+        setTimeout(() => setToast(null), 2500)
+      })
+    } else {
+      window.radialApi.navigateTo(item.route)
+    }
+  }, [])
 
-  // 方案 C：clip-path 圆形揭示动画
-  // 折叠态：circle(24px at 50% 50%) — 只显示中心按钮
-  // 展开态：circle(103px at 50% 50%) — 显示整个环
+  // clip-path 动画参数
   const collapsedClip = `circle(${CENTER_R}px at 50% 50%)`
   const expandedClip = `circle(${CENTER_R + 79}px at 50% 50%)`
 
@@ -208,9 +265,7 @@ export function RadialMenu(): ReactNode {
                   cursor: 'pointer',
                   transition: 'fill 0.2s ease',
                 }}
-                onMouseEnter={() => setHovered(item.key)}
-                onMouseLeave={() => setHovered(null)}
-                onClick={() => { item.action() }}
+                onClick={() => handleSegmentClick(item)}
               />
             )
           })}
@@ -242,7 +297,7 @@ export function RadialMenu(): ReactNode {
           const tipR = INNER_R - 20
           const tipPos = angleToXY(item.angle, tipR, CX, CY)
           return (
-            <div
+            <motion.div
               key="tooltip"
               className="absolute pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
                          text-sm font-medium text-zinc-800 dark:text-zinc-100"
@@ -256,37 +311,34 @@ export function RadialMenu(): ReactNode {
                 boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
                 border: '1px solid rgba(0,0,0,0.08)',
               }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15 }}
             >
               {TOOLTIP_LABELS[item.key]?.[lang] ?? item.label}
-            </div>
+            </motion.div>
           )
         })()}
       </motion.div>
 
       {/* ═══ Toast ═══ */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            key="toast"
-            className="absolute left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
-                       text-sm font-medium text-zinc-800 dark:text-zinc-100"
-            style={{
-              bottom: 8, zIndex: 10,
-              background: 'rgba(240,242,246,0.96)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-              border: '1px solid rgba(0,0,0,0.08)',
-            }}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-          >
-            {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {toast && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
+                     text-sm font-medium text-zinc-800 dark:text-zinc-100"
+          style={{
+            bottom: 8, zIndex: 10,
+            background: 'rgba(240,242,246,0.96)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+            border: '1px solid rgba(0,0,0,0.08)',
+          }}
+        >
+          {toast}
+        </div>
+      )}
 
       {/* ═══ 中心圆形：折叠态可拖拽/点击展开；展开态显示 ✕ 关闭 ═══ */}
       <div
@@ -306,6 +358,7 @@ export function RadialMenu(): ReactNode {
               'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)',
             border: '1px solid rgba(0,0,0,0.08)',
             cursor: expanded ? 'default' : 'pointer',
+            transition: 'transform 0.15s ease',
           } as React.CSSProperties}
         >
           {expanded ? (
