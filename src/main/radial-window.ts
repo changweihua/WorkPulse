@@ -60,7 +60,6 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     frame: false,
     transparent: true,
     alwaysOnTop: true,
-    focusable: false,
     resizable: false,
     skipTaskbar: true,
     hasShadow: false,
