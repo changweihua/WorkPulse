@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, type ReactNode } from 'react'
+import { useEffect, useState, useRef, useCallback, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 
 /* ── 尺寸参数 ── */
@@ -10,8 +10,8 @@ const WIDGET_SIZE = 206
 const CX = WIDGET_SIZE / 2
 const CY = WIDGET_SIZE / 2
 
-// WorkPulse program icon
-const ICON_SVG = `data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzg0MDg1MDIzMjc1IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjI0Mzk3IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxwYXRoIGQ9Ik02NTEuNjEwOTA5IDEwMjMuOTkySDI3OS4yNzc4MThsOS4yNTU5MjgtNC42Mzk5NjRhMTg2LjE1ODU0NiAxODYuMTU4NTQ2IDAgMCAwIDEwMC4wOTUyMTgtMTM0LjIwNjk1MWwxOC44NzE4NTItMTA3LjAzOTE2NGE5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAxIDkyLjE1OTI4LTc5LjkzNTM3NUg2MTcuNDM1MTc2YzQ2LjMxOTYzOCAwIDg1LjU5OTMzMSAzNC4wNzk3MzQgOTIuMTU5MjggNzkuOTM1Mzc1bDM0LjE1OTczMyAxMzkuNjMwOTA5YzcuMjc5OTQzIDUwLjg5NTYwMi0yOC4wODc3ODEgOTguMDQ3MjM0LTc4Ljk4MzM4MyAxMDUuMzE5MTc3LTQuMzU5OTY2IDAuNjIzOTk1LTguNzU5OTMyIDAuOTM1OTkzLTEzLjE2Nzg5NyAwLjkzNTk5M3oiIGZpbGw9IiM5OTlBQUMiIHAtaWQ9IjI0Mzk4Ij48L3BhdGg+PHBhdGggZD0iTTc0Mi4yOTgyMDEgOTExLjczNjg3N2wtMy44NjM5Ny0xNS44MTU4NzYtNS40Nzk5NTctMjIuMzY3ODI2LTYuMjcxOTUxLTI1LjYzMTc5OS02LjI3MTk1MS0yNS42Mzk4LTUuNDc5OTU3LTIyLjM2NzgyNS0zLjg2Mzk3LTE1LjgwNzg3Ny0xLjQ3MTk4OS01Ljk5OTk1M2E5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAwLTkyLjE1OTI4LTc5LjkzNTM3NWgtMi41NTk5OGEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAwIDAgNDYuNTUxNjM2aDIuNTU5OThhNDYuNzY3NjM1IDQ2Ljc2NzYzNSAwIDAgMSA0Ni4wNzk2NCAzOS45NTk2ODhjMC4yMTU5OTggMS41MDM5ODggMC41MDM5OTYgMi45OTk5NzcgMC44NzE5OTMgNC40Nzk5NjVsMzMuNTM1NzM4IDEzNy4wNDY5MjlhNDYuNTU5NjM2IDQ2LjU1OTYzNiAwIDAgMS00Ni4zMTE2MzggNTEuMjM5NkgyNTUuOTk4QTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDAgMjU1Ljk5OCAxMDIzLjk5MmgzOTUuNjEyOTA5YzUxLjM4MzU5OSAwLjAzMiA5My4wNzEyNzMtNDEuNTk5Njc1IDkzLjEwMzI3My05Mi45NzUyNzQgMC00LjQ0Nzk2NS0wLjMxOTk5OC04Ljg3OTkzMS0wLjk0Mzk5My0xMy4yNzk4OTZsLTEuNDcxOTg4LTUuOTk5OTUzeiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQzOTkiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA3NDQuNzE0MTgyaDkzLjEwMzI3M2E2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAgMTM5LjYzODkwOUg0ODguNzE2MTgyYTQ2Ljc2NzYzNSAxNjkuODIzNDU1IDAgMCAxIDAgLTEzOS42Mzg5MDl6IiBmaWxsPSIjQ0NDREUyIiBwLWlkPSIyNDQwMCI+PC9wYXRoPjwvc3ZnPg==`
+// WorkPulse program icon (base64 encoded SVG)
+const ICON_SVG = `data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzg0MDg1MDIzMjc1IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjI0Mzk3IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxwYXRoIGQ9Ik02NTEuNjEwOTA5IDEwMjMuOTkySDI3OS4yNzc4MThsOS4yNTU5MjgtNC42Mzk5NjRhMTg2LjE1ODU0NiAxODYuMTU4NTQ2IDAgMCAwIDEwMC4wOTUyMTgtMTM0LjIwNjk1MWwxOC44NzE4NTItMTA3LjAzOTE2NGE5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAxIDkyLjE1OTI4LTc5LjkzNTM3NUg2MTcuNDM1MTc2YzQ2LjMxOTYzOCAwIDg1LjU5OTMzMSAzNC4wNzk3MzQgOTIuMTU5MjggNzkuOTM1Mzc1bDM0LjE1OTczMyAxMzkuNjMwOTA5YzcuMjc5OTQzIDUwLjg5NTYwMi0yOC4wODc3ODEgOTguMDQ3MjM0LTc4Ljk4MzM4MyAxMDUuMzE5MTc3LTQuMzU5OTY2IDAuNjIzOTk1LTguNzU5OTMyIDAuOTM1OTkzLTEzLjE2Nzg5NyAwLjkzNTk5M3oiIGZpbGw9IiM5OTlBQUMiIHAtaWQ9IjI0Mzk4Ij48L3BhdGg+PHBhdGggZD0iTTc0Mi4yOTgyMDEgOTExLjczNjg3N2wtMy44NjM5Ny0xNS44MTU4NzYtNS40Nzk5NTctMjIuMzY3ODI2LTYuMjcxOTUxLTI1LjYzMTc5OS02LjI3MTk1MS0yNS42Mzk4LTUuNDc5OTU3LTIyLjM2NzgyNS0zLjg2Mzk3LTE1LjgwNzg3Ny0xLjQ3MTk4OS01Ljk5OTk1M2E5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAwLTkyLjE1OTI4LTc5LjkzNTM3NWgtMi41NTk5OGEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAwIDAgNDYuNTUxNjM2aDIuNTU5OThhNDYuNzY3NjM1IDQ2Ljc2NzYzNSAwIDAgMSA0Ni4wNzk2NCAzOS45NTk2ODhjMC4yMTU5OTggMS41MDM5ODggMC41MDM5OTYgMi45OTk5NzcgMC44NzE5OTMgNC40Nzk5NjVsMzMuNTM1NzM4IDEzNy4wNDY5MjlhNDYuNTU5NjM2IDQ2LjU1OTYzNiAwIDAgMS00Ni4zMTE2MzggNTEuMjM5NkgyNTUuOTk4QTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDAgMjU1Ljk5OCAxMDIzLjk5MmgzOTUuNjEyOTA5YzUxLjM4MzU5OSAwLjAzMiA5My4wNzEyNzMtNDEuNTk5Njc1IDkzLjEwMzI3My05Mi45NzUyNzQgMC00LjQ0Nzk2NS0wLjMxOTk5OC04Ljg3OTkzMS0wLjk0Mzk5My0xMy4yNzk4OTZsLTEuNDcxOTg4LTUuOTk5OTUzeiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQzOTkiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA3NDQuNzE0MTgyaDkzLjEwMzI3M2E2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAgMTM5LjYzODkwOUg0ODguNzE2MTgyem0tMS41MTk5NzEgNTIuNDc5OTY2aDk0LjYyMzkzN2E3MS4zNTk2MzYgNzEuMzU5NjM2IDAgMCAxIDAgMTQyLjc1OTI3NEg0ODcuMTk2MjExem0tMS41MTk5NzIgNTMuOTk5OTQ1aDk2LjE0MzkxMEE3Mi44Nzk2MzYgNzIuODc5NjM2IDAgMCAxIDAgMTQ1Ljc1OTI3NEg0ODUuNjc2MjM5eiIgZmlsbD0iI0ZGQjcwQTIiIHAtaWQ9IjI0NDAwIj48L3BhdGg+PC9zdmc+`
 
 const TOOLTIP_LABELS: Record<string, { zh: string; en: string }> = {
   log: { zh: '日志', en: 'Work Log' },
@@ -32,25 +32,18 @@ interface RadialItem {
 }
 
 /**
- * Meel 架构：纯视觉渲染。
+ * 混合方案：Meel 原则 + DOM 交互
  *
- * - 窗口由主进程创建（focusable:false, movable:false, setIgnoreMouseEvents 点击穿透）
- * - renderer 永不接收 DOM 点击 / 拖拽事件
- * - 主进程每 8ms 轮询 screen.getCursorScreenPoint() 并发送 radial:cursor IPC
- * - 主进程持有展开/收起状态，通过 radial:state 通知 renderer（含锚点坐标）
- * - renderer 仅根据光标位置做角度命中检测以高亮扇区，并渲染 SVG 环形菜单
+ * - 窗口创建一次复用（Meel 原则）
+ * - focusable:false + alwaysOnTop re-assert（Meel 原则）
+ * - 光标轮询做 hover 高亮（Meel 原则）
+ * - DOM 事件处理点击/拖拽（与 Meel 的全局 hook 不同）
+ * - clip-path 圆形揭示动画（视觉效果）
  */
 export function RadialMenu(): ReactNode {
   const [hovered, setHovered] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
-  // widget 锚点（窗口内坐标），由主进程在展开时通过 radial:state 下发
-  const [anchor, setAnchor] = useState<{ x: number; y: number }>({
-    x: typeof window !== 'undefined' ? window.innerWidth / 2 : CX,
-    y: typeof window !== 'undefined' ? window.innerHeight / 2 : CY,
-  })
   const expandedRef = useRef(false)
-  const anchorRef = useRef(anchor)
-  anchorRef.current = anchor
 
   const ITEMS: RadialItem[] = [
     { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, route: 'worklog' },
@@ -66,26 +59,31 @@ export function RadialMenu(): ReactNode {
   const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI)
   const iconRadius = (INNER_R + OUTER_R) / 2
 
-  // ─── 方案 C：监听主进程光标轮询 IPC，做角度命中检测（仅高亮，不触发动作） ───
+  // ─── 监听主进程状态（展开/收起） ───
+  useEffect(() => {
+    window.radialApi.onState((info) => {
+      expandedRef.current = info.expanded
+      setExpanded(info.expanded)
+      if (!info.expanded) setHovered(null)
+    })
+  }, [])
+
+  // ─── 光标轮询 hover 高亮（Meel 原则） ───
   useEffect(() => {
     window.radialApi.onCursor((info) => {
       if (!expandedRef.current) {
         setHovered(null)
         return
       }
-
-      const dx = info.x - anchorRef.current.x
-      const dy = info.y - anchorRef.current.y
+      const dx = info.x - CX
+      const dy = info.y - CY
       const dist = Math.sqrt(dx * dx + dy * dy)
-
       if (dist < INNER_R || dist > OUTER_R) {
         setHovered(null)
         return
       }
-
       let angle = (Math.atan2(dx, -dy) * 180) / Math.PI
       if (angle < 0) angle += 360
-
       let bestKey: string | null = null
       let bestDist = Infinity
       for (const item of ITEMS) {
@@ -100,23 +98,36 @@ export function RadialMenu(): ReactNode {
     })
   }, [])
 
-  // ─── 监听主进程 radial:state（同步展开/收起状态 + 锚点） ───
-  useEffect(() => {
-    window.radialApi.onState((info) => {
-      expandedRef.current = info.expanded
-      setExpanded(info.expanded)
-      if (info.anchorX !== undefined && info.anchorY !== undefined) {
-        const a = { x: info.anchorX, y: info.anchorY }
-        anchorRef.current = a
-        setAnchor(a)
-      }
-      if (!info.expanded) setHovered(null)
-    })
+  // ─── 中心按钮：点击展开/收起 + 拖拽 ───
+  const handleCenterClick = useCallback(() => {
+    window.radialApi.centerClick()
+  }, [])
+
+  const handleCenterMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    window.radialApi.dragStart()
+
+    const onMouseMove = (me: MouseEvent) => {
+      window.radialApi.dragMove(me.movementX, me.movementY)
+    }
+    const onMouseUp = () => {
+      window.radialApi.dragEnd()
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [])
+
+  // ─── 扇区点击 ───
+  const handleSegmentClick = useCallback((key: string) => {
+    window.radialApi.segmentClick(key)
   }, [])
 
   // clip-path 动画参数
   const collapsedClip = `circle(${CENTER_R}px at 50% 50%)`
-  const expandedClip = `circle(${CENTER_R + 79}px at 50% 50%)`
+  const expandedClip = `circle(103px at 50% 50%)`
 
   return (
     <div
@@ -125,9 +136,8 @@ export function RadialMenu(): ReactNode {
         position: 'fixed',
         width: WIDGET_SIZE,
         height: WIDGET_SIZE,
-        left: anchor.x,
-        top: anchor.y,
-        transform: 'translate(-50%, -50%)',
+        left: 0,
+        top: 0,
       }}
     >
       {/* ═══ 环形扇区 + 图标（clip-path 圆形揭示动画） ═══ */}
@@ -139,7 +149,7 @@ export function RadialMenu(): ReactNode {
         animate={{ clipPath: expanded ? expandedClip : collapsedClip }}
         transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
       >
-        {/* SVG 环形扇区（纯视觉，无 onClick — Meel 架构要求） */}
+        {/* SVG 环形扇区 */}
         <svg
           key="ring"
           width={WIDGET_SIZE}
@@ -167,9 +177,8 @@ export function RadialMenu(): ReactNode {
                 key={item.key}
                 d={path}
                 fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
-                style={{
-                  transition: 'fill 0.2s ease',
-                }}
+                style={{ cursor: 'pointer', transition: 'fill 0.2s ease' }}
+                onClick={() => handleSegmentClick(item.key)}
               />
             )
           })}
@@ -226,7 +235,7 @@ export function RadialMenu(): ReactNode {
         })()}
       </motion.div>
 
-      {/* ═══ 中心圆形：纯视觉（无 DOM 交互，由全局快捷键驱动） ═══ */}
+      {/* ═══ 中心圆形：logo / 关闭按钮 + 拖拽 ═══ */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ zIndex: 2 }}
@@ -242,8 +251,11 @@ export function RadialMenu(): ReactNode {
             boxShadow:
               'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)',
             border: '1px solid rgba(0,0,0,0.08)',
+            cursor: 'pointer',
             transition: 'transform 0.15s ease',
           } as React.CSSProperties}
+          onClick={handleCenterClick}
+          onMouseDown={handleCenterMouseDown}
         >
           {expanded ? (
             <svg
@@ -254,7 +266,6 @@ export function RadialMenu(): ReactNode {
               stroke="rgba(60,64,72,0.9)"
               strokeWidth={2.4}
               strokeLinecap="round"
-              className="pointer-events-none"
             >
               <line x1="6" y1="6" x2="18" y2="18" />
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -264,7 +275,6 @@ export function RadialMenu(): ReactNode {
               key="icon"
               src={ICON_SVG}
               alt="WorkPulse"
-              className="pointer-events-none"
               style={{ width: CENTER_R, height: CENTER_R, objectFit: 'contain' }}
             />
           )}

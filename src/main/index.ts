@@ -21,7 +21,7 @@ import contextMenu from 'electron-context-menu'
 import { loadDotNet } from './asar-dotnet-loader';
 import fs from 'fs/promises';
 import log from 'electron-log/main';
-import { setMainWindow, hideRadialWindow, showRadialWindow, toggleRadialFromShortcut, getRadialWindow, createRadialWindow } from './radial-window';
+import { setMainWindow, hideRadialWindow, showRadialWindow, getRadialWindow, createRadialWindow } from './radial-window';
 import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus';
 import { initNotifications, showNotification, handleProtocolArgv, setProtocolHandler } from './notification';
 
@@ -84,11 +84,6 @@ export function reregisterGlobalShortcuts(
 ): { log: boolean; task: boolean } {
   globalShortcut.unregisterAll()
   const { log, task } = getShortcuts(overrides)
-
-  // 径向快捷菜单：Ctrl + Space（Meel 架构：展开/收起/触发，由主进程驱动）
-  globalShortcut.register('Ctrl+Space', () => {
-    toggleRadialFromShortcut()
-  })
 
   // 打开主窗口：Cmd/Ctrl + Shift + Space
   globalShortcut.register('CmdOrCtrl+Shift+Space', () => {
@@ -939,8 +934,7 @@ app.whenReady().then(async () => {
   appBus.on(SHOW_RADIAL, (parent?: BrowserWindow) => {
     const main = parent && !parent.isDestroyed() ? parent : getMainWindow()
     if (main && main.isVisible()) main.hide()
-    // Meel 架构：覆盖光标所在显示器，showInactive + 重新断言置顶
-    showRadialWindow(main ?? undefined)
+    showRadialWindow()
   })
 
   // 径向菜单截图动作（由主进程全局快捷键触发，避免循环依赖）
@@ -952,13 +946,10 @@ app.whenReady().then(async () => {
   createSplashWindow()
 
   createWindow()
-  // 预创建径向菜单窗口（减少首次显示延迟）
+  // 创建径向菜单窗口（默认显示，Meel 架构：创建一次复用）
   const mainWin = getMainWindow()
   if (mainWin) {
     createRadialWindow(mainWin)
-    // 初始隐藏，由SHOW_RADIAL事件显示
-    const radial = getRadialWindow()
-    if (radial) radial.hide()
   }
   startUpdateCheck()
 

@@ -11,17 +11,25 @@ interface ImportMeta {
 }
 
 interface RadialApi {
-  onShow: (cb: () => void) => void
-  onState: (cb: (info: { expanded: boolean; anchorX?: number; anchorY?: number }) => void) => void
-  createLog: () => Promise<void>
-  createTask: () => Promise<void>
-  createMeeting: () => Promise<void>
-  openAI: () => Promise<void>
+  // 状态监听（main → renderer）
+  onState: (cb: (info: { expanded: boolean }) => void) => void
+  onCursor: (cb: (info: { x: number; y: number; dist: number; isOverCenter: boolean }) => void) => void
+  // 交互动作（renderer → main）
+  centerClick: () => void
+  segmentClick: (key: string) => void
+  // 拖拽
+  dragStart: () => void
+  dragMove: (dx: number, dy: number) => void
+  dragEnd: () => void
+  // 截图
   startCapture: () => Promise<boolean>
   onScreenshotResult: (cb: (result: { ok: boolean; file?: string; width?: number; height?: number }) => void) => void
-  close: () => Promise<void>
+  // 导航
   navigateTo: (page: string) => Promise<boolean>
-  onCursor: (cb: (info: { x: number; y: number; dist: number; isOverCenter: boolean }) => void) => void
+  close: () => Promise<void>
+  // 配置
+  getConfig: () => Promise<unknown[]>
+  setConfig: (items: unknown) => Promise<boolean>
 }
 
 interface ScreenshotOverlayApi {

@@ -7,12 +7,14 @@ import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus'
 let radialWindow: BrowserWindow | null = null
 let mainWin: BrowserWindow | null = null
 
-// 窗口内 widget 尺寸（与 renderer 的 WIDGET_SIZE 一致）
+/* ── 尺寸常量（与 renderer 严格一致） ── */
 const WIDGET_SIZE = 206
 const CX = WIDGET_SIZE / 2
 const CY = WIDGET_SIZE / 2
 const INNER_R = 38
 const OUTER_R = 94
+const CENTER_R = 24
+const EXPANDED_R = 103 // 展开态可点击半径（= INNER_R + gap + (OUTER_R - INNER_R)/2）
 const SEG_ANGLE = 72
 const POLL_INTERVAL_MS = 8
 
@@ -33,12 +35,13 @@ function getMainWindow(): BrowserWindow | null {
   return mainWin && !mainWin.isDestroyed() ? mainWin : null
 }
 
-// ─── Meel 架构：窗口状态（主进程持有，renderer 仅做视觉呈现） ───
+// ─── 混合方案：Meel 原则 + DOM 交互 ───
+// Meel 原则：窗口创建一次复用、focusable:false、alwaysOnTop re-assert、光标轮询
+// 区别：show:true（默认显示）、setShape 点击穿透、DOM 点击/拖拽
 let expanded = false
-let anchor = { x: CX, y: CY } // 展开时光标在窗口内的坐标（widget 锚点）
 let currentHovered: string | null = null
 
-// ─── 方案 C：主进程轮询光标位置（Meel 模式） ───
+// ─── 光标轮询（Meel 原则） ───
 let cursorPollTimer: ReturnType<typeof setInterval> | null = null
 
 function startCursorPolling(win: BrowserWindow): void {
@@ -49,12 +52,11 @@ function startCursorPolling(win: BrowserWindow): void {
     const [wx, wy] = win.getPosition()
     const localX = cursor.x - wx
     const localY = cursor.y - wy
-    const dx = localX - anchor.x
-    const dy = localY - anchor.y
+    const dx = localX - CX
+    const dy = localY - CY
     const dist = Math.sqrt(dx * dx + dy * dy)
-    const isOverCenter = dist <= 24 // 收起态中心圆半径
+    const isOverCenter = dist <= CENTER_R
     win.webContents.send('radial:cursor', { x: localX, y: localY, dist, isOverCenter })
-    // 展开态：主进程直接计算命中扇区（与 renderer 视觉高亮保持一致）
     if (expanded) {
       currentHovered = computeHovered(localX, localY)
     }
@@ -67,8 +69,8 @@ function stopCursorPolling(): void {
 
 // 根据光标在窗口内的坐标计算命中的扇区
 function computeHovered(localX: number, localY: number): string | null {
-  const dx = localX - anchor.x
-  const dy = localY - anchor.y
+  const dx = localX - CX
+  const dy = localY - CY
   const dist = Math.sqrt(dx * dx + dy * dy)
   if (dist < INNER_R || dist > OUTER_R) return null
   let angle = (Math.atan2(dx, -dy) * 180) / Math.PI
@@ -86,33 +88,82 @@ function computeHovered(localX: number, localY: number): string | null {
   return bestKey
 }
 
+// ─── setShape: OS 级点击穿透 ───
+// Windows: setShape 定义可点击区域，区域外的鼠标事件穿透到下层窗口
+function applyShape(win: BrowserWindow, radius: number): void {
+  const x = Math.round(CX - radius)
+  const y = Math.round(CY - radius)
+  const size = Math.round(radius * 2)
+  win.setShape([{ x, y, width: size, height: size }])
+}
+
+// ─── 展开 / 收起 ───
+
+function expandRadial(): void {
+  const win = radialWindow
+  if (!win || win.isDestroyed()) return
+  expanded = true
+  currentHovered = null
+  applyShape(win, EXPANDED_R)
+  win.webContents.send('radial:state', { expanded: true })
+}
+
+function collapseRadial(): void {
+  const win = radialWindow
+  if (!win || win.isDestroyed()) return
+  expanded = false
+  currentHovered = null
+  applyShape(win, CENTER_R)
+  win.webContents.send('radial:state', { expanded: false })
+}
+
+function fireRadialAction(key: string): void {
+  if (key === 'screenshot') {
+    appBus.emit(RADIAL_SCREENSHOT)
+    return
+  }
+  const item = RADIAL_ITEMS.find((i) => i.key === key)
+  if (item?.route) {
+    appBus.emit(SHOW_MAIN)
+    const main = getMainWindow()
+    if (main) {
+      main.webContents.send(`navigate:${item.route}`)
+    }
+  }
+}
+
 /**
- * Meel 架构：窗口创建一次（show:false），之后通过 show/hide 复用，永不销毁/重建。
- * - focusable:false — 永远不抢键盘焦点
- * - movable:false — 完全由主进程控制
- * - setIgnoreMouseEvents(true, {forward:true}) — 100% 点击穿透，renderer 永不接收点击
- * - 不使用 setShape（Meel 也不使用）
+ * 创建径向菜单悬浮窗 — 创建一次，永不销毁（Meel 原则）。
+ *
+ * 与 Meel 的区别：
+ * - show:true → 默认显示（不是隐藏）
+ * - setShape → OS 级点击穿透（不是 setIgnoreMouseEvents）
+ * - DOM 事件 → 点击/拖拽（不是全局 hook）
+ * - focusable:false + alwaysOnTop re-assert → 与 Meel 一致
  */
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   const display = screen.getPrimaryDisplay()
+  const b = display.workArea
+  // 默认居中显示在工作区
+  const x = b.x + Math.floor((b.width - WIDGET_SIZE) / 2)
+  const y = b.y + Math.floor((b.height - WIDGET_SIZE) / 2)
 
   radialWindow = new BrowserWindow({
-    width: display.bounds.width,
-    height: display.bounds.height,
-    x: display.bounds.x,
-    y: display.bounds.y,
+    x, y,
+    width: WIDGET_SIZE,
+    height: WIDGET_SIZE,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     resizable: false,
-    movable: false,
+    movable: false,       // 拖拽通过 IPC 控制（Meel 原则）
     minimizable: false,
     maximizable: false,
     skipTaskbar: true,
-    focusable: false, // Meel: NEVER steal focus
+    focusable: false,     // 永不抢焦点（Meel 原则）
     hasShadow: false,
     backgroundColor: '#00000000',
-    show: false, // Meel: NOT shown at creation
+    show: true,           // 默认显示（与 Meel 的区别）
     webPreferences: {
       preload: join(__dirname, '../preload/radial.js'),
       contextIsolation: true,
@@ -128,15 +179,14 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     radialWindow.loadFile(join(__dirname, '../renderer/radial.html'))
   }
 
-  // Meel: 永远不抢焦点、永远可点击穿透
+  // Meel 原则：alwaysOnTop + re-assert on show/blur
   radialWindow.setAlwaysOnTop(true, 'screen-saver')
   radialWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  radialWindow.setIgnoreMouseEvents(true, { forward: true }) // CLICK-THROUGH
 
-  // 启动光标轮询
+  // 光标轮询（Meel 原则）
   startCursorPolling(radialWindow)
 
-  // Meel: 每次 show/blur 后重新断言 alwaysOnTop
+  // Re-assert alwaysOnTop（Meel 原则）
   const enforceOnTop = (): void => {
     if (radialWindow && !radialWindow.isDestroyed()) {
       radialWindow.setAlwaysOnTop(true, 'screen-saver')
@@ -144,47 +194,28 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     }
   }
   radialWindow.on('show', enforceOnTop)
-  radialWindow.on('blur', () => {
-    setTimeout(enforceOnTop, 100)
-  })
+  radialWindow.on('blur', () => setTimeout(enforceOnTop, 100))
   radialWindow.on('closed', stopCursorPolling)
 
+  // 内容加载完成后，应用收起态 setShape 并通知 renderer
   radialWindow.webContents.on('did-finish-load', () => {
-    // 初始通知 renderer（收起态）
-    radialWindow?.webContents.send('radial:show')
-    radialWindow?.webContents.send('radial:state', { expanded: false, anchorX: anchor.x, anchorY: anchor.y })
+    if (radialWindow && !radialWindow.isDestroyed()) {
+      applyShape(radialWindow, CENTER_R) // 收起态：仅中心圆可点击
+      radialWindow.webContents.send('radial:state', { expanded: false })
+    }
   })
 
   return radialWindow
 }
 
-/**
- * Meel 的 show()：覆盖光标所在显示器 → 重新断言置顶 → showInactive（不抢焦点）→ moveTop
- */
-export function showRadialWindow(parent?: BrowserWindow): void {
+// ─── 公开 API ───
+
+export function showRadialWindow(): void {
   const win = radialWindow
-  if (!win || win.isDestroyed()) {
-    const p = parent && !parent.isDestroyed() ? parent : getMainWindow()
-    if (p) createRadialWindow(p)
-    return
-  }
-  // (1) 覆盖光标所在显示器的整个区域
-  const cursor = screen.getCursorScreenPoint()
-  const display = screen.getDisplayNearestPoint(cursor)
-  const b = display.bounds
-  win.setBounds({ x: b.x, y: b.y, width: b.width, height: b.height })
-  // (2) 重新断言最高层级
+  if (!win || win.isDestroyed()) return
   win.setAlwaysOnTop(true, 'screen-saver')
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  // (3) 点击穿透
-  win.setIgnoreMouseEvents(true, { forward: true })
-  // (4) 显示但不抢焦点
-  win.showInactive()
+  win.show()
   win.moveTop()
-  // 收起态
-  expanded = false
-  currentHovered = null
-  win.webContents.send('radial:state', { expanded: false, anchorX: anchor.x, anchorY: anchor.y })
 }
 
 export function hideRadialWindow(): void {
@@ -197,66 +228,41 @@ export function getRadialWindow(): BrowserWindow | null {
   return radialWindow && !radialWindow.isDestroyed() ? radialWindow : null
 }
 
-// ─── 展开 / 收起 / 触发（由全局快捷键驱动，renderer 不参与交互） ───
+// ─── IPC: renderer → main ───
 
-function expandRadial(): void {
-  const win = radialWindow
-  if (!win || win.isDestroyed()) return
-  const cursor = screen.getCursorScreenPoint()
-  const [wx, wy] = win.getPosition()
-  anchor = { x: cursor.x - wx, y: cursor.y - wy }
-  expanded = true
-  currentHovered = null
-  win.webContents.send('radial:state', { expanded: true, anchorX: anchor.x, anchorY: anchor.y })
-}
-
-function collapseRadial(): void {
-  const win = radialWindow
-  expanded = false
-  currentHovered = null
-  if (win && !win.isDestroyed()) {
-    win.webContents.send('radial:state', { expanded: false, anchorX: anchor.x, anchorY: anchor.y })
-  }
-}
-
-function fireRadialAction(key: string): void {
-  if (key === 'screenshot') {
-    // 截图流程由 index.ts 监听该事件触发（避免循环依赖）
-    appBus.emit(RADIAL_SCREENSHOT)
-    return
-  }
-  const item = RADIAL_ITEMS.find((i) => i.key === key)
-  if (item?.route) {
-    appBus.emit(SHOW_MAIN)
-    const main = getMainWindow()
-    if (main) {
-      main.webContents.send(`navigate:${item.route}`)
-    }
-  }
-}
-
-/**
- * 全局快捷键回调（Ctrl+Space）：
- * - 收起态 → 展开（在光标处显示环形菜单）
- * - 展开态 → 触发当前 hover 的扇区动作，然后收起
- */
-export function toggleRadialFromShortcut(): void {
-  if (!radialWindow || radialWindow.isDestroyed()) return
+// 中心按钮点击：展开 / 收起
+ipcMain.on('radial:center-click', () => {
   if (!expanded) {
     expandRadial()
   } else {
-    const key = currentHovered
     collapseRadial()
-    if (key) fireRadialAction(key)
   }
-}
-
-// --- IPC ---
-
-ipcMain.handle('radial:action', (_event, action: string) => {
-  fireRadialAction(action)
-  return true
 })
+
+// 扇区点击：执行动作 + 收起
+ipcMain.on('radial:segment-click', (_event, key: string) => {
+  collapseRadial()
+  fireRadialAction(key)
+})
+
+// 拖拽（center button mousedown → document mousemove → mouseup）
+let isDragging = false
+
+ipcMain.on('radial:drag-start', () => {
+  isDragging = true
+})
+
+ipcMain.on('radial:drag-move', (_event, dx: number, dy: number) => {
+  if (!isDragging || !radialWindow || radialWindow.isDestroyed()) return
+  const [x, y] = radialWindow.getPosition()
+  radialWindow.setPosition(x + dx, y + dy)
+})
+
+ipcMain.on('radial:drag-end', () => {
+  isDragging = false
+})
+
+// ─── 配置 IPC ───
 
 const DEFAULT_RADIAL_ITEMS = [
   { id: 'log', label: 'Work Log', route: '/worklog' },
@@ -268,11 +274,7 @@ const DEFAULT_RADIAL_ITEMS = [
 ipcMain.handle('radial:get-config', () => {
   const saved = getSetting('radial_items')
   if (saved === null) return DEFAULT_RADIAL_ITEMS
-  try {
-    return JSON.parse(saved)
-  } catch {
-    return DEFAULT_RADIAL_ITEMS
-  }
+  try { return JSON.parse(saved) } catch { return DEFAULT_RADIAL_ITEMS }
 })
 
 ipcMain.handle('radial:set-config', (_event, items: unknown) => {
@@ -280,17 +282,14 @@ ipcMain.handle('radial:set-config', (_event, items: unknown) => {
   return true
 })
 
-ipcMain.handle('radial:close', () => {
-  appBus.emit(SHOW_RADIAL)
-  return true
-})
-
 ipcMain.handle('radial:navigate-to', (_event, page: string) => {
   appBus.emit(SHOW_MAIN)
   const win = getMainWindow()
-  if (win) {
-    win.webContents.send(`navigate:${page}`)
-  }
-  hideRadialWindow()
+  if (win) win.webContents.send(`navigate:${page}`)
+  collapseRadial()
   return true
+})
+
+ipcMain.on('radial:screenshot', () => {
+  appBus.emit(RADIAL_SCREENSHOT)
 })

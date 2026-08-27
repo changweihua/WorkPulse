@@ -1,26 +1,34 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('radialApi', {
-  onShow: (cb: () => void) => {
-    ipcRenderer.on('radial:show', () => cb())
-  },
-  // 主进程通知窗口状态变化（展开/收起 + 锚点）
-  onState: (cb: (info: { expanded: boolean; anchorX?: number; anchorY?: number }) => void) => {
+  // ── 状态监听（main → renderer） ──
+  onState: (cb: (info: { expanded: boolean }) => void) => {
     ipcRenderer.on('radial:state', (_event, info) => cb(info))
   },
-  // Actions
-  createLog: () => ipcRenderer.invoke('radial:action', 'log'),
-  createTask: () => ipcRenderer.invoke('radial:action', 'task'),
-  createMeeting: () => ipcRenderer.invoke('radial:action', 'meeting'),
-  openAI: () => ipcRenderer.invoke('radial:action', 'ai'),
+  onCursor: (cb: (info: { x: number; y: number; dist: number; isOverCenter: boolean }) => void) => {
+    ipcRenderer.on('radial:cursor', (_event, info) => cb(info))
+  },
+
+  // ── 交互动作（renderer → main） ──
+  centerClick: () => ipcRenderer.send('radial:center-click'),
+  segmentClick: (key: string) => ipcRenderer.send('radial:segment-click', key),
+
+  // ── 拖拽（mousedown → mousemove → mouseup） ──
+  dragStart: () => ipcRenderer.send('radial:drag-start'),
+  dragMove: (dx: number, dy: number) => ipcRenderer.send('radial:drag-move', dx, dy),
+  dragEnd: () => ipcRenderer.send('radial:drag-end'),
+
+  // ── 截图 ──
   startCapture: () => ipcRenderer.invoke('screenshot:start'),
   onScreenshotResult: (cb: (result: { ok: boolean; file?: string; width?: number; height?: number }) => void) => {
     ipcRenderer.on('screenshot:result', (_event, result) => cb(result))
   },
-  close: () => ipcRenderer.invoke('radial:close'),
+
+  // ── 导航 ──
   navigateTo: (page: string) => ipcRenderer.invoke('radial:navigate-to', page),
-  // 光标位置（主进程轮询）
-  onCursor: (cb: (info: { x: number; y: number; dist: number; isOverCenter: boolean }) => void) => {
-    ipcRenderer.on('radial:cursor', (_event, info) => cb(info))
-  },
+  close: () => ipcRenderer.invoke('radial:close'),
+
+  // ── 配置 ──
+  getConfig: () => ipcRenderer.invoke('radial:get-config'),
+  setConfig: (items: unknown) => ipcRenderer.invoke('radial:set-config', items),
 })
