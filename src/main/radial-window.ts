@@ -280,6 +280,10 @@ let isDragging = false
 
 ipcMain.on('radial:drag-start', () => {
   isDragging = true
+  // 拖拽时扩大 setShape 到整个窗口，确保 OS 级光标跟随我们的窗口
+  if (radialWindow && !radialWindow.isDestroyed()) {
+    applyShape(radialWindow, WIDGET_SIZE / 2)
+  }
 })
 
 ipcMain.on('radial:drag-move', (_event, dx: number, dy: number) => {
@@ -290,6 +294,10 @@ ipcMain.on('radial:drag-move', (_event, dx: number, dy: number) => {
 
 ipcMain.on('radial:drag-end', () => {
   isDragging = false
+  // 恢复 setShape
+  if (radialWindow && !radialWindow.isDestroyed()) {
+    applyShape(radialWindow, expanded ? EXPANDED_R : CENTER_R)
+  }
 })
 
 // ─── 配置 IPC ───
