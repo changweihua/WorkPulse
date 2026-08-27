@@ -265,14 +265,15 @@ export function RadialMenu(): ReactNode {
           style={{
             width: CENTER_SIZE,
             height: CENTER_SIZE,
-            background: 'rgba(240,242,246,0.96)',
-            backdropFilter: 'blur(32px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(32px) saturate(180%)',
-            boxShadow:
-              'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)',
-            border: '1px solid rgba(0,0,0,0.08)',
+            background: expanded ? 'rgba(240,242,246,0.96)' : 'transparent',
+            backdropFilter: expanded ? 'blur(32px) saturate(180%)' : 'none',
+            WebkitBackdropFilter: expanded ? 'blur(32px) saturate(180%)' : 'none',
+            boxShadow: expanded
+              ? 'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)'
+              : 'none',
+            border: expanded ? '1px solid rgba(0,0,0,0.08)' : 'none',
             cursor: 'pointer',
-            transition: 'transform 0.15s ease',
+            transition: 'transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease',
           } as React.CSSProperties}
           onClick={handleCenterClick}
           onDoubleClick={handleCenterDoubleClick}
