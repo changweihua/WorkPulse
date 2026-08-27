@@ -210,10 +210,18 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   startCursorPolling(radialWindow)
 
   // Re-assert alwaysOnTop（Meel 原则 + 周期性强制置顶）
+  // 主窗口可见时隐藏悬浮窗，主窗口隐藏时才置顶
   const enforceOnTop = (): void => {
     if (radialWindow && !radialWindow.isDestroyed()) {
-      radialWindow.setAlwaysOnTop(true, 'screen-saver')
-      radialWindow.moveTop()
+      const main = getMainWindow()
+      if (main && !main.isDestroyed() && main.isVisible()) {
+        // 主窗口可见 → 隐藏悬浮窗
+        radialWindow.hide()
+      } else {
+        // 主窗口隐藏 → 置顶悬浮窗
+        radialWindow.setAlwaysOnTop(true, 'screen-saver')
+        radialWindow.moveTop()
+      }
     }
   }
   radialWindow.on('show', enforceOnTop)
