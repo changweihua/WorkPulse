@@ -100,6 +100,7 @@ export function RadialMenu(): ReactNode {
 
   // ─── 中心按钮：展开态单击 ✕ 收起，收起态双击展开，单击+拖拽移动 ───
   const isDraggingRef = useRef(false)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   const handleCenterMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -114,6 +115,9 @@ export function RadialMenu(): ReactNode {
       if (Math.abs(me.movementX) > 2 || Math.abs(me.movementY) > 2) {
         if (!isDraggingRef.current) {
           isDraggingRef.current = true
+          // 设在根元素 + document.documentElement 上，确保透明窗口也生效
+          if (rootRef.current) rootRef.current.style.cursor = 'move'
+          document.documentElement.style.cursor = 'move'
           document.body.style.cursor = 'move'
           document.body.style.userSelect = 'none'
         }
@@ -121,6 +125,8 @@ export function RadialMenu(): ReactNode {
       window.radialApi.dragMove(me.movementX, me.movementY)
     }
     const onMouseUp = () => {
+      if (rootRef.current) rootRef.current.style.cursor = ''
+      document.documentElement.style.cursor = ''
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
       window.radialApi.dragEnd()
@@ -157,6 +163,7 @@ export function RadialMenu(): ReactNode {
 
   return (
     <div
+      ref={rootRef}
       className="select-none"
       style={{
         position: 'fixed',
