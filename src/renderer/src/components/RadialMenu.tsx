@@ -267,13 +267,13 @@ export function RadialMenu(): ReactNode {
             height: CENTER_SIZE,
             background: expanded
               ? 'rgba(240,242,246,0.96)'
-              : 'rgba(255,255,255,0.35)',
+              : 'linear-gradient(145deg, rgba(255,255,255,0.6) 0%, rgba(230,233,240,0.4) 50%, rgba(210,215,225,0.35) 100%)',
             backdropFilter: expanded ? 'blur(32px) saturate(180%)' : 'blur(8px)',
             WebkitBackdropFilter: expanded ? 'blur(32px) saturate(180%)' : 'blur(8px)',
             boxShadow: expanded
               ? 'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)'
-              : '0 2px 8px rgba(0,0,0,0.06)',
-            border: '1px solid rgba(0,0,0,0.06)',
+              : 'inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -2px 3px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.08)',
+            border: '1px solid rgba(255,255,255,0.6)',
             cursor: 'pointer',
             transition: 'transform 0.15s ease, background 0.2s ease',
           } as React.CSSProperties}
