@@ -84,12 +84,11 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     frame: false,
     transparent: true,
     alwaysOnTop: true,
-    focusable: false,
     resizable: false,
     skipTaskbar: true,
     hasShadow: false,
     roundedCorners: true,
-    movable: false,               // 拖拽由主进程通过 setPosition 处理
+    movable: false,
     backgroundColor: '#00000000',
     webPreferences: {
       preload: join(__dirname, '../preload/radial.js'),
@@ -104,8 +103,8 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     radialWindow.loadFile(join(__dirname, '../renderer/radial.html'))
   }
 
-  // showInactive：不抢焦点（Meel 模式）
-  radialWindow.showInactive()
+  // show（不使用 showInactive，Windows 下 focusable:false 会导致窗口不显示）
+  radialWindow.show()
   radialWindow.setAlwaysOnTop(true, 'screen-saver')
 
   // 方案 C：setShape 定义可交互区域（中心 48px 圆）
