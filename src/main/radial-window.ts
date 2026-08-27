@@ -209,7 +209,7 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   // 光标轮询（Meel 原则）
   startCursorPolling(radialWindow)
 
-  // Re-assert alwaysOnTop（Meel 原则）
+  // Re-assert alwaysOnTop（Meel 原则 + 周期性强制置顶）
   const enforceOnTop = (): void => {
     if (radialWindow && !radialWindow.isDestroyed()) {
       radialWindow.setAlwaysOnTop(true, 'screen-saver')
@@ -218,7 +218,10 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   }
   radialWindow.on('show', enforceOnTop)
   radialWindow.on('blur', () => setTimeout(enforceOnTop, 100))
-  radialWindow.on('closed', stopCursorPolling)
+  radialWindow.on('focus', enforceOnTop)
+  // 周期性强制置顶（防止其他窗口抢占 z-order）
+  const topInterval = setInterval(enforceOnTop, 3000)
+  radialWindow.on('closed', () => { clearInterval(topInterval); stopCursorPolling() })
 
   // 位置记忆：拖拽结束后保存
   let saveTimer: ReturnType<typeof setTimeout> | null = null

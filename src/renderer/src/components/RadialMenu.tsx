@@ -177,7 +177,7 @@ export function RadialMenu(): ReactNode {
       <motion.div
         key="radial-content"
         className="absolute inset-0"
-        style={{ width: WIDGET_SIZE, height: WIDGET_SIZE, willChange: 'clip-path' }}
+        style={{ width: WIDGET_SIZE, height: WIDGET_SIZE, willChange: 'clip-path', zIndex: 3, pointerEvents: 'none' }}
         initial={{ clipPath: collapsedClip }}
         animate={{ clipPath: expanded ? expandedClip : collapsedClip }}
         transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
@@ -210,7 +210,7 @@ export function RadialMenu(): ReactNode {
                 key={item.key}
                 d={path}
                 fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
-                style={{ cursor: 'pointer', transition: 'fill 0.2s ease' }}
+                style={{ cursor: 'pointer', transition: 'fill 0.2s ease', pointerEvents: 'auto' }}
                 onClick={() => handleSegmentClick(item.key)}
               />
             )
@@ -271,7 +271,7 @@ export function RadialMenu(): ReactNode {
       {/* ═══ 中心圆形：logo / 关闭按钮 + 拖拽 ═══ */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-        style={{ zIndex: 2 }}
+        style={{ zIndex: 1 }}
       >
         <div
           className="flex items-center justify-center rounded-full"
