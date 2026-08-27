@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('radialApi', {
   },
   close: () => ipcRenderer.invoke('radial:close'),
   navigateTo: (page: string) => ipcRenderer.invoke('radial:navigate-to', page),
+  // 折叠 / 展开
+  expand: () => ipcRenderer.send('radial:expand'),
+  collapse: () => ipcRenderer.send('radial:collapse'),
   // 拖拽
   dragStart: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-start', mouseX, mouseY),
   dragMove: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-move', mouseX, mouseY),

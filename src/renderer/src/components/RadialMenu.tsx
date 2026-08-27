@@ -19,7 +19,8 @@ const TOOLTIP_LABELS: Record<string, { zh: string; en: string }> = {
   screenshot: { zh: '截图', en: 'Screenshot' },
 }
 
-const CENTER_SIZE = CENTER_R * 2 // 68px diameter
+const CENTER_SIZE = CENTER_R * 2 // 48px diameter
+const COLLAPSED_SIZE = 48
 const CX = WIDGET_SIZE / 2
 const CY = WIDGET_SIZE / 2
 
@@ -64,7 +65,9 @@ function angleToXY(deg: number, radius: number, cx: number, cy: number): { x: nu
 export function RadialMenu(): ReactNode {
   const [hovered, setHovered] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const dragRef = useRef({ active: false, startX: 0, startY: 0 })
+  const [expanded, setExpanded] = useState(false)
+  const expandedRef = useRef(false)
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, moved: false, onCenter: false })
 
   const ITEMS: RadialItem[] = [
     { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, action: () => window.radialApi.navigateTo('worklog') },
@@ -81,7 +84,19 @@ export function RadialMenu(): ReactNode {
     } },
   ]
 
-  // 拖拽：延迟判定，超过阈值才启动
+  const handleExpand = useCallback(() => {
+    expandedRef.current = true
+    setExpanded(true)
+    window.radialApi.expand()
+  }, [])
+
+  const handleCollapse = useCallback(() => {
+    expandedRef.current = false
+    setExpanded(false)
+    window.radialApi.collapse()
+  }, [])
+
+  // 拖拽：延迟判定，超过阈值才启动；未移动则视为点击（折叠态点击中心 → 展开）
   useEffect(() => {
     const DRAG_THRESHOLD = 5
     let dragStarted = false
@@ -95,18 +110,22 @@ export function RadialMenu(): ReactNode {
         if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
           dragStarted = true
           ref.active = true
+          ref.moved = true
           window.radialApi.dragStart(e.screenX, e.screenY)
         }
       }
     }
     const handleMouseUp = () => {
+      const ref = dragRef.current
       if (dragStarted) {
         dragStarted = false
-        dragRef.current.active = false
+        ref.active = false
         window.radialApi.dragEnd()
+      } else if (ref.onCenter && !expandedRef.current) {
+        // 折叠态下点击中心圆 → 展开
+        handleExpand()
       }
-      dragRef.current.startX = 0
-      dragRef.current.startY = 0
+      dragRef.current = { active: false, startX: 0, startY: 0, moved: false, onCenter: false }
     }
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
@@ -114,12 +133,14 @@ export function RadialMenu(): ReactNode {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [])
+  }, [handleExpand])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // 展开态下窗口不可拖拽
+    if (expandedRef.current) return
     const target = e.target as HTMLElement
     if (target.closest('button')) return
-    dragRef.current = { active: false, startX: e.screenX, startY: e.screenY }
+    dragRef.current = { active: false, startX: e.screenX, startY: e.screenY, moved: false, onCenter: true }
   }, [])
 
   const numItems = ITEMS.length
@@ -132,95 +153,99 @@ export function RadialMenu(): ReactNode {
   return (
     <div
       className="relative select-none"
-      style={{ width: WIDGET_SIZE, height: WIDGET_SIZE }}
+      style={{ width: expanded ? WIDGET_SIZE : COLLAPSED_SIZE, height: expanded ? WIDGET_SIZE : COLLAPSED_SIZE }}
     >
-      {/* ═══ 环形扇区 + 图标（始终显示） ═══ */}
-      {/* SVG 环形扇区 */}
-      <svg
-        key="ring"
-        width={WIDGET_SIZE}
-        height={WIDGET_SIZE}
-        className="absolute inset-0"
-        style={{ zIndex: 1 }}
-      >
-        <defs>
-          <linearGradient id="segGlass" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(240,242,246,0.96)" />
-            <stop offset="100%" stopColor="rgba(225,228,234,0.92)" />
-          </linearGradient>
-        </defs>
-        {ITEMS.map((item) => {
-          const segStart = item.angle - segAngle / 2
-          const segEnd = item.angle + segAngle / 2
-          const path = describeArc(
-            CX, CY, INNER_R, OUTER_R,
-            segStart + gapOuterDeg / 2, segEnd - gapOuterDeg / 2,
-            segStart + gapInnerDeg / 2, segEnd - gapInnerDeg / 2,
-          )
-          const isHover = hovered === item.key
-          return (
-            <path
-              key={item.key}
-              d={path}
-              fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
-              style={{
-                cursor: 'pointer',
-                transition: 'fill 0.2s ease',
-              }}
-              onMouseEnter={() => setHovered(item.key)}
-              onMouseLeave={() => setHovered(null)}
-              onClick={() => { item.action() }}
-            />
-          )
-        })}
-      </svg>
-
-      {/* 扇区图标 */}
-      {ITEMS.map((item) => {
-        const pos = angleToXY(item.angle, iconRadius, CX, CY)
-        const isHover = hovered === item.key
-        return (
-          <div
-            key={`icon-${item.key}`}
-            className="absolute flex items-center justify-center pointer-events-none"
-            style={{
-              left: pos.x, top: pos.y, zIndex: 3,
-              width: 40, height: 40,
-              transform: 'translate(-50%, -50%)',
-            }}
+      {/* ═══ 环形扇区 + 图标（仅展开态显示） ═══ */}
+      {expanded && (
+        <>
+          {/* SVG 环形扇区 */}
+          <svg
+            key="ring"
+            width={WIDGET_SIZE}
+            height={WIDGET_SIZE}
+            className="absolute inset-0"
+            style={{ zIndex: 1 }}
           >
-            <span className="text-2xl drop-shadow-sm">{item.emoji}</span>
-          </div>
-        )
-      })}
+            <defs>
+              <linearGradient id="segGlass" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(240,242,246,0.96)" />
+                <stop offset="100%" stopColor="rgba(225,228,234,0.92)" />
+              </linearGradient>
+            </defs>
+            {ITEMS.map((item) => {
+              const segStart = item.angle - segAngle / 2
+              const segEnd = item.angle + segAngle / 2
+              const path = describeArc(
+                CX, CY, INNER_R, OUTER_R,
+                segStart + gapOuterDeg / 2, segEnd - gapOuterDeg / 2,
+                segStart + gapInnerDeg / 2, segEnd - gapInnerDeg / 2,
+              )
+              const isHover = hovered === item.key
+              return (
+                <path
+                  key={item.key}
+                  d={path}
+                  fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
+                  style={{
+                    cursor: 'pointer',
+                    transition: 'fill 0.2s ease',
+                  }}
+                  onMouseEnter={() => setHovered(item.key)}
+                  onMouseLeave={() => setHovered(null)}
+                  onClick={() => { item.action() }}
+                />
+              )
+            })}
+          </svg>
 
-      {/* ═══ Hover tooltip（hover 时显示） ═══ */}
-      {(() => {
-        const item = ITEMS.find((it) => it.key === hovered)
-        if (!item) return null
-        const lang = document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
-        const tipR = INNER_R - 20
-        const tipPos = angleToXY(item.angle, tipR, CX, CY)
-        return (
-          <div
-            key="tooltip"
-            className="absolute pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
-                       text-sm font-medium text-zinc-800 dark:text-zinc-100"
-            style={{
-              left: tipPos.x, top: tipPos.y, zIndex: 10,
-              transform: 'translate(-50%, -50%)',
-              textAlign: 'center',
-              background: 'rgba(240,242,246,0.96)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-              border: '1px solid rgba(0,0,0,0.08)',
-            }}
-          >
-            {TOOLTIP_LABELS[item.key]?.[lang] ?? item.label}
-          </div>
-        )
-      })()}
+          {/* 扇区图标 */}
+          {ITEMS.map((item) => {
+            const pos = angleToXY(item.angle, iconRadius, CX, CY)
+            const isHover = hovered === item.key
+            return (
+              <div
+                key={`icon-${item.key}`}
+                className="absolute flex items-center justify-center pointer-events-none"
+                style={{
+                  left: pos.x, top: pos.y, zIndex: 3,
+                  width: 40, height: 40,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                <span className="text-2xl drop-shadow-sm">{item.emoji}</span>
+              </div>
+            )
+          })}
+
+          {/* ═══ Hover tooltip（hover 时显示） ═══ */}
+          {(() => {
+            const item = ITEMS.find((it) => it.key === hovered)
+            if (!item) return null
+            const lang = document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
+            const tipR = INNER_R - 20
+            const tipPos = angleToXY(item.angle, tipR, CX, CY)
+            return (
+              <div
+                key="tooltip"
+                className="absolute pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
+                           text-sm font-medium text-zinc-800 dark:text-zinc-100"
+                style={{
+                  left: tipPos.x, top: tipPos.y, zIndex: 10,
+                  transform: 'translate(-50%, -50%)',
+                  textAlign: 'center',
+                  background: 'rgba(240,242,246,0.96)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                  border: '1px solid rgba(0,0,0,0.08)',
+                }}
+              >
+                {TOOLTIP_LABELS[item.key]?.[lang] ?? item.label}
+              </div>
+            )
+          })()}
+        </>
+      )}
 
       {/* ═══ Toast ═══ */}
       <AnimatePresence>
@@ -247,15 +272,14 @@ export function RadialMenu(): ReactNode {
         )}
       </AnimatePresence>
 
-      {/* ═══ 中心圆形：拖拽 ═══ */}
+      {/* ═══ 中心圆形：折叠态可拖拽/点击展开；展开态显示 ✕ 关闭 ═══ */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ zIndex: 2 }}
         onMouseDown={handleMouseDown}
       >
         <motion.div
-          className="flex items-center justify-center rounded-full
-                     cursor-grab active:cursor-grabbing"
+          className="flex items-center justify-center rounded-full"
           style={{
             width: CENTER_SIZE,
             height: CENTER_SIZE,
@@ -265,17 +289,40 @@ export function RadialMenu(): ReactNode {
             boxShadow:
               'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)',
             border: '1px solid rgba(0,0,0,0.08)',
+            cursor: expanded ? 'default' : 'pointer',
           } as React.CSSProperties}
-          animate={{ scale: [1, 1.03, 1] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
         >
-          <motion.img
-            key="icon"
-            src={ICON_SVG}
-            alt="WorkPulse"
-            className="pointer-events-none"
-            style={{ width: CENTER_R, height: CENTER_R, objectFit: 'contain' }}
-          />
+          {expanded ? (
+            <button
+              type="button"
+              onClick={handleCollapse}
+              aria-label="close"
+              className="flex h-full w-full items-center justify-center rounded-full"
+              style={{ cursor: 'pointer' }}
+            >
+              <svg
+                width={CENTER_R}
+                height={CENTER_R}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="rgba(60,64,72,0.9)"
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                className="pointer-events-none"
+              >
+                <line x1="6" y1="6" x2="18" y2="18" />
+                <line x1="18" y1="6" x2="6" y2="18" />
+              </svg>
+            </button>
+          ) : (
+            <motion.img
+              key="icon"
+              src={ICON_SVG}
+              alt="WorkPulse"
+              className="pointer-events-none"
+              style={{ width: CENTER_R, height: CENTER_R, objectFit: 'contain' }}
+            />
+          )}
         </motion.div>
       </div>
     </div>

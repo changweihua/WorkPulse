@@ -20,6 +20,8 @@ interface RadialApi {
   onScreenshotResult: (cb: (result: { ok: boolean; file?: string; width?: number; height?: number }) => void) => void
   close: () => Promise<void>
   navigateTo: (page: string) => Promise<boolean>
+  expand: () => void
+  collapse: () => void
   dragStart: (mouseX: number, mouseY: number) => void
   dragMove: (mouseX: number, mouseY: number) => void
   dragEnd: () => void

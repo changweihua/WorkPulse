@@ -7,6 +7,9 @@ import { appBus, SHOW_MAIN, SHOW_RADIAL } from './event-bus'
 let radialWindow: BrowserWindow | null = null
 let mainWin: BrowserWindow | null = null
 
+const EXPANDED_SIZE = 206
+const COLLAPSED_SIZE = 48
+
 export function setMainWindow(win: BrowserWindow): void {
   mainWin = win
 }
@@ -36,7 +39,7 @@ function circleShape(cx: number, cy: number, r: number, step = 2): Electron.Rect
 
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   const display = screen.getPrimaryDisplay()
-  const size = 206
+  const size = COLLAPSED_SIZE
 
   const savedX = getSetting('radial_pos_x')
   const savedY = getSetting('radial_pos_y')
@@ -226,4 +229,32 @@ ipcMain.on('radial:drag-move', (event, mouseX: number, mouseY: number) => {
   const win = BrowserWindow.fromWebContents(event.sender)
   if (!win || win.isDestroyed()) return
   win.setPosition(mouseX - dragOffset.x, mouseY - dragOffset.y)
+})
+
+// 展开：窗口放大到 206×206，居中于当前位置，圆形区域裁剪
+ipcMain.on('radial:expand', () => {
+  const win = getRadialWindow()
+  if (!win || win.isDestroyed()) return
+  const [x, y] = win.getPosition()
+  const [w, h] = win.getSize()
+  const newX = x + Math.floor((w - EXPANDED_SIZE) / 2)
+  const newY = y + Math.floor((h - EXPANDED_SIZE) / 2)
+  win.setBounds({ x: newX, y: newY, width: EXPANDED_SIZE, height: EXPANDED_SIZE })
+  if (process.platform !== 'darwin') {
+    win.setShape(circleShape(EXPANDED_SIZE / 2, EXPANDED_SIZE / 2, EXPANDED_SIZE / 2))
+  }
+})
+
+// 折叠：窗口缩小到 48×48，居中于当前位置，圆形区域裁剪
+ipcMain.on('radial:collapse', () => {
+  const win = getRadialWindow()
+  if (!win || win.isDestroyed()) return
+  const [x, y] = win.getPosition()
+  const [w, h] = win.getSize()
+  const newX = x + Math.floor((w - COLLAPSED_SIZE) / 2)
+  const newY = y + Math.floor((h - COLLAPSED_SIZE) / 2)
+  win.setBounds({ x: newX, y: newY, width: COLLAPSED_SIZE, height: COLLAPSED_SIZE })
+  if (process.platform !== 'darwin') {
+    win.setShape(circleShape(COLLAPSED_SIZE / 2, COLLAPSED_SIZE / 2, COLLAPSED_SIZE / 2))
+  }
 })
