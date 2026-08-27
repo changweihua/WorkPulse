@@ -141,12 +141,34 @@ function fireRadialAction(key: string): void {
  * - DOM 事件 → 点击/拖拽（不是全局 hook）
  * - focusable:false + alwaysOnTop re-assert → 与 Meel 一致
  */
+function savePosition(): void {
+  if (!radialWindow || radialWindow.isDestroyed()) return
+  const [x, y] = radialWindow.getPosition()
+  setSetting('radial_position', JSON.stringify({ x, y }))
+}
+
+function getSavedPosition(): { x: number; y: number } | null {
+  const raw = getSetting('radial_position')
+  if (!raw) return null
+  try {
+    const pos = JSON.parse(raw) as { x: number; y: number }
+    if (typeof pos.x === 'number' && typeof pos.y === 'number') return pos
+  } catch { /* ignore */ }
+  return null
+}
+
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   const display = screen.getPrimaryDisplay()
   const b = display.workArea
-  // 默认居中显示在工作区
-  const x = b.x + Math.floor((b.width - WIDGET_SIZE) / 2)
-  const y = b.y + Math.floor((b.height - WIDGET_SIZE) / 2)
+  // 优先恢复上次位置，否则居中
+  const saved = getSavedPosition()
+  let x = b.x + Math.floor((b.width - WIDGET_SIZE) / 2)
+  let y = b.y + Math.floor((b.height - WIDGET_SIZE) / 2)
+  if (saved) {
+    // 确保仍在屏幕内
+    x = Math.max(b.x, Math.min(saved.x, b.x + b.width - WIDGET_SIZE))
+    y = Math.max(b.y, Math.min(saved.y, b.y + b.height - WIDGET_SIZE))
+  }
 
   radialWindow = new BrowserWindow({
     x, y,
@@ -196,6 +218,14 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   radialWindow.on('show', enforceOnTop)
   radialWindow.on('blur', () => setTimeout(enforceOnTop, 100))
   radialWindow.on('closed', stopCursorPolling)
+
+  // 位置记忆：拖拽结束后保存
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  const debouncedSave = (): void => {
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(savePosition, 500)
+  }
+  radialWindow.on('move', debouncedSave)
 
   // 内容加载完成后，应用收起态 setShape 并通知 renderer
   radialWindow.webContents.on('did-finish-load', () => {
