@@ -30,10 +30,42 @@
 
 **body 限制：** 每行最长 200 字符
 
+### ⚠️ Windows 下写 commit message 的正确方式
+
+Shell 工具和 Python `open()` 在 Windows 上默认使用 GBK 编码，emoji 字符会丢失或乱码。**必须**使用以下模式：
+
+```python
+python -c "
+import sys; sys.stdout.reconfigure(encoding='utf-8')
+msg = '\U0001f433 chore: release v0.2.23'
+with open('C:/Users/CHANGW~1/AppData/Local/Temp/opencode/COMMIT_MSG', 'w', encoding='utf-8') as f:
+    f.write(msg)
+" && git commit -F "C:/Users/CHANGW~1/AppData/Local/Temp/opencode/COMMIT_MSG"
+```
+
+**关键点：**
+- `open()` 必须加 `encoding='utf-8'`
+- `sys.stdout.reconfigure(encoding='utf-8')` 防止 print 报错
+- **禁止** `git commit -m "emoji msg"` — shell 在插值字符串中会破坏 emoji
+- **禁止** 随意使用 `--no-verify` — 仅在 hook 真的 broken 时使用
+
+### 常见错误
+
+1. **缺少 emoji 前缀**：`chore: release v0.2.23` ← 错误（没有 emoji）
+2. **emoji 错误**：`🐠 chore:` ← 错误（热带鱼不是鲸鱼；🐳 = whale = chore）
+3. **首字母大写**：`fix: Add radial menu` ← 错误（应为 `add`）
+4. **尾部句号**：`fix: add radial menu.` ← 错误
+
 ## 严禁私自 Push
 
 - **只 commit，不 push**，除非用户明确说"推送"
 - 违反此规则将导致不可控的发布，严重违规
+
+## 严禁跳过格式校验
+
+- **禁止** `git commit --no-verify` — commitlint hook 必须正常执行
+- 如果 hook 报错，修复 commit message 格式后重新提交，而不是跳过校验
+- **唯一例外**：hook 本身 broken（如 Node 版本问题、npm 依赖缺失），且用户明确允许
 
 ## 截图规范
 
