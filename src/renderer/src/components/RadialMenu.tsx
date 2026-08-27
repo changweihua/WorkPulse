@@ -114,7 +114,7 @@ export function RadialMenu(): ReactNode {
       if (Math.abs(me.movementX) > 2 || Math.abs(me.movementY) > 2) {
         if (!isDraggingRef.current) {
           isDraggingRef.current = true
-          document.body.style.cursor = 'grabbing'
+          document.body.style.cursor = 'move'
           document.body.style.userSelect = 'none'
         }
       }
@@ -280,7 +280,7 @@ export function RadialMenu(): ReactNode {
               ? 'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)'
               : 'inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -2px 3px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.08)',
             border: '1px solid rgba(255,255,255,0.6)',
-            cursor: expanded ? 'pointer' : 'grab',
+            cursor: expanded ? 'pointer' : 'move',
             transition: 'transform 0.15s ease, background 0.2s ease',
           } as React.CSSProperties}
           onClick={handleCenterClick}
