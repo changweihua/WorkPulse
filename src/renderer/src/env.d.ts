@@ -22,6 +22,7 @@ interface RadialApi {
   navigateTo: (page: string) => Promise<boolean>
   expand: () => void
   collapse: () => void
+  interactive: (on: boolean) => void
   dragStart: (mouseX: number, mouseY: number) => void
   dragMove: (mouseX: number, mouseY: number) => void
   dragEnd: () => void
