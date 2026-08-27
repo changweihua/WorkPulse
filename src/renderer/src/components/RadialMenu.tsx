@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, type ReactNode } from 'react'
-import { motion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 
 /* ── 尺寸参数 ── */
 const OUTER_R = 94
@@ -281,27 +281,38 @@ export function RadialMenu(): ReactNode {
           onDoubleClick={handleCenterDoubleClick}
           onMouseDown={handleCenterMouseDown}
         >
-          {expanded ? (
-            <svg
-              width={CENTER_R}
-              height={CENTER_R}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="rgba(60,64,72,0.9)"
-              strokeWidth={2.4}
-              strokeLinecap="round"
-            >
-              <line x1="6" y1="6" x2="18" y2="18" />
-              <line x1="18" y1="6" x2="6" y2="18" />
-            </svg>
-          ) : (
-            <img
-              key="icon"
-              src={ICON_SVG}
-              alt="WorkPulse"
-              style={{ width: CENTER_R, height: CENTER_R, objectFit: 'contain' }}
-            />
-          )}
+          <AnimatePresence mode="wait" initial={false}>
+            {expanded ? (
+              <motion.svg
+                key="close"
+                width={CENTER_R}
+                height={CENTER_R}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="rgba(60,64,72,0.9)"
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                initial={{ rotate: -90, scale: 0, opacity: 0 }}
+                animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                exit={{ rotate: 90, scale: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+              >
+                <line x1="6" y1="6" x2="18" y2="18" />
+                <line x1="18" y1="6" x2="6" y2="18" />
+              </motion.svg>
+            ) : (
+              <motion.img
+                key="logo"
+                src={ICON_SVG}
+                alt="WorkPulse"
+                style={{ width: CENTER_R, height: CENTER_R, objectFit: 'contain' }}
+                initial={{ rotate: 90, scale: 0, opacity: 0 }}
+                animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                exit={{ rotate: -90, scale: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+              />
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
