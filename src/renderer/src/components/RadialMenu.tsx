@@ -7,6 +7,7 @@ const INNER_R = 38
 const GAP_PX = 3
 const CENTER_R = 24
 const WIDGET_SIZE = 206
+const COLLAPSED_SIZE = 48
 
 // WorkPulse program icon
 const ICON_SVG = `data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzg0MDg1MDIzMjc1IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjI0Mzk3IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxwYXRoIGQ9Ik02NTEuNjEwOTA5IDEwMjMuOTkySDI3OS4yNzc4MThsOS4yNTU5MjgtNC42Mzk5NjRhMTg2LjE1ODU0NiAxODYuMTU4NTQ2IDAgMCAwIDEwMC4wOTUyMTgtMTM0LjIwNjk1MWwxOC44NzE4NTItMTA3LjAzOTE2NGE5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAxIDkyLjE1OTI4LTc5LjkzNTM3NUg2MTcuNDM1MTc2YzQ2LjMxOTYzOCAwIDg1LjU5OTMzMSAzNC4wNzk3MzQgOTIuMTU5MjggNzkuOTM1Mzc1bDM0LjE1OTczMyAxMzkuNjMwOTA5YzcuMjc5OTQzIDUwLjg5NTYwMi0yOC4wODc3ODEgOTguMDQ3MjM0LTc4Ljk4MzM4MyAxMDUuMzE5MTc3LTQuMzU5OTY2IDAuNjIzOTk1LTguNzU5OTMyIDAuOTM1OTkzLTEzLjE2Nzg5NyAwLjkzNTk5M3oiIGZpbGw9IiM5OTlBQUMiIHAtaWQ9IjI0Mzk4Ij48L3BhdGg+PHBhdGggZD0iTTc0Mi4yOTgyMDEgOTExLjczNjg3N2wtMy44NjM5Ny0xNS44MTU4NzYtNS40Nzk5NTctMjIuMzY3ODI2LTYuMjcxOTUxLTI1LjYzMTc5OS02LjI3MTk1MS0yNS42Mzk4LTUuNDc5OTU3LTIyLjM2NzgyNS0zLjg2Mzk3LTE1LjgwNzg3Ny0xLjQ3MTk4OS01Ljk5OTk1M2E5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAwLTkyLjE1OTI4LTc5LjkzNTM3NWgtMi41NTk5OGEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAwIDAgNDYuNTUxNjM2aDIuNTU5OThhNDYuNzY3NjM1IDQ2Ljc2NzYzNSAwIDAgMSA0Ni4wNzk2NCAzOS45NTk2ODhjMC4yMTU5OTggMS41MDM5ODggMC41MDM5OTYgMi45OTk5NzcgMC44NzE5OTMgNC40Nzk5NjVsMzMuNTM1NzM4IDEzNy4wNDY5MjlhNDYuNTU5NjM2IDQ2LjU1OTYzNiAwIDAgMS00Ni4zMTE2MzggNTEuMjM5NkgyNTUuOTk4QTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDAgMjU1Ljk5OCAxMDIzLjk5MmgzOTUuNjEyOTA5YzUxLjM4MzU5OSAwLjAzMiA5My4wNzEyNzMtNDEuNTk5Njc1IDkzLjEwMzI3My05Mi45NzUyNzQgMC00LjQ0Nzk2NS0wLjMxOTk5OC04Ljg3OTkzMS0wLjk0Mzk5My0xMy4yNzk4OTZsLTEuNDcxOTg4LTUuOTk5OTUzeiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQzOTkiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA3NDQuNzE0MTgyaDkzLjEwMzI3M2E2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAgMTM5LjYzODkwOUg0ODguNzE2MTgydjEzOS42Mzg5MDlINDEzLjU4NjE4MmE2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAtMTM5LjYzODkwOWg3NS4xMjk5OTl6bTAtNDYuNTUxNjM2SDQxMy41ODYxODJBNzUuMTI5OTk5IDc1LjEyOTk5OSAwIDAgMCAwIDY5OC4xNjI1NDZoNzUuMTI5OTk5di00Ni41NTE2MzZ6IiBmaWxsPSIjNkQ1QkZFIiBwLWlkPSIyNDQwMCI+PC9wYXRoPjwvc3ZnPg==`
@@ -67,8 +68,6 @@ export function RadialMenu(): ReactNode {
   const [expanded, setExpanded] = useState(false)
   const expandedRef = useRef(false)
   const dragRef = useRef({ active: false, startX: 0, startY: 0, moved: false, onCenter: false })
-  // center hover: 当光标在中心按钮区域时发送 radial:interactive(true)
-  const centerHoverRef = useRef(false)
 
   const ITEMS: RadialItem[] = [
     { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, action: () => window.radialApi.navigateTo('worklog') },
@@ -93,36 +92,9 @@ export function RadialMenu(): ReactNode {
 
   const handleCollapse = useCallback(() => {
     expandedRef.current = false
-    setExpanded(false)
+    // 先动画 clip-path 收缩，动画结束后再发送 collapse IPC（resize 回 48×48）
     window.radialApi.collapse()
-  }, [])
-
-  // ─── 方案 C：mousemove 检测中心按钮 hover，切换 setIgnoreMouseEvents ───
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      // 光标在窗口内的相对坐标 = screenX/Y - window.screenX/Y
-      const winX = window.screenX
-      const winY = window.screenY
-      const localX = e.screenX - winX
-      const localY = e.screenY - winY
-
-      // 计算到中心的距离
-      const dx = localX - CX
-      const dy = localY - CY
-      const dist = Math.sqrt(dx * dx + dy * dy)
-      const isOverCenter = dist <= CENTER_R
-
-      if (isOverCenter !== centerHoverRef.current) {
-        centerHoverRef.current = isOverCenter
-        // 折叠态：hover 中心 → 使窗口可交互（点击展开）
-        // 展开态：始终可交互（由 radial:expand 处理）
-        if (!expandedRef.current) {
-          window.radialApi.interactive(isOverCenter)
-        }
-      }
-    }
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
+    setExpanded(false)
   }, [])
 
   // ─── 拖拽：延迟判定，超过阈值才启动；未移动则视为点击（折叠态点击中心 → 展开） ───
@@ -151,6 +123,7 @@ export function RadialMenu(): ReactNode {
         ref.active = false
         window.radialApi.dragEnd()
       } else if (ref.onCenter && !expandedRef.current) {
+        // 折叠态下点击中心圆 → 展开
         handleExpand()
       }
       dragRef.current = { active: false, startX: 0, startY: 0, moved: false, onCenter: false }

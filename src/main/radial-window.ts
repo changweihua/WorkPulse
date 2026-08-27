@@ -7,8 +7,8 @@ import { appBus, SHOW_MAIN, SHOW_RADIAL } from './event-bus'
 let radialWindow: BrowserWindow | null = null
 let mainWin: BrowserWindow | null = null
 
-// 方案 C：窗口永远 206×206，不做 resize
-const WIDGET_SIZE = 206
+const EXPANDED_SIZE = 206
+const COLLAPSED_SIZE = 48
 
 export function setMainWindow(win: BrowserWindow): void {
   mainWin = win
@@ -18,29 +18,49 @@ function getMainWindow(): BrowserWindow | null {
   return mainWin && !mainWin.isDestroyed() ? mainWin : null
 }
 
+/**
+ * 生成圆形区域的矩形近似（用于 setShape）
+ * 将圆按扫描线拆分为若干矩形，圆外区域的点击会穿透到下层窗口
+ */
+function circleShape(cx: number, cy: number, r: number, step = 2): Electron.Rectangle[] {
+  const rects: Electron.Rectangle[] = []
+  for (let y = 0; y < 2 * r; y += step) {
+    const dy = y - r + 0.5 * step
+    const half = Math.sqrt(Math.max(0, r * r - dy * dy))
+    rects.push({
+      x: Math.round(cx - half),
+      y: Math.round(y),
+      width: Math.round(half * 2),
+      height: step,
+    })
+  }
+  return rects
+}
+
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   const display = screen.getPrimaryDisplay()
+  const size = COLLAPSED_SIZE
 
   const savedX = getSetting('radial_pos_x')
   const savedY = getSetting('radial_pos_y')
   const x =
     savedX !== null && savedY !== null
       ? Math.round(Number(savedX))
-      : Math.round(display.workArea.x + (display.workArea.width - WIDGET_SIZE) / 2)
+      : Math.round(display.workArea.x + (display.workArea.width - size) / 2)
   const y =
     savedX !== null && savedY !== null
       ? Math.round(Number(savedY))
-      : Math.round(display.workArea.y + (display.workArea.height - WIDGET_SIZE) / 2)
+      : Math.round(display.workArea.y + (display.workArea.height - size) / 2)
 
   radialWindow = new BrowserWindow({
-    width: WIDGET_SIZE,
-    height: WIDGET_SIZE,
+    width: size,
+    height: size,
     x,
     y,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
-    focusable: false,            // 不抢焦点 — 输入通过 DOM 事件
+    focusable: false,
     resizable: false,
     skipTaskbar: true,
     hasShadow: false,
@@ -60,15 +80,14 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     radialWindow.loadFile(join(__dirname, '../renderer/radial.html'))
   }
 
-  // showInactive：不抢焦点（Meel 模式）
-  radialWindow.showInactive()
+  radialWindow.show()
   radialWindow.setAlwaysOnTop(true, 'screen-saver')
 
-  // 方案 C：setIgnoreMouseEvents + forward — 全窗口点击穿透，但 mousemove 转发给 renderer
-  // renderer 检测中心按钮 hover 后，发送 radial:interactive 切换穿透状态
-  radialWindow.setIgnoreMouseEvents(true, { forward: true })
+  // 初始 setShape：中心 48px 圆
+  if (process.platform !== 'darwin') {
+    radialWindow.setShape(circleShape(size / 2, size / 2, size / 2))
+  }
 
-  // 窗口始终可见，不销毁（hide/show 切换）
   const enforceOnTop = (): void => {
     if (radialWindow && !radialWindow.isDestroyed()) {
       radialWindow.setAlwaysOnTop(true, 'screen-saver')
@@ -104,8 +123,6 @@ export function toggleRadialWindow(parent: BrowserWindow): void {
 
 export function hideRadialWindow(): void {
   if (radialWindow && !radialWindow.isDestroyed()) {
-    // 折叠回穿透状态，再隐藏
-    radialWindow.setIgnoreMouseEvents(true, { forward: true })
     radialWindow.hide()
   }
 }
@@ -120,30 +137,32 @@ export function getRadialWindow(): BrowserWindow | null {
 
 // --- IPC ---
 
-// 方案 C：renderer 检测到中心按钮 hover 时，切换穿透状态
-// expanded=false 且 hover 中心 → setIgnoreMouseEvents(false) → 窗口可交互
-// 展开后 → setIgnoreMouseEvents(false) → 全窗口可交互
-// 折叠时 → setIgnoreMouseEvents(true, { forward: true }) → 穿透
-ipcMain.on('radial:interactive', (_event, interactive: boolean) => {
-  const win = getRadialWindow()
-  if (!win || win.isDestroyed()) return
-  win.setIgnoreMouseEvents(!interactive, { forward: true })
-})
-
-// 展开：不做 resize，只切换穿透状态（renderer 已通过 clip-path 动画显示内容）
+// 展开：resize 到 206×206 + setShape 全圆
 ipcMain.on('radial:expand', () => {
   const win = getRadialWindow()
   if (!win || win.isDestroyed()) return
-  // 展开后全窗口可交互（ring items 需要点击）
-  win.setIgnoreMouseEvents(false)
+  const [x, y] = win.getPosition()
+  const [w, h] = win.getSize()
+  const newX = x + Math.floor((w - EXPANDED_SIZE) / 2)
+  const newY = y + Math.floor((h - EXPANDED_SIZE) / 2)
+  win.setBounds({ x: newX, y: newY, width: EXPANDED_SIZE, height: EXPANDED_SIZE })
+  if (process.platform !== 'darwin') {
+    win.setShape(circleShape(EXPANDED_SIZE / 2, EXPANDED_SIZE / 2, EXPANDED_SIZE / 2))
+  }
 })
 
-// 折叠：切换回穿透状态（renderer 通过 clip-path 动画收起内容）
+// 折叠：resize 回 48×48 + setShape 小圆
 ipcMain.on('radial:collapse', () => {
   const win = getRadialWindow()
   if (!win || win.isDestroyed()) return
-  // 折叠后穿透（只保留中心按钮区域可交互，由 renderer 控制）
-  win.setIgnoreMouseEvents(true, { forward: true })
+  const [x, y] = win.getPosition()
+  const [w, h] = win.getSize()
+  const newX = x + Math.floor((w - COLLAPSED_SIZE) / 2)
+  const newY = y + Math.floor((h - COLLAPSED_SIZE) / 2)
+  win.setBounds({ x: newX, y: newY, width: COLLAPSED_SIZE, height: COLLAPSED_SIZE })
+  if (process.platform !== 'darwin') {
+    win.setShape(circleShape(COLLAPSED_SIZE / 2, COLLAPSED_SIZE / 2, COLLAPSED_SIZE / 2))
+  }
 })
 
 ipcMain.on('radial:drag-end', () => {
@@ -158,7 +177,7 @@ const DEFAULT_RADIAL_ITEMS = [
   { id: 'log', label: 'Work Log', route: '/worklog' },
   { id: 'task', label: 'Tasks', route: '/kanban' },
   { id: 'meeting', label: 'Meetings', route: '/calendar' },
-  { id: 'ai', label: 'AI Chat', route: '/chat' },
+  { id: 'ai', label: 'AI Chat', route: '/calendar' },
 ]
 
 ipcMain.handle('radial:action', (_event, action: string) => {

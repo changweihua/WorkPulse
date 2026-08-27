@@ -15,11 +15,9 @@ contextBridge.exposeInMainWorld('radialApi', {
   },
   close: () => ipcRenderer.invoke('radial:close'),
   navigateTo: (page: string) => ipcRenderer.invoke('radial:navigate-to', page),
-  // 方案 C：折叠/展开
+  // 折叠 / 展开
   expand: () => ipcRenderer.send('radial:expand'),
   collapse: () => ipcRenderer.send('radial:collapse'),
-  // 方案 C：切换窗口交互状态（hover 中心时设为可交互）
-  interactive: (on: boolean) => ipcRenderer.send('radial:interactive', on),
   // 拖拽
   dragStart: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-start', mouseX, mouseY),
   dragMove: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-move', mouseX, mouseY),
