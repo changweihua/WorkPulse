@@ -97,7 +97,6 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     hasShadow: false,
     roundedCorners: true,
     movable: false,          // Meel: 拖拽完全由 IPC 控制
-    focusable: false,        // Meel: 永远不抢键盘焦点
     backgroundColor: '#00000000',
     webPreferences: {
       preload: join(__dirname, '../preload/radial.js'),
@@ -112,8 +111,8 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     radialWindow.loadFile(join(__dirname, '../renderer/radial.html'))
   }
 
-  // Meel: showInactive() 显示但不抢焦点
-  radialWindow.showInactive()
+  // show() 确保窗口可见（showInactive + focusable:false 在 Windows 上会导致窗口不显示）
+  radialWindow.show()
 
   // Meel: 每次 show 重新断言最高层级
   radialWindow.setAlwaysOnTop(true, 'screen-saver')
