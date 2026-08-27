@@ -98,7 +98,7 @@ export function RadialMenu(): ReactNode {
     })
   }, [])
 
-  // ─── 中心按钮：双击展开菜单，单击拖动 ───
+  // ─── 中心按钮：展开态单击 ✕ 收起，收起态双击展开，单击+拖拽移动 ───
   const isDraggingRef = useRef(false)
 
   const handleCenterMouseDown = useCallback((e: React.MouseEvent) => {
@@ -122,8 +122,19 @@ export function RadialMenu(): ReactNode {
     document.addEventListener('mouseup', onMouseUp)
   }, [])
 
+  // 单击：展开态 → 收起（✕ 按钮）；收起态 → 无操作
+  const handleCenterClick = useCallback(() => {
+    if (isDraggingRef.current) return
+    if (expandedRef.current) {
+      window.radialApi.centerClick()
+    }
+  }, [])
+
+  // 双击：收起态 → 展开
   const handleCenterDoubleClick = useCallback(() => {
-    window.radialApi.centerClick()
+    if (!expandedRef.current) {
+      window.radialApi.centerClick()
+    }
   }, [])
 
   // ─── 扇区点击 ───
@@ -260,6 +271,7 @@ export function RadialMenu(): ReactNode {
             cursor: 'pointer',
             transition: 'transform 0.15s ease',
           } as React.CSSProperties}
+          onClick={handleCenterClick}
           onDoubleClick={handleCenterDoubleClick}
           onMouseDown={handleCenterMouseDown}
         >
