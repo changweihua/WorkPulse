@@ -4,6 +4,10 @@ contextBridge.exposeInMainWorld('radialApi', {
   onShow: (cb: () => void) => {
     ipcRenderer.on('radial:show', () => cb())
   },
+  // 主进程通知窗口状态变化（展开/收起）
+  onState: (cb: (info: { expanded: boolean }) => void) => {
+    ipcRenderer.on('radial:state', (_event, info) => cb(info))
+  },
   // Actions
   createLog: () => ipcRenderer.invoke('radial:action', 'log'),
   createTask: () => ipcRenderer.invoke('radial:action', 'task'),
@@ -22,7 +26,7 @@ contextBridge.exposeInMainWorld('radialApi', {
   onCursor: (cb: (info: { x: number; y: number; dist: number; isOverCenter: boolean }) => void) => {
     ipcRenderer.on('radial:cursor', (_event, info) => cb(info))
   },
-  // 拖拽
+  // 拖拽（movable:false，完全由主进程 IPC 控制）
   dragStart: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-start', mouseX, mouseY),
   dragMove: (mouseX: number, mouseY: number) => ipcRenderer.send('radial:drag-move', mouseX, mouseY),
   dragEnd: () => ipcRenderer.send('radial:drag-end'),

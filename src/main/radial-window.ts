@@ -7,9 +7,7 @@ import { appBus, SHOW_MAIN, SHOW_RADIAL } from './event-bus'
 let radialWindow: BrowserWindow | null = null
 let mainWin: BrowserWindow | null = null
 
-// 方案 C（Meel 架构）：窗口固定206×206，不做 resize
-const WIDGET_SIZE = 206
-const CENTER_R = 24
+const WHEEL_SIZE = 206
 const POLL_INTERVAL_MS = 8
 
 export function setMainWindow(win: BrowserWindow): void {
@@ -22,6 +20,7 @@ function getMainWindow(): BrowserWindow | null {
 
 /**
  * 生成圆形区域的矩形近似（用于 setShape）
+ * 将圆按扫描线拆分为若干矩形，圆外区域的点击会穿透到下层窗口
  */
 function circleShape(cx: number, cy: number, r: number, step = 2): Electron.Rectangle[] {
   const rects: Electron.Rectangle[] = []
@@ -43,17 +42,17 @@ let cursorPollTimer: ReturnType<typeof setInterval> | null = null
 
 function startCursorPolling(win: BrowserWindow): void {
   stopCursorPolling()
+  const center = WHEEL_SIZE / 2
   cursorPollTimer = setInterval(() => {
     if (win.isDestroyed()) { stopCursorPolling(); return }
     const cursor = screen.getCursorScreenPoint()
     const [wx, wy] = win.getPosition()
     const localX = cursor.x - wx
     const localY = cursor.y - wy
-    const dx = localX - WIDGET_SIZE / 2
-    const dy = localY - WIDGET_SIZE / 2
+    const dx = localX - center
+    const dy = localY - center
     const dist = Math.sqrt(dx * dx + dy * dy)
-    const isOverCenter = dist <= CENTER_R
-    // 发送光标位置给 renderer（用于高亮）
+    const isOverCenter = dist <= 24 // 收起态中心圆半径
     win.webContents.send('radial:cursor', { x: localX, y: localY, dist, isOverCenter })
   }, POLL_INTERVAL_MS)
 }
@@ -62,6 +61,15 @@ function stopCursorPolling(): void {
   if (cursorPollTimer) { clearInterval(cursorPollTimer); cursorPollTimer = null }
 }
 
+/**
+ * 方案 C（Meel 架构）：
+ * - 窗口固定 WHEEL_SIZE×WHEEL_SIZE，永不 resize
+ * - focusable: false — 永远不抢键盘焦点
+ * - showInactive() — 显示但不抢焦点
+ * - 每次 show 重新断言 setAlwaysOnTop + moveTop
+ * - movable: false — 拖拽完全由主进程 IPC 控制
+ * - setShape 定义圆形可交互区域（收起=中心小圆，展开=全圆）
+ */
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   const display = screen.getPrimaryDisplay()
 
@@ -70,15 +78,15 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   const x =
     savedX !== null && savedY !== null
       ? Math.round(Number(savedX))
-      : Math.round(display.workArea.x + (display.workArea.width - WIDGET_SIZE) / 2)
+      : Math.round(display.workArea.x + (display.workArea.width - WHEEL_SIZE) / 2)
   const y =
     savedX !== null && savedY !== null
       ? Math.round(Number(savedY))
-      : Math.round(display.workArea.y + (display.workArea.height - WIDGET_SIZE) / 2)
+      : Math.round(display.workArea.y + (display.workArea.height - WHEEL_SIZE) / 2)
 
   radialWindow = new BrowserWindow({
-    width: WIDGET_SIZE,
-    height: WIDGET_SIZE,
+    width: WHEEL_SIZE,
+    height: WHEEL_SIZE,
     x,
     y,
     frame: false,
@@ -88,7 +96,8 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     skipTaskbar: true,
     hasShadow: false,
     roundedCorners: true,
-    movable: false,
+    movable: false,          // Meel: 拖拽完全由 IPC 控制
+    focusable: false,        // Meel: 永远不抢键盘焦点
     backgroundColor: '#00000000',
     webPreferences: {
       preload: join(__dirname, '../preload/radial.js'),
@@ -103,36 +112,42 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     radialWindow.loadFile(join(__dirname, '../renderer/radial.html'))
   }
 
-  // show（不使用 showInactive，Windows 下 focusable:false 会导致窗口不显示）
-  radialWindow.show()
-  radialWindow.setAlwaysOnTop(true, 'screen-saver')
+  // Meel: showInactive() 显示但不抢焦点
+  radialWindow.showInactive()
 
-  // 方案 C：setShape 定义可交互区域（中心 48px 圆）
-  // 圆外区域的点击穿透到下层窗口
+  // Meel: 每次 show 重新断言最高层级
+  radialWindow.setAlwaysOnTop(true, 'screen-saver')
+  radialWindow.moveTop()
+
+  // 初始 setShape：收起态（中心小圆，半径 24px）
   if (process.platform !== 'darwin') {
-    radialWindow.setShape(circleShape(WIDGET_SIZE / 2, WIDGET_SIZE / 2, CENTER_R + 2))
+    radialWindow.setShape(circleShape(WHEEL_SIZE / 2, WHEEL_SIZE / 2, 24))
   }
 
   // 启动光标轮询
   startCursorPolling(radialWindow)
 
+  // Meel: 每次 show/blur 后重新断言 alwaysOnTop
   const enforceOnTop = (): void => {
     if (radialWindow && !radialWindow.isDestroyed()) {
-      radialWindow.setAlwaysOnTop(true, 'screen-saver')
+      radialWindow!.setAlwaysOnTop(true, 'screen-saver')
+      radialWindow!.moveTop()
     }
   }
 
-  radialWindow.on('focus', enforceOnTop)
+  radialWindow.on('show', enforceOnTop)
   radialWindow.on('blur', () => {
     setTimeout(enforceOnTop, 100)
   })
-  radialWindow.on('show', enforceOnTop)
   radialWindow.on('closed', stopCursorPolling)
 
+  // Meel: 覆盖所有工作区，包括全屏应用之上
   radialWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
   radialWindow.webContents.on('did-finish-load', () => {
+    // 初始通知 renderer
     radialWindow?.webContents.send('radial:show')
+    radialWindow?.webContents.send('radial:state', { expanded: false })
   })
 
   return radialWindow
@@ -166,24 +181,6 @@ export function getRadialWindow(): BrowserWindow | null {
 
 // --- IPC ---
 
-// 展开：setShape 扩大到全圆（环形菜单可交互）
-ipcMain.on('radial:expand', () => {
-  const win = getRadialWindow()
-  if (!win || win.isDestroyed()) return
-  if (process.platform !== 'darwin') {
-    win.setShape(circleShape(WIDGET_SIZE / 2, WIDGET_SIZE / 2, WIDGET_SIZE / 2))
-  }
-})
-
-// 折叠：setShape 缩小到中心 48px 圆
-ipcMain.on('radial:collapse', () => {
-  const win = getRadialWindow()
-  if (!win || win.isDestroyed()) return
-  if (process.platform !== 'darwin') {
-    win.setShape(circleShape(WIDGET_SIZE / 2, WIDGET_SIZE / 2, CENTER_R + 2))
-  }
-})
-
 // 拖拽
 let dragOffset = { x: 0, y: 0 }
 
@@ -205,6 +202,24 @@ ipcMain.on('radial:drag-end', () => {
     const [x, y] = radialWindow.getPosition()
     setSetting('radial_pos_x', String(x))
     setSetting('radial_pos_y', String(y))
+  }
+})
+
+// --- 展开/收起 setShape 切换（方案 C：窗口固定 206×206，setShape 定义点击区域） ---
+
+ipcMain.on('radial:expand', () => {
+  if (radialWindow && !radialWindow.isDestroyed() && process.platform !== 'darwin') {
+    // 展开态：setShape 覆盖整个 206×206 窗口
+    radialWindow.setShape(circleShape(WHEEL_SIZE / 2, WHEEL_SIZE / 2, WHEEL_SIZE / 2))
+    radialWindow.webContents.send('radial:state', { expanded: true })
+  }
+})
+
+ipcMain.on('radial:collapse', () => {
+  if (radialWindow && !radialWindow.isDestroyed() && process.platform !== 'darwin') {
+    // 收起态：setShape 缩小为中心小圆（半径 24px）
+    radialWindow.setShape(circleShape(WHEEL_SIZE / 2, WHEEL_SIZE / 2, 24))
+    radialWindow.webContents.send('radial:state', { expanded: false })
   }
 })
 

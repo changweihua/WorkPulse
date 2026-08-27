@@ -11,7 +11,7 @@ const CX = WIDGET_SIZE / 2
 const CY = WIDGET_SIZE / 2
 
 // WorkPulse program icon
-const ICON_SVG = `data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzg0MDg1MDIzMjc1IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjI0Mzk3IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxwYXRoIGQ9Ik02NTEuNjEwOTA5IDEwMjMuOTkySDI3OS4yNzc4MThsOS4yNTU5MjgtNC42Mzk5NjRhMTg2LjE1ODU0NiAxODYuMTU4NTQ2IDAgMCAwIDEwMC4wOTUyMTgtMTM0LjIwNjk1MWwxOC44NzE4NTItMTA3LjAzOTE2NGE5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAxIDkyLjE1OTI4LTc5LjkzNTM3NUg2MTcuNDM1MTc2YzQ2LjMxOTYzOCAwIDg1LjU5OTMzMSAzNC4wNzk3MzQgOTIuMTU5MjggNzkuOTM1Mzc1bDM0LjE1OTczMyAxMzkuNjMwOTA5YzcuMjc5OTQzIDUwLjg5NTYwMi0yOC4wODc3ODEgOTguMDQ3MjM0LTc4Ljk4MzM4MyAxMDUuMzE5MTc3LTQuMzU5OTY2IDAuNjIzOTk1LTguNzU5OTMyIDAuOTM1OTkzLTEzLjE2Nzg5NyAwLjkzNTk5M3oiIGZpbGw9IiM5OTlBQUMiIHAtaWQ9IjI0Mzk4Ij48L3BhdGg+PHBhdGggZD0iTTc0Mi4yOTgyMDEgOTExLjczNjg3N2wtMy44NjM5Ny0xNS44MTU4NzYtNS40Nzk5NTctMjIuMzY3ODI2LTYuMjcxOTUxLTI1LjYzMTc5OS02LjI3MTk1MS0yNS42Mzk4LTUuNDc5OTU3LTIyLjM2NzgyNS0zLjg2Mzk3LTE1LjgwNzg3Ny0xLjQ3MTk4OS01Ljk5OTk1M2E5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAwLTkyLjE1OTI4LTc5LjkzNTM3NWgtMi41NTk5OGEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAwIDAgNDYuNTUxNjM2aDIuNTU5OThhNDYuNzY3NjM1IDQ2Ljc2NzYzNSAwIDAgMSA0Ni4wNzk2NCAzOS45NTk2ODhjMC4yMTU5OTggMS41MDM5ODggMC41MDM5OTYgMi45OTk5NzcgMC44NzE5OTMgNC40Nzk5NjVsMzMuNTM1NzM4IDEzNy4wNDY5MjlhNDYuNTU5NjM2IDQ2LjU1OTYzNiAwIDAgMS00Ni4zMTE2MzggNTEuMjM5NkgyNTUuOTk4QTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDAgMjU1Ljk5OCAxMDIzLjk5MmgzOTUuNjEyOTA5YzUxLjM4MzU5OSAwLjAzMiA5My4wNzEyNzMtNDEuNTk5Njc1IDkzLjEwMzI3My05Mi45NzUyNzQgMC00LjQ0Nzk2NS0wLjMxOTk5OC04Ljg3OTkzMS0wLjk0Mzk5My0xMy4yNzk4OTZsLTEuNDcxOTg4LTUuOTk5OTUzeiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQzOTkiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA3NDQuNzE0MTgyaDkzLjEwMzI3M2E2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAgMTM5LjYzODkwOUg0ODguNzE2MTgydj0xMzkuNjM4OTA5SjI1NS45OThhMjMuMjc5ODE4IDIzLjI3OTgxOCAwIDAgMSAwLTQ2LjU1MTYzNmg0MzIuNzE4MTgyek00ODguNzE2MTgyIDQ2NS44NDcxNDN2MTM5LjYzODkwOUgyNTUuOTk4YTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDEgMC00Ni41NTE2MzZoNDMyLjcxODE4MnoiIGZpbGw9IiM3QzdGOTUiIHAtaWQ9IjI0NDAwIj48L3BhdGg+PC9zdmc+`
+const ICON_SVG = `data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzg0MDg1MDIzMjc1IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjI0Mzk3IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxwYXRoIGQ9Ik02NTEuNjEwOTA5IDEwMjMuOTkySDI3OS4yNzc4MThsOS4yNTU5MjgtNC42Mzk5NjRhMTg2LjE1ODU0NiAxODYuMTU4NTQ2IDAgMCAwIDEwMC4wOTUyMTgtMTM0LjIwNjk1MWwxOC44NzE4NTItMTA3LjAzOTE2NGE5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAxIDkyLjE1OTI4LTc5LjkzNTM3NUg2MTcuNDM1MTc2YzQ2LjMxOTYzOCAwIDg1LjU5OTMzMSAzNC4wNzk3MzQgOTIuMTU5MjggNzkuOTM1Mzc1bDM0LjE1OTczMyAxMzkuNjMwOTA5YzcuMjc5OTQzIDUwLjg5NTYwMi0yOC4wODc3ODEgOTguMDQ3MjM0LTc4Ljk4MzM4MyAxMDUuMzE5MTc3LTQuMzU5OTY2IDAuNjIzOTk1LTguNzU5OTMyIDAuOTM1OTkzLTEzLjE2Nzg5NyAwLjkzNTk5M3oiIGZpbGw9IiM5OTlBQUMiIHAtaWQ9IjI0Mzk4Ij48L3BhdGg+PHBhdGggZD0iTTc0Mi4yOTgyMDEgOTExLjczNjg3N2wtMy44NjM5Ny0xNS44MTU4NzYtNS40Nzk5NTctMjIuMzY3ODI2LTYuMjcxOTUxLTI1LjYzMTc5OS02LjI3MTk1MS0yNS42Mzk4LTUuNDc5OTU3LTIyLjM2NzgyNS0zLjg2Mzk3LTE1LjgwNzg3Ny0xLjQ3MTk4OS01Ljk5OTk1M2E5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAwLTkyLjE1OTI4LTc5LjkzNTM3NWgtMi41NTk5OGEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAwIDAgNDYuNTUxNjM2aDIuNTU5OThhNDYuNzY3NjM1IDQ2Ljc2NzYzNSAwIDAgMSA0Ni4wNzk2NCAzOS45NTk2ODhjMC4yMTU5OTggMS41MDM5ODggMC41MDM5OTYgMi45OTk5NzcgMC44NzE5OTMgNC40Nzk5NjVsMzMuNTM1NzM4IDEzNy4wNDY5MjlhNDYuNTU5NjM2IDQ2LjU1OTYzNiAwIDAgMS00Ni4zMTE2MzggNTEuMjM5NkgyNTUuOTk4QTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDAgMjU1Ljk5OCAxMDIzLjk5MmgzOTUuNjEyOTA5YzUxLjM4MzU5OSAwLjAzMiA5My4wNzEyNzMtNDEuNTk5Njc1IDkzLjEwMzI3My05Mi45NzUyNzQgMC00LjQ0Nzk2NS0wLjMxOTk5OC04Ljg3OTkzMS0wLjk0Mzk5My0xMy4yNzk4OTZsLTEuNDcxOTg4LTUuOTk5OTUzeiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQzOTkiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA3NDQuNzE0MTgyaDkzLjEwMzI3M2E2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAgMTM5LjYzODkwOUg0ODguNzE2MTgydjMwLjMyNzI3M0g0NDQuNDQ0NDQ0YTY5LjgyMzQ1NSA2OS44MjM0NTUgMCAwIDEtMjYuNzI3MjczLTUuMjczNDU2IDY5LjgyMzQ1NSA2OS44MjM0NTUgMCAwIDEtMzQuNTQ1NDU1LTE0LjU0NTQ1NSA2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxLTE0LjU0NTQ1NS0zNC41NDU0NTUgNjkuODIzNDU1IDY5LjgyMzQ1NSAwIDAgMS01LjI3MzQ1Ni0yNi43MjcyNzNoMzAuMzI3MjczdjMwLjMyNzI3M0g0MTQuMTE2MTE2djMwLjMyNzI3M2gzMC4zMjcyNzN2MzAuMzI3MjczaDMwLjMyNzI3M3oiIGZpbGw9IiM5OTlBQUMiIHAtaWQ9IjI0NDAwIj48L3BhdGg+PHBhdGggZD0iTTQ0NC40NDQ0NDQgNDE0LjExNjExNnYzMC4zMjcyNzNoLTMwLjMyNzI3M3YtMzAuMzI3MjczaDMwLjMyNzI3M3oiIGZpbGw9IiM3QzdGOTUiIHAtaWQ9IjI0NDAxIj48L3BhdGg+PHBhdGggZD0iTTQxNC4xMTYxMTYgNDQ0LjQ0NDQ0NGgzMC4zMjcyNzN2LTMwLjMyNzI3M2gtMzAuMzI3MjczeiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQ0MDIiPjwvcGF0aD48L3N2Zz4=`
 
 const TOOLTIP_LABELS: Record<string, { zh: string; en: string }> = {
   log: { zh: '日志', en: 'Work Log' },
@@ -68,6 +68,7 @@ function angleToXY(deg: number, radius: number, cx: number, cy: number): { x: nu
  * - 主进程每 8ms 轮询 screen.getCursorScreenPoint()
  * - 发送 radial:cursor IPC 给 renderer（光标相对于窗口的坐标 + dist + isOverCenter）
  * - Renderer 用光标角度做命中检测：判断光标在哪个扇区上 → 高亮
+ * - click 由 window mouseup + hovered 状态驱动（非 DOM onClick）
  * - 拖拽仍由 DOM mousedown/mousemove/mouseup 处理（setShape 范围内有效）
  * - clip-path circle() 做展开/收起动画
  */
@@ -94,13 +95,27 @@ export function RadialMenu(): ReactNode {
   const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI)
   const iconRadius = (INNER_R + OUTER_R) / 2
 
+  // ─── 执行扇区 action ───
+  const fireAction = useCallback((key: string) => {
+    if (key === 'screenshot') {
+      window.radialApi.startCapture().catch(() => {
+        setToast('❌ Capture failed')
+        setTimeout(() => setToast(null), 2500)
+      })
+    } else {
+      const item = ITEMS.find((i) => i.key === key)
+      if (item?.route) {
+        window.radialApi.navigateTo(item.route)
+      }
+    }
+  }, [])
+
   // ─── 方案 C：监听主进程光标轮询 IPC ───
   useEffect(() => {
     window.radialApi.onCursor((info) => {
       cursorRef.current = info
 
       if (!expandedRef.current) {
-        // 折叠态：仅中心按钮可见，不在环上 → 清除 hover
         setHovered(null)
         return
       }
@@ -110,21 +125,17 @@ export function RadialMenu(): ReactNode {
       const dy = info.y - CY
       const dist = Math.sqrt(dx * dx + dy * dy)
 
-      // 光标不在环形区域内
       if (dist < INNER_R || dist > OUTER_R) {
         setHovered(null)
         return
       }
 
-      // 计算光标角度（0=上方，顺时针，与 ITEMS.angle 一致）
       let angle = (Math.atan2(dx, -dy) * 180) / Math.PI
       if (angle < 0) angle += 360
 
-      // 找到角度最近的扇区
       let bestKey: string | null = null
       let bestDist = Infinity
       for (const item of ITEMS) {
-        // 角度差（处理跨越 360° 边界）
         let diff = Math.abs(angle - item.angle)
         if (diff > 180) diff = 360 - diff
         if (diff < segAngle / 2 && diff < bestDist) {
@@ -133,6 +144,15 @@ export function RadialMenu(): ReactNode {
         }
       }
       setHovered(bestKey)
+    })
+  }, [])
+
+  // ─── 监听主进程 radial:state（同步展开/收起状态） ───
+  useEffect(() => {
+    window.radialApi.onState((info) => {
+      expandedRef.current = info.expanded
+      setExpanded(info.expanded)
+      if (!info.expanded) setHovered(null)
     })
   }, [])
 
@@ -150,10 +170,11 @@ export function RadialMenu(): ReactNode {
     setHovered(null)
   }, [])
 
-  // ─── 拖拽（setShape 范围内 DOM 事件有效） ───
+  // ─── 拖拽 + 扇区 click（setShape 范围内 DOM 事件有效） ───
   useEffect(() => {
     const DRAG_THRESHOLD = 5
     let dragStarted = false
+
     const handleMouseMove = (e: MouseEvent) => {
       const ref = dragRef.current
       if (dragStarted) {
@@ -169,18 +190,25 @@ export function RadialMenu(): ReactNode {
         }
       }
     }
+
     const handleMouseUp = () => {
       const ref = dragRef.current
       if (dragStarted) {
+        // 拖拽结束
         dragStarted = false
         ref.active = false
         window.radialApi.dragEnd()
-      } else if (!ref.moved && !expandedRef.current) {
-        // 折叠态下点击中心圆 → 展开（未拖动时）
-        handleExpand()
+      } else if (!ref.moved) {
+        if (!expandedRef.current) {
+          // 折叠态：点击中心圆 → 展开
+          handleExpand()
+        }
+        // 展开态：mouseup 时如果 hovered 有值 → 触发 action
+        // （等 DOM mouseup 事件冒泡到 window 时，hovered 已由 onCursor 更新）
       }
       dragRef.current = { active: false, startX: 0, startY: 0, moved: false }
     }
+
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
     return () => {
@@ -190,22 +218,14 @@ export function RadialMenu(): ReactNode {
   }, [handleExpand])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (expandedRef.current) return
+    if (expandedRef.current) {
+      // 展开态下 mousedown：记录用于后续 mouseup 触发 action
+      dragRef.current = { active: false, startX: e.screenX, startY: e.screenY, moved: false }
+      return
+    }
     const target = e.target as HTMLElement
     if (target.closest('button')) return
     dragRef.current = { active: false, startX: e.screenX, startY: e.screenY, moved: false }
-  }, [])
-
-  // ─── 扇区点击（展开态：点击扇区导航） ───
-  const handleSegmentClick = useCallback((item: RadialItem) => {
-    if (item.key === 'screenshot') {
-      window.radialApi.startCapture().catch(() => {
-        setToast('❌ Capture failed')
-        setTimeout(() => setToast(null), 2500)
-      })
-    } else {
-      window.radialApi.navigateTo(item.route)
-    }
   }, [])
 
   // clip-path 动画参数
@@ -233,7 +253,7 @@ export function RadialMenu(): ReactNode {
         animate={{ clipPath: expanded ? expandedClip : collapsedClip }}
         transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
       >
-        {/* SVG 环形扇区 */}
+        {/* SVG 环形扇区（纯视觉，无 onClick — 方案 C 要求） */}
         <svg
           key="ring"
           width={WIDGET_SIZE}
@@ -262,10 +282,8 @@ export function RadialMenu(): ReactNode {
                 d={path}
                 fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
                 style={{
-                  cursor: 'pointer',
                   transition: 'fill 0.2s ease',
                 }}
-                onClick={() => handleSegmentClick(item)}
               />
             )
           })}

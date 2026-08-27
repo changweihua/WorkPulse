@@ -12,6 +12,7 @@ interface ImportMeta {
 
 interface RadialApi {
   onShow: (cb: () => void) => void
+  onState: (cb: (info: { expanded: boolean }) => void) => void
   createLog: () => Promise<void>
   createTask: () => Promise<void>
   createMeeting: () => Promise<void>
