@@ -196,6 +196,9 @@ interface API {
     set: (key: string, value: string) => Promise<void>
     delete: (key: string) => Promise<void>
   }
+  radial: {
+    setEnabled: (enabled: boolean) => Promise<boolean>
+  }
   notification: {
     show: (options: {
       title: string

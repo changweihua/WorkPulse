@@ -140,6 +140,9 @@ const api = {
     set: (key: string, value: string) => ipcRenderer.invoke('settings:set', key, value),
     delete: (key: string) => ipcRenderer.invoke('settings:delete', key)
   },
+  radial: {
+    setEnabled: (enabled: boolean) => ipcRenderer.invoke('radial:set-enabled', enabled),
+  },
   notification: {
     show: (options: {
       title: string

@@ -259,6 +259,10 @@ export function getRadialWindow(): BrowserWindow | null {
   return radialWindow && !radialWindow.isDestroyed() ? radialWindow : null
 }
 
+export function isRadialEnabled(): boolean {
+  return getSetting('radial_enabled') !== '0'
+}
+
 // ─── IPC: renderer → main ───
 
 // 中心按钮点击：展开 / 收起
@@ -332,4 +336,26 @@ ipcMain.handle('radial:navigate-to', (_event, page: string) => {
 
 ipcMain.on('radial:screenshot', () => {
   appBus.emit(RADIAL_SCREENSHOT)
+})
+
+// ─── 悬浮窗开关（设置页实时切换） ───
+
+ipcMain.handle('radial:set-enabled', (_event, enabled: boolean) => {
+  setSetting('radial_enabled', enabled ? '1' : '0')
+  if (enabled) {
+    // 开启：如果窗口不存在则创建，否则显示
+    if (!radialWindow || radialWindow.isDestroyed()) {
+      const main = getMainWindow()
+      if (main) createRadialWindow(main)
+    } else {
+      showRadialWindow()
+    }
+  } else {
+    // 关闭：收起并隐藏
+    if (radialWindow && !radialWindow.isDestroyed()) {
+      if (expanded) collapseRadial()
+      hideRadialWindow()
+    }
+  }
+  return true
 })

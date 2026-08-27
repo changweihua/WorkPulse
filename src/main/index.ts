@@ -932,6 +932,9 @@ app.whenReady().then(async () => {
   })
 
   appBus.on(SHOW_RADIAL, (parent?: BrowserWindow) => {
+    // 检查悬浮窗开关（默认开启）
+    const enabled = getSetting('radial_enabled')
+    if (enabled === '0') return
     const main = parent && !parent.isDestroyed() ? parent : getMainWindow()
     if (main && main.isVisible()) main.hide()
     showRadialWindow()
@@ -946,10 +949,13 @@ app.whenReady().then(async () => {
   createSplashWindow()
 
   createWindow()
-  // 创建径向菜单窗口（默认显示，Meel 架构：创建一次复用）
+  // 创建径向菜单窗口（默认显示，用户可在设置中关闭）
   const mainWin = getMainWindow()
   if (mainWin) {
-    createRadialWindow(mainWin)
+    const radialEnabled = getSetting('radial_enabled')
+    if (radialEnabled !== '0') {
+      createRadialWindow(mainWin)
+    }
   }
   startUpdateCheck()
 

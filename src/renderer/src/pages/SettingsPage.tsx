@@ -516,8 +516,14 @@ function SettingsPage(): ReactNode {
 
   // 切换径向菜单开关
   const handleSaveRadialEnabled = async (enabled: boolean): Promise<void> => {
-    await window.api.settings.set('radial_enabled', enabled ? '1' : '0')
     setRadialEnabled(enabled)
+    try {
+      await window.api.settings.set('radial_enabled', enabled ? '1' : '0')
+      // 通知主进程实时显示/隐藏悬浮窗
+      await window.api.radial?.setEnabled?.(enabled)
+    } catch {
+      setRadialEnabled(!enabled)
+    }
   }
 
   // 保存径向菜单项配置
