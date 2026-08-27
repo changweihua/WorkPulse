@@ -21,8 +21,8 @@ import contextMenu from 'electron-context-menu'
 import { loadDotNet } from './asar-dotnet-loader';
 import fs from 'fs/promises';
 import log from 'electron-log/main';
-import { setMainWindow, hideRadialWindow, toggleRadialWindow, getRadialWindow, createRadialWindow } from './radial-window';
-import { appBus, SHOW_MAIN, SHOW_RADIAL } from './event-bus';
+import { setMainWindow, hideRadialWindow, showRadialWindow, toggleRadialFromShortcut, getRadialWindow, createRadialWindow } from './radial-window';
+import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus';
 import { initNotifications, showNotification, handleProtocolArgv, setProtocolHandler } from './notification';
 
 log.initialize(); // 只需调用一次
@@ -85,11 +85,16 @@ export function reregisterGlobalShortcuts(
   globalShortcut.unregisterAll()
   const { log, task } = getShortcuts(overrides)
 
-  // 径向快捷菜单：Cmd/Ctrl + Shift + Space
+  // 径向快捷菜单：Ctrl + Space（Meel 架构：展开/收起/触发，由主进程驱动）
+  globalShortcut.register('Ctrl+Space', () => {
+    toggleRadialFromShortcut()
+  })
+
+  // 打开主窗口：Cmd/Ctrl + Shift + Space
   globalShortcut.register('CmdOrCtrl+Shift+Space', () => {
     const win = BrowserWindow.getAllWindows()[0]
     if (win) {
-      toggleRadialWindow(win)
+      appBus.emit(SHOW_MAIN)
     }
   })
 
@@ -739,14 +744,13 @@ app.whenReady().then(async () => {
   let screenshotBusy = false
 
   // 开始截图：隐藏径向菜单 → 捕获全屏 → 创建透明覆盖窗口
-  ipcMain.handle('screenshot:start', async () => {
+  async function startScreenshotCapture(): Promise<{ ok: boolean; error?: string }> {
     // Guard against rapid double-click
     if (screenshotBusy) return { ok: false, error: 'Already in progress' }
     screenshotBusy = true
 
     // 1. 隐藏径向菜单（不销毁，便于后续重新显示）
-    const radial = getRadialWindow()
-    if (radial && !radial.isDestroyed()) radial.hide()
+    hideRadialWindow()
 
     // 2. 计算所有显示器的联合边界，使覆盖窗口横跨全部屏幕
     const displays = screen.getAllDisplays()
@@ -824,7 +828,9 @@ app.whenReady().then(async () => {
       win.loadFile(join(__dirname, '../renderer/screenshot-overlay.html'))
     }
     return { ok: true }
-  })
+  }
+
+  ipcMain.handle('screenshot:start', () => startScreenshotCapture())
 
   // 裁剪选定区域：此刻才真正捕获屏幕，按 scaleFactor 换算到设备像素，按 action 决定复制 / 保存 / 两者
   ipcMain.handle('screenshot:crop', async (_event, rect: { x: number; y: number; width: number; height: number }, action: 'copy' | 'save' | 'both' = 'both', full = false) => {
@@ -899,10 +905,7 @@ app.whenReady().then(async () => {
     })
 
     // 重新显示径向菜单（不再发送 screenshot:result，toast 已由系统通知替代）
-    const radial = getRadialWindow()
-    if (radial && !radial.isDestroyed()) {
-      radial.show()
-    }
+    showRadialWindow()
     return { ok: true, file, width: w, height: h }
   })
 
@@ -936,16 +939,13 @@ app.whenReady().then(async () => {
   appBus.on(SHOW_RADIAL, (parent?: BrowserWindow) => {
     const main = parent && !parent.isDestroyed() ? parent : getMainWindow()
     if (main && main.isVisible()) main.hide()
-    const radial = getRadialWindow()
-    if (radial && !radial.isDestroyed()) {
-      radial.show()
-      // show 后重新断言置顶（Windows 透明窗口可能在 hide→show 后丢失）
-      radial.setAlwaysOnTop(true, 'screen-saver')
-    } else if (main) {
-      const newRadial = createRadialWindow(main)
-      // createRadialWindow 内部已设置 setAlwaysOnTop
-      newRadial.show()
-    }
+    // Meel 架构：覆盖光标所在显示器，showInactive + 重新断言置顶
+    showRadialWindow(main ?? undefined)
+  })
+
+  // 径向菜单截图动作（由主进程全局快捷键触发，避免循环依赖）
+  appBus.on(RADIAL_SCREENSHOT, () => {
+    startScreenshotCapture()
   })
 
   // +++++ 在创建主窗口之前，先创建并显示启动窗口 +++++

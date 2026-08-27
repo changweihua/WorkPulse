@@ -12,7 +12,7 @@ interface ImportMeta {
 
 interface RadialApi {
   onShow: (cb: () => void) => void
-  onState: (cb: (info: { expanded: boolean }) => void) => void
+  onState: (cb: (info: { expanded: boolean; anchorX?: number; anchorY?: number }) => void) => void
   createLog: () => Promise<void>
   createTask: () => Promise<void>
   createMeeting: () => Promise<void>
@@ -21,11 +21,6 @@ interface RadialApi {
   onScreenshotResult: (cb: (result: { ok: boolean; file?: string; width?: number; height?: number }) => void) => void
   close: () => Promise<void>
   navigateTo: (page: string) => Promise<boolean>
-  expand: () => void
-  collapse: () => void
-  dragStart: (mouseX: number, mouseY: number) => void
-  dragMove: (mouseX: number, mouseY: number) => void
-  dragEnd: () => void
   onCursor: (cb: (info: { x: number; y: number; dist: number; isOverCenter: boolean }) => void) => void
 }
 
