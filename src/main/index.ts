@@ -759,6 +759,7 @@ app.whenReady().then(async () => {
   let screenshotOverlayWindow: BrowserWindow | null = null
   let screenshotOverlayOrigin = { x: 0, y: 0 }
   let screenshotBusy = false
+  let screenshotDestroyTimer: ReturnType<typeof setTimeout> | null = null
 
   // 开始截图：隐藏径向菜单 → 捕获全屏 → 创建透明覆盖窗口
   async function startScreenshotCapture(): Promise<{ ok: boolean; error?: string }> {
@@ -786,6 +787,11 @@ app.whenReady().then(async () => {
 
     // 3. 创建全屏透明覆盖窗口（先覆盖，稍后选区完成才真正截图）
     if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
+      // REUSE: 清除待销毁定时器
+      if (screenshotDestroyTimer) {
+        clearTimeout(screenshotDestroyTimer)
+        screenshotDestroyTimer = null
+      }
       // REUSE: window already has HTML loaded, just reposition and show
       screenshotOverlayWindow.setBounds({ x: overlayX, y: overlayY, width: overlayW, height: overlayH })
       screenshotOverlayWindow.setAlwaysOnTop(true, 'screen-saver')
@@ -929,6 +935,19 @@ app.whenReady().then(async () => {
     destroyImage(cropped)
     destroyImage(image)
 
+    // 隐藏覆盖窗口（复用 + 延迟销毁）
+    if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
+      screenshotOverlayWindow.hide()
+      if (screenshotDestroyTimer) clearTimeout(screenshotDestroyTimer)
+      screenshotDestroyTimer = setTimeout(() => {
+        if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
+          screenshotOverlayWindow.destroy()
+          screenshotOverlayWindow = null
+        }
+        screenshotDestroyTimer = null
+      }, 3 * 60 * 1000)
+    }
+
     // 重新显示径向菜单（不再发送 screenshot:result，toast 已由系统通知替代）
     if (isRadialEnabled()) {
       showRadialWindow()
@@ -936,11 +955,24 @@ app.whenReady().then(async () => {
     return { ok: true, file, width: w, height: h }
   })
 
-  // 取消截图：隐藏覆盖窗口（保留复用）并恢复径向菜单
+  // 取消截图：立即隐藏覆盖窗口，3 分钟空闲后销毁（保留复用体验 + 释放内存）
   ipcMain.handle('screenshot:cancel', async () => {
     if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
-      screenshotOverlayWindow.destroy()
-      screenshotOverlayWindow = null
+      // 立即隐藏蒙版
+      screenshotOverlayWindow.hide()
+      // 清除可能已存在的定时器
+      if (screenshotDestroyTimer) {
+        clearTimeout(screenshotDestroyTimer)
+        screenshotDestroyTimer = null
+      }
+      // 3 分钟后自动销毁
+      screenshotDestroyTimer = setTimeout(() => {
+        if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
+          screenshotOverlayWindow.destroy()
+          screenshotOverlayWindow = null
+        }
+        screenshotDestroyTimer = null
+      }, 3 * 60 * 1000)
     }
     screenshotBusy = false
     if (isRadialEnabled()) {
