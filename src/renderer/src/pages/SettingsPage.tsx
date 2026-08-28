@@ -204,6 +204,7 @@ function SettingsPage(): ReactNode {
     { key: 'task', label: 'Task', emoji: '📋', enabled: true },
     { key: 'meeting', label: 'Meeting', emoji: '📅', enabled: true },
     { key: 'ai', label: 'AI Generate', emoji: '🤖', enabled: true },
+    { key: 'screenshot', label: 'Screenshot', emoji: '📸', enabled: true },
   ])
 
   useEffect(() => {
@@ -518,8 +519,7 @@ function SettingsPage(): ReactNode {
   const handleSaveRadialEnabled = async (enabled: boolean): Promise<void> => {
     setRadialEnabled(enabled)
     try {
-      await window.api.settings.set('radial_enabled', enabled ? '1' : '0')
-      // 通知主进程实时显示/隐藏悬浮窗
+      // 通知主进程实时显示/隐藏悬浮窗（radial:set-enabled 已持久化设置）
       await window.api.radial?.setEnabled?.(enabled)
     } catch {
       setRadialEnabled(!enabled)
@@ -528,8 +528,13 @@ function SettingsPage(): ReactNode {
 
   // 保存径向菜单项配置
   const handleSaveRadialItems = async (items: typeof radialItems): Promise<void> => {
-    await window.api.settings.set('radial_items', JSON.stringify(items))
-    setRadialItems(items)
+    try {
+      await window.api.settings.set('radial_items', JSON.stringify(items))
+      setRadialItems(items)
+      await window.api.radial?.setConfig?.(items)
+    } catch (err) {
+      console.error('Failed to save radial items:', err)
+    }
   }
 
   const currentVersion = appVersion || updateState.currentVersion || '-'

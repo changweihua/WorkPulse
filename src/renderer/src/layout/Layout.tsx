@@ -46,23 +46,10 @@ export default function Layout() {
                 toast.success(t('settings.updateDownloaded'));
             }
         });
-        // 径向菜单动作：log/task 复用快速创建，meeting 跳日历，ai 跳对话
-        const radialHandler = (_e: unknown, action: unknown): void => {
-            const a = String(action);
-            if (a === 'log' || a === 'task') {
-                setQuickCreate(a);
-            } else if (a === 'meeting') {
-                navigate('/calendar');
-            } else if (a === 'ai') {
-                navigate('/chat');
-            }
-        };
-        window.electron.ipcRenderer.on('radial:action', radialHandler);
         return () => {
             unsubCreate();
             unsubNav();
             unsubUpdate?.();
-            window.electron.ipcRenderer.removeListener('radial:action', radialHandler);
         };
     }, [navigate, toast, t]);
 

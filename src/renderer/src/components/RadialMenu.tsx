@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, type ReactNode } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 
 /* ── 尺寸参数 ── */
@@ -31,6 +31,14 @@ interface RadialItem {
   route: string
 }
 
+const ITEMS: RadialItem[] = [
+  { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, route: 'worklog' },
+  { key: 'task', label: 'Task', emoji: '📋', angle: -18, route: 'kanban' },
+  { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 54, route: 'calendar' },
+  { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 126, route: 'chat' },
+  { key: 'screenshot', label: 'Screenshot', emoji: '📸', angle: 198, route: '' },
+]
+
 /**
  * 混合方案：Meel 原则 + DOM 交互
  *
@@ -43,15 +51,8 @@ interface RadialItem {
 export function RadialMenu(): ReactNode {
   const [hovered, setHovered] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const [config, setConfig] = useState<Record<string, boolean> | null>(null)
   const expandedRef = useRef(false)
-
-  const ITEMS: RadialItem[] = [
-    { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, route: 'worklog' },
-    { key: 'task', label: 'Task', emoji: '📋', angle: -18, route: 'kanban' },
-    { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 54, route: 'calendar' },
-    { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 126, route: 'chat' },
-    { key: 'screenshot', label: 'Screenshot', emoji: '📸', angle: 198, route: '' },
-  ]
 
   const numItems = ITEMS.length
   const segAngle = 360 / numItems
@@ -59,18 +60,29 @@ export function RadialMenu(): ReactNode {
   const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI)
   const iconRadius = (INNER_R + OUTER_R) / 2
 
+  const visibleItems = useMemo(() => {
+    if (!config) return ITEMS
+    return ITEMS.filter((item) => config[item.key] !== false)
+  }, [config])
+
+  // ─── 加载配置（控制哪些扇区可见） ───
+  useEffect(() => {
+    window.radialApi.getConfig().then((cfg) => setConfig(cfg as unknown as Record<string, boolean>))
+  }, [])
+
   // ─── 监听主进程状态（展开/收起） ───
   useEffect(() => {
-    window.radialApi.onState((info) => {
+    const handler = (info: any) => {
       expandedRef.current = info.expanded
       setExpanded(info.expanded)
       if (!info.expanded) setHovered(null)
-    })
+    }
+    return () => { window.radialApi.onState(handler) }
   }, [])
 
   // ─── 光标轮询 hover 高亮（Meel 原则） ───
   useEffect(() => {
-    window.radialApi.onCursor((info) => {
+    const handler = (info: any) => {
       if (!expandedRef.current) {
         setHovered(null)
         return
@@ -95,7 +107,8 @@ export function RadialMenu(): ReactNode {
         }
       }
       setHovered(bestKey)
-    })
+    }
+    return () => { window.radialApi.onCursor(handler) }
   }, [])
 
   // ─── 中心按钮：展开态单击 ✕ 收起，收起态双击展开，单击+拖拽移动 ───
@@ -196,7 +209,7 @@ export function RadialMenu(): ReactNode {
               <stop offset="100%" stopColor="rgba(225,228,234,0.92)" />
             </linearGradient>
           </defs>
-          {ITEMS.map((item) => {
+          {visibleItems.map((item) => {
             const segStart = item.angle - segAngle / 2
             const segEnd = item.angle + segAngle / 2
             const path = describeArc(
@@ -218,7 +231,7 @@ export function RadialMenu(): ReactNode {
         </svg>
 
         {/* 扇区图标 */}
-        {ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const pos = angleToXY(item.angle, iconRadius, CX, CY)
           return (
             <div
@@ -240,7 +253,7 @@ export function RadialMenu(): ReactNode {
           const item = ITEMS.find((it) => it.key === hovered)
           if (!item) return null
           const lang = document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
-          const tipR = INNER_R - 20
+          const tipR = INNER_R + 12
           const tipPos = angleToXY(item.angle, tipR, CX, CY)
           return (
             <motion.div

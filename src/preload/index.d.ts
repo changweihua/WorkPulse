@@ -198,6 +198,9 @@ interface API {
   }
   radial: {
     setEnabled: (enabled: boolean) => Promise<boolean>
+    setConfig?: (items: unknown) => Promise<boolean>
+    getConfig?: () => Promise<unknown>
+    close?: () => Promise<boolean>
   }
   notification: {
     show: (options: {

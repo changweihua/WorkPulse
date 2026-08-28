@@ -21,7 +21,7 @@ import contextMenu from 'electron-context-menu'
 import { loadDotNet } from './asar-dotnet-loader';
 import fs from 'fs/promises';
 import log from 'electron-log/main';
-import { setMainWindow, hideRadialWindow, showRadialWindow, getRadialWindow, createRadialWindow } from './radial-window';
+import { setMainWindow, hideRadialWindow, showRadialWindow, getRadialWindow, createRadialWindow, isRadialEnabled } from './radial-window';
 import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus';
 import { initNotifications, showNotification, handleProtocolArgv, setProtocolHandler } from './notification';
 
@@ -869,7 +869,6 @@ app.whenReady().then(async () => {
       ch = Math.max(1, Math.round(rect.height * sf))
     }
     const cropped = image.crop({ x: cx, y: cy, width: cw, height: ch })
-    image.destroy() // free the full-resolution native memory
 
     let file: string | undefined
 
@@ -901,7 +900,9 @@ app.whenReady().then(async () => {
     })
 
     // 重新显示径向菜单（不再发送 screenshot:result，toast 已由系统通知替代）
-    showRadialWindow()
+    if (isRadialEnabled()) {
+      showRadialWindow()
+    }
     return { ok: true, file, width: w, height: h }
   })
 
@@ -912,9 +913,11 @@ app.whenReady().then(async () => {
     }
     screenshotOverlayWindow = null
     screenshotBusy = false
-    const radial = getRadialWindow()
-    if (radial && !radial.isDestroyed()) {
-      radial.show()
+    if (isRadialEnabled()) {
+      const radial = getRadialWindow()
+      if (radial && !radial.isDestroyed()) {
+        radial.show()
+      }
     }
     return true
   })
@@ -934,8 +937,7 @@ app.whenReady().then(async () => {
 
   appBus.on(SHOW_RADIAL, (parent?: BrowserWindow) => {
     // 检查悬浮窗开关（默认开启）
-    const enabled = getSetting('radial_enabled')
-    if (enabled === '0') return
+    if (!isRadialEnabled()) return
     const main = parent && !parent.isDestroyed() ? parent : getMainWindow()
     if (main && main.isVisible()) main.hide()
     showRadialWindow()
@@ -953,8 +955,7 @@ app.whenReady().then(async () => {
   // 创建径向菜单窗口（默认显示，用户可在设置中关闭）
   const mainWin = getMainWindow()
   if (mainWin) {
-    const radialEnabled = getSetting('radial_enabled')
-    if (radialEnabled !== '0') {
+    if (isRadialEnabled()) {
       createRadialWindow(mainWin)
     }
   }

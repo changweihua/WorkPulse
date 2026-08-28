@@ -3,10 +3,14 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('radialApi', {
   // ── 状态监听（main → renderer） ──
   onState: (cb: (info: { expanded: boolean }) => void) => {
-    ipcRenderer.on('radial:state', (_event, info) => cb(info))
+    const handler = (_event: Electron.IpcRendererEvent, info: unknown) => cb(info as any)
+    ipcRenderer.on('radial:state', handler)
+    return () => { ipcRenderer.removeListener('radial:state', handler) }
   },
   onCursor: (cb: (info: { x: number; y: number; dist: number; isOverCenter: boolean }) => void) => {
-    ipcRenderer.on('radial:cursor', (_event, info) => cb(info))
+    const handler = (_event: Electron.IpcRendererEvent, pos: unknown) => cb(pos as any)
+    ipcRenderer.on('radial:cursor', handler)
+    return () => { ipcRenderer.removeListener('radial:cursor', handler) }
   },
 
   // ── 交互动作（renderer → main） ──
@@ -20,9 +24,6 @@ contextBridge.exposeInMainWorld('radialApi', {
 
   // ── 截图 ──
   startCapture: () => ipcRenderer.invoke('screenshot:start'),
-  onScreenshotResult: (cb: (result: { ok: boolean; file?: string; width?: number; height?: number }) => void) => {
-    ipcRenderer.on('screenshot:result', (_event, result) => cb(result))
-  },
 
   // ── 导航 ──
   navigateTo: (page: string) => ipcRenderer.invoke('radial:navigate-to', page),

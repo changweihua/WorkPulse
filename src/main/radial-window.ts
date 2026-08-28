@@ -40,7 +40,6 @@ function getMainWindow(): BrowserWindow | null {
 // Meel 原则：窗口创建一次复用、focusable:false、alwaysOnTop re-assert、光标轮询
 // 区别：show:true（默认显示）、setShape 点击穿透、DOM 点击/拖拽
 let expanded = false
-let currentHovered: string | null = null
 
 // ─── 光标轮询（Meel 原则） ───
 let cursorPollTimer: ReturnType<typeof setInterval> | null = null
@@ -59,35 +58,11 @@ function startCursorPolling(win: BrowserWindow): void {
     const isOverCenter = dist <= CENTER_R
     if (!win.isVisible()) return  // skip when hidden
     win.webContents.send('radial:cursor', { x: localX, y: localY, dist, isOverCenter })
-    if (expanded) {
-      currentHovered = computeHovered(localX, localY)
-    }
   }, POLL_INTERVAL_MS)
 }
 
 function stopCursorPolling(): void {
   if (cursorPollTimer) { clearInterval(cursorPollTimer); cursorPollTimer = null }
-}
-
-// 根据光标在窗口内的坐标计算命中的扇区
-function computeHovered(localX: number, localY: number): string | null {
-  const dx = localX - CX
-  const dy = localY - CY
-  const dist = Math.sqrt(dx * dx + dy * dy)
-  if (dist < INNER_R || dist > OUTER_R) return null
-  let angle = (Math.atan2(dx, -dy) * 180) / Math.PI
-  if (angle < 0) angle += 360
-  let bestKey: string | null = null
-  let bestDist = Infinity
-  for (const item of RADIAL_ITEMS) {
-    let diff = Math.abs(angle - item.angle)
-    if (diff > 180) diff = 360 - diff
-    if (diff < SEG_ANGLE / 2 && diff < bestDist) {
-      bestDist = diff
-      bestKey = item.key
-    }
-  }
-  return bestKey
 }
 
 // ─── setShape: OS 级点击穿透 ───
@@ -105,7 +80,6 @@ function expandRadial(): void {
   const win = radialWindow
   if (!win || win.isDestroyed()) return
   expanded = true
-  currentHovered = null
   applyShape(win, EXPANDED_R)
   win.webContents.send('radial:state', { expanded: true })
 }
@@ -114,7 +88,6 @@ function collapseRadial(): void {
   const win = radialWindow
   if (!win || win.isDestroyed()) return
   expanded = false
-  currentHovered = null
   applyShape(win, CENTER_R)
   win.webContents.send('radial:state', { expanded: false })
 }
@@ -212,10 +185,15 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
 
   // Re-assert alwaysOnTop（Meel 原则 + 周期性强制置顶）
   // 主窗口可见时隐藏悬浮窗，主窗口隐藏时才置顶
+  let lastMainVisible: boolean | null = null
   const enforceOnTop = (): void => {
+    if (isRadialEnabled() === false) return
     if (radialWindow && !radialWindow.isDestroyed()) {
       const main = getMainWindow()
-      if (main && !main.isDestroyed() && main.isVisible()) {
+      const mainVisible = !!(main && !main.isDestroyed() && main.isVisible())
+      if (mainVisible === lastMainVisible) return
+      lastMainVisible = mainVisible
+      if (mainVisible) {
         // 主窗口可见 → 隐藏悬浮窗
         radialWindow.hide()
       } else {
@@ -230,7 +208,12 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   radialWindow.on('focus', enforceOnTop)
   // 周期性强制置顶（防止其他窗口抢占 z-order）
   const topInterval = setInterval(enforceOnTop, 3000)
-  radialWindow.on('closed', () => { clearInterval(topInterval); stopCursorPolling() })
+  radialWindow.on('closed', () => {
+    clearInterval(topInterval)
+    stopCursorPolling()
+    if (saveTimer) clearTimeout(saveTimer)
+    isDragging = false
+  })
 
   // 位置记忆：拖拽结束后保存
   let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -254,6 +237,7 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
 // ─── 公开 API ───
 
 export function showRadialWindow(): void {
+  if (isRadialEnabled() === false) return
   const win = radialWindow
   if (!win || win.isDestroyed()) return
   win.setAlwaysOnTop(true, 'screen-saver')
@@ -306,7 +290,17 @@ ipcMain.on('radial:drag-start', () => {
 ipcMain.on('radial:drag-move', (_event, dx: number, dy: number) => {
   if (!isDragging || !radialWindow || radialWindow.isDestroyed()) return
   const [x, y] = radialWindow.getPosition()
-  radialWindow.setPosition(x + dx, y + dy)
+  const displays = screen.getAllDisplays()
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const d of displays) {
+    minX = Math.min(minX, d.bounds.x)
+    minY = Math.min(minY, d.bounds.y)
+    maxX = Math.max(maxX, d.bounds.x + d.bounds.width)
+    maxY = Math.max(maxY, d.bounds.y + d.bounds.height)
+  }
+  const clampedX = Math.max(minX, Math.min(x + dx, maxX - 206))
+  const clampedY = Math.max(minY, Math.min(y + dy, maxY - 206))
+  radialWindow.setPosition(clampedX, clampedY)
 })
 
 ipcMain.on('radial:drag-end', () => {
@@ -346,10 +340,6 @@ ipcMain.handle('radial:navigate-to', (_event, page: string) => {
   return true
 })
 
-ipcMain.on('radial:screenshot', () => {
-  appBus.emit(RADIAL_SCREENSHOT)
-})
-
 // ─── 悬浮窗开关（设置页实时切换） ───
 
 ipcMain.handle('radial:set-enabled', (_event, enabled: boolean) => {
@@ -369,5 +359,10 @@ ipcMain.handle('radial:set-enabled', (_event, enabled: boolean) => {
       hideRadialWindow()
     }
   }
+  return true
+})
+
+ipcMain.handle('radial:close', () => {
+  hideRadialWindow()
   return true
 })
