@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+/* Radial segment hover */
+.radial-segment {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.radial-segment:hover {
+  filter: brightness(1.2);
+}
+
+/* Expand animation */
+@keyframes expand {
+  from { clip-path: circle(24px at 50% 50%); }
+  to { clip-path: circle(103px at 50% 50%); }
+}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Html, ContactShadows } from '@react-three/drei'
-import * as THREE from 'three'
+import { Color, Object3D, InstancedMesh, MeshPhysicalMaterial } from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { useI18n } from '../stores/languageStore'
 
@@ -38,7 +38,7 @@ interface Cell {
   x: number
   z: number
   targetHeight: number
-  color: THREE.Color
+  color: Color
   delay: number
   count: number
   date: string
@@ -51,8 +51,8 @@ function Grid({
   cells: Cell[]
   isDark: boolean
 }) {
-  const meshRef = useRef<THREE.InstancedMesh>(null)
-  const dummy = useMemo(() => new THREE.Object3D(), [])
+  const meshRef = useRef<InstancedMesh>(null)
+  const dummy = useMemo(() => new Object3D(), [])
   const [hovered, setHovered] = useState<number | null>(null)
   const startRef = useRef(0)
   const settledRef = useRef(false)
@@ -61,7 +61,7 @@ function Grid({
   const geometry = useMemo(() => new RoundedBoxGeometry(1, 1, 1, 4, 0.12), [])
   const material = useMemo(
     () =>
-      new THREE.MeshPhysicalMaterial({
+      new MeshPhysicalMaterial({
         roughness: 0.32,
         metalness: 0,
         clearcoat: 1,
@@ -205,7 +205,7 @@ export default function ContributionGrid3D({ data }: { data: DailyStats[] }) {
         x: (col - (colCount - 1) / 2) * SPACING,
         z: (row - 3) * SPACING,
         targetHeight,
-        color: new THREE.Color(colorForCell(count, normalizedPosition, isDark)),
+        color: new Color(colorForCell(count, normalizedPosition, isDark)),
         delay: (col + row) * STAGGER,
         count,
         date: formatLocalDate(day.date)

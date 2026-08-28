@@ -17,7 +17,7 @@ const OUTER_R = 94
 const CENTER_R = 24
 const EXPANDED_R = 103 // 展开态可点击半径（= INNER_R + gap + (OUTER_R - INNER_R)/2）
 const SEG_ANGLE = 72
-const POLL_INTERVAL_MS = 8
+const POLL_INTERVAL_MS = 30
 
 // 径向菜单扇区定义（角度与 renderer 严格保持一致）
 const RADIAL_ITEMS = [
@@ -56,7 +56,8 @@ function startCursorPolling(win: BrowserWindow): void {
     const dy = localY - CY
     const dist = Math.sqrt(dx * dx + dy * dy)
     const isOverCenter = dist <= CENTER_R
-    if (!win.isVisible()) return  // skip when hidden
+    // Skip IPC send when window is hidden and not expanded (no cursor tracking needed)
+    if (!win.isVisible() && !expanded) return
     win.webContents.send('radial:cursor', { x: localX, y: localY, dist, isOverCenter })
   }, POLL_INTERVAL_MS)
 }

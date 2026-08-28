@@ -9,7 +9,7 @@ import { getModelsDir } from './model-files'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, getSetting, setSetting, getDatabase } from './db'
 import { registerAttachmentProtocol } from './attachments'
-import { startScheduler } from './scheduler'
+import { startScheduler, stopScheduler } from './scheduler'
 import { registerIpcHandlers } from './ipc'
 import { tMain, type AppLanguage } from './i18n'
 import { configureAutoUpdater, getFullAppVersion, registerUpdateIpc, startUpdateCheck } from './updater'
@@ -286,15 +286,25 @@ function setupContextMenu(window: BrowserWindow): void {
 
 // --- Tray ---
 
-function buildTrayMenu(): Electron.Menu {
+// Cache tray menu icons so they are not recreated (and leaked) on every buildTrayMenu() call
+let cachedMenuIcons: { newLog: Electron.NativeImage; newTask: Electron.NativeImage; show: Electron.NativeImage; quit: Electron.NativeImage } | null = null
+
+function getMenuIcons() {
+  if (cachedMenuIcons) return cachedMenuIcons
   const iconDir = is.dev
     ? join(__dirname, '../../resources')
     : join(process.resourcesPath)
+  cachedMenuIcons = {
+    newLog: nativeImage.createFromPath(join(iconDir, 'menu-new-log.png')).resize({ width: 16, height: 16 }),
+    newTask: nativeImage.createFromPath(join(iconDir, 'menu-new-task.png')).resize({ width: 16, height: 16 }),
+    show: nativeImage.createFromPath(join(iconDir, 'menu-show.png')).resize({ width: 16, height: 16 }),
+    quit: nativeImage.createFromPath(join(iconDir, 'menu-quit.png')).resize({ width: 16, height: 16 }),
+  }
+  return cachedMenuIcons
+}
 
-  const newLogIcon = nativeImage.createFromPath(join(iconDir, 'menu-new-log.png')).resize({ width: 16, height: 16 })
-  const newTaskIcon = nativeImage.createFromPath(join(iconDir, 'menu-new-task.png')).resize({ width: 16, height: 16 })
-  const showIcon = nativeImage.createFromPath(join(iconDir, 'menu-show.png')).resize({ width: 16, height: 16 })
-  const quitIcon = nativeImage.createFromPath(join(iconDir, 'menu-quit.png')).resize({ width: 16, height: 16 })
+function buildTrayMenu(): Electron.Menu {
+  const { newLog: newLogIcon, newTask: newTaskIcon, show: showIcon, quit: quitIcon } = getMenuIcons()
 
   return Menu.buildFromTemplate([
     {
@@ -900,6 +910,14 @@ app.whenReady().then(async () => {
       group: 'workpulse',
     })
 
+    // Release screenshot bitmaps (data already consumed via clipboard/writeFileSync above)
+    const destroyImage = (img: Electron.NativeImage): void => {
+      try { (img as unknown as { destroy(): void }).destroy() } catch {}
+    }
+    destroyImage(source.thumbnail)
+    destroyImage(cropped)
+    destroyImage(image)
+
     // 重新显示径向菜单（不再发送 screenshot:result，toast 已由系统通知替代）
     if (isRadialEnabled()) {
       showRadialWindow()
@@ -977,6 +995,7 @@ app.on('before-quit', () => {
 })
 
 app.on('will-quit', async () => {
+    stopScheduler()
     getDatabase().close()
     globalShortcut.unregisterAll()
 })

@@ -2,8 +2,28 @@ import { useEffect, useState, useRef, useCallback, ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { FadeIn } from '../components/Motion'
 import { Tag, TrendingUp, Calendar, Sparkles } from 'lucide-react'
-import * as echarts from 'echarts'
+import * as echarts from 'echarts/core'
+import { BarChart as EChartsBarChart, PieChart } from 'echarts/charts'
+import {
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  AxisPointerComponent,
+} from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+import type { ECharts } from 'echarts/core'
 import { useI18n } from '../stores/languageStore'
+
+// Register only the echarts modules actually used (tree-shaking)
+echarts.use([
+  EChartsBarChart,
+  PieChart,
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  AxisPointerComponent,
+  CanvasRenderer,
+])
 import type { TranslationKey } from '../lib/i18n'
 import ContributionGrid3D from '../components/ContributionGrid3D'
 
@@ -133,7 +153,7 @@ function StatCard({
 function DonutChart({ logs, tasks }: { logs: number; tasks: number }): ReactNode {
   const { t } = useI18n()
   const chartRef = useRef<HTMLDivElement>(null)
-  const chartInstance = useRef<echarts.ECharts | null>(null)
+  const chartInstance = useRef<ECharts | null>(null)
   const tRef = useRef(t)
   tRef.current = t
   const [isDark, setIsDark] = useState(() =>
@@ -289,7 +309,7 @@ function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
 function CategoryBreakdown({ range }: { range: number }): ReactNode {
   const { t } = useI18n()
   const chartRef = useRef<HTMLDivElement>(null)
-  const chartInstance = useRef<echarts.ECharts | null>(null)
+  const chartInstance = useRef<ECharts | null>(null)
   const tRef = useRef(t)
   tRef.current = t
   const [loading, setLoading] = useState(true)
@@ -461,7 +481,7 @@ function AISummary({ stats }: { stats: Stats }): ReactNode {
 function BarChart({ data }: { data: DailyStats[] }): ReactNode {
   const { t } = useI18n()
   const chartRef = useRef<HTMLDivElement>(null)
-  const chartInstance = useRef<echarts.ECharts | null>(null)
+  const chartInstance = useRef<ECharts | null>(null)
   const tRef = useRef(t)
   tRef.current = t
   const [isDark, setIsDark] = useState(() =>
