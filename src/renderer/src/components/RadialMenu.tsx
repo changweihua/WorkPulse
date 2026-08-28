@@ -192,7 +192,7 @@ export function RadialMenu(): ReactNode {
       <motion.div
         key="radial-content"
         className="absolute inset-0"
-        style={{ width: WIDGET_SIZE, height: WIDGET_SIZE, willChange: 'clip-path', zIndex: 3, pointerEvents: 'none' }}
+        style={{ width: WIDGET_SIZE, height: WIDGET_SIZE, zIndex: 3, pointerEvents: 'none' }}
         initial={{ clipPath: collapsedClip }}
         animate={{ clipPath: expanded ? expandedClip : collapsedClip }}
         transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}

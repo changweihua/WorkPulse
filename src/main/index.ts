@@ -767,6 +767,7 @@ app.whenReady().then(async () => {
     if (screenshotBusy) return { ok: false, error: 'Already in progress' }
     screenshotBusy = true
 
+    try {
     // 1. 隐藏径向菜单（不销毁，便于后续重新显示）
     hideRadialWindow()
 
@@ -851,6 +852,12 @@ app.whenReady().then(async () => {
       win.loadFile(join(__dirname, '../renderer/screenshot-overlay.html'))
     }
     return { ok: true }
+    } catch (err) {
+      // 防止异常导致 screenshotBusy 永久为 true（死锁）
+      screenshotBusy = false
+      console.error('[Screenshot] startScreenshotCapture failed:', err)
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
   }
 
   ipcMain.handle('screenshot:start', () => startScreenshotCapture())
@@ -880,45 +887,64 @@ app.whenReady().then(async () => {
     const source = sources.find((s) => s.display_id === String(target.id)) || sources[0]
     const image = source.thumbnail
 
-    // 3. 计算裁剪区域（设备像素）
-    let cx: number, cy: number, cw: number, ch: number
-    if (full) {
-      cx = 0
-      cy = 0
-      cw = thumbnailSize.width
-      ch = thumbnailSize.height
-    } else {
-      // 选区坐标：窗口局部 → 全局 → 相对显示器 → 设备像素
-      const localX = gx - dx
-      const localY = gy - dy
-      cx = Math.max(0, Math.round(localX * sf))
-      cy = Math.max(0, Math.round(localY * sf))
-      cw = Math.max(1, Math.round(rect.width * sf))
-      ch = Math.max(1, Math.round(rect.height * sf))
+    // Release screenshot bitmaps (data already consumed via clipboard/writeFileSync above)
+    const destroyImage = (img: Electron.NativeImage): void => {
+      try { (img as unknown as { destroy(): void }).destroy() } catch {}
     }
-    const cropped = image.crop({ x: cx, y: cy, width: cw, height: ch })
 
     let file: string | undefined
+    let w = 0
+    let h = 0
 
-    if (action === 'copy' || action === 'both') {
-      // 复制到剪贴板
-      clipboard.writeImage(cropped)
-    }
-    if (action === 'save' || action === 'both') {
-      // 保存到文件
-      const dir = join(homedir(), 'Pictures', 'WorkPulse')
-      mkdirSync(dir, { recursive: true })
-      const f = join(dir, `screenshot-${Date.now()}.png`)
-      writeFileSync(f, cropped.toPNG())
-      file = f
+    try {
+      // 3. 计算裁剪区域（设备像素）
+      let cx: number, cy: number, cw: number, ch: number
+      if (full) {
+        cx = 0
+        cy = 0
+        cw = thumbnailSize.width
+        ch = thumbnailSize.height
+      } else {
+        // 选区坐标：窗口局部 → 全局 → 相对显示器 → 设备像素
+        const localX = gx - dx
+        const localY = gy - dy
+        cx = Math.max(0, Math.round(localX * sf))
+        cy = Math.max(0, Math.round(localY * sf))
+        cw = Math.max(1, Math.round(rect.width * sf))
+        ch = Math.max(1, Math.round(rect.height * sf))
+      }
+      const cropped = image.crop({ x: cx, y: cy, width: cw, height: ch })
+
+      if (action === 'copy' || action === 'both') {
+        // 复制到剪贴板
+        clipboard.writeImage(cropped)
+      }
+      if (action === 'save' || action === 'both') {
+        // 保存到文件
+        const dir = join(homedir(), 'Pictures', 'WorkPulse')
+        mkdirSync(dir, { recursive: true })
+        const f = join(dir, `screenshot-${Date.now()}.png`)
+        writeFileSync(f, cropped.toPNG())
+        file = f
+      }
+
+      w = cropped.getSize().width
+      h = cropped.getSize().height
+
+      destroyImage(cropped)
+    } finally {
+      // Fix 1: image IS source.thumbnail — never destroy it twice.
+      // Fix 5: also release the other (unused) source thumbnails.
+      destroyImage(source.thumbnail)
+      for (const s of sources) {
+        if (s !== source) destroyImage(s.thumbnail)
+      }
     }
 
     // 不清空忙碌标记：由渲染层在展示提示后调用 cancel() 关闭窗口并恢复径向菜单
     screenshotBusy = false
 
     // 系统通知替代 overlay/radial 内的 toast（避免重复提示）
-    const w = cropped.getSize().width
-    const h = cropped.getSize().height
     const actionLabel = action === 'copy' ? '已复制到剪贴板' : action === 'save' ? `已保存到 ${file ?? '文件'}` : `已复制并保存`
     showNotification({
       title: '截图完成',
@@ -926,14 +952,6 @@ app.whenReady().then(async () => {
       tag: 'screenshot-result',
       group: 'workpulse',
     })
-
-    // Release screenshot bitmaps (data already consumed via clipboard/writeFileSync above)
-    const destroyImage = (img: Electron.NativeImage): void => {
-      try { (img as unknown as { destroy(): void }).destroy() } catch {}
-    }
-    destroyImage(source.thumbnail)
-    destroyImage(cropped)
-    destroyImage(image)
 
     // 隐藏覆盖窗口（复用 + 延迟销毁）
     if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
@@ -945,7 +963,7 @@ app.whenReady().then(async () => {
           screenshotOverlayWindow = null
         }
         screenshotDestroyTimer = null
-      }, 3 * 60 * 1000)
+      }, 30 * 1000)
     }
 
     // 重新显示径向菜单（不再发送 screenshot:result，toast 已由系统通知替代）
@@ -965,14 +983,14 @@ app.whenReady().then(async () => {
         clearTimeout(screenshotDestroyTimer)
         screenshotDestroyTimer = null
       }
-      // 3 分钟后自动销毁
+      // 30 秒后自动销毁
       screenshotDestroyTimer = setTimeout(() => {
         if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
           screenshotOverlayWindow.destroy()
           screenshotOverlayWindow = null
         }
         screenshotDestroyTimer = null
-      }, 3 * 60 * 1000)
+      }, 30 * 1000)
     }
     screenshotBusy = false
     if (isRadialEnabled()) {

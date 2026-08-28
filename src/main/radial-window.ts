@@ -189,6 +189,7 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   let lastMainVisible: boolean | null = null
   const enforceOnTop = (): void => {
     if (isRadialEnabled() === false) return
+    if (!radialWindow || radialWindow.isDestroyed() || !radialWindow.isVisible()) return
     if (radialWindow && !radialWindow.isDestroyed()) {
       const main = getMainWindow()
       const mainVisible = !!(main && !main.isDestroyed() && main.isVisible())
@@ -244,12 +245,14 @@ export function showRadialWindow(): void {
   win.setAlwaysOnTop(true, 'screen-saver')
   win.show()
   win.moveTop()
+  startCursorPolling(win)
 }
 
 export function hideRadialWindow(): void {
   if (radialWindow && !radialWindow.isDestroyed()) {
     radialWindow.hide()
   }
+  stopCursorPolling()
 }
 
 export function getRadialWindow(): BrowserWindow | null {
