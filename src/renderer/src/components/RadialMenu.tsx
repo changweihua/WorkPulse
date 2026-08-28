@@ -113,58 +113,66 @@ export function RadialMenu(): ReactNode {
     return cleanup
   }, [])
 
-  // ─── 中心按钮：展开态单击 ✕ 收起，收起态双击展开，单击+拖拽移动 ───
+  // ─── 中心按钮：mousedown/mouseup 交互，5px 阈值区分点击与拖拽 ───
+  // 收起态：移动 >5px 拖拽窗口，≤5px 展开；展开态 ✕：≤5px 收起，>5px 无操作 ───
   const isDraggingRef = useRef(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
   const handleCenterMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    // 展开态 ✕ 按钮不可拖动，只做收起
-    if (expandedRef.current) return
 
-    isDraggingRef.current = false
-    window.radialApi.dragStart()
+    const startX = e.clientX
+    const startY = e.clientY
+    let totalDist = 0
+    const isExpanded = expandedRef.current
+
+    // 收起态：开始拖拽跟踪；展开态：✕ 按钮不可拖动
+    if (!isExpanded) {
+      isDraggingRef.current = false
+      window.radialApi.dragStart()
+    }
 
     const onMouseMove = (me: MouseEvent) => {
-      if (Math.abs(me.movementX) > 2 || Math.abs(me.movementY) > 2) {
-        if (!isDraggingRef.current) {
-          isDraggingRef.current = true
-          // 设在根元素 + document.documentElement 上，确保透明窗口也生效
-          if (rootRef.current) rootRef.current.style.cursor = 'move'
-          document.documentElement.style.cursor = 'move'
-          document.body.style.cursor = 'move'
-          document.body.style.userSelect = 'none'
+      if (!isExpanded) {
+        if (Math.abs(me.movementX) > 2 || Math.abs(me.movementY) > 2) {
+          if (!isDraggingRef.current) {
+            isDraggingRef.current = true
+            // 设在根元素 + document.documentElement 上，确保透明窗口也生效
+            if (rootRef.current) rootRef.current.style.cursor = 'move'
+            document.documentElement.style.cursor = 'move'
+            document.body.style.cursor = 'move'
+            document.body.style.userSelect = 'none'
+          }
         }
+        window.radialApi.dragMove(me.movementX, me.movementY)
       }
-      window.radialApi.dragMove(me.movementX, me.movementY)
+      totalDist += Math.sqrt(me.movementX * me.movementX + me.movementY * me.movementY)
     }
     const onMouseUp = () => {
       if (rootRef.current) rootRef.current.style.cursor = ''
       document.documentElement.style.cursor = ''
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
-      window.radialApi.dragEnd()
+
+      if (!isExpanded) {
+        window.radialApi.dragEnd()
+        // 收起态：移动超过阈值视为拖拽，否则视为单击展开
+        if (totalDist <= 5) {
+          window.radialApi.centerClick()
+        }
+      } else {
+        // 展开态：✕ 按钮不可拖动，仅单击（未拖动）时收起
+        if (totalDist <= 5) {
+          window.radialApi.centerClick()
+        }
+      }
+
       document.removeEventListener('mousemove', onMouseMove)
       document.removeEventListener('mouseup', onMouseUp)
     }
     document.addEventListener('mousemove', onMouseMove)
     document.addEventListener('mouseup', onMouseUp)
-  }, [])
-
-  // 单击：展开态 → 收起（✕ 按钮）；收起态 → 无操作
-  const handleCenterClick = useCallback(() => {
-    if (isDraggingRef.current) return
-    if (expandedRef.current) {
-      window.radialApi.centerClick()
-    }
-  }, [])
-
-  // 双击：收起态 → 展开
-  const handleCenterDoubleClick = useCallback(() => {
-    if (!expandedRef.current) {
-      window.radialApi.centerClick()
-    }
   }, [])
 
   // ─── 扇区点击 ───
@@ -305,8 +313,6 @@ export function RadialMenu(): ReactNode {
             cursor: expanded ? 'pointer' : 'grab',
             transition: 'transform 0.15s ease, background 0.2s ease',
           } as React.CSSProperties}
-          onClick={handleCenterClick}
-          onDoubleClick={handleCenterDoubleClick}
           onMouseDown={handleCenterMouseDown}
         >
           <AnimatePresence mode="wait" initial={false}>
