@@ -1,5 +1,6 @@
-import { Notification, net } from 'electron'
+import { net } from 'electron'
 import log from 'electron-log/main'
+import { showNotification } from './notification'
 
 /** Bark 推送（iOS），BARK_KEY 通过环境变量或项目 .env 提供；可选 BARK_SERVER 自建服务地址 */
 async function pushBark(title: string, body: string): Promise<void> {
@@ -37,13 +38,12 @@ export interface NotifyOptions {
 export function sendNotification(opts: NotifyOptions): void {
   try {
     log.info(`[notifier] 发送通知: ${opts.title} / ${opts.body}`)
-    const notification = new Notification({
+    showNotification({
       title: opts.title,
       body: opts.body,
       silent: false,
+      onClick: opts.onClick
     })
-    if (opts.onClick) notification.on('click', opts.onClick)
-    notification.show()
     void pushBark(opts.title, opts.body)
   } catch (err) {
     log.error('[notifier] sendNotification failed:', err)

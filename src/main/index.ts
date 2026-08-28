@@ -23,7 +23,7 @@ import fs from 'fs/promises';
 import log from 'electron-log/main';
 import { setMainWindow, hideRadialWindow, showRadialWindow, getRadialWindow, createRadialWindow, isRadialEnabled } from './radial-window';
 import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus';
-import { initNotifications, showNotification, handleProtocolArgv, setProtocolHandler } from './notification';
+import { initNotifications, showNotification, handleProtocolArgv, setProtocolHandler, setTray } from './notification';
 
 log.initialize(); // 只需调用一次
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'info';
@@ -353,6 +353,7 @@ function createTray(): void {
   tray = new Tray(icon)
   tray.setToolTip('WorkPulse')
   tray.setContextMenu(buildTrayMenu())
+  setTray(tray)
 
   // Click on tray icon shows/focuses the main window (hides radial menu)
   tray.on('click', () => {

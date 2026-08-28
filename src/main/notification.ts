@@ -6,7 +6,7 @@
  *
  * API: Notification.show({ title, body, group?, tag?, urgency?, silent?, onClick? })
  */
-import { Notification, app, nativeImage, BrowserWindow } from 'electron'
+import { Notification, Tray, app, nativeImage, BrowserWindow } from 'electron'
 import path from 'path'
 import log from 'electron-log/main'
 
@@ -14,6 +14,26 @@ const APP_PROTOCOL = 'workpulse'
 
 /** 自定义协议激活处理器（由 main/index.ts 注入） */
 let onProtocolAction: ((url: string) => void) | null = null
+
+/** Tray 引用（用于 Windows 气泡通知） */
+let trayRef: Tray | null = null
+
+/**
+ * 设置 Tray 引用（必须在 createTray() 之后调用）
+ * 用于 Windows 平台 displayBalloon() 气泡通知
+ */
+export function setTray(tray: Tray): void {
+  trayRef = tray
+  // 注册 balloon 事件
+  tray.on('balloon-click', () => {
+    log.info('[Notification] Balloon clicked')
+    onProtocolAction?.(`${APP_PROTOCOL}://notify?action=balloon-click`)
+  })
+  tray.on('balloon-closed', () => {
+    log.info('[Notification] Balloon closed')
+  })
+  log.info('[Notification] Tray reference set for balloon notifications')
+}
 
 /**
  * 注册 workpulse:// 自定义协议
@@ -123,16 +143,32 @@ export function showNotification(options: NotifyOptions): Notification | null {
     icon
   } = options
 
-  // Windows: 使用 toastXml 获取完整控制
+  // Windows: 优先使用 Tray 气泡通知（靠近托盘图标，体验更好）
   if (process.platform === 'win32') {
+    // 有 Tray 引用 → 气泡通知
+    if (trayRef) {
+      log.info(`[Notification] Balloon: ${title} / ${body}`)
+      trayRef.displayBalloon({
+        iconType: 'info',
+        title,
+        content: body,
+        noSound: silent,
+        respectQuietTime: true
+      })
+      // 气泡点击回调通过 balloon-click 事件触发
+      if (onClick) {
+        trayRef.once('balloon-click', onClick)
+      }
+      return null
+    }
+
+    // 无 Tray 引用 → 回退 toastXml
     const tagAttr = tag ? ` tag="${escapeXml(tag)}"` : ''
     const groupAttr = group ? ` group="${escapeXml(group)}"` : ''
-    const urgencyMap = { low: 'low', normal: 'default', critical: 'urgent' }
     const scenario = urgency === 'critical' ? ' scenario="alarm"' : ''
 
     const launchUrl = `${APP_PROTOCOL}://notify?action=click&tag=${encodeURIComponent(tag || '')}`
 
-    // 构建 XML
     let iconXml = ''
     if (icon) {
       const iconPath = icon.startsWith('file://') ? icon : `file:///${icon.replace(/\\/g, '/')}`
@@ -150,15 +186,8 @@ export function showNotification(options: NotifyOptions): Notification | null {
   </visual>
 </toast>`.trim()
 
-    const notification = new Notification({
-      toastXml,
-      silent
-    })
-
-    if (onClick) {
-      notification.on('click', onClick)
-    }
-
+    const notification = new Notification({ toastXml, silent })
+    if (onClick) notification.on('click', onClick)
     notification.show()
     return notification
   }
