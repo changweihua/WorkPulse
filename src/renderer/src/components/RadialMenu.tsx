@@ -263,7 +263,7 @@ export function RadialMenu(): ReactNode {
           const item = ITEMS.find((it) => it.key === hovered)
           if (!item) return null
           const lang = document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
-          const tipR = INNER_R + 12
+          const tipR = CENTER_R + 12
           const tipPos = angleToXY(item.angle, tipR, CX, CY)
           return (
             <motion.div
