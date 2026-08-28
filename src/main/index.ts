@@ -29,6 +29,9 @@ log.initialize(); // 只需调用一次
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'info';
 log.transports.file.level = 'info';
 
+// Limit V8 heap to prevent memory bloat (must be set before app.whenReady())
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
+
 const appTitle = process.env.VITE_APP_TITLE || 'WorkPulse'
 console.log('[Main] 🟢 主进程已启动！');
 
@@ -635,15 +638,22 @@ if (!gotTheLock) {
 
 // --- Bootstrap ---
 let dotnetLib: any = null;
-app.whenReady().then(async () => {
-  // 加载 .NET
-  try {
-    dotnetLib = await loadDotNet();
-    console.log('✅ .NET 已加载');
-  } catch (err) {
-    console.error('⚠️ .NET 加载失败', err);
-  }
+let dotnetLoaded = false;
 
+// 懒加载 .NET：仅在首次使用时（say-hello）才加载，避免启动期内存占用
+async function ensureDotNet(): Promise<void> {
+  if (!dotnetLoaded) {
+    try {
+      dotnetLib = await loadDotNet();
+      console.log('✅ .NET 已加载');
+    } catch (err) {
+      console.error('⚠️ .NET 加载失败', err);
+    }
+    dotnetLoaded = true;
+  }
+}
+
+app.whenReady().then(async () => {
   // 模型本地缓存协议：appmodel://models/<modelId>/resolve/main/<file>
   registerAttachmentProtocol()
   protocol.handle('appmodel', async (request) => {
@@ -694,6 +704,7 @@ app.whenReady().then(async () => {
 
   // 注册 IPC
   ipcMain.handle('say-hello', async (_, name: string) => {
+    await ensureDotNet();
     if (!dotnetLib || !dotnetLib.NativeBridge) {
       throw new Error('.NET 未就绪');
     }
@@ -928,7 +939,8 @@ app.whenReady().then(async () => {
   // 取消截图：隐藏覆盖窗口（保留复用）并恢复径向菜单
   ipcMain.handle('screenshot:cancel', async () => {
     if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
-      screenshotOverlayWindow.hide()
+      screenshotOverlayWindow.destroy()
+      screenshotOverlayWindow = null
     }
     screenshotBusy = false
     if (isRadialEnabled()) {
@@ -958,6 +970,10 @@ app.whenReady().then(async () => {
     if (!isRadialEnabled()) return
     const main = parent && !parent.isDestroyed() ? parent : getMainWindow()
     if (main && main.isVisible()) main.hide()
+    // Create radial window on first use if not already created
+    if (!getRadialWindow()) {
+      if (main) createRadialWindow(main)
+    }
     showRadialWindow()
   })
 
@@ -970,13 +986,6 @@ app.whenReady().then(async () => {
   createSplashWindow()
 
   createWindow()
-  // 创建径向菜单窗口（默认显示，用户可在设置中关闭）
-  const mainWin = getMainWindow()
-  if (mainWin) {
-    if (isRadialEnabled()) {
-      createRadialWindow(mainWin)
-    }
-  }
   startUpdateCheck()
 
   app.on('activate', () => {
