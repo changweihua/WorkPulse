@@ -77,7 +77,8 @@ export function RadialMenu(): ReactNode {
       setExpanded(info.expanded)
       if (!info.expanded) setHovered(null)
     }
-    return () => { window.radialApi.onState(handler) }
+    const cleanup = window.radialApi.onState(handler)
+    return cleanup
   }, [])
 
   // ─── 光标轮询 hover 高亮（Meel 原则） ───
@@ -108,7 +109,8 @@ export function RadialMenu(): ReactNode {
       }
       setHovered(bestKey)
     }
-    return () => { window.radialApi.onCursor(handler) }
+    const cleanup = window.radialApi.onCursor(handler)
+    return cleanup
   }, [])
 
   // ─── 中心按钮：展开态单击 ✕ 收起，收起态双击展开，单击+拖拽移动 ───
