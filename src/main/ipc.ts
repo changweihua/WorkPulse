@@ -20,6 +20,7 @@ import {
   deleteSetting,
   addTask,
   getTasks,
+  getTaskById,
   updateTask,
   deleteTask,
   reorderTasks,
@@ -168,7 +169,7 @@ export function registerIpcHandlers(): void {
       id: number,
       updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'position' | 'due_date'>>
     ) => {
-      const prevStatus = getTasks().find((t) => t.id === id)?.status
+      const prevStatus = getTaskById(id)?.status
       const task = updateTask(id, updates)
       if (task && updates.status === 'done' && prevStatus !== 'done') {
         sendNotification({ title: '任务完成', body: task.title })

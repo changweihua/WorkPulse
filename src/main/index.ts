@@ -7,7 +7,7 @@ import { homedir } from 'os'
 import { Readable } from 'stream'
 import { getModelsDir } from './model-files'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { initDatabase, getSetting, setSetting } from './db'
+import { initDatabase, getSetting, setSetting, getDatabase } from './db'
 import { registerAttachmentProtocol } from './attachments'
 import { startScheduler } from './scheduler'
 import { registerIpcHandlers } from './ipc'
@@ -869,6 +869,7 @@ app.whenReady().then(async () => {
       ch = Math.max(1, Math.round(rect.height * sf))
     }
     const cropped = image.crop({ x: cx, y: cy, width: cw, height: ch })
+    image.destroy() // free the full-resolution native memory
 
     let file: string | undefined
 
@@ -907,9 +908,9 @@ app.whenReady().then(async () => {
   // 取消截图：关闭覆盖窗口并恢复径向菜单
   ipcMain.handle('screenshot:cancel', async () => {
     if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
-      screenshotOverlayWindow.hide()
+      screenshotOverlayWindow.destroy()
     }
-    // Do NOT set screenshotOverlayWindow = null — keep reference for reuse
+    screenshotOverlayWindow = null
     screenshotBusy = false
     const radial = getRadialWindow()
     if (radial && !radial.isDestroyed()) {
@@ -975,6 +976,7 @@ app.on('before-quit', () => {
 })
 
 app.on('will-quit', async () => {
+    getDatabase().close()
     globalShortcut.unregisterAll()
 })
 

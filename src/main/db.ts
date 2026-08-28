@@ -351,8 +351,13 @@ export function addTask(title: string, description = '', status: 'todo' | 'draft
 }
 
 export function getTasks(): Task[] {
-  const stmt = db.prepare('SELECT * FROM tasks ORDER BY position ASC')
+  const stmt = db.prepare('SELECT * FROM tasks ORDER BY position ASC LIMIT 50000')
   return stmt.all() as Task[]
+}
+
+export function getTaskById(id: number): Task | null {
+  const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as Task | undefined
+  return row ?? null
 }
 
 export function updateTask(
@@ -594,7 +599,7 @@ export function generateWeeklyReport(startDate: string, endDate: string): Weekly
 }
 
 export function getAllWorkLogs(): WorkLog[] {
-  return db.prepare('SELECT * FROM work_logs ORDER BY created_at DESC').all() as WorkLog[]
+  return db.prepare('SELECT * FROM work_logs ORDER BY created_at DESC LIMIT 50000').all() as WorkLog[]
 }
 
 export function getCategories(): string[] {

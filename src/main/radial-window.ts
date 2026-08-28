@@ -57,6 +57,7 @@ function startCursorPolling(win: BrowserWindow): void {
     const dy = localY - CY
     const dist = Math.sqrt(dx * dx + dy * dy)
     const isOverCenter = dist <= CENTER_R
+    if (!win.isVisible()) return  // skip when hidden
     win.webContents.send('radial:cursor', { x: localX, y: localY, dist, isOverCenter })
     if (expanded) {
       currentHovered = computeHovered(localX, localY)

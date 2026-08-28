@@ -14,9 +14,37 @@ const REMOTE_HOST = 'https://hf-mirror.com/';
 const LOCAL_HOST = 'appmodel://models/';
 
 // ---------- 模块级 pipeline 缓存（worker 内跨调用复用） ----------
+// 使用 LRU 策略，最多保留 2 个模型，避免切换模型时旧模型常驻导致内存泄漏
+const MAX_CACHED_MODELS = 2;
 const pipelineCache = new Map<string, any>();
 const cacheKey = (task: string, modelId: string, dtype: string, device: string) =>
     `${task}|${modelId}|${dtype}|${device}`;
+
+// 取缓存并把命中项移到末尾（最近使用）
+function getFromCache(key: string): any | undefined {
+    if (!pipelineCache.has(key)) return undefined;
+    const value = pipelineCache.get(key)!;
+    pipelineCache.delete(key);
+    pipelineCache.set(key, value);
+    return value;
+}
+
+// 写入缓存，容量满时淘汰最旧（Map 首部）的模型并 dispose 释放显存/内存
+function putInCache(key: string, value: any): void {
+    if (pipelineCache.has(key)) pipelineCache.delete(key);
+    if (pipelineCache.size >= MAX_CACHED_MODELS) {
+        const oldest = pipelineCache.keys().next().value;
+        if (oldest) {
+            const oldPipeline = pipelineCache.get(oldest);
+            if (oldPipeline && typeof oldPipeline.dispose === 'function') {
+                oldPipeline.dispose();
+            }
+            pipelineCache.delete(oldest);
+            console.log(`[HF Worker] Evicted cached model: ${oldest}`);
+        }
+    }
+    pipelineCache.set(key, value);
+}
 
 // ---------- Worker 作用域类型兼容（避免引入 webworker lib 与 DOM lib 冲突） ----------
 const ctx = self as unknown as Worker;
@@ -59,7 +87,7 @@ async function handleLoad(msg: LoadMsg) {
     const key = cacheKey(task, modelId, dtype, device);
 
     // 缓存命中：直接复用已加载的模型，不重复拉取
-    if (pipelineCache.has(key)) {
+    if (getFromCache(key)) {
         ctx.postMessage({ type: 'loaded', rid });
         return;
     }
@@ -89,7 +117,7 @@ async function handleLoad(msg: LoadMsg) {
                 }
             },
         });
-        pipelineCache.set(key, pipe);
+        putInCache(key, pipe);
         ctx.postMessage({ type: 'loaded', rid });
     } catch (err) {
         ctx.postMessage({ type: 'error', rid, message: (err as Error)?.message || String(err) });
@@ -99,7 +127,7 @@ async function handleLoad(msg: LoadMsg) {
 // ---------- 文本生成（流式 token） ----------
 async function handleGenerate(msg: GenerateMsg) {
     const { rid, task, modelId, dtype, device, prompt, options } = msg;
-    const pipe = pipelineCache.get(cacheKey(task, modelId, dtype, device));
+    const pipe = getFromCache(cacheKey(task, modelId, dtype, device));
     if (!pipe) {
         ctx.postMessage({ type: 'error', rid, message: '模型未加载' });
         return;
@@ -129,7 +157,7 @@ async function handleGenerate(msg: GenerateMsg) {
 // ---------- 图像识别（OCR，支持流式 token） ----------
 async function handleRecognize(msg: RecognizeMsg) {
     const { rid, task, modelId, dtype, device, imageData, options } = msg;
-    const pipe = pipelineCache.get(cacheKey(task, modelId, dtype, device));
+    const pipe = getFromCache(cacheKey(task, modelId, dtype, device));
     if (!pipe) {
         ctx.postMessage({ type: 'error', rid, message: '模型未加载' });
         return;
