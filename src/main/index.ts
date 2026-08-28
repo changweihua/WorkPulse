@@ -906,12 +906,11 @@ app.whenReady().then(async () => {
     return { ok: true, file, width: w, height: h }
   })
 
-  // 取消截图：关闭覆盖窗口并恢复径向菜单
+  // 取消截图：隐藏覆盖窗口（保留复用）并恢复径向菜单
   ipcMain.handle('screenshot:cancel', async () => {
     if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
-      screenshotOverlayWindow.destroy()
+      screenshotOverlayWindow.hide()
     }
-    screenshotOverlayWindow = null
     screenshotBusy = false
     if (isRadialEnabled()) {
       const radial = getRadialWindow()
