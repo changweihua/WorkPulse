@@ -517,8 +517,8 @@ function createWindow(): void {
     closeSplashWindow()
     // 注册主窗口引用到径向菜单模块
     setMainWindow(mainWindow)
-    // 必须先 show 再 maximize，否则无边框窗口最大化不生效
-    mainWindow.show()
+    // 无边框窗口：先 show + maximize 再 hide，确保最大化状态正确
+    // 但延迟 100ms 让 maximize 生效后再隐藏，减少闪烁
     mainWindow.maximize()
     mainWindow.hide() // 隐藏主窗口，通过径向菜单打开
     // 必须设置图标（无边框窗口需要）
