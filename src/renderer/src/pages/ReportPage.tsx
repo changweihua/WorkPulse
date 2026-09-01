@@ -262,7 +262,7 @@ function ReportPage(): ReactNode {
                     onClick={() => applyPreset(p.value)}
                     className={`px-4 py-2 text-sm rounded-lg transition-all btn-bounce ${
                       preset === p.value
-                        ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-fluent'
+                        ? 'bg-blue-600 text-white shadow-fluent'
                         : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                     }`}
                   >
@@ -349,11 +349,11 @@ function ReportPage(): ReactNode {
                 </div>
                 <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg p-0.5">
                   <button onClick={() => setEditing(false)}
-                    className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${!editing ? 'surface-card rounded-xl text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'}`}>
+                    className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${!editing ? 'surface-card rounded-xl text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'}`}>
                     <Eye className="w-3.5 h-3.5" />{t('report.preview')}
                   </button>
                   <button onClick={() => setEditing(true)}
-                    className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${editing ? 'surface-card rounded-xl text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'}`}>
+                    className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${editing ? 'surface-card rounded-xl text-blue-600 dark:text-blue-400 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'}`}>
                     <Pencil className="w-3.5 h-3.5" />{t('report.edit')}
                   </button>
                 </div>
@@ -370,7 +370,7 @@ function ReportPage(): ReactNode {
 
               <div className="surface-elevated rounded-xl p-2 flex flex-wrap gap-2 mt-3 shrink-0">
                 <button onClick={handleCopy}
-                  className="flex items-center gap-2 px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors btn-bounce">
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors btn-bounce">
                   {copied ? <><Check className="w-4 h-4" />{t('report.copiedState')}</> : <><Copy className="w-4 h-4" />{t('report.copy')}</>}
                 </button>
                 <button
@@ -450,7 +450,7 @@ function ReportPage(): ReactNode {
                   const isActive = report.id === activeId
                   return (
                     <button key={report.id} onClick={() => handleViewReport(report)}
-                      className={`w-full text-left p-3 rounded-lg transition-all ${isActive ? 'bg-zinc-900/[0.06] dark:bg-zinc-100/[0.08] ring-1 ring-zinc-900/10 dark:ring-zinc-100/20' : 'hover:bg-zinc-500/[0.06] dark:hover:bg-zinc-100/[0.04]'}`}>
+                      className={`w-full text-left p-3 rounded-lg transition-all ${isActive ? 'bg-blue-500/[0.06] dark:bg-blue-400/[0.08] ring-1 ring-blue-500/10 dark:ring-blue-400/20' : 'hover:bg-zinc-500/[0.06] dark:hover:bg-zinc-100/[0.04]'}`}>
                       <div className="flex items-center gap-2">
                         <FileText className={`w-4 h-4 shrink-0 ${isActive ? 'text-zinc-700 dark:text-zinc-200' : 'text-zinc-400'}`} />
                         <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate">{report.date_from} {t('common.to')} {report.date_to}</span>

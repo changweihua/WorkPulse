@@ -146,7 +146,7 @@ export default function NavLayout() {
                 className={`relative px-3 py-1.5 text-sm rounded-lg outline-none whitespace-nowrap
                             transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-sky-500/70 ${
                     isActive
-                        ? 'bg-zinc-900/85 text-white font-medium shadow-sm ring-1 ring-white/10 dark:bg-white/15 dark:text-zinc-50'
+                        ? 'bg-blue-500/15 text-blue-600 font-medium ring-1 ring-blue-500/20 dark:bg-blue-500/20 dark:text-blue-400 dark:ring-blue-500/25'
                         : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-zinc-50'
                 }`}
             >

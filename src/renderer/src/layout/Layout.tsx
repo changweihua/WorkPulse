@@ -92,7 +92,7 @@ export default function Layout() {
             <Link
                 to={`/${path}`}
                 className={`px-3 py-1.5 text-sm rounded-md transition-all duration-200 ${isActive
-                        ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 tab-active'
+                        ? 'bg-blue-500/15 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 tab-active'
                         : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:scale-[1.02]'
                     }`}
             >

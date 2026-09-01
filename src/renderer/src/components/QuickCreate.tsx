@@ -88,7 +88,7 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
             onClick={() => { setMode('log'); setValue('') }}
             className={`flex items-center gap-2 px-4 py-3 text-sm flex-1 transition-colors ${
               mode === 'log'
-                ? 'text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 border-b-2 border-zinc-900 dark:border-zinc-100'
+                ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/10 border-b-2 border-blue-600 dark:border-blue-400'
                 : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
             }`}
           >
@@ -99,7 +99,7 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
             onClick={() => { setMode('task'); setValue('') }}
             className={`flex items-center gap-2 px-4 py-3 text-sm flex-1 transition-colors ${
               mode === 'task'
-                ? 'text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800 border-b-2 border-zinc-900 dark:border-zinc-100'
+                ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/10 border-b-2 border-blue-600 dark:border-blue-400'
                 : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
             }`}
           >
@@ -118,7 +118,7 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
             onKeyDown={handleKeyDown}
             placeholder={mode === 'log' ? t('quick.logPlaceholder') : t('quick.taskPlaceholder')}
             disabled={submitting}
-            className="w-full px-3 py-2.5 text-base border border-zinc-300 dark:border-zinc-600 rounded-lg outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100 disabled:opacity-50"
+            className="w-full px-3 py-2.5 text-base border border-zinc-300 dark:border-zinc-600 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-400/30 surface-input dark:text-zinc-100 disabled:opacity-50"
           />
           <div className="flex items-center justify-between mt-3">
             <span className="text-xs text-zinc-400">
@@ -127,7 +127,7 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
             <button
               onClick={handleSubmit}
               disabled={!value.trim() || submitting}
-              className="px-4 py-1.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-sm rounded-md hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-40 transition-all btn-bounce"
+              className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-40 transition-all btn-bounce"
             >
               {mode === 'log' ? t('quick.submitLog') : t('common.add')}
             </button>

@@ -74,7 +74,7 @@ function ShortcutCapture({
       onKeyDown={capturing ? handleKeyDown : undefined}
       className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-mono transition-all outline-none
         ${capturing
-          ? 'border-zinc-500 ring-2 ring-zinc-200 dark:ring-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
+          ? 'border-zinc-500 ring-2 ring-blue-500/30 dark:ring-blue-400/30 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
           : 'border-zinc-300 dark:border-zinc-600 surface-input text-zinc-700 dark:text-zinc-300 hover:border-zinc-400 cursor-pointer'
         }`}
     >
@@ -850,7 +850,7 @@ function SettingsPage(): ReactNode {
                     title={t(labelKey)}
                     aria-label={t(labelKey)}
                     className={`w-8 h-8 rounded-full transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 ${
-                      accent === id ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 ring-offset-2 ring-offset-white dark:ring-offset-zinc-900 scale-110' : ''
+                      accent === id ? 'ring-2 ring-blue-600 dark:ring-blue-400 ring-offset-2 ring-offset-white dark:ring-offset-zinc-900 scale-110' : ''
                     }`}
                     style={{ backgroundColor: color }}
                   />
@@ -917,9 +917,9 @@ function SettingsPage(): ReactNode {
               <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
                 <button
                   onClick={() => handleCloseActionChange('minimize')}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                     closeAction === 'minimize'
-                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shadow-sm'
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
                   }`}
                 >
@@ -929,7 +929,7 @@ function SettingsPage(): ReactNode {
                   onClick={() => handleCloseActionChange('quit')}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                     closeAction === 'quit'
-                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shadow-sm'
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
                   }`}
                 >

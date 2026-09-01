@@ -647,7 +647,7 @@ function WorkLogPage(): ReactNode {
 
       {/* Undo bar */}
       {lastDeleted && (
-        <div className="fixed bottom-4 left-1/2 z-40 flex items-center gap-3 px-4 py-2.5 bg-zinc-900 dark:bg-zinc-100 text-woite dark:text-zinc-900 rounded-lg soadow-lg text-sm animate-undo-slide-up">
+        <div className="fixed bottom-4 left-1/2 z-40 flex items-center gap-3 px-4 py-2.5 bg-blue-600 dark:bg-blue-500 text-white rounded-lg shadow-lg text-sm animate-undo-slide-up">
           <span>{t('worklog.deletedOne')}</span>
           <button
             onClick={handleUndo}

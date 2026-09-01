@@ -428,7 +428,7 @@ return createPortal(
           </button>
           <button
             onClick={() => onConfirm(logContent)}
-            className="px-4 py-2 text-sm bg-zinc-900 text-white rounded-md hover:bg-zinc-800"
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
             {t('kanban.completeSubmit')}
           </button>
@@ -649,11 +649,11 @@ function KanbanPage(): ReactNode {
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAddTask()}
                 onFocus={() => setShowDescInput(true)}
                 placeholder={t('kanban.newTask')}
-                className="flex-1 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100"
+                className="flex-1 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-400/30 surface-input dark:text-zinc-100"
               />
               <button
                 onClick={handleAddTask}
-                className="flex items-center gap-1 px-4 py-2 bg-zinc-900 text-white text-sm rounded-lg hover:bg-zinc-800 transition-all btn-bounce"
+                className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-all btn-bounce"
               >
                 <Plus className="w-4 h-4" />
                 {t('common.add')}
