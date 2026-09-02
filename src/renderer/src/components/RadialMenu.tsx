@@ -407,12 +407,13 @@ visibleItemsRef.current = visibleItems
             </div>
           )
         })}
+      </motion.div>
 
-        {/* Hover tooltip */}
-        {(() => {
+      {/* ═══ Hover tooltip（在 clip 容器外，避免被 clipPath 裁掉） ═══ */}
+      <AnimatePresence>
+        {expanded && (() => {
           const item = visibleItems.find((it) => it.key === hovered)
           if (!item) return null
-          const lang = document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
           const tipPos = angleToXY(item.angle, TOOLTIP_R, CX, CY)
           return (
             <motion.div
@@ -420,7 +421,7 @@ visibleItemsRef.current = visibleItems
               className="absolute pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
                          text-sm font-medium text-zinc-800 dark:text-zinc-100"
               style={{
-                left: tipPos.x, top: tipPos.y, zIndex: 10,
+                left: tipPos.x, top: tipPos.y, zIndex: 20,
                 transform: 'translate(-50%, -50%)',
                 textAlign: 'center',
                 background: 'rgba(240,242,246,0.96)',
@@ -434,11 +435,11 @@ visibleItemsRef.current = visibleItems
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.15 }}
             >
-              {TOOLTIP_LABELS[item.key]?.[lang] ?? item.label}
+              {item.label}
             </motion.div>
           )
         })()}
-      </motion.div>
+      </AnimatePresence>
 
       {/* ═══ 中心圆形：logo / 关闭按钮 + 拖拽 ═══ */}
       <div
