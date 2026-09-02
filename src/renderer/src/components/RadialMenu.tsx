@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 
-/* ── 尺寸参数 ── */
+/* ── 尺寸参数（所有派生值均从这里计算，无硬编码） ── */
 const OUTER_R = 94
 const INNER_R = 38
 const GAP_PX = 3
@@ -9,6 +9,11 @@ const CENTER_R = 24
 const WIDGET_SIZE = 206
 const CX = WIDGET_SIZE / 2
 const CY = WIDGET_SIZE / 2
+const ICON_R = (INNER_R + OUTER_R) / 2        // 图标中心半径 = 66
+const TOOLTIP_R = OUTER_R + 14                  // tooltip 半径，在环外侧
+const EXPANDED_CLIP_R = OUTER_R + GAP_PX + 2   // clip-path 展开半径 = 99
+const ICON_SIZE = 24                            // 图标渲染尺寸
+const ICON_CONTAINER = 40                       // 图标容器尺寸
 
 // WorkPulse program icon (base64 encoded SVG)
 const ICON_SVG = `data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNzg0MDg1MDIzMjc1IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9IjI0Mzk3IiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgd2lkdGg9IjI1NiIgaGVpZ2h0PSIyNTYiPjxwYXRoIGQ9Ik02NTEuNjEwOTA5IDEwMjMuOTkySDI3OS4yNzc4MThsOS4yNTU5MjgtNC42Mzk5NjRhMTg2LjE1ODU0NiAxODYuMTU4NTQ2IDAgMCAwIDEwMC4wOTUyMTgtMTM0LjIwNjk1MWwxOC44NzE4NTItMTA3LjAzOTE2NGE5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAxIDkyLjE1OTI4LTc5LjkzNTM3NUg2MTcuNDM1MTc2YzQ2LjMxOTYzOCAwIDg1LjU5OTMzMSAzNC4wNzk3MzQgOTIuMTU5MjggNzkuOTM1Mzc1bDM0LjE1OTczMyAxMzkuNjMwOTA5YzcuMjc5OTQzIDUwLjg5NTYwMi0yOC4wODc3ODEgOTguMDQ3MjM0LTc4Ljk4MzM4MyAxMDUuMzE5MTc3LTQuMzU5OTY2IDAuNjIzOTk1LTguNzU5OTMyIDAuOTM1OTkzLTEzLjE2Nzg5NyAwLjkzNTk5M3oiIGZpbGw9IiM5OTlBQUMiIHAtaWQ9IjI0Mzk4Ij48L3BhdGg+PHBhdGggZD0iTTc0Mi4yOTgyMDEgOTExLjczNjg3N2wtMy44NjM5Ny0xNS44MTU4NzYtNS40Nzk5NTctMjIuMzY3ODI2LTYuMjcxOTUxLTI1LjYzMTc5OS02LjI3MTk1MS0yNS42Mzk4LTUuNDc5OTU3LTIyLjM2NzgyNS0zLjg2Mzk3LTE1LjgwNzg3Ny0xLjQ3MTk4OS01Ljk5OTk1M2E5My4wOTUyNzMgOTMuMDk1MjczIDAgMCAwLTkyLjE1OTI4LTc5LjkzNTM3NWgtMi41NTk5OGEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAwIDAgNDYuNTUxNjM2aDIuNTU5OThhNDYuNzY3NjM1IDQ2Ljc2NzYzNSAwIDAgMSA0Ni4wNzk2NCAzOS45NTk2ODhjMC4yMTU5OTggMS41MDM5ODggMC41MDM5OTYgMi45OTk5NzcgMC44NzE5OTMgNC40Nzk5NjVsMzMuNTM1NzM4IDEzNy4wNDY5MjlhNDYuNTU5NjM2IDQ2LjU1OTYzNiAwIDAgMS00Ni4zMTE2MzggNTEuMjM5NkgyNTUuOTk4QTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDAgMjU1Ljk5OCAxMDIzLjk5MmgzOTUuNjEyOTA5YzUxLjM4MzU5OSAwLjAzMiA5My4wNzEyNzMtNDEuNTk5Njc1IDkzLjEwMzI3My05Mi45NzUyNzQgMC00LjQ0Nzk2NS0wLjMxOTk5OC04Ljg3OTkzMS0wLjk0Mzk5My0xMy4yNzk4OTZsLTEuNDcxOTg4LTUuOTk5OTUzeiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQzOTkiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA3NDQuNzE0MTgyaDkzLjEwMzI3M2E2OS44MjM0NTUgNjkuODIzNDU1IDAgMCAxIDAgMTM5LjYzODkwOUg0ODguNzE2MTgyYTY5LjgyMzQ1NSA2OS44MjM0NTUgMCAwIDEgMC0xMzkuNjMwOTA5eiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQ0MDAiPjwvcGF0aD48cGF0aCBkPSJNOTMuMDk1MjczIDBoODM3LjgwMTQ1NEM5ODIuMzEyMzI2IDAgMTAyMy45OTIgNDEuNjc5Njc0IDEwMjMuOTkyIDkzLjA5NTI3M3Y2MDUuMDc1MjczYzAgNTEuNDE1NTk4LTQxLjY3OTY3NCA5My4wOTUyNzMtOTMuMDk1MjczIDkzLjA5NTI3Mkg5My4wOTUyNzNDNDEuNjc5Njc0IDc5MS4yNzM4MTggMCA3NDkuNTk0MTQ0IDAgNjk4LjE3MDU0NlY5My4wOTUyNzNDMCA0MS42Nzk2NzQgNDEuNjc5Njc0IDAgOTMuMDk1MjczIDB6IiBmaWxsPSIjOTk5QUFDIiBwLWlkPSIyNDQwMSI+PC9wYXRoPjxwYXRoIGQ9Ik05My4wOTUyNzMgMGg2OTguMTcwNTQ1YzUxLjQxNTU5OCAwIDkzLjA4NzI3MyA0MS42Nzk2NzQgOTMuMDg3MjczIDkzLjA5NTI3M3Y2MDUuMDc1MjczYzAgNTEuNDE1NTk4LTQxLjY3OTY3NCA5My4wOTUyNzMtOTMuMDg3MjczIDkzLjA5NTI3Mkg5My4wOTUyNzNDNDEuNjc5Njc0IDc5MS4yNzM4MTggMCA3NDkuNTk0MTQ0IDAgNjk4LjE3MDU0NlY5My4wOTUyNzNDMCA0MS42Nzk2NzQgNDEuNjc5Njc0IDAgOTMuMDk1MjczIDB6IiBmaWxsPSIjQ0FDQUQ0IiBwLWlkPSIyNDQwMiI+PC9wYXRoPjxwYXRoIGQ9Ik05MjkuNTkyNzM4IDIyLjkxOTgyMWE0Ny43NTk2MjcgNDcuNzU5NjI3IDAgMCAwLTcuODM5OTM5IDAuNjYzOTk1IDQ3LjMzNTYzIDQ3LjMzNTYzIDAgMCAwLTM4LjYyMzY5OCA1NC4zMTk1NzV2MC4wMzJsMC4wMTU5OTkgMC4wOCAwLjI4Nzk5OCAxLjg5NTk4NSAwLjE3NTk5OSAxLjA3OTk5MWMwLjA0IDAuNDYzOTk2IDAuMDc5OTk5IDAuOTI3OTkzIDAuMTQzOTk5IDEuMzk5OTg5IDAuMjU1OTk4IDIuMzExOTgyIDAuNDMxOTk3IDQuNjM5OTY0IDAuNTI3OTk2IDcuMDA3OTQ2bDAuMDA3OTk5IDAuMTU5OTk4djAuMDA4bDAuMDA4IDAuMTUxOTk5djAuMDI0bDAuMDA4IDAuMTQzOTk5djAuMDE2bDAuMDE2IDAuNjU1OTk1djAuMDE1OTk5bDAuMDA4IDAuMTUxOTk5djAuMTk5OTk5bDAuMDA4IDAuMTE5OTk5djAuNjk1OTk0bDAuMDE2IDAuMDMydjYwNy42MjcyNTNsLTAuMDA4IDAuMTAzOTk5djAuMzM1OTk3bC0wLjAwOCAwLjEyNzk5OVY3MDAuMjkwNTI5bC0wLjAwOCAwLjEzNTk5OXYwLjE2Nzk5OWwtMC4wMDggMC4yNzE5OTd2MC4wMjRsLTAuMDA4IDAuMTM1OTk5VjcwMS4zMzA1MjFsLTAuMDI0IDAuMjg3OTk4djAuMzExOTk3bC0wLjAxNTk5OSAwLjE0Mzk5OXYwLjI5NTk5OGEzLjU4Mzk3MiAzLjU4Mzk3MiAwIDAgMC0wLjAyNCAwLjI5NTk5N3YwLjAwOGMtMC4zNDM5OTcgNy4zNTk5NDMtMS41Njc5ODggMTQuNjQ3ODg2LTMuNjM5OTcyIDIxLjcxOTgzMWE0Ni41NTE2MzYgNDYuNTUxNjM2IDAgMCAwIDg5LjMzNTMwMiAyNi4xNjc3OTVjNC45ODM5NjEtMTcuMDE1ODY3IDcuNTExOTQxLTM0LjY1NTcyOSA3LjUwMzk0Mi01Mi4zOTE1OVY5My4wOTUyNzNjMC03LjA3OTk0NS0wLjM5OTk5Ny0xNC4xNTE4ODktMS4xOTk5OTEtMjEuMTc1ODM1YTU0LjQ3OTU3NCA1NC40Nzk1NzQgMCAwIDAtMC4yNzE5OTgtMi4wMTU5ODQgNTEuOTU5NTk0IDUxLjk1OTU5NCAwIDAgMC0wLjM3NTk5Ny0zLjA2Mzk3NmwtMC43ODM5OTQtNS4wNTU5NjFhNDUuNzc1NjQyIDQ1Ljc3NTY0MiAwIDAgMC00NS4yMzE2NDYtMzguODYzNjk2eiIgZmlsbD0iIzdDN0Y5NSIgcC1pZD0iMjQ0MDMiPjwvcGF0aD48cGF0aCBkPSJNNzkxLjI3MzgxOCAwSDkzLjA4NzI3M0M0MS42Nzk2NzQgMCAwIDQxLjY3OTY3NCAwIDkzLjA4NzI3M3Y1MTEuOTk2aDg4NC4zNjEwOTF2LTUxMS45OTZDODg0LjM2MTA5MSA0MS42Nzk2NzQgODQyLjY4MTQxNyAwIDc5MS4yNjU4MTggMHoiIGZpbGw9IiMyQzJGNTMiIHAtaWQ9IjI0NDA0Ij48L3BhdGg+PHBhdGggZD0iTTQ2NS40NTIzNjQgNjk4LjE3MDU0NmE0Ni41NDM2MzYgNDYuNTQzNjM2IDAgMSAxLTkzLjA4NzI3MyAwIDQ2LjU0MzYzNiA0Ni41NDM2MzYgMCAxIDEgOTMuMDg3MjczIDB6IiBmaWxsPSIjNEM0RjZFIiBwLWlkPSIyNDQwNSI+PC9wYXRoPjxwYXRoIGQ9Ik05NTQuMTY4NTQ2IDEzOS42MzA5MDlhMjMuMjc5ODE4IDIzLjI3OTgxOCAwIDAgMSAyMy4yNzk4MTggMjMuMjc5ODE4djIzMi43MTgxODJhMjMuMjcxODE4IDIzLjI3MTgxOCAwIDEgMS00Ni41NTE2MzcgMHYtMjMyLjcxODE4MmEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAxIDIzLjI3OTgxOC0yMy4yNzk4MTh6IiBmaWxsPSIjMkMyRjUzIiBwLWlkPSIyNDQwNiI+PC9wYXRoPjxwYXRoIGQ9Ik02OS44MjM0NTUgNjA1LjA5MTI3M2g3NDQuNzE0MTgxYTIzLjI3MTgxOCAyMy4yNzE4MTggMCAxIDEgMCA0Ni41MzU2MzZINjkuODIzNDU1YTIzLjI3MTgxOCAyMy4yNzE4MTggMCAxIDEgMC00Ni41MzU2MzZ6IiBmaWxsPSIjRUFFQUVFIiBwLWlkPSIyNDQwNyI+PC9wYXRoPjxwYXRoIGQ9Ik05My4wOTUyNzMgNDY1LjQ1MjM2NGg2OTguMTcwNTQ1YTQ2LjU1MTYzNiA0Ni41NTE2MzYgMCAwIDEgMCA5My4wODcyNzJIOTMuMDk1MjczYTQ2LjU0MzYzNiA0Ni41NDM2MzYgMCAwIDEgMC05My4wODcyNzJ6IiBmaWxsPSIjNEM0RjZFIiBwLWlkPSIyNDQwOCI+PC9wYXRoPjxwYXRoIGQ9Ik0xMzkuNjMwOTA5IDQxOC45MDA3MjdhNDYuNTQzNjM2IDQ2LjU0MzYzNiAwIDEgMSAwIDkzLjA5NTI3MyA0Ni41NDM2MzYgNDYuNTQzNjM2IDAgMCAxIDAtOTMuMDk1MjczeiIgZmlsbD0iIzExQ0JFNSIgcC1pZD0iMjQ0MDkiPjwvcGF0aD48cGF0aCBkPSJNMTE2LjM2NzA5MSA0MTguOTAwNzI3YTIzLjI3MTgxOCAyMy4yNzE4MTggMCAxIDEtMC4wMDggNDYuNTQzNjM3IDIzLjI3MTgxOCAyMy4yNzE4MTggMCAwIDEgMC00Ni41NDM2Mzd6IiBmaWxsPSIjQkNGNEY1IiBwLWlkPSIyNDQxMCI+PC9wYXRoPjxwYXRoIGQ9Ik0zMjUuODIxNDU1IDQxOC45MDA3MjdhNDYuNTUxNjM2IDQ2LjU1MTYzNiAwIDEgMS0wLjAxNiA5My4xMDMyNzMgNDYuNTUxNjM2IDQ2LjU1MTYzNiAwIDAgMSAwLjAxNi05My4xMDMyNzN6IiBmaWxsPSIjOTFFREY4IiBwLWlkPSIyNDQxMSI+PC9wYXRoPjxwYXRoIGQ9Ik01MTEuOTk2IDQxOC45MDA3MjdhNDYuNTUxNjM2IDQ2LjU1MTYzNiAwIDEgMS0wLjAwOCA5My4xMDMyNzNBNDYuNTUxNjM2IDQ2LjU1MTYzNiAwIDAgMSA1MTEuOTk2IDQxOC45MDA3Mjd6IiBmaWxsPSIjRkRCOEJGIiBwLWlkPSIyNDQxMiI+PC9wYXRoPjxwYXRoIGQ9Ik02OTguMTcwNTQ2IDQxOC45MDA3MjdhNDYuNTQzNjM2IDQ2LjU0MzYzNiAwIDEgMSAwIDkzLjA5NTI3MyA0Ni41NDM2MzYgNDYuNTQzNjM2IDAgMCAxIDAtOTMuMDk1MjczeiIgZmlsbD0iI0ZBNDY1OSIgcC1pZD0iMjQ0MTMiPjwvcGF0aD48cGF0aCBkPSJNNDg4LjcxNjE4MiA0MTguOTAwNzI3YTIzLjI3OTgxOCAyMy4yNzk4MTggMCAxIDEgMCA0Ni41NTk2MzcgMjMuMjc5ODE4IDIzLjI3OTgxOCAwIDAgMSAwLTQ2LjU1OTYzN3pNNjc0Ljg5ODcyNyA0MTguOTAwNzI3YTIzLjI3MTgxOCAyMy4yNzE4MTggMCAxIDEgMCA0Ni41NDM2MzcgMjMuMjcxODE4IDIzLjI3MTgxOCAwIDAgMSAwLTQ2LjU0MzYzN3oiIGZpbGw9IiNGRURFRTEiIHAtaWQ9IjI0NDE0Ij48L3BhdGg+PHBhdGggZD0iTTMwMi41NDE2MzYgNDE4LjkwMDcyN2EyMy4yNzk4MTggMjMuMjc5ODE4IDAgMSAxIDAgNDYuNTU5NjM3IDIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDEgMC00Ni41NTk2Mzd6IiBmaWxsPSIjRTlGRkY1IiBwLWlkPSIyNDQxNSI+PC9wYXRoPjxwYXRoIGQ9Ik0yMDkuNDU0MzY0IDk3Ny40NDgzNjRoMjMyLjcxODE4MmEyMy4yNzk4MTggMjMuMjc5ODE4IDAgMCAxIDAgNDYuNTQzNjM2aC0yMzIuNzE4MTgyYTIzLjI3OTgxOCAyMy4yNzk4MTggMCAwIDEgMC00Ni41NDM2MzZ6IiBmaWxsPSIjQ0FDQUQ0IiBwLWlkPSIyNDQxNiI+PC9wYXRoPjwvc3ZnPg==`
@@ -26,17 +31,21 @@ const CENTER_SIZE = CENTER_R * 2
 interface RadialItem {
   key: string
   label: string
-  emoji: string
+  emoji?: string
+  icon?: string        // base64 data URL for program icons
   angle: number
-  route: string
+  route?: string       // for builtin navigation items
+  type?: 'builtin' | 'program'
+  programPath?: string // for program items
 }
 
-const ITEMS: RadialItem[] = [
-  { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, route: 'worklog' },
-  { key: 'task', label: 'Task', emoji: '📋', angle: -18, route: 'kanban' },
-  { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 54, route: 'calendar' },
-  { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 126, route: 'chat' },
-  { key: 'screenshot', label: 'Screenshot', emoji: '📸', angle: 198, route: '' },
+// Default builtin items — angles evenly distributed
+const BUILTIN_ITEMS: RadialItem[] = [
+  { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, route: 'worklog', type: 'builtin' },
+  { key: 'task', label: 'Task', emoji: '📋', angle: -18, route: 'kanban', type: 'builtin' },
+  { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 54, route: 'calendar', type: 'builtin' },
+  { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 126, route: 'chat', type: 'builtin' },
+  { key: 'screenshot', label: 'Screenshot', emoji: '📸', angle: 198, route: '', type: 'builtin' },
 ]
 
 /**
@@ -54,20 +63,145 @@ export function RadialMenu(): ReactNode {
   const [config, setConfig] = useState<Record<string, boolean> | null>(null)
   const expandedRef = useRef(false)
 
-  const numItems = ITEMS.length
-  const segAngle = 360 / numItems
-  const gapOuterDeg = (GAP_PX / OUTER_R) * (180 / Math.PI)
-  const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI)
-  const iconRadius = (INNER_R + OUTER_R) / 2
+const gapOuterDeg = (GAP_PX / OUTER_R) * (180 / Math.PI)
+const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI)
 
-  const visibleItems = useMemo(() => {
-    if (!config) return ITEMS
-    return ITEMS.filter((item) => config[item.key] !== false)
-  }, [config])
+// Dynamic items: builtin defaults + custom programs loaded from config
+const [allItems, setAllItems] = useState<RadialItem[]>(BUILTIN_ITEMS)
 
-  // ─── 加载配置（控制哪些扇区可见） ───
+// Ref: 让 hover/click 回调始终读到最新的可见项列表（避免 useEffect([]) 闭包陈旧）
+const visibleItemsRef = useRef<RadialItem[]>(allItems)
+
+// ─── 可见项：过滤 + 重新均匀分布角度（核心修复：角度基于 visibleItems 而非 allItems） ───
+const visibleItems = useMemo(() => {
+  const filtered = config
+    ? allItems.filter((item) => config[item.key] !== false)
+    : allItems
+  // 重新均匀分配角度，确保关掉几个后剩余项仍然均匀分布
+  return filtered.map((item, i) => ({
+    ...item,
+    angle: filtered.length > 0 ? (360 / filtered.length) * i - 90 : item.angle,
+  }))
+}, [config, allItems])
+
+const visibleCount = visibleItems.length
+const segAngle = visibleCount > 0 ? 360 / visibleCount : 72
+
+// 保持 ref 同步
+visibleItemsRef.current = visibleItems
+
+  // ─── 加载配置（控制扇区可见性 + 合并自定义程序项目） ───
   useEffect(() => {
-    window.radialApi.getConfig().then((cfg) => setConfig(cfg as unknown as Record<string, boolean>))
+    window.radialApi.getConfig().then((cfg) => {
+      if (!cfg) return
+
+      const c = cfg as any
+      const BUILTIN_KEYS = new Set(BUILTIN_ITEMS.map((b) => b.key))
+
+      // Format 1: Array of RadialMenuItem objects (from Settings page)
+      if (Array.isArray(c)) {
+        const vis: Record<string, boolean> = {}
+        const programs: RadialItem[] = []
+        const builtinOverrides: Partial<Record<string, { label?: string; emoji?: string }>> = {}
+
+        for (const entry of c) {
+          if (entry.key && typeof entry.enabled === 'boolean') {
+            vis[entry.key] = entry.enabled
+            if (BUILTIN_KEYS.has(entry.key) && entry.label) {
+              builtinOverrides[entry.key] = { label: entry.label, emoji: entry.emoji }
+            }
+          }
+          if (entry.type === 'program' && entry.programPath) {
+            programs.push({
+              key: entry.key,
+              label: entry.label ?? entry.key,
+              emoji: entry.emoji,
+              icon: entry.icon,
+              angle: 0,
+              type: 'program',
+              programPath: entry.programPath,
+            })
+          }
+        }
+
+        const merged = BUILTIN_ITEMS.map((b) => ({
+          ...b,
+          ...(builtinOverrides[b.key] ?? {}),
+        })).concat(programs)
+
+        merged.forEach((item, i) => {
+          item.angle = (360 / merged.length) * i - 90
+        })
+
+        setAllItems(merged)
+        setConfig(vis)
+        return
+      }
+
+      // Format 2: Plain boolean map (legacy { key: boolean })
+      if (typeof c === 'object') {
+        setAllItems(BUILTIN_ITEMS)
+        setConfig(c as Record<string, boolean>)
+      }
+    })
+  }, [])
+
+  // ─── 监听配置变更（设置页保存后实时刷新菜单） ───
+  useEffect(() => {
+    const cleanup = window.radialApi.onConfigChanged?.((inlineData?: unknown) => {
+      // 优先使用事件携带的内联数据，避免重新 fetch 的竞态
+      const processConfig = (cfg: unknown): void => {
+        if (!cfg) return
+        const c = cfg as any
+        const BUILTIN_KEYS = new Set(BUILTIN_ITEMS.map((b) => b.key))
+
+        if (Array.isArray(c)) {
+          const vis: Record<string, boolean> = {}
+          const programs: RadialItem[] = []
+          const builtinOverrides: Partial<Record<string, { label?: string; emoji?: string }>> = {}
+
+          for (const entry of c) {
+            if (entry.key && typeof entry.enabled === 'boolean') {
+              vis[entry.key] = entry.enabled
+              if (BUILTIN_KEYS.has(entry.key) && entry.label) {
+                builtinOverrides[entry.key] = { label: entry.label, emoji: entry.emoji }
+              }
+            }
+            if (entry.type === 'program' && entry.programPath) {
+              programs.push({
+                key: entry.key,
+                label: entry.label ?? entry.key,
+                emoji: entry.emoji,
+                icon: entry.icon,
+                angle: 0,
+                type: 'program',
+                programPath: entry.programPath,
+              })
+            }
+          }
+
+          const merged = BUILTIN_ITEMS.map((b) => ({
+            ...b,
+            ...(builtinOverrides[b.key] ?? {}),
+          })).concat(programs)
+
+          merged.forEach((item, i) => {
+            item.angle = (360 / merged.length) * i - 90
+          })
+
+          setAllItems(merged)
+          setConfig(vis)
+        }
+      }
+
+      if (inlineData !== undefined) {
+        processConfig(inlineData)
+      } else {
+        // 兜底：如果没有内联数据，重新 fetch
+        window.radialApi.getConfig().then(processConfig)
+      }
+    })
+    return () => cleanup?.()
   }, [])
 
   // ─── 监听主进程状态（展开/收起） ───
@@ -82,6 +216,7 @@ export function RadialMenu(): ReactNode {
   }, [])
 
   // ─── 光标轮询 hover 高亮（Meel 原则） ───
+  // 使用 visibleItemsRef 避免 useEffect([]) 闭包陈旧，始终检测当前可见项
   useEffect(() => {
     const handler = (info: any) => {
       if (!expandedRef.current) {
@@ -97,12 +232,17 @@ export function RadialMenu(): ReactNode {
       }
       let angle = (Math.atan2(dx, -dy) * 180) / Math.PI
       if (angle < 0) angle += 360
+      const items = visibleItemsRef.current
+      const curSegAngle = items.length > 0 ? 360 / items.length : 72
       let bestKey: string | null = null
       let bestDist = Infinity
-      for (const item of ITEMS) {
-        let diff = Math.abs(angle - item.angle)
+      for (const item of items) {
+        // 将 itemAngle 归一化到 [0, 360)，防止负角度与接近 360° 的光标角度
+        // 计算 Math.abs 后产生 >360 的值，导致 360 - diff 出现负数
+        const itemAngle = ((item.angle % 360) + 360) % 360
+        let diff = Math.abs(angle - itemAngle)
         if (diff > 180) diff = 360 - diff
-        if (diff < segAngle / 2 && diff < bestDist) {
+        if (diff < curSegAngle / 2 && diff < bestDist) {
           bestDist = diff
           bestKey = item.key
         }
@@ -177,12 +317,13 @@ export function RadialMenu(): ReactNode {
 
   // ─── 扇区点击 ───
   const handleSegmentClick = useCallback((key: string) => {
-    window.radialApi.segmentClick(key)
-  }, [])
+    const item = allItems.find((it) => it.key === key)
+    window.radialApi.segmentClick(key, item ?? undefined)
+  }, [allItems])
 
-  // clip-path 动画参数
+  // clip-path 动画参数（从尺寸参数动态计算，无硬编码）
   const collapsedClip = `circle(${CENTER_R}px at 50% 50%)`
-  const expandedClip = `circle(103px at 50% 50%)`
+  const expandedClip = `circle(${EXPANDED_CLIP_R}px at 50% 50%)`
 
   return (
     <div
@@ -242,29 +383,37 @@ export function RadialMenu(): ReactNode {
 
         {/* 扇区图标 */}
         {visibleItems.map((item) => {
-          const pos = angleToXY(item.angle, iconRadius, CX, CY)
+          const pos = angleToXY(item.angle, ICON_R, CX, CY)
           return (
             <div
               key={`icon-${item.key}`}
               className="absolute flex items-center justify-center pointer-events-none"
               style={{
                 left: pos.x, top: pos.y, zIndex: 3,
-                width: 40, height: 40,
+                width: ICON_CONTAINER, height: ICON_CONTAINER,
                 transform: 'translate(-50%, -50%)',
               }}
             >
-              <span className="text-2xl drop-shadow-sm">{item.emoji}</span>
+              {item.icon ? (
+                <img
+                  src={item.icon}
+                  alt={item.label}
+                  style={{ width: ICON_SIZE, height: ICON_SIZE, objectFit: 'contain' }}
+                  className="drop-shadow-sm"
+                />
+              ) : (
+                <span className="text-2xl drop-shadow-sm">{item.emoji ?? '📦'}</span>
+              )}
             </div>
           )
         })}
 
         {/* Hover tooltip */}
         {(() => {
-          const item = ITEMS.find((it) => it.key === hovered)
+          const item = visibleItems.find((it) => it.key === hovered)
           if (!item) return null
           const lang = document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
-          const tipR = CENTER_R + 12
-          const tipPos = angleToXY(item.angle, tipR, CX, CY)
+          const tipPos = angleToXY(item.angle, TOOLTIP_R, CX, CY)
           return (
             <motion.div
               key="tooltip"

@@ -1,4 +1,4 @@
-import { BrowserWindow, screen, ipcMain } from 'electron'
+import { BrowserWindow, screen, ipcMain, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { getSetting, setSetting } from './db'
@@ -93,17 +93,29 @@ function collapseRadial(): void {
   win.webContents.send('radial:state', { expanded: false })
 }
 
-function fireRadialAction(key: string): void {
+function fireRadialAction(key: string, item?: any): void {
+  // Program-type items: launch via shell
+  if (item?.type === 'program' && item?.programPath) {
+    // .lnk 快捷方式：解析 TargetPath 后启动
+    if (item.programPath.toLowerCase().endsWith('.lnk')) {
+      resolveLnkTargetPath(item.programPath).then((target) => {
+        shell.openPath(target || item.programPath)
+      })
+    } else {
+      shell.openPath(item.programPath)
+    }
+    return
+  }
   if (key === 'screenshot') {
     appBus.emit(RADIAL_SCREENSHOT)
     return
   }
-  const item = RADIAL_ITEMS.find((i) => i.key === key)
-  if (item?.route) {
+  const builtin = RADIAL_ITEMS.find((i) => i.key === key)
+  if (builtin?.route) {
     appBus.emit(SHOW_MAIN)
     const main = getMainWindow()
     if (main) {
-      main.webContents.send(`navigate:${item.route}`)
+      main.webContents.send(`navigate:${builtin.route}`)
     }
   }
 }
@@ -275,9 +287,9 @@ ipcMain.on('radial:center-click', () => {
 })
 
 // 扇区点击：执行动作 + 收起
-ipcMain.on('radial:segment-click', (_event, key: string) => {
+ipcMain.on('radial:segment-click', (_event, key: string, item?: any) => {
   collapseRadial()
-  fireRadialAction(key)
+  fireRadialAction(key, item)
 })
 
 // 拖拽（center button mousedown → document mousemove → mouseup）
@@ -333,6 +345,11 @@ ipcMain.handle('radial:get-config', () => {
 
 ipcMain.handle('radial:set-config', (_event, items: unknown) => {
   setSetting('radial_items', JSON.stringify(items))
+  // 通知 radial 窗口配置已变更，携带最新配置数据（避免 radial 重新 fetch 的竞态）
+  const win = radialWindow
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('radial:config-changed', items)
+  }
   return true
 })
 
@@ -369,4 +386,115 @@ ipcMain.handle('radial:set-enabled', (_event, enabled: boolean) => {
 ipcMain.handle('radial:close', () => {
   hideRadialWindow()
   return true
+})
+
+// ─── 程序配置 IPC ───
+
+/** 解析 .lnk 快捷方式的 TargetPath（用于启动） */
+async function resolveLnkTargetPath(lnkPath: string): Promise<string | null> {
+  try {
+    const { execFile } = require('child_process') as typeof import('child_process')
+    const ps = `$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${lnkPath.replace(/'/g, "''")}')\nWrite-Output $s.TargetPath`
+    return await new Promise<string | null>((resolve) => {
+      execFile('powershell.exe', ['-NoProfile', '-Command', ps], { timeout: 5000 }, (err, stdout) => {
+        if (err || !stdout) { resolve(null); return }
+        const target = stdout.trim()
+        resolve(target || null)
+      })
+    })
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 解析 .lnk 快捷方式的图标源路径。
+ * 返回 IconLocation 指定的路径（如有），否则返回 TargetPath。
+ * 调用方再对此路径调用 app.getFileIcon() 获取真实图标。
+ */
+async function resolveLnkIconSource(lnkPath: string): Promise<string | null> {
+  try {
+    const { execFile } = require('child_process') as typeof import('child_process')
+    const ps = [
+      `$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${lnkPath.replace(/'/g, "''")}')`,
+      `$i = $s.IconLocation`,
+      `$t = $s.TargetPath`,
+      `# IconLocation 格式: "path,index" 或 "path," 或 ",index" 或空`,
+      `if ($i) { $parts = $i -split ','; if ($parts[0] -ne '') { Write-Output $parts[0]; exit } }`,
+      `if ($t) { Write-Output $t; exit }`,
+      `Write-Output ''`
+    ].join('\n')
+    return await new Promise<string | null>((resolve) => {
+      execFile('powershell.exe', ['-NoProfile', '-Command', ps], { timeout: 5000 }, (err, stdout) => {
+        if (err || !stdout) { resolve(null); return }
+        const result = stdout.trim()
+        resolve(result || null)
+      })
+    })
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 获取文件图标 base64 data URL。
+ * - .lnk：使用 extract-file-icon 原生库（SHGetFileInfo），直接提取快捷方式的真实程序图标
+ * - .exe 等：使用 app.getFileIcon()
+ */
+async function getFileIconBase64(filePath: string): Promise<string | null> {
+  try {
+    // .lnk 快捷方式：extract-file-icon 底层调用 SHGetFileInfo，能直接从 .lnk 提取真实程序图标
+    if (filePath.toLowerCase().endsWith('.lnk')) {
+      const extractIcon = require('extract-file-icon')
+      const buffer: Buffer = extractIcon(filePath, 64) as Buffer
+      if (buffer && buffer.length > 0) {
+        return `data:image/png;base64,${buffer.toString('base64')}`
+      }
+    }
+
+    // .exe 等其他文件：app.getFileIcon 足够
+    const { app } = require('electron')
+    const icon = await app.getFileIcon(filePath, { size: 'normal' })
+    const buffer = icon.toPNG()
+    return `data:image/png;base64,${buffer.toString('base64')}`
+  } catch (err) {
+    console.error('Failed to get file icon:', err)
+    return null
+  }
+}
+
+ipcMain.handle('radial:pick-program', async () => {
+  const { dialog } = require('electron')
+  const result = await dialog.showOpenDialog({
+    title: '选择程序',
+    filters: [
+      { name: '可执行文件', extensions: ['exe', 'lnk', 'bat', 'cmd', 'ps1'] },
+      { name: '所有文件', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  })
+  if (result.canceled || !result.filePaths.length) return null
+  const filePath = result.filePaths[0]
+  const name = filePath.replace(/\\/g, '/').split('/').pop()?.replace(/\.[^.]+$/, '') ?? ''
+  return { path: filePath, name }
+})
+
+ipcMain.handle('radial:get-file-icon', async (_event, filePath: string) => {
+  return getFileIconBase64(filePath)
+})
+
+ipcMain.handle('radial:launch-program', async (_event, programPath: string) => {
+  try {
+    // .lnk 快捷方式：解析目标路径后启动
+    let launchPath = programPath
+    if (programPath.toLowerCase().endsWith('.lnk')) {
+      const target = await resolveLnkTargetPath(programPath)
+      if (target) launchPath = target
+    }
+    await shell.openPath(launchPath)
+    return true
+  } catch (err) {
+    console.error('Failed to launch program:', err)
+    return false
+  }
 })

@@ -201,6 +201,10 @@ interface API {
     setConfig?: (items: unknown) => Promise<boolean>
     getConfig?: () => Promise<unknown>
     close?: () => Promise<boolean>
+    pickProgram?: () => Promise<{ path: string; name: string } | null>
+    getFileIcon?: (filePath: string) => Promise<string | null>
+    launchProgram?: (programPath: string) => Promise<boolean>
+    onConfigChanged?: (cb: (items?: unknown) => void) => () => void
   }
   notification: {
     show: (options: {

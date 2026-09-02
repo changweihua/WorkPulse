@@ -145,6 +145,11 @@ const api = {
   },
   radial: {
     setEnabled: (enabled: boolean) => ipcRenderer.invoke('radial:set-enabled', enabled),
+    setConfig: (items: unknown) => ipcRenderer.invoke('radial:set-config', items),
+    getConfig: () => ipcRenderer.invoke('radial:get-config'),
+    pickProgram: () => ipcRenderer.invoke('radial:pick-program'),
+    getFileIcon: (filePath: string) => ipcRenderer.invoke('radial:get-file-icon', filePath),
+    launchProgram: (programPath: string) => ipcRenderer.invoke('radial:launch-program', programPath),
   },
   notification: {
     show: (options: {

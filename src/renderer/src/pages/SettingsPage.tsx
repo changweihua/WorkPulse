@@ -17,7 +17,9 @@ Droplets,
   CheckCircle2,
   AlertCircle,
   Power,
-  FolderOpen
+  FolderOpen,
+  Plus,
+  Loader2
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useThemeStore, ACCENTS, type Theme } from '../stores/themeStore'
@@ -199,13 +201,23 @@ function SettingsPage(): ReactNode {
 
   // 径向菜单设置
   const [radialEnabled, setRadialEnabled] = useState(true)
-  const [radialItems, setRadialItems] = useState([
-    { key: 'log', label: 'Work Log', emoji: '📝', enabled: true },
-    { key: 'task', label: 'Task', emoji: '📋', enabled: true },
-    { key: 'meeting', label: 'Meeting', emoji: '📅', enabled: true },
-    { key: 'ai', label: 'AI Generate', emoji: '🤖', enabled: true },
-    { key: 'screenshot', label: 'Screenshot', emoji: '📸', enabled: true },
+  interface RadialMenuItem {
+    key: string
+    label: string
+    emoji?: string
+    icon?: string
+    enabled: boolean
+    type?: 'builtin' | 'program'
+    programPath?: string
+  }
+  const [radialItems, setRadialItems] = useState<RadialMenuItem[]>([
+    { key: 'log', label: '工作日志', emoji: '📝', enabled: true, type: 'builtin' },
+    { key: 'task', label: '任务管理', emoji: '📋', enabled: true, type: 'builtin' },
+    { key: 'meeting', label: '会议记录', emoji: '📅', enabled: true, type: 'builtin' },
+    { key: 'ai', label: 'AI 生成', emoji: '🤖', enabled: true, type: 'builtin' },
+    { key: 'screenshot', label: '截图标注', emoji: '📸', enabled: true, type: 'builtin' },
   ])
+  const [addingProgram, setAddingProgram] = useState(false)
 
   useEffect(() => {
     loadSettings()
@@ -241,7 +253,20 @@ function SettingsPage(): ReactNode {
     })
     void window.api.settings.get('radial_items').then((v) => {
       if (v) {
-        try { setRadialItems(JSON.parse(v)) } catch {}
+        try {
+          const saved: RadialMenuItem[] = JSON.parse(v)
+          // Merge: keep saved items, prepend any new builtins not in saved
+          const builtinDefaults: RadialMenuItem[] = [
+            { key: 'log', label: '工作日志', emoji: '📝', enabled: true, type: 'builtin' },
+            { key: 'task', label: '任务管理', emoji: '📋', enabled: true, type: 'builtin' },
+            { key: 'meeting', label: '会议记录', emoji: '📅', enabled: true, type: 'builtin' },
+            { key: 'ai', label: 'AI 生成', emoji: '🤖', enabled: true, type: 'builtin' },
+            { key: 'screenshot', label: '截图标注', emoji: '📸', enabled: true, type: 'builtin' },
+          ]
+          const savedKeys = new Set(saved.map(i => i.key))
+          const newBuiltins = builtinDefaults.filter(d => !savedKeys.has(d.key))
+          setRadialItems([...newBuiltins, ...saved])
+        } catch {}
       }
     })
 
@@ -527,7 +552,7 @@ function SettingsPage(): ReactNode {
   }
 
   // 保存径向菜单项配置
-  const handleSaveRadialItems = async (items: typeof radialItems): Promise<void> => {
+  const handleSaveRadialItems = async (items: RadialMenuItem[]): Promise<void> => {
     try {
       await window.api.settings.set('radial_items', JSON.stringify(items))
       setRadialItems(items)
@@ -535,6 +560,42 @@ function SettingsPage(): ReactNode {
     } catch (err) {
       console.error('Failed to save radial items:', err)
     }
+  }
+
+  // 添加自定义程序
+  const handleAddProgram = async (): Promise<void> => {
+    if (!window.api.radial?.pickProgram) return
+    setAddingProgram(true)
+    try {
+      const result = await window.api.radial.pickProgram()
+      if (!result) return
+
+      // 单独提取图标（和之前一样走 getFileIcon）
+      let icon: string | undefined
+      if (window.api.radial?.getFileIcon) {
+        icon = (await window.api.radial.getFileIcon(result.path)) ?? undefined
+      }
+
+      const newItem: RadialMenuItem = {
+        key: `program_${Date.now()}`,
+        label: result.name,
+        icon,
+        enabled: true,
+        type: 'program',
+        programPath: result.path,
+      }
+
+      const next = [...radialItems, newItem]
+      await handleSaveRadialItems(next)
+    } finally {
+      setAddingProgram(false)
+    }
+  }
+
+  // 移除自定义程序
+  const handleRemoveProgram = (key: string): void => {
+    const next = radialItems.filter((item) => item.key !== key)
+    void handleSaveRadialItems(next)
   }
 
   const currentVersion = appVersion || updateState.currentVersion || '-'
@@ -994,13 +1055,17 @@ function SettingsPage(): ReactNode {
             {radialEnabled && (
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-zinc-400 mb-2">菜单项（顺序即显示顺序，可单独开关）</p>
-                {radialItems.map((item, index) => (
+                {radialItems.filter(item => item.type !== 'program').map((item, index) => (
                   <div
                     key={item.key}
                     className="flex items-center justify-between px-3 py-2 surface-inset rounded-lg"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-base leading-none">{item.emoji}</span>
+                      {item.icon ? (
+                        <img src={item.icon} alt="" className="w-5 h-5 rounded" />
+                      ) : (
+                        <span className="text-base leading-none">{item.emoji}</span>
+                      )}
                       <span className="text-sm text-zinc-700 dark:text-zinc-300">{item.label}</span>
                       <span className="text-xs text-zinc-400">#{index + 1}</span>
                     </div>
@@ -1021,6 +1086,68 @@ function SettingsPage(): ReactNode {
                     </button>
                   </div>
                 ))}
+
+                {/* 自定义程序 */}
+                {radialItems.some(item => item.type === 'program') && (
+                  <>
+                    <div className="h-px bg-zinc-200 dark:bg-zinc-700 my-3" />
+                    <p className="text-xs text-zinc-400 mb-2">自定义程序</p>
+                    {radialItems.filter(item => item.type === 'program').map((item, index) => (
+                      <div
+                        key={item.key}
+                        className="flex items-center justify-between px-3 py-2 surface-inset rounded-lg"
+                      >
+                        <div className="flex items-center gap-2">
+                          {item.icon ? (
+                            <img src={item.icon} alt="" className="w-5 h-5 rounded" />
+                          ) : (
+                            <span className="text-base leading-none">📦</span>
+                          )}
+                          <span className="text-sm text-zinc-700 dark:text-zinc-300">{item.label}</span>
+                          <span className="text-xs text-zinc-400">#{radialItems.filter(i => i.type !== 'program').length + index + 1}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleRemoveProgram(item.key)}
+                            className="p-1 text-zinc-400 hover:text-red-500 transition-colors"
+                            title="移除"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const next = radialItems.map((it) =>
+                                it.key === item.key ? { ...it, enabled: !it.enabled } : it
+                              )
+                              void handleSaveRadialItems(next)
+                            }}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${item.enabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'
+                              }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.enabled ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* 添加程序按钮 */}
+                <button
+                  onClick={handleAddProgram}
+                  disabled={addingProgram}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-border hover:border-primary hover:bg-primary/5 transition-colors disabled:opacity-50"
+                >
+                  {addingProgram ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  <span className="text-sm">{addingProgram ? '正在添加...' : '添加程序'}</span>
+                </button>
               </div>
             )}
           </section>

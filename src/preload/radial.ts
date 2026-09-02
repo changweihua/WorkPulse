@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld('radialApi', {
 
   // ── 交互动作（renderer → main） ──
   centerClick: () => ipcRenderer.send('radial:center-click'),
-  segmentClick: (key: string) => ipcRenderer.send('radial:segment-click', key),
+  segmentClick: (key: string, item?: unknown) => ipcRenderer.send('radial:segment-click', key, item),
 
   // ── 拖拽（mousedown → mousemove → mouseup） ──
   dragStart: () => ipcRenderer.send('radial:drag-start'),
@@ -32,4 +32,14 @@ contextBridge.exposeInMainWorld('radialApi', {
   // ── 配置 ──
   getConfig: () => ipcRenderer.invoke('radial:get-config'),
   setConfig: (items: unknown) => ipcRenderer.invoke('radial:set-config', items),
+  onConfigChanged: (cb: (items?: unknown) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, items?: unknown) => cb(items)
+    ipcRenderer.on('radial:config-changed', handler)
+    return () => { ipcRenderer.removeListener('radial:config-changed', handler) }
+  },
+
+  // ── 程序配置 ──
+  pickProgram: () => ipcRenderer.invoke('radial:pick-program'),
+  getFileIcon: (filePath: string) => ipcRenderer.invoke('radial:get-file-icon', filePath),
+  launchProgram: (programPath: string) => ipcRenderer.invoke('radial:launch-program', programPath),
 })
