@@ -10,7 +10,7 @@ const WIDGET_SIZE = 206
 const CX = WIDGET_SIZE / 2
 const CY = WIDGET_SIZE / 2
 const ICON_R = (INNER_R + OUTER_R) / 2        // 图标中心半径 = 66
-const TOOLTIP_R = OUTER_R + 14                  // tooltip 半径，在环外侧
+const TOOLTIP_R = CENTER_R + 12                 // tooltip 半径，在中心和环之间
 const EXPANDED_CLIP_R = OUTER_R + GAP_PX + 2   // clip-path 展开半径 = 99
 const ICON_SIZE = 24                            // 图标渲染尺寸
 const ICON_CONTAINER = 40                       // 图标容器尺寸
@@ -407,40 +407,30 @@ visibleItemsRef.current = visibleItems
             </div>
           )
         })}
-      </motion.div>
 
-      {/* ═══ Hover tooltip（在 clip 容器外，避免被 clipPath 裁掉） ═══ */}
-      <AnimatePresence>
-        {expanded && (() => {
+        {/* Hover tooltip — 在 clip 容器内，使用 EXPANDED_CLIP_R 以内的半径 */}
+        {(() => {
           const item = visibleItems.find((it) => it.key === hovered)
           if (!item) return null
           const tipPos = angleToXY(item.angle, TOOLTIP_R, CX, CY)
           return (
-            <motion.div
+            <div
               key="tooltip"
               className="absolute pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
                          text-sm font-medium text-zinc-800 dark:text-zinc-100"
               style={{
-                left: tipPos.x, top: tipPos.y, zIndex: 20,
-                transform: `translate(-50%, -50%) rotate(${item.angle}deg)`,
-                transformOrigin: 'center center',
-                textAlign: 'center',
+                left: tipPos.x, top: tipPos.y, zIndex: 10,
+                transform: 'translate(-50%, -50%)',
                 background: 'rgba(240,242,246,0.96)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
                 border: '1px solid rgba(0,0,0,0.08)',
               }}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.15 }}
             >
-              {item.label}
-            </motion.div>
+              {TOOLTIP_LABELS[item.key]?.[document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'] ?? item.label}
+            </div>
           )
         })()}
-      </AnimatePresence>
+      </motion.div>
 
       {/* ═══ 中心圆形：logo / 关闭按钮 + 拖拽 ═══ */}
       <div
