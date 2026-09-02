@@ -422,7 +422,8 @@ visibleItemsRef.current = visibleItems
                          text-sm font-medium text-zinc-800 dark:text-zinc-100"
               style={{
                 left: tipPos.x, top: tipPos.y, zIndex: 20,
-                transform: 'translate(-50%, -50%)',
+                transform: `translate(-50%, -50%) rotate(${item.angle}deg)`,
+                transformOrigin: 'center center',
                 textAlign: 'center',
                 background: 'rgba(240,242,246,0.96)',
                 backdropFilter: 'blur(20px)',
