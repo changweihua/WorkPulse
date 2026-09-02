@@ -45,6 +45,7 @@ function createBackup(): void {
   const backupPath = getBackupPath()
   if (!existsSync(backupPath)) {
     try {
+      db.pragma('wal_checkpoint(TRUNCATE)')
       copyFileSync(getDbPath(), backupPath)
     } catch {
       // backup failure is non-critical

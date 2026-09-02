@@ -24,7 +24,10 @@ interface AppUpdateState {
 const api = {
   // 新增：发送 IPC 消息到主进程
   send: (channel: string, ...args: any[]) => {
-    ipcRenderer.send(channel, ...args);
+    const ALLOWED_SEND_CHANNELS = ['screenshot:ready', 'screenshot:cancel', 'screenshot:crop'] as const;
+    if ((ALLOWED_SEND_CHANNELS as readonly string[]).includes(channel)) {
+      ipcRenderer.send(channel, ...args);
+    }
   },
   app: {
     // 获取开机启动状态
@@ -231,12 +234,11 @@ if (process.contextIsolated) {
         }
       },
       removeAllListeners: (channel: string) => {
-        ipcRenderer.removeAllListeners(channel);
+        const validChannels = ['ai-stream-chunk', 'ai-stream-done', 'ai-stream-error', 'ai-stream-reasoning'];
+        if (validChannels.includes(channel)) {
+          ipcRenderer.removeAllListeners(channel);
+        }
       },
-    });
-
-    contextBridge.exposeInMainWorld('nativeAPI', {
-      sayHello: (name: string) => ipcRenderer.invoke('say-hello', name),
     });
 
     // 暴露安全的 API 给渲染进程

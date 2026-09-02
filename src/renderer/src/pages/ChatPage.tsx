@@ -938,8 +938,12 @@ function NumberField({ label, step, min, max, value, onChange }: {
 export default function ChatPage() {
     // 配置
     const [configs, setConfigs] = useState<ModelConfig[]>(() => {
-        const saved = localStorage.getItem('chatModelConfigs');
-        return saved ? JSON.parse(saved) : DEFAULT_CONFIGS;
+        try {
+            const saved = localStorage.getItem('chatModelConfigs');
+            return saved ? JSON.parse(saved) : DEFAULT_CONFIGS;
+        } catch {
+            return DEFAULT_CONFIGS;
+        }
     });
     const [currentConfigId, setCurrentConfigId] = useState(() => {
         return localStorage.getItem('chatCurrentConfigId') || configs[0]?.id || '';
@@ -948,8 +952,12 @@ export default function ChatPage() {
 
     // 会话
     const [conversations, setConversations] = useState<Conversation[]>(() => {
-        const saved = localStorage.getItem('chatConversations');
-        return saved ? JSON.parse(saved) : [];
+        try {
+            const saved = localStorage.getItem('chatConversations');
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
     });
     const [currentConvId, setCurrentConvId] = useState(() => {
         return localStorage.getItem('chatCurrentConvId') || '';

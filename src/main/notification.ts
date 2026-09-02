@@ -215,8 +215,8 @@ export function showNotification(options: NotifyOptions): Notification | null {
 export function initNotifications(): void {
   // Windows AppUserModelId（必须匹配 electron-builder appId）
   if (process.platform === 'win32') {
-    app.setAppUserModelId('com.workpulse.app')
-    log.info('[Notification] AppUserModelId set: com.workpulse.app')
+    app.setAppUserModelId('cmono.workpulse.app')
+    log.info('[Notification] AppUserModelId set: cmono.workpulse.app')
   }
 
   registerProtocol()

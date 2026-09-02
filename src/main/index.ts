@@ -1,6 +1,6 @@
 // 必须最先加载：让主进程读取项目根目录 .env（BARK_KEY 等）
 import 'dotenv/config'
-import { app, protocol, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, desktopCapturer, screen, clipboard } from 'electron'
+import { app, protocol, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, desktopCapturer, screen, clipboard, ClipboardItem } from 'electron'
 import path, { join } from 'path'
 import { readFileSync, createReadStream, mkdirSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
@@ -702,15 +702,6 @@ app.whenReady().then(async () => {
     }
   });
 
-  // 注册 IPC
-  ipcMain.handle('say-hello', async (_, name: string) => {
-    await ensureDotNet();
-    if (!dotnetLib || !dotnetLib.NativeBridge) {
-      throw new Error('.NET 未就绪');
-    }
-    // 方法名是小写开头的 sayHello（由 Generator 自动转换）
-    return dotnetLib.NativeBridge.sayHello(name);
-  });
   // Register title bar IPC listeners
   registerTitleBarListener()
 
@@ -835,12 +826,14 @@ app.whenReady().then(async () => {
     // Register handler BEFORE loadURL to avoid race condition
     const readyHandler = () => {
       if (!win.isDestroyed()) {
+        // 获取主显示器的 scaleFactor（覆盖窗口位于 minX,minY，即主显示器原点）
+        const primaryDisplay = screen.getDisplayNearestPoint({ x: overlayX, y: overlayY })
         win.show()
         win.focus()
         win.webContents.send('screenshot:ready', {
           width: overlayW,
           height: overlayH,
-          scaleFactor: 1,
+          scaleFactor: primaryDisplay.scaleFactor,
         })
       }
     }
@@ -876,10 +869,20 @@ app.whenReady().then(async () => {
       width: Math.floor(dw * sf),
       height: Math.floor(dh * sf),
     }
-    const sources = await desktopCapturer.getSources({
-      types: ['screen'],
-      thumbnailSize,
-    })
+
+    // 带超时保护的屏幕捕获（防止 desktopCapturer 挂起导致 screenshotBusy 死锁）
+    const CAPTURE_TIMEOUT_MS = 8000
+    let sources: Awaited<ReturnType<typeof desktopCapturer.getSources>> | null = null
+    try {
+      sources = await Promise.race([
+        desktopCapturer.getSources({ types: ['screen'], thumbnailSize }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Screen capture timed out')), CAPTURE_TIMEOUT_MS)),
+      ])
+    } catch (err) {
+      screenshotBusy = false
+      console.error('[Screenshot] desktopCapturer.getSources failed:', err)
+      return { ok: false, error: err instanceof Error ? err.message : '屏幕捕获失败' }
+    }
     if (!sources || sources.length === 0) {
       screenshotBusy = false
       return { ok: false, error: 'No capture sources available' }
@@ -917,14 +920,20 @@ app.whenReady().then(async () => {
 
       if (action === 'copy' || action === 'both') {
         // 复制到剪贴板
-        clipboard.writeImage(cropped)
+        const pngData = new Uint8Array(cropped.toPNG())
+        await clipboard.write([
+          new ClipboardItem({
+            'image/png': new Blob([pngData], { type: 'image/png' })
+          })
+        ])
       }
       if (action === 'save' || action === 'both') {
-        // 保存到文件
+        // 保存到文件（异步写入，避免同步阻塞主进程）
         const dir = join(homedir(), 'Pictures', 'WorkPulse')
         mkdirSync(dir, { recursive: true })
         const f = join(dir, `screenshot-${Date.now()}.png`)
-        writeFileSync(f, cropped.toPNG())
+        const pngBuffer = cropped.toPNG()
+        await fs.writeFile(f, pngBuffer)
         file = f
       }
 
@@ -944,7 +953,7 @@ app.whenReady().then(async () => {
     // 不清空忙碌标记：由渲染层在展示提示后调用 cancel() 关闭窗口并恢复径向菜单
     screenshotBusy = false
 
-    // 系统通知替代 overlay/radial 内的 toast（避免重复提示）
+    // 系统通知（与 overlay 内 toast 并行，确保用户至少看到一个反馈）
     const actionLabel = action === 'copy' ? '已复制到剪贴板' : action === 'save' ? `已保存到 ${file ?? '文件'}` : `已复制并保存`
     showNotification({
       title: '截图完成',
@@ -953,23 +962,7 @@ app.whenReady().then(async () => {
       group: 'workpulse',
     })
 
-    // 隐藏覆盖窗口（复用 + 延迟销毁）
-    if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
-      screenshotOverlayWindow.hide()
-      if (screenshotDestroyTimer) clearTimeout(screenshotDestroyTimer)
-      screenshotDestroyTimer = setTimeout(() => {
-        if (screenshotOverlayWindow && !screenshotOverlayWindow.isDestroyed()) {
-          screenshotOverlayWindow.destroy()
-          screenshotOverlayWindow = null
-        }
-        screenshotDestroyTimer = null
-      }, 30 * 1000)
-    }
-
-    // 重新显示径向菜单（不再发送 screenshot:result，toast 已由系统通知替代）
-    if (isRadialEnabled()) {
-      showRadialWindow()
-    }
+    // 注意：不在这里隐藏 overlay！由渲染层 toast 展示完毕后调用 cancel() 隐藏
     return { ok: true, file, width: w, height: h }
   })
 

@@ -85,33 +85,15 @@ with open('C:/Users/CHANGW~1/AppData/Local/Temp/opencode/COMMIT_MSG', 'w', encod
 - ❌ 忘记 push --tags → tag 只在本地，远程没有
 - ❌ 只 commit 不 tag → 版本追溯断裂
 
-**发版前必须确认：**
-1. `grep "VITE_APP_VERSION" .env` 显示正确版本
-2. `grep "APP_VERSION" resources/splash.html` 显示正确版本
-3. `git tag -l "vX.Y.Z"` 能找到 tag
-
-## 发布版本流程（必须严格遵循）
-
-**顺序不可调换，每一步都必须执行：**
-
-| 步骤 | 操作 | 说明 |
-|------|------|------|
-| **1** | `npx bumpp X.Y.Z --no-git-checks` | 升 package.json 版本，自动生成 git tag |
-| **2** | `npx tsx scripts/sync-version.ts` | 同步 .env、splash.html 到新版本（必须在 step 1 之后） |
-| **3** | `git add package.json package-lock.json .env resources/splash.html` | 暂存所有版本相关文件 |
-| **4** | `python -c "..." && git commit -F "..."` | 用 🐳 chore: release vX.Y.Z 提交 |
-| **5** | `git push && git push --tags` | 推送 commits + tag |
-
-**⚠️ 常见错误（已犯过，禁止再犯）：**
-- ❌ sync-version 在 bump 之前执行 → 同步的是旧版本号
-- ❌ 忘记 git tag → GitHub Release / Changelog 无法关联版本
-- ❌ 忘记 push --tags → tag 只在本地，远程没有
-- ❌ 只 commit 不 tag → 版本追溯断裂
+**⚠️ bumpp 可能因 commitlint 失败导致 tag 未创建：**
+- bumpp 在 commit 失败时不会创建 tag，必须手动创建
+- 如果 `git tag -l "vX.Y.Z"` 为空，必须手动执行 `git tag vX.Y.Z` 再 `git push origin vX.Y.Z`
+- **tag 必须由你手动创建和推送**，这样才能触发 GitHub Actions 自动构建
 
 **发版前必须确认：**
 1. `grep "VITE_APP_VERSION" .env` 显示正确版本
 2. `grep "APP_VERSION" resources/splash.html` 显示正确版本
-3. `git tag -l "vX.Y.Z"` 能找到 tag
+3. `git tag -l "vX.Y.Z"` 能找到 tag（若无则手动创建）
 
 ## 截图规范
 

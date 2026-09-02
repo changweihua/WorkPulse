@@ -104,6 +104,11 @@ export function deleteAttachmentsByLogId(db: Database.Database, workLogId: numbe
 export function registerAttachmentProtocol(): void {
   protocol.registerFileProtocol('appattachment', (request, callback) => {
     const filePath = join(ATTACHMENTS_DIR, decodeURIComponent(request.url.replace('appattachment://', '')))
+    const normalized = filePath.replace(/\\/g, '/').normalize()
+    if (!normalized.startsWith(ATTACHMENTS_DIR.replace(/\\/g, '/').normalize())) {
+      callback({ statusCode: 403 })
+      return
+    }
     callback({ path: filePath })
   })
 }

@@ -111,9 +111,6 @@ export async function loadDotNet() {
     parseRuntimeConfig(configPath);
 
     // 2. 环境变量
-    process.env.NODE_API_TRACE_HOST = '1';
-    process.env.NODE_API_DEBUG_RUNTIME = '1';
-    process.env.NODE_DEBUG = 'napi';
     process.env.DOTNET_ROOT = process.env.DOTNET_ROOT || 'C:\\Program Files\\dotnet';
     log('DOTNET_ROOT', process.env.DOTNET_ROOT);
 

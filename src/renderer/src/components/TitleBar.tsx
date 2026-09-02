@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
+import { useI18n } from '../stores/languageStore';
 
 export function TitleBar() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [isMaximized, setIsMaximized] = useState(false);
 
   const [hoverClose, setHoverClose] = useState(false);
@@ -15,14 +17,14 @@ export function TitleBar() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const handleMinimize = () => (window.api as any).window.minimize();
+  const handleMinimize = () => window.api.window.minimize();
   const handleMaximize = () => {
-    (window.api as any).window.maximize();
+    window.api.window.maximize();
     setIsMaximized(!isMaximized);
   };
-  const handleClose = () => (window.api as any).window.close();
+  const handleClose = () => window.api.window.close();
   const handleSettings = () => navigate('/settings');
-  const handleScreenshot = () => (window.api as any).screenshot?.start?.();
+  const handleScreenshot = () => window.api.send('screenshot:ready');
   const handleAI = () => navigate('/chat');
 
   const appTitle = import.meta.env.VITE_APP_TITLE || 'WorkPulse';
@@ -154,7 +156,7 @@ export function TitleBar() {
               <Icon icon="line-md:close" width={8} height={8} style={{ color: 'rgba(40,40,40,0.8)' }} />
             )}
           </button>
-          <span style={tooltipStyle(hoverClose)}>关闭</span>
+          <span style={tooltipStyle(hoverClose)}>{t('titlebar.close')}</span>
         </div>
 
         {/* 最小化 */}
@@ -170,7 +172,7 @@ export function TitleBar() {
               <Icon icon="line-md:arrow-close-down" width={6} height={6} style={{ color: 'rgba(40,40,40,0.8)' }} />
             )}
           </button>
-          <span style={tooltipStyle(hoverMinimize)}>最小化</span>
+          <span style={tooltipStyle(hoverMinimize)}>{t('titlebar.minimize')}</span>
         </div>
 
         {/* 最大化 / 还原（动态） */}
@@ -191,7 +193,7 @@ export function TitleBar() {
               />
             )}
           </button>
-          <span style={tooltipStyle(hoverMaximize)}>{isMaximized ? '还原' : '最大化'}</span>
+          <span style={tooltipStyle(hoverMaximize)}>{isMaximized ? t('titlebar.restore') : t('titlebar.maximize')}</span>
         </div>
       </div>
 
@@ -214,7 +216,7 @@ export function TitleBar() {
           >
             <Icon icon="line-md:cog-loop" width={16} height={16} />
           </button>
-          <span style={tooltipStyle(hoverSettings)}>设置</span>
+          <span style={tooltipStyle(hoverSettings)}>{t('titlebar.settings')}</span>
         </div>
 
         {/* 截图按钮 */}
@@ -228,7 +230,7 @@ export function TitleBar() {
           >
             <Icon icon="line-md:image-twotone" width={16} height={16} />
           </button>
-          <span style={tooltipStyle(hoverScreenshot)}>截图</span>
+          <span style={tooltipStyle(hoverScreenshot)}>{t('titlebar.screenshot')}</span>
         </div>
 
         {/* AI 按钮 */}
@@ -242,7 +244,7 @@ export function TitleBar() {
           >
             <Icon icon="line-md:chat-twotone" width={16} height={16} />
           </button>
-          <span style={tooltipStyle(hoverAI)}>AI 助手</span>
+          <span style={tooltipStyle(hoverAI)}>{t('titlebar.aiAssistant')}</span>
         </div>
       </div>
 

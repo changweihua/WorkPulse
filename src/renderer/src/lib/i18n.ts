@@ -43,6 +43,14 @@ export const translations = {
     'quick.taskSaved': '任务已添加到待办',
     'quick.submitLog': '记录',
 
+    'titlebar.close': '关闭',
+    'titlebar.minimize': '最小化',
+    'titlebar.maximize': '最大化',
+    'titlebar.restore': '还原',
+    'titlebar.settings': '设置',
+    'titlebar.screenshot': '截图',
+    'titlebar.aiAssistant': 'AI 助手',
+
     'worklog.emptyError': '请输入工作内容',
     'worklog.saveError': '保存失败，请重试',
     'worklog.deleted': '已删除',
@@ -324,6 +332,14 @@ export const translations = {
     'quick.logSaved': 'Log saved',
     'quick.taskSaved': 'Task added to Todo',
     'quick.submitLog': 'Log',
+
+    'titlebar.close': 'Close',
+    'titlebar.minimize': 'Minimize',
+    'titlebar.maximize': 'Maximize',
+    'titlebar.restore': 'Restore',
+    'titlebar.settings': 'Settings',
+    'titlebar.screenshot': 'Screenshot',
+    'titlebar.aiAssistant': 'AI Assistant',
 
     'worklog.emptyError': 'Enter what you worked on',
     'worklog.saveError': 'Save failed. Try again.',

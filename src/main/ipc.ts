@@ -92,26 +92,6 @@ export function registerIpcHandlers(): void {
     return getStats(days)
   })
 
-  // --- Reports ---
-
-  ipcMain.handle(
-    'report:generate',
-    async (_event, dateFrom: string, dateTo: string) => {
-      const logs = getWorkLogsByDateRange(dateFrom, dateTo)
-      if (logs.length === 0) {
-        throw new Error(tMain('noWorkLogsInRange'))
-      }
-      const tasks = getTasks().filter((task) => {
-        if (task.status !== 'done') return true
-        const completedDate = task.completed_at?.slice(0, 10)
-        return Boolean(completedDate && completedDate >= dateFrom && completedDate <= dateTo)
-      })
-      const content = await generateReport(logs, dateFrom, dateTo, tasks)
-      const report = saveReport('custom', dateFrom, dateTo, content)
-      return report
-    }
-  )
-
   ipcMain.handle('report:list', (_event, limit?: number) => {
     return getReports(limit)
   })

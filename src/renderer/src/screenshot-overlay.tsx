@@ -102,15 +102,24 @@ function ScreenshotOverlay(): React.ReactNode {
     showToolbarRef.current = false
 
     let ok = false
+    let errorMsg = ''
     try {
       const res = await window.screenshotOverlayApi.crop(rect, action, full)
       ok = !!res?.ok
-    } catch {
+      if (!ok && res?.error) errorMsg = res.error
+    } catch (err) {
       ok = false
+      errorMsg = err instanceof Error ? err.message : '截图裁剪失败'
     }
 
     if (!ok) {
-      window.screenshotOverlayApi.cancel()
+      // 显示错误提示后自动关闭，而非静默消失
+      setToastMsg(`✗ ${errorMsg || '截图失败'}`)
+      setToast(true)
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+      toastTimerRef.current = window.setTimeout(() => {
+        window.screenshotOverlayApi.cancel()
+      }, 2000)
       return
     }
 
