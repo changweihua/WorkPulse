@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useI18n } from '../stores/languageStore';
 
 export function TitleBar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useI18n();
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -12,8 +13,6 @@ export function TitleBar() {
   const [hoverMinimize, setHoverMinimize] = useState(false);
   const [hoverMaximize, setHoverMaximize] = useState(false);
   const [hoverSettings, setHoverSettings] = useState(false);
-  const [hoverScreenshot, setHoverScreenshot] = useState(false);
-  const [hoverAI, setHoverAI] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -24,10 +23,23 @@ export function TitleBar() {
   };
   const handleClose = () => window.api.window.close();
   const handleSettings = () => navigate('/settings');
-  const handleScreenshot = () => window.api.send('screenshot:ready');
-  const handleAI = () => navigate('/chat');
 
-  const appTitle = import.meta.env.VITE_APP_TITLE || 'WorkPulse';
+  // 动态页面标题
+  const routeTitleMap: Record<string, string> = {
+    '/worklog': t('nav.worklog'),
+    '/kanban': t('nav.kanban'),
+    '/report': t('nav.report'),
+    '/reports': t('nav.weekly'),
+    '/stats': t('nav.stats'),
+    '/calendar': t('nav.calendar'),
+    '/chat': t('nav.chat'),
+    '/ocr': t('nav.ocr'),
+    '/pp': t('nav.pp'),
+    '/xray': t('nav.xray'),
+    '/onnx': t('nav.onnx'),
+    '/settings': t('nav.settings'),
+  };
+  const pageTitle = routeTitleMap[location.pathname] || 'WorkPulse';
 
   // Mica 透明标题栏 — Mica 由 DWM 渲染，TitleBar 只需透明拖拽区域
   const glassStyle = {
@@ -218,34 +230,6 @@ export function TitleBar() {
           </button>
           <span style={tooltipStyle(hoverSettings)}>{t('titlebar.settings')}</span>
         </div>
-
-        {/* 截图按钮 */}
-        <div style={btnWrapStyle}>
-          <button
-            onClick={handleScreenshot}
-            onMouseEnter={() => setHoverScreenshot(true)}
-            onMouseLeave={() => setHoverScreenshot(false)}
-            style={toolbarBtnStyle(hoverScreenshot)}
-            aria-label="Screenshot"
-          >
-            <Icon icon="line-md:image-twotone" width={16} height={16} />
-          </button>
-          <span style={tooltipStyle(hoverScreenshot)}>{t('titlebar.screenshot')}</span>
-        </div>
-
-        {/* AI 按钮 */}
-        <div style={btnWrapStyle}>
-          <button
-            onClick={handleAI}
-            onMouseEnter={() => setHoverAI(true)}
-            onMouseLeave={() => setHoverAI(false)}
-            style={toolbarBtnStyle(hoverAI)}
-            aria-label="AI Chat"
-          >
-            <Icon icon="line-md:chat-twotone" width={16} height={16} />
-          </button>
-          <span style={tooltipStyle(hoverAI)}>{t('titlebar.aiAssistant')}</span>
-        </div>
       </div>
 
       {/* 标题 */}
@@ -259,7 +243,7 @@ export function TitleBar() {
           letterSpacing: '0.3px',
         }}
       >
-        {appTitle}
+        {pageTitle}
       </span>
 
       {/* 右侧：搜索框（外层固定宽度容器，防止动态宽度影响标题居中） */}

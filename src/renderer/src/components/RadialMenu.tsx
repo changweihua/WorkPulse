@@ -21,9 +21,9 @@ const ICON_SVG = `data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFs
 const TOOLTIP_LABELS: Record<string, { zh: string; en: string }> = {
   log: { zh: '日志', en: 'Work Log' },
   task: { zh: '任务', en: 'Task' },
-  meeting: { zh: '日程', en: 'Meeting' },
   ai: { zh: 'AI 生成', en: 'AI Generate' },
   screenshot: { zh: '截图', en: 'Screenshot' },
+  settings: { zh: '设置', en: 'Settings' },
 }
 
 const CENTER_SIZE = CENTER_R * 2
@@ -43,9 +43,9 @@ interface RadialItem {
 const BUILTIN_ITEMS: RadialItem[] = [
   { key: 'log', label: 'Work Log', emoji: '📝', angle: -90, route: 'worklog', type: 'builtin' },
   { key: 'task', label: 'Task', emoji: '📋', angle: -18, route: 'kanban', type: 'builtin' },
-  { key: 'meeting', label: 'Meeting', emoji: '📅', angle: 54, route: 'calendar', type: 'builtin' },
-  { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 126, route: 'chat', type: 'builtin' },
-  { key: 'screenshot', label: 'Screenshot', emoji: '📸', angle: 198, route: '', type: 'builtin' },
+  { key: 'ai', label: 'AI Generate', emoji: '🤖', angle: 90, route: 'chat', type: 'builtin' },
+  { key: 'screenshot', label: 'Screenshot', emoji: '📸', angle: 162, route: '', type: 'builtin' },
+  { key: 'settings', label: 'Settings', emoji: '⚙️', angle: 234, route: 'settings', type: 'builtin' },
 ]
 
 /**

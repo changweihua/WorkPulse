@@ -54,10 +54,9 @@ export const router = createHashRouter([
                     { path: 'onnx', element: <Suspense fallback={<PageLoader />}><OnnxPage /></Suspense>, handle: { fluid: true } },
                     { path: 'ocr', element: <Suspense fallback={<PageLoader />}><OcrPage /></Suspense>, handle: { fluid: true } },
                     { path: 'pp', element: <Suspense fallback={<PageLoader />}><OcrPagePP /></Suspense>, handle: { fluid: true } },
+                    { path: 'settings', element: <Suspense fallback={<PageLoader />}><SettingsPage /></Suspense> },
                 ],
             },
-            // 设置页直接挂在 TitleBarLayout 下，没有导航栏
-            { path: 'settings', element: <Suspense fallback={<PageLoader />}><SettingsPage /></Suspense> },
             // 404
             { path: '*', element: <NotFound /> },
         ],

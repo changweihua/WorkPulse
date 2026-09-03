@@ -1,6 +1,8 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { TitleBar } from '../components/TitleBar';
+import AIChatPanel from '../components/AIChatPanel';
+import AIFloatingButton from '../components/AIFloatingButton';
 
 export default function TitleBarLayout() {
     return (
@@ -9,9 +11,13 @@ export default function TitleBarLayout() {
             <div className="bg-[#eef4ff]/70 dark:bg-[#28282b]/88">
                 <TitleBar />
             </div>
-            <div className="flex-1 overflow-auto bg-[#eef4ff]/70 dark:bg-[#28282b]/88">
+            <div className="flex-1 overflow-hidden">
                 <Outlet />
             </div>
+            {/* AI 浮动按钮 — 全局可用 */}
+            <AIFloatingButton />
+            {/* AI Chat 浮层面板 */}
+            <AIChatPanel />
         </div>
     );
 }

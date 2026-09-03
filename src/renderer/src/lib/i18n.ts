@@ -32,6 +32,10 @@ export const translations = {
     'nav.onnx': 'ONNX',
     'nav.ocr': 'OCR',
     'nav.pp': 'PaddleOCR',
+    'nav.section.core': '核心',
+    'nav.section.insights': '洞察',
+    'nav.section.tools': '工具',
+    'nav.ocr.unified': '识别',
 
 
     'quick.log': '记录日志',
@@ -323,6 +327,10 @@ export const translations = {
     'nav.onnx': 'ONNX',
     'nav.ocr': 'OCR',
     'nav.pp': 'PaddleOCR',
+    'nav.section.core': 'CORE',
+    'nav.section.insights': 'INSIGHTS',
+    'nav.section.tools': 'TOOLS',
+    'nav.ocr.unified': 'OCR',
 
     'quick.log': 'Log work',
     'quick.task': 'Add task',

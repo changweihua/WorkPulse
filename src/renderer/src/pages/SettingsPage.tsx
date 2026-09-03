@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState, ReactNode } from 'react'
 import {
-  ArrowLeft,
   Eye,
   EyeOff,
   Trash2,
   RotateCcw,
   Keyboard,
-Sun,
-Moon,
-Monitor,
-Layers,
-PanelTop,
-Droplets,
+  Sun,
+  Moon,
+  Monitor,
+  Layers,
+  PanelTop,
+  Droplets,
   RefreshCw,
   Download,
   CheckCircle2,
@@ -25,7 +24,6 @@ import { useToast } from '../components/Toast'
 import { useThemeStore, ACCENTS, type Theme } from '../stores/themeStore'
 import { useI18n, useLanguageStore } from '../stores/languageStore'
 import type { AppLanguage, ResolvedLanguage } from '../lib/i18n'
-import { useNavigate } from 'react-router-dom'
 
 // Convert a KeyboardEvent to an Electron-style accelerator string
 function eventToAccelerator(e: KeyboardEvent): string | null {
@@ -84,10 +82,6 @@ function ShortcutCapture({
       {capturing ? capturingLabel : value}
     </button>
   )
-}
-
-interface Props {
-  onBack: () => void
 }
 
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'not_available' | 'downloading' | 'downloaded' | 'error'
@@ -156,7 +150,6 @@ function getDefaultReportTemplate(language: ResolvedLanguage): string {
 }
 
 function SettingsPage(): ReactNode {
-  const navigate = useNavigate();
   const isMac = navigator.userAgent.includes('Mac')
   const modifierLabel = isMac ? 'Cmd' : 'Ctrl'
   const { language: appLanguage, resolvedLanguage, t } = useI18n()
@@ -603,19 +596,6 @@ function SettingsPage(): ReactNode {
 
   return (
     <div className="flex flex-col bg-transparent">
-      {/* Header - 固定顶部 */}
-      <header className="sticky top-0 z-10 flex items-center px-4 py-3 bg-white/50 dark:bg-[#28282b]/88 backdrop-blur-md border-b border-zinc-200/20 dark:border-zinc-700/20">
-        <button
-          onClick={() => navigate('/worklog')}
-          className="p-2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors mr-2"
-          aria-label={t('settings.back')}
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{t('settings.title')}</h1>
-      </header>
-
-      {/* Content */}
       <main className="flex-1">
         <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
           {/* AI Configuration */}
