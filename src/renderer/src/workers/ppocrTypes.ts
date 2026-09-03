@@ -38,8 +38,11 @@ export interface DoneMessage {
     results: RecognitionResult[];
 }
 
+export type ExecutionBackend = 'webgpu' | 'webgl' | 'wasm';
+
 export interface ReadyMessage {
     type: 'ready';
+    backend: ExecutionBackend;
 }
 
 export interface ErrorMessage {

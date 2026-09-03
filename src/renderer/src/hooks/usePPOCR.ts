@@ -1,6 +1,6 @@
 // src/renderer/src/hooks/usePPOCR.ts
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { WorkerRequest, WorkerResponse } from '../workers/ppocrTypes';
+import type { WorkerRequest, WorkerResponse, ExecutionBackend } from '../workers/ppocrTypes';
 
 // ---------- 类型定义 ----------
 export type OCRStatus = 'idle' | 'loading' | 'ready' | 'running' | 'error';
@@ -25,22 +25,65 @@ export interface ProgressInfo {
     step: string;
 }
 
-// ---------- 模型文件名 ----------
-const DET_MODEL = 'PP-OCRv6_det_tiny.onnx';
-const REC_MODEL = 'PP-OCRv6_rec_tiny.onnx';
-const CHARLIST_FILE = 'ppocr_keys_v6_tiny.json';
+// ---------- 模型变体定义 ----------
+export type ModelVariant = 'tiny' | 'small' | 'medium';
+
+export interface ModelVariantInfo {
+    id: ModelVariant;
+    label: string;
+    det: string;
+    rec: string;
+    dict: string;
+    size: string;
+}
+
+export const MODEL_VARIANTS: ModelVariantInfo[] = [
+    {
+        id: 'tiny',
+        label: 'Tiny (6 MB)',
+        det: 'ppocrv6-tiny/det.onnx',
+        rec: 'ppocrv6-tiny/rec.onnx',
+        dict: 'ppocrv6-tiny/dict.json',
+        size: '~6 MB',
+    },
+    {
+        id: 'small',
+        label: 'Small (29 MB)',
+        det: 'ppocrv6-small/det.onnx',
+        rec: 'ppocrv6-small/rec.onnx',
+        dict: 'ppocrv6-small/dict.json',
+        size: '~29 MB',
+    },
+    {
+        id: 'medium',
+        label: 'Medium (132 MB)',
+        det: 'ppocrv6-medium/det.onnx',
+        rec: 'ppocrv6-medium/rec.onnx',
+        dict: 'ppocrv6-medium/dict.json',
+        size: '~132 MB',
+    },
+];
+
+function getVariantConfig(variant: ModelVariant): ModelVariantInfo {
+    return MODEL_VARIANTS.find((v) => v.id === variant) ?? MODEL_VARIANTS[0];
+}
 
 // ---------- Hook ----------
-export function usePPOCR() {
+export function usePPOCR(initialVariant: ModelVariant = 'tiny') {
     const [status, setStatus] = useState<OCRStatus>('idle');
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState<ProgressInfo>({ percent: 0, step: '等待开始' });
     const [results, setResults] = useState<RecognitionResult[]>([]);
     const [imageData, setImageData] = useState<ImageData | null>(null);
+    const [variant, setVariant] = useState<ModelVariant>(initialVariant);
+    const [backend, setBackend] = useState<ExecutionBackend | null>(null);
 
     const workerRef = useRef<Worker | null>(null);
     const runResolveRef = useRef<((r: RecognitionResult[]) => void) | null>(null);
     const runRejectRef = useRef<((e: Error) => void) | null>(null);
+    const variantRef = useRef<ModelVariant>(initialVariant);
+    // 代数计数器：每次切换变体递增，防止过期的 loadModels 向新 worker 发送 init
+    const loadGenerationRef = useRef(0);
 
     // 通过 IPC 读取模型文件（返回 ArrayBuffer）
     const readModelFile = useCallback(async (fileName: string): Promise<ArrayBuffer> => {
@@ -59,6 +102,7 @@ export function usePPOCR() {
                 setStatus('ready');
                 setProgress({ percent: 100, step: '模型加载完成' });
                 setError(null);
+                setBackend(msg.backend);
                 break;
             case 'progress':
                 setProgress({ percent: msg.percent, step: msg.stage });
@@ -99,22 +143,35 @@ export function usePPOCR() {
     }, []);
 
     // 加载模型：读取文件（用于进度上报），随后将 buffer 转移给 Worker 创建会话
-    const loadModels = useCallback(async () => {
+    const loadModels = useCallback(async (targetVariant?: ModelVariant) => {
+        const v = targetVariant ?? variantRef.current;
+        const cfg = getVariantConfig(v);
+        const generation = ++loadGenerationRef.current;
         try {
             setStatus('loading');
-            setProgress({ percent: 0, step: '加载字符集...' });
+            setProgress({ percent: 0, step: `加载字符集 (${v})...` });
 
-            const keysData = await readModelFile(CHARLIST_FILE);
+            const keysData = await readModelFile(cfg.dict);
             const jsonStr = new TextDecoder().decode(new Uint8Array(keysData));
             const dict = JSON.parse(jsonStr);
             const charList = ['', ...dict, ' '];
-            console.log('[OCR] 字符集大小:', charList.length);
+            console.log(`[OCR] 字符集大小: ${charList.length}, 模型: ${v}`);
 
-            setProgress({ percent: 20, step: '加载检测模型...' });
-            const detBuffer = await readModelFile(DET_MODEL);
+            // 检查：如果代数已变，说明用户已切换到其他模型，丢弃本次加载
+            if (generation !== loadGenerationRef.current) {
+                console.log(`[OCR] 模型 ${v} 已过期，跳过初始化`);
+                return;
+            }
 
-            setProgress({ percent: 60, step: '加载识别模型...' });
-            const recBuffer = await readModelFile(REC_MODEL);
+            setProgress({ percent: 20, step: `加载检测模型 (${v})...` });
+            const detBuffer = await readModelFile(cfg.det);
+
+            if (generation !== loadGenerationRef.current) return;
+
+            setProgress({ percent: 60, step: `加载识别模型 (${v})...` });
+            const recBuffer = await readModelFile(cfg.rec);
+
+            if (generation !== loadGenerationRef.current) return;
 
             // 将模型 buffer 以 transferable 方式交给 Worker，由 Worker 创建推理会话
             workerRef.current?.postMessage(
@@ -123,6 +180,7 @@ export function usePPOCR() {
             );
             // 真正的会话创建在 Worker 内完成，'ready' 消息到达后状态置为 ready
         } catch (err) {
+            if (generation !== loadGenerationRef.current) return;
             setStatus('error');
             setError((err as Error).message);
             console.error('[OCR] 加载失败:', err);
@@ -151,6 +209,35 @@ export function usePPOCR() {
         [status]
     );
 
+    // 切换模型变体：终止旧 Worker，创建新 Worker，加载新模型
+    const switchVariant = useCallback(
+        async (newVariant: ModelVariant) => {
+            if (newVariant === variantRef.current) return;
+            variantRef.current = newVariant;
+            setVariant(newVariant);
+            setResults([]);
+            setError(null);
+            setBackend(null);
+
+            // 终止旧 Worker
+            if (workerRef.current) {
+                workerRef.current.terminate();
+                workerRef.current = null;
+            }
+
+            // 创建新 Worker 并加载模型
+            const worker = new Worker(new URL('../workers/ppocr.worker.ts', import.meta.url), {
+                type: 'module',
+            });
+            workerRef.current = worker;
+            worker.onmessage = handleWorkerMessage;
+            worker.onerror = handleWorkerError;
+
+            await loadModels(newVariant);
+        },
+        [loadModels, handleWorkerMessage, handleWorkerError]
+    );
+
     // 创建 Worker 并加载模型
     useEffect(() => {
         const worker = new Worker(new URL('../workers/ppocr.worker.ts', import.meta.url), {
@@ -160,7 +247,7 @@ export function usePPOCR() {
         worker.onmessage = handleWorkerMessage;
         worker.onerror = handleWorkerError;
 
-        loadModels();
+        loadModels(variantRef.current);
 
         return () => {
             worker.terminate();
@@ -179,5 +266,8 @@ export function usePPOCR() {
         setImageData,
         runOCR,
         loadModels,
+        variant,
+        switchVariant,
+        backend,
     };
 }

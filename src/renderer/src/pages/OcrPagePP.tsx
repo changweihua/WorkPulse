@@ -1,10 +1,14 @@
 // src/renderer/src/pages/OcrPagePP.tsx
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { usePPOCR } from '../hooks/usePPOCR';
+import { usePPOCR, MODEL_VARIANTS } from '../hooks/usePPOCR';
+import type { ModelVariant } from '../hooks/usePPOCR';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { AlertTriangle } from 'lucide-react';
+
+const IS_WEBGPU_AVAILABLE = !!(navigator as any).gpu;
 
 function OcrPageContent() {
-    const { status, error, progress, results, imageData, runOCR, setImageData } = usePPOCR();
+    const { status, error, progress, results, imageData, runOCR, setImageData, variant, switchVariant, backend } = usePPOCR();
 
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -86,7 +90,7 @@ function OcrPageContent() {
     const handleOCR = useCallback(async () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const imgData = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
+        const imgData = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, canvas.width, canvas.height);
         try {
             // 推理在 Worker 中执行，结果通过 results 状态渐进式回传并自动重绘
             await runOCR(imgData);
@@ -169,7 +173,7 @@ function OcrPageContent() {
             <header className="flex items-center gap-4 px-6 py-3 border-b border-gray-200 dark:border-zinc-700/70 surface-card shrink-0">
                 <h1 className="text-xl font-semibold">浏览器端 OCR</h1>
                 <span className="px-3 py-1 text-xs border border-blue-300 bg-blue-50 text-blue-600 rounded-full">
-                    PP-OCRv6 tiny + onnxruntime-web
+                    PP-OCRv6 {variant} + onnxruntime-web
                 </span>
             </header>
 
@@ -216,7 +220,30 @@ function OcrPageContent() {
                         <div className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">
                             模型状态
                         </div>
-                        <div className="mt-2 flex items-center justify-between">
+
+                        {/* 模型变体选择 */}
+                        <div className="mt-3">
+                            <label className="text-xs text-gray-500 dark:text-zinc-400 mb-1 block">模型变体</label>
+                            <div className="flex gap-1.5">
+                                {MODEL_VARIANTS.map((v) => (
+                                    <button
+                                        key={v.id}
+                                        onClick={() => switchVariant(v.id)}
+                                        disabled={status === 'loading' || status === 'running'}
+                                        className={`flex-1 px-2 py-1.5 text-xs rounded-md border transition-all ${
+                                            variant === v.id
+                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
+                                                : 'border-gray-200 dark:border-zinc-600 text-gray-500 dark:text-zinc-400 hover:border-gray-300 dark:hover:border-zinc-500'
+                                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    >
+                                        {v.id}
+                                        <span className="block text-[10px] opacity-60 mt-0.5">{v.size}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between">
                             <span className="text-sm text-gray-600 dark:text-zinc-300">状态</span>
                             <span className="flex items-center gap-2 text-sm">
                                 {statusDot()}
@@ -241,6 +268,17 @@ function OcrPageContent() {
                             <div className="mt-2 text-sm text-red-500">❌ {error}</div>
                         )}
                     </div>
+
+                    {!IS_WEBGPU_AVAILABLE && (
+                        <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200/70 dark:border-amber-800/50 shrink-0">
+                            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                                <AlertTriangle size={12} /> 未检测到 WebGPU
+                            </p>
+                            <p className="text-[11px] text-amber-600/80 dark:text-amber-500/80 mt-1 leading-relaxed">
+                                将回退到 WASM 模式，速度较慢。建议使用 Chrome/Edge 113+。
+                            </p>
+                        </div>
+                    )}
 
                     {/* OCR 进度（运行时） */}
                     {isRunning && (
@@ -332,7 +370,7 @@ function OcrPageContent() {
 
             {/* 底部状态栏 */}
             <div className="text-xs text-gray-400 dark:text-zinc-500 text-center py-2 border-t border-gray-200 dark:border-zinc-700/70 surface-card shrink-0">
-                WebGPU 未启用 ｜ 状态：{status}
+                {backend ? `推理后端: ${backend.toUpperCase()}` : IS_WEBGPU_AVAILABLE ? 'WebGPU 已检测' : 'WebGPU 未支持'} ｜ 状态：{status}
             </div>
         </div>
     );

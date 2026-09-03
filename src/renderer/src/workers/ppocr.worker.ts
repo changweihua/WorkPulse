@@ -12,15 +12,13 @@ const REC_MEAN = [0.5, 0.5, 0.5];
 const REC_STD = [0.5, 0.5, 0.5];
 const REC_HEIGHT = 48;
 const REC_MAX_WIDTH = 2400;
-// 并行识别的并发数（每个 slot 拥有独立的复用 buffer）
-const CONCURRENCY = 6;
 
 // ---------- 全局状态 ----------
 let detSession: ort.InferenceSession | null = null;
 let recSession: ort.InferenceSession | null = null;
 let charList: string[] = [];
-// 每个并发 slot 一个预分配的 CHW buffer，避免频繁 GC
-const recBuffers: Float32Array[] = [];
+// 预分配的 CHW buffer，避免频繁 GC
+let recBuffer: Float32Array | null = null;
 
 // 使用类型安全的 postMessage（避免 DOM lib 的 postMessage 签名冲突）
 const ctx = self as unknown as {
@@ -212,47 +210,54 @@ function ctcDecode(
     return { text, confidence, charCount };
 }
 
-// ---------- 并发池 ----------
-async function runWithConcurrency<T>(
-    items: T[],
-    limit: number,
-    fn: (item: T, slot: number) => Promise<void>
-): Promise<void> {
-    let idx = 0;
-    const n = Math.min(limit, items.length);
-    async function worker(slot: number): Promise<void> {
-        while (idx < items.length) {
-            const cur = idx++;
-            await fn(items[cur], slot);
+// ---------- 会话初始化 ----------
+async function initSessions(detBuffer: ArrayBuffer, recModelBuffer: ArrayBuffer, list: string[]): Promise<void> {
+    charList = list;
+
+    // 释放旧会话，防止 "Session already started" 错误
+    if (detSession) {
+        try { detSession.release(); } catch { /* ignore */ }
+        detSession = null;
+    }
+    if (recSession) {
+        try { recSession.release(); } catch { /* ignore */ }
+        recSession = null;
+    }
+
+    // 优先 WebGPU → WebGL → WASM
+    let backend: 'webgpu' | 'webgl' | 'wasm' = 'wasm';
+    const providers: Array<{ name: 'webgpu' | 'webgl' | 'wasm'; label: string }> = [
+        { name: 'webgpu', label: 'WebGPU' },
+        { name: 'webgl', label: 'WebGL' },
+        { name: 'wasm', label: 'WASM' },
+    ];
+
+    for (const p of providers) {
+        try {
+            detSession = await ort.InferenceSession.create(detBuffer, {
+                executionProviders: [p.name],
+            });
+            recSession = await ort.InferenceSession.create(recModelBuffer, {
+                executionProviders: [p.name],
+            });
+            backend = p.name;
+            console.log(`[OCR Worker] 使用 ${p.label} 后端`);
+            break;
+        } catch (e) {
+            console.warn(`[OCR Worker] ${p.label} 不可用，尝试下一个`);
+            detSession = null;
+            recSession = null;
         }
     }
-    await Promise.all(Array.from({ length: n }, (_, slot) => worker(slot)));
-}
 
-// ---------- 会话初始化 ----------
-async function initSessions(detBuffer: ArrayBuffer, recBuffer: ArrayBuffer, list: string[]): Promise<void> {
-    charList = list;
-    let backend: 'webgl' | 'wasm' = 'webgl';
-    try {
-        detSession = await ort.InferenceSession.create(detBuffer, {
-            executionProviders: ['webgl'],
-        });
-    } catch {
-        console.warn('[OCR Worker] WebGL 不可用，降级到 WASM');
-        backend = 'wasm';
-        detSession = await ort.InferenceSession.create(detBuffer, {
-            executionProviders: ['wasm'],
-        });
+    if (!detSession || !recSession) {
+        throw new Error('所有推理后端均不可用（WebGPU/WebGL/WASM）');
     }
-    recSession = await ort.InferenceSession.create(recBuffer, {
-        executionProviders: [backend],
-    });
-    // 预分配每个并发 slot 的复用 buffer
-    recBuffers.length = 0;
-    for (let i = 0; i < CONCURRENCY; i++) {
-        recBuffers.push(new Float32Array(3 * REC_HEIGHT * REC_MAX_WIDTH));
-    }
-    console.log('[OCR Worker] 模型加载完成，并发数:', CONCURRENCY);
+
+    // 预分配识别 buffer
+    recBuffer = new Float32Array(3 * REC_HEIGHT * REC_MAX_WIDTH);
+    console.log('[OCR Worker] 模型加载完成，后端:', backend);
+    post({ type: 'ready', backend });
 }
 
 // ---------- 主推理流程 ----------
@@ -296,67 +301,64 @@ async function runPipeline(imageData: ImageData): Promise<void> {
     const results: (RecognitionResult | null)[] = new Array(total).fill(null);
     let completed = 0;
 
-    await runWithConcurrency(
-        boxes.map((b, i) => ({ b, i })),
-        CONCURRENCY,
-        async ({ b, i }, slot) => {
-            const cw = b.x1 - b.x0;
-            const ch = b.y1 - b.y0;
-            if (cw < 2 || ch < 2) {
-                completed++;
-                postProgress('步骤 2/3: 识别中...', 30 + Math.round((completed / total) * 60));
-                return;
-            }
-
-            const cropped = cropImageData(imageData, b.x0, b.y0, cw, ch);
-            if (!cropped) {
-                completed++;
-                postProgress('步骤 2/3: 识别中...', 30 + Math.round((completed / total) * 60));
-                return;
-            }
-
-            const recW = Math.max(8, Math.round((REC_HEIGHT * cw) / ch));
-            const finalRecW = Math.min(recW, REC_MAX_WIDTH);
-
-            const recResized = resizeImageDataOffscreen(cropped, finalRecW, REC_HEIGHT);
-            const buf = recBuffers[slot];
-            const need = 3 * REC_HEIGHT * finalRecW;
-            rgbaToCHWInto(recResized, REC_MEAN, REC_STD, buf.subarray(0, need));
-            const recTensor = new ort.Tensor(
-                'float32',
-                buf.subarray(0, need),
-                [1, 3, REC_HEIGHT, finalRecW]
-            );
-
-            const recResult = await recSession!.run({ x: recTensor });
-            const recOutput = recResult[recSession!.outputNames[0]];
-            const T = recOutput.dims[1];
-            const C = recOutput.dims[2];
-            const decoded = ctcDecode(recOutput.data as Float32Array, T, C, charList);
-            const text = decoded.text.trim();
-
+    // 逐框识别（onnxruntime WASM 不支持同一 session 并发 run）
+    for (const { b, i } of boxes.map((b, i) => ({ b, i }))) {
+        const cw = b.x1 - b.x0;
+        const ch = b.y1 - b.y0;
+        if (cw < 2 || ch < 2) {
             completed++;
             postProgress('步骤 2/3: 识别中...', 30 + Math.round((completed / total) * 60));
-
-            if (text) {
-                const res: RecognitionResult = {
-                    box: b,
-                    text,
-                    confidence: decoded.confidence,
-                    charCount: decoded.charCount,
-                };
-                results[i] = res;
-                post({
-                    type: 'box-recognized',
-                    index: i,
-                    text,
-                    confidence: decoded.confidence,
-                    charCount: decoded.charCount,
-                    box: b,
-                });
-            }
+            continue;
         }
-    );
+
+        const cropped = cropImageData(imageData, b.x0, b.y0, cw, ch);
+        if (!cropped) {
+            completed++;
+            postProgress('步骤 2/3: 识别中...', 30 + Math.round((completed / total) * 60));
+            continue;
+        }
+
+        const recW = Math.max(8, Math.round((REC_HEIGHT * cw) / ch));
+        const finalRecW = Math.min(recW, REC_MAX_WIDTH);
+
+        const recResized = resizeImageDataOffscreen(cropped, finalRecW, REC_HEIGHT);
+        const buf = recBuffer!;
+        const need = 3 * REC_HEIGHT * finalRecW;
+        rgbaToCHWInto(recResized, REC_MEAN, REC_STD, buf.subarray(0, need));
+        const recTensor = new ort.Tensor(
+            'float32',
+            buf.subarray(0, need),
+            [1, 3, REC_HEIGHT, finalRecW]
+        );
+
+        const recResult = await recSession!.run({ x: recTensor });
+        const recOutput = recResult[recSession!.outputNames[0]];
+        const T = recOutput.dims[1];
+        const C = recOutput.dims[2];
+        const decoded = ctcDecode(recOutput.data as Float32Array, T, C, charList);
+        const text = decoded.text.trim();
+
+        completed++;
+        postProgress('步骤 2/3: 识别中...', 30 + Math.round((completed / total) * 60));
+
+        if (text) {
+            const res: RecognitionResult = {
+                box: b,
+                text,
+                confidence: decoded.confidence,
+                charCount: decoded.charCount,
+            };
+            results[i] = res;
+            post({
+                type: 'box-recognized',
+                index: i,
+                text,
+                confidence: decoded.confidence,
+                charCount: decoded.charCount,
+                box: b,
+            });
+        }
+    }
 
     const finalResults = results.filter((r): r is RecognitionResult => r !== null);
     postProgress('完成', 100);
@@ -369,7 +371,7 @@ ctx.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     try {
         if (msg.type === 'init') {
             await initSessions(msg.detBuffer, msg.recBuffer, msg.charList);
-            post({ type: 'ready' });
+            // ready message is posted inside initSessions with backend info
         } else if (msg.type === 'run') {
             await runPipeline(msg.imageData);
         }
