@@ -32,7 +32,7 @@ function OcrPageContent() {
             if (!canvas) return;
             canvas.width = imgData.width;
             canvas.height = imgData.height;
-            const ctx = canvas.getContext('2d')!;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
             ctx.putImageData(imgData, 0, 0);
 
             if (boxes.length === 0) return;
@@ -73,7 +73,7 @@ function OcrPageContent() {
                     if (!canvas) return;
                     canvas.width = img.naturalWidth;
                     canvas.height = img.naturalHeight;
-                    const ctx = canvas.getContext('2d')!;
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
                     ctx.drawImage(img, 0, 0);
                     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     setImageData(imgData);
