@@ -16,6 +16,7 @@ interface WorkLogStore {
   lastDeleted: WorkLog | null
   fetchLogs: () => Promise<void>
   loadMore: () => Promise<void>
+  prefetchNext: () => Promise<void>
   searchLogs: (keyword: string) => Promise<void>
   clearSearch: () => Promise<void>
   addLog: (content: string, category?: string) => Promise<WorkLog>
@@ -26,6 +27,9 @@ interface WorkLogStore {
 }
 
 const PAGE_SIZE = 50
+
+// Simple cache for prefetched work log data
+let prefetchedData: WorkLog[] | null = null
 
 export const useWorkLogStore = create<WorkLogStore>((set, get) => ({
   logs: [],
@@ -48,7 +52,12 @@ export const useWorkLogStore = create<WorkLogStore>((set, get) => ({
     if (get().loading || !get().hasMore || get().searchKeyword) return
     set({ loading: true })
     try {
-      const more = await window.api.worklog.list(PAGE_SIZE, get().logs.length)
+      // Use prefetched data if available
+      let more = prefetchedData
+      if (!more) {
+        more = await window.api.worklog.list(PAGE_SIZE, get().logs.length)
+      }
+      prefetchedData = null
       set({
         logs: [...get().logs, ...more],
         hasMore: more.length >= PAGE_SIZE
@@ -56,6 +65,13 @@ export const useWorkLogStore = create<WorkLogStore>((set, get) => ({
     } finally {
       set({ loading: false })
     }
+  },
+
+  prefetchNext: async () => {
+    if (!get().hasMore || get().searchKeyword) return
+    const offset = get().logs.length
+    const data = await window.api.worklog.list(PAGE_SIZE, offset)
+    prefetchedData = data.length > 0 ? data : null
   },
 
   searchLogs: async (keyword: string) => {

@@ -247,8 +247,8 @@ export default function NavLayout() {
                     <Link
                         to="/settings"
                         className={`
-                            flex items-center gap-3 mx-2 rounded-lg text-sm outline-none
-                            transition-all duration-150 settings-spin
+                            relative flex items-center gap-3 mx-2 rounded-lg text-sm
+                            transition-all duration-150 outline-none cursor-pointer
                             focus-visible:ring-2 focus-visible:ring-sky-500/70
                             ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}
                             ${
@@ -280,9 +280,9 @@ export default function NavLayout() {
                 {collapsed && hoveredItem && tooltipLabel && (
                     <motion.div
                         key={hoveredItem.key}
-                        initial={{ opacity: 0, x: -6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -6 }}
+                        initial={{ opacity: 0, x: -6, y: '-50%' }}
+                        animate={{ opacity: 1, x: 0, y: '-50%' }}
+                        exit={{ opacity: 0, x: -6, y: '-50%' }}
                         transition={{ duration: 0.12, ease: 'easeOut' }}
                         className="fixed z-50 px-2.5 py-1.5 text-xs font-medium
                                    bg-zinc-800/90 dark:bg-zinc-100/90
@@ -293,9 +293,12 @@ export default function NavLayout() {
                         style={{
                             left: hoveredItem.rect.right + 8,
                             top: hoveredItem.rect.top + hoveredItem.rect.height / 2,
-                            transform: 'translateY(-50%)',
                         }}
                     >
+                        <span className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2
+                                         border-y-[5px] border-y-transparent
+                                         border-r-[5px] border-r-zinc-800/90
+                                         dark:border-r-zinc-100/90" />
                         {tooltipLabel}
                     </motion.div>
                 )}

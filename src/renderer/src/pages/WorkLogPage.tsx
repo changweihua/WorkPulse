@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, Fragment, ReactNode } from 'react'
+import { runWhenIdle } from '../hooks/useIdleCallback'
 import { Trash2, ClipboardEdit, Search, X, Download, Undo2, Pencil, Check, Upload, Paperclip, FileText, Link as LinkIcon } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { motion, AnimatePresence } from 'motion/react'
@@ -109,6 +110,15 @@ function WorkLogPage(): ReactNode {
     fetchLogs()
     inputRef.current?.focus()
   }, [])
+
+  // Prefetch next page during browser idle time
+  useEffect(() => {
+    if (!hasMore || searchKeyword || loading || logs.length === 0) return
+    const cancel = runWhenIdle([
+      { fn: () => useWorkLogStore.getState().prefetchNext(), priority: 1 }
+    ], { timeout: 3000 })
+    return cancel
+  }, [logs.length, hasMore, searchKeyword, loading])
 
   // Load attachment lists for all visible logs so counts/indicators are available.
   useEffect(() => {

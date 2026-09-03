@@ -13,6 +13,7 @@ import {
 import { CanvasRenderer } from 'echarts/renderers'
 import type { ECharts } from 'echarts/core'
 import { useI18n } from '../stores/languageStore'
+import { useIdleCallback } from '../hooks/useIdleCallback'
 
 // Register only the echarts modules actually used (tree-shaking)
 echarts.use([
@@ -150,7 +151,7 @@ function StatCard({
   )
 }
 
-function DonutChart({ logs, tasks }: { logs: number; tasks: number }): ReactNode {
+function DonutChart({ logs, tasks, enabled }: { logs: number; tasks: number; enabled: boolean }): ReactNode {
   const { t } = useI18n()
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstance = useRef<ECharts | null>(null)
@@ -169,12 +170,13 @@ function DonutChart({ logs, tasks }: { logs: number; tasks: number }): ReactNode
   }, [])
 
   useEffect(() => {
-    if (!chartRef.current) return
+    if (!enabled || !chartRef.current) return
     chartInstance.current = echarts.init(chartRef.current)
     return () => { chartInstance.current?.dispose(); chartInstance.current = null }
-  }, [])
+  }, [enabled])
 
   useEffect(() => {
+    if (!enabled) return
     const chart = chartInstance.current
     if (!chart) return
     const total = logs + tasks
@@ -225,7 +227,7 @@ function DonutChart({ logs, tasks }: { logs: number; tasks: number }): ReactNode
         animationDelay: (idx: number) => idx * 200
       }]
     }, true)
-  }, [logs, tasks, isDark])
+  }, [logs, tasks, isDark, enabled])
 
   useEffect(() => {
     const handleResize = () => chartInstance.current?.resize()
@@ -235,7 +237,7 @@ function DonutChart({ logs, tasks }: { logs: number; tasks: number }): ReactNode
 
   return (
     <div className="flex flex-col items-center">
-      <div ref={chartRef} className="w-40 h-40" />
+      {enabled ? <div ref={chartRef} className="w-40 h-40" /> : <div className="w-40 h-40 animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded" />}
       <div className="flex items-center gap-5 mt-4 text-xs">
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#2dd4bf]" />
@@ -306,7 +308,7 @@ function WeeklySummary({ data }: { data: DailyStats[] }): ReactNode {
   )
 }
 
-function CategoryBreakdown({ range }: { range: number }): ReactNode {
+function CategoryBreakdown({ range, enabled }: { range: number; enabled: boolean }): ReactNode {
   const { t } = useI18n()
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstance = useRef<ECharts | null>(null)
@@ -328,10 +330,10 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
   }, [])
 
   useEffect(() => {
-    if (!chartRef.current) return
+    if (!enabled || !chartRef.current) return
     chartInstance.current = echarts.init(chartRef.current)
     return () => { chartInstance.current?.dispose(); chartInstance.current = null }
-  }, [])
+  }, [enabled])
 
   useEffect(() => {
     let cancelled = false
@@ -356,7 +358,7 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
 
         setHasData(cats.length > 0)
         const chart = chartInstance.current
-        if (!chart || cats.length === 0) return
+        if (!chart || cats.length === 0 || !enabled) return
 
         const reversed = [...cats].reverse()
         chart.setOption({
@@ -410,7 +412,7 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
       .catch(() => !cancelled && setHasData(false))
       .finally(() => !cancelled && setLoading(false))
     return () => { cancelled = true }
-  }, [range, isDark])
+  }, [range, isDark, enabled])
 
   useEffect(() => {
     const handleResize = () => chartInstance.current?.resize()
@@ -424,7 +426,7 @@ function CategoryBreakdown({ range }: { range: number }): ReactNode {
         <Tag size={14} className="text-blue-500" />
         {t('stats.categoryDist')}
       </h3>
-      <div ref={chartRef} className="h-52 w-full" />
+      {enabled ? <div ref={chartRef} className="h-52 w-full" /> : <div className="h-52 w-full animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded" />}
       {loading && (
         <div className="flex items-center justify-center py-8 text-zinc-400 text-xs absolute inset-0">{t('common.loading')}</div>
       )}
@@ -478,7 +480,7 @@ function AISummary({ stats }: { stats: Stats }): ReactNode {
   )
 }
 
-function BarChart({ data }: { data: DailyStats[] }): ReactNode {
+function BarChart({ data, enabled }: { data: DailyStats[]; enabled: boolean }): ReactNode {
   const { t } = useI18n()
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstance = useRef<ECharts | null>(null)
@@ -499,16 +501,17 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
 
   // Init chart ONCE
   useEffect(() => {
-    if (!chartRef.current) return
+    if (!enabled || !chartRef.current) return
     chartInstance.current = echarts.init(chartRef.current)
     return () => {
       chartInstance.current?.dispose()
       chartInstance.current = null
     }
-  }, [])
+  }, [enabled])
 
   // Update options only on data/theme change (NOT t)
   useEffect(() => {
+    if (!enabled) return
     const chart = chartInstance.current
     if (!chart) return
 
@@ -588,7 +591,7 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
       animationEasingUpdate: 'cubicInOut',
       animationDelayUpdate: (idx: number) => idx * 30
     })
-  }, [data, isDark])
+  }, [data, isDark, enabled])
 
   // Resize
   useEffect(() => {
@@ -602,7 +605,7 @@ function BarChart({ data }: { data: DailyStats[] }): ReactNode {
       <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-4">
         {t('stats.dailyActivity')}
       </h3>
-      <div ref={chartRef} className="h-52 w-full" />
+      {enabled ? <div ref={chartRef} className="h-52 w-full" /> : <div className="h-52 w-full animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded" />}
     </FadeIn>
   )
 }
@@ -635,11 +638,25 @@ function StatsPage(): ReactNode {
   const [stats, setStats] = useState<Stats | null>(null)
   const [range, setRange] = useState<number>(90)
   const { t } = useI18n()
+  const [donutReady, setDonutReady] = useState(false)
+  const [barReady, setBarReady] = useState(false)
+  const [categoryReady, setCategoryReady] = useState(false)
+
+  // Stagger chart initialization across idle frames
+  useIdleCallback(() => {
+    if (!stats) return
+    if (!donutReady) setDonutReady(true)
+    else if (!barReady) setBarReady(true)
+    else if (!categoryReady) setCategoryReady(true)
+  }, [stats, donutReady, barReady, categoryReady])
 
   const loadStats = useCallback(async (days: number): Promise<void> => {
     try {
       const data = await window.api.stats.get(days)
       setStats(data)
+      setDonutReady(false)
+      setBarReady(false)
+      setCategoryReady(false)
     } catch (err) {
       console.error('Failed to load stats:', err)
     }
@@ -691,7 +708,7 @@ function StatsPage(): ReactNode {
         </FadeIn>
 
         {/* 范围按钮 — fixed 固定顶部，无背景 */}
-        <div className="fixed top-30 right-6 z-10">
+        <div className="fixed top-16 right-6 z-10">
             <div className="flex items-center rounded-lg border border-[var(--color-border)] surface-input overflow-hidden">
               {RANGE_OPTIONS.map((r) => (
                 <button
@@ -770,16 +787,16 @@ function StatsPage(): ReactNode {
                   {t('stats.logsVsTasks')}
                 </h3>
                 <div className="flex-1 flex items-center justify-center">
-                  <DonutChart logs={windowedLogs} tasks={windowedTasksDone} />
+                  <DonutChart logs={windowedLogs} tasks={windowedTasksDone} enabled={donutReady} />
                 </div>
               </FadeIn>
               <WeeklySummary data={stats.daily} />
             </div>
           </div>
 
-          <BarChart data={filled} />
+          <BarChart data={filled} enabled={barReady} />
 
-          <CategoryBreakdown range={range} />
+          <CategoryBreakdown range={range} enabled={categoryReady} />
 
           <AISummary stats={stats} />
       </div>
