@@ -95,6 +95,92 @@ with open('C:/Users/CHANGW~1/AppData/Local/Temp/opencode/COMMIT_MSG', 'w', encod
 2. `grep "APP_VERSION" resources/splash.html` 显示正确版本
 3. `git tag -l "vX.Y.Z"` 能找到 tag（若无则手动创建）
 
+## Git Worktree 规范（AI Agent 并行开发）
+
+### 为什么用 Worktree
+
+WorkPulse 采用 AI Agent 并行开发模式：多个 AI Agent 同时在不同功能上工作，互不干扰。每个 Agent 在独立的 worktree 中操作，拥有独立的工作目录和分支，共享同一个 `.git` 仓库。
+
+### 命名规范
+
+```
+WorkPulse              ← 主工作目录（main 分支，人类 / orchestrator）
+WorkPulse-<agent-id>   ← Agent 隔离目录（如 WorkPulse-agent-a）
+```
+
+- 分支名格式：`agent/<agent-id>/<feature>`，如 `agent/agent-a/feat-idle-chart`
+- Agent ID 由 orchestrator 分配，用于追踪归属
+
+### 操作流程
+
+**创建（Agent 开始工作前）：**
+```bash
+# 基于 main 创建隔离工作树 + 分支
+git worktree add ../WorkPulse-<agent-id> -b agent/<agent-id>/<feature-name>
+```
+
+**Agent 工作期间：**
+- 在自己的 worktree 目录中自由 commit、修改代码
+- 不需要 stash，不需要切分支
+- 可以 `git push` 自己的分支到 remote（如需协作）
+
+**完成合并：**
+```bash
+# 1. 进入主工作目录
+cd D:\Github\WorkPulse
+
+# 2. 合并 Agent 的分支
+git merge agent/<agent-id>/<feature-name>
+
+# 3. 清理 worktree 和分支
+git worktree remove ../WorkPulse-<agent-id>
+git branch -d agent/<agent-id>/<feature-name>
+```
+
+### ⚠️ 禁止事项
+
+1. **禁止在同一分支上创建多个 worktree** — Git 会报错，每个 Agent 必须用独立分支名
+2. **禁止在有未提交改动时删除 worktree** — 先 commit 或 stash
+3. **禁止删除主工作目录** — `WorkPulse/` 是主仓库，不可删除
+4. **禁止在非主 worktree 中执行发版流程** — 版本 bump、tag、push 只在主目录操作
+5. **禁止在 worktree 中修改 `.git/config` 全局设置** — 只能用 `--local` 作用域
+
+### 强制规则
+
+**Agent 必须遵守以下规则，违反将拒绝合并：**
+
+1. **强制使用 Worktree** — AI Agent 开发新功能或修复 Bug 时，**必须**在独立的 worktree 中工作，禁止直接在主目录（main 分支）上修改代码
+2. **强制提交** — Agent 在 worktree 中的每次有意义的修改都必须 commit，禁止保留未提交的更改
+3. **强制提交后再合并** — 合并到 main 之前，worktree 中的所有更改必须已 commit，未提交的更改将阻止合并
+4. **强制清理** — Agent 完成工作并成功合并后，必须立即清理 worktree 和分支，避免残留
+5. **强制验证** — Orchestrator 合并前必须验证：worktree 无未提交更改、分支可正常合并、代码符合项目规范
+
+**Orchestrator 检查清单（合并前）：**
+```bash
+# 1. 检查 worktree 是否有未提交更改
+git -C ../WorkPulse-<agent-id> status --porcelain
+
+# 2. 检查分支是否可合并（无冲突）
+git merge --no-commit --no-ff agent/<agent-id>/<feature>
+
+# 3. 验证后执行实际合并
+git merge agent/<agent-id>/<feature>
+```
+
+### Orchestrator 职责
+
+- 分配唯一的 Agent ID
+- 在调度器中记录：哪个 agent 在哪个 worktree、什么分支、做什么任务
+- Agent 完成后负责合并、清理、验证
+- 维护 worktree 清单，避免残留
+
+### 快速查看当前状态
+
+```bash
+git worktree list          # 列出所有 worktree
+git worktree prune         # 清理失效记录
+```
+
 ## 截图规范
 
 - **悬浮窗背景必须透明**：overlay 窗口背景使用 `background: 'transparent'`，不允许有蒙版颜色
