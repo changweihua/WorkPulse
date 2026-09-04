@@ -2,6 +2,7 @@ import { resolve } from 'path'
 import { defineConfig, loadEnv } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator'
 
 export default defineConfig(({ mode }) => {
   // 加载 .env 文件
@@ -21,6 +22,26 @@ export default defineConfig(({ mode }) => {
   return {
     main: {
       define,  // ✅ 主进程可以读取 process.env.VITE_XXX
+      plugins: [
+        // 🛡️ 仅在 production 模式下混淆主进程代码，防止 asar 反编译
+        ...(mode === 'production'
+          ? [
+              obfuscatorPlugin({
+                apply: 'build',
+                options: {
+                  compact: true,
+                  controlFlowFlattening: true,
+                  controlFlowFlatteningThreshold: 0.5,
+                  deadCodeInjection: true,
+                  deadCodeInjectionThreshold: 0.2,
+                  stringArray: true,
+                  stringArrayEncoding: ['base64'],
+                  stringArrayThreshold: 0.75,
+                },
+              }),
+            ]
+          : []),
+      ],
       build: {
         rolldownOptions: {
           input: {

@@ -3,6 +3,7 @@ import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, copyFileSync, mkdirSync } from 'fs'
 import { createAttachmentTable, type Attachment } from './attachments'
+import log from 'electron-log/main'
 
 export type { Attachment }
 
@@ -186,7 +187,7 @@ export function initDatabase(): void {
   runMigrations()
 
   if (!runIntegrityCheck()) {
-    console.error('Database integrity check failed!')
+    log.error('Database integrity check failed!')
   }
 
   createBackup()

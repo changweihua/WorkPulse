@@ -4,6 +4,7 @@ import { is } from '@electron-toolkit/utils'
 import { getSetting, setSetting } from './db'
 import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus'
 import { setMoveCursor, restoreCursor } from './cursor'
+import log from 'electron-log/main'
 
 let radialWindow: BrowserWindow | null = null
 let mainWin: BrowserWindow | null = null
@@ -179,6 +180,9 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      webviewTag: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
       v8CacheOptions: 'none',
     },
   })
@@ -458,7 +462,7 @@ async function getFileIconBase64(filePath: string): Promise<string | null> {
     const buffer = icon.toPNG()
     return `data:image/png;base64,${buffer.toString('base64')}`
   } catch (err) {
-    console.error('Failed to get file icon:', err)
+    log.error('Failed to get file icon:', err)
     return null
   }
 }
@@ -494,7 +498,7 @@ ipcMain.handle('radial:launch-program', async (_event, programPath: string) => {
     await shell.openPath(launchPath)
     return true
   } catch (err) {
-    console.error('Failed to launch program:', err)
+    log.error('Failed to launch program:', err)
     return false
   }
 })

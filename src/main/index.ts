@@ -1,6 +1,6 @@
 // 必须最先加载：让主进程读取项目根目录 .env（BARK_KEY 等）
 import 'dotenv/config'
-import { app, protocol, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, desktopCapturer, screen, clipboard, ClipboardItem } from 'electron'
+import { app, protocol, session, BrowserWindow, shell, Menu, Tray, nativeImage, globalShortcut, ipcMain, desktopCapturer, screen, clipboard, ClipboardItem } from 'electron'
 import path, { join } from 'path'
 import { readFileSync, createReadStream, mkdirSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
@@ -24,16 +24,23 @@ import log from 'electron-log/main';
 import { setMainWindow, hideRadialWindow, showRadialWindow, getRadialWindow, createRadialWindow, isRadialEnabled } from './radial-window';
 import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus';
 import { initNotifications, showNotification, handleProtocolArgv, setProtocolHandler, setTray } from './notification';
+import { isUrlAllowed, safeOpenExternal } from './urlWhitelist';
+import { verifyIntegrity } from './integrityCheck';
+import { createSanitizingProcessor } from './logSanitizer';
 
 log.initialize(); // 只需调用一次
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'info';
 log.transports.file.level = 'info';
 
+// Sanitize sensitive fields (API keys, tokens, passwords) from all log output
+log.transports.file.processor = createSanitizingProcessor(log.transports.file.processor);
+log.transports.console.processor = createSanitizingProcessor(log.transports.console.processor);
+
 // Limit V8 heap to prevent memory bloat (must be set before app.whenReady())
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
 
 const appTitle = process.env.VITE_APP_TITLE || 'WorkPulse'
-console.log('[Main] 🟢 主进程已启动！');
+log.info('[Main] 🟢 主进程已启动！');
 
 let tray: Tray | null = null
 let isQuitting = false
@@ -201,8 +208,8 @@ function setupContextMenu(window: BrowserWindow): void {
         if (text.length > 0) {
           items.push({
             label: `搜索 "${text.substring(0, 20)}${text.length > 20 ? '…' : ''}"`,
-            click: () => {
-              shell.openExternal(`https://www.google.com/search?q=${encodeURIComponent(text)}`)
+            click: async () => {
+              await safeOpenExternal(`https://www.google.com/search?q=${encodeURIComponent(text)}`, shell)
             }
           })
           items.push({ type: 'separator' })
@@ -213,8 +220,8 @@ function setupContextMenu(window: BrowserWindow): void {
       if (parameters.linkURL) {
         items.push({
           label: '在浏览器中打开链接',
-          click: () => {
-            shell.openExternal(parameters.linkURL)
+          click: async () => {
+            await safeOpenExternal(parameters.linkURL, shell)
           }
         })
         items.push({ type: 'separator' })
@@ -239,8 +246,8 @@ function setupContextMenu(window: BrowserWindow): void {
     append: (defaultActions, parameters) => {
       const items: Electron.MenuItemConstructorOptions[] = []
 
-      // 开发环境信息
-      if (!is.dev) {
+      // 仅开发环境显示调试工具
+      if (is.dev) {
         items.push({ type: 'separator' })
         items.push({
           label: `开发模式 v${app.getVersion()}`,
@@ -393,7 +400,7 @@ function getSplashPath(): string {
 let splashCreatedAt = 0
 // +++++ 新增：创建启动窗口 +++++
 function createSplashWindow(): void {
-  console.log('[Splash] 🟢 开始创建启动窗口...')
+  log.info('[Splash] 🟢 开始创建启动窗口...')
   splashCreatedAt = Date.now()
   splashWindow = new BrowserWindow({
     width: 380,
@@ -410,34 +417,36 @@ function createSplashWindow(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      webviewTag: true, // 允许使用 <webview>
+      webviewTag: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
       // +++++ 关键：加载 splash 专用 preload +++++
       preload: join(__dirname, '../preload/splash.js'),  // 注意是 .js（编译后）
     },
   })
 
-  console.log('[Splash] ✅ 窗口已创建')
+  log.info('[Splash] ✅ 窗口已创建')
 
   // 显式设置背景为透明
   splashWindow.setBackgroundColor('#00000000')
 
   const splashPath = getSplashPath();
-  console.log('[Splash] 📁 加载路径:', splashPath)
+  log.info('[Splash] 📁 加载路径:', splashPath)
 
-  console.log('[Splash] Loading from:', splashPath)  // 调试日志
+  log.info('[Splash] Loading from:', splashPath)  // 调试日志
 
   const loadSplash = (isRetry = false): void => {
     if (!splashWindow) return
     splashWindow.loadFile(splashPath).then(() => {
-      console.log('[Splash] ✅ HTML 加载成功')
+      log.info('[Splash] ✅ HTML 加载成功')
     }).catch((err) => {
       // 窗口已被关闭（竞态）则不再处理；否则重试一次
       if (!splashWindow) return
       if (isRetry) {
-        console.error('[Splash] ❌ HTML 重试仍失败:', err)
+        log.error('[Splash] ❌ HTML 重试仍失败:', err)
         return
       }
-      console.warn('[Splash] ⚠️ HTML 加载失败，500ms 后重试:', err)
+      log.warn('[Splash] ⚠️ HTML 加载失败，500ms 后重试:', err)
       setTimeout(() => loadSplash(true), 500)
     })
   }
@@ -446,7 +455,7 @@ function createSplashWindow(): void {
   splashWindow.center()
   splashWindow.once('ready-to-show', () => {
     if (splashWindow) {
-      console.log('[Splash] 🟢 窗口已准备显示')
+      log.info('[Splash] 🟢 窗口已准备显示')
       splashWindow.show()
       // 可选：淡入效果
       splashWindow.setOpacity(0)
@@ -466,7 +475,7 @@ function createSplashWindow(): void {
   // 最大时间保护：5 秒后强制关闭
   setTimeout(() => {
     if (splashWindow) {
-      console.warn('[Splash] 强制关闭（超时）')
+      log.warn('[Splash] 强制关闭（超时）')
       closeSplashWindow()
     }
   }, MAX_SPLASH_DISPLAY)
@@ -508,7 +517,12 @@ function createWindow(): void {
     titleBarOverlay: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      webviewTag: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
     }
   })
 
@@ -548,13 +562,13 @@ function createWindow(): void {
     appBus.emit(SHOW_RADIAL, mainWindow)
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+  mainWindow.webContents.setWindowOpenHandler(async (details) => {
+    await safeOpenExternal(details.url, shell)
     return { action: 'deny' }
   })
 
 
-  console.log('[Main] 📋 Loading URL...');
+  log.info('[Main] 📋 Loading URL...');
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -645,17 +659,38 @@ async function ensureDotNet(): Promise<void> {
   if (!dotnetLoaded) {
     try {
       dotnetLib = await loadDotNet();
-      console.log('✅ .NET 已加载');
+      log.info('✅ .NET 已加载');
     } catch (err) {
-      console.error('⚠️ .NET 加载失败', err);
+      log.error('⚠️ .NET 加载失败', err);
     }
     dotnetLoaded = true;
   }
 }
 
 app.whenReady().then(async () => {
+  // Verify package integrity before anything else
+  verifyIntegrity()
+
   // 模型本地缓存协议：appmodel://models/<modelId>/resolve/main/<file>
   registerAttachmentProtocol()
+
+  // ===== Content Security Policy (CSP) =====
+  // Inject CSP headers on all responses to restrict resource loading in the renderer.
+  // Must be set before any BrowserWindow is created so all windows inherit the policy.
+  // Skip in dev mode — Vite HMR and React Fast Refresh require inline scripts.
+  if (!is.dev) {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http://localhost:* https://* ws://localhost:*; worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'"
+          ]
+        }
+      })
+    })
+  }
+
   protocol.handle('appmodel', async (request) => {
     try {
       const u = new URL(request.url)
@@ -697,7 +732,7 @@ app.whenReady().then(async () => {
       // 返回 ArrayBuffer
       return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
     } catch (error) {
-      console.error(`读取模型文件失败: ${filePath}`, error);
+      log.error(`读取模型文件失败: ${filePath}`, error);
       throw error;
     }
   });
@@ -816,6 +851,10 @@ app.whenReady().then(async () => {
         preload: join(__dirname, '../preload/screenshotOverlay.js'),
         sandbox: false,
         contextIsolation: true,
+        nodeIntegration: false,
+        webviewTag: false,
+        webSecurity: true,
+        allowRunningInsecureContent: false,
       },
     })
 
@@ -848,7 +887,7 @@ app.whenReady().then(async () => {
     } catch (err) {
       // 防止异常导致 screenshotBusy 永久为 true（死锁）
       screenshotBusy = false
-      console.error('[Screenshot] startScreenshotCapture failed:', err)
+      log.error('[Screenshot] startScreenshotCapture failed:', err)
       return { ok: false, error: err instanceof Error ? err.message : String(err) }
     }
   }
@@ -880,7 +919,7 @@ app.whenReady().then(async () => {
       ])
     } catch (err) {
       screenshotBusy = false
-      console.error('[Screenshot] desktopCapturer.getSources failed:', err)
+      log.error('[Screenshot] desktopCapturer.getSources failed:', err)
       return { ok: false, error: err instanceof Error ? err.message : '屏幕捕获失败' }
     }
     if (!sources || sources.length === 0) {
@@ -1037,7 +1076,7 @@ app.whenReady().then(async () => {
 
   const results = reregisterGlobalShortcuts()
   if (!results.log || !results.task) {
-    console.warn('One or more global shortcuts could not be registered')
+    log.warn('One or more global shortcuts could not be registered')
   }
 
 })
@@ -1142,7 +1181,7 @@ export function registerAutoLaunchIpc(): void {
         win.setBackgroundMaterial(material as 'mica' | 'tabbed' | 'acrylic')
         win.setIcon(APP_ICON_PATH)
       } catch (err) {
-        console.error('[Main] setBackgroundMaterial failed:', err)
+        log.error('[Main] setBackgroundMaterial failed:', err)
         return { success: false }
       }
     }

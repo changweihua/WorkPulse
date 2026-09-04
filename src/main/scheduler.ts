@@ -1,6 +1,7 @@
 import type { BrowserWindow } from 'electron'
 import { getSetting, getDueMeetings, markEventNotified } from './db'
 import { sendNotification } from './notifier'
+import log from 'electron-log/main'
 
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -46,6 +47,6 @@ function checkMeetings(getMainWindow: () => BrowserWindow | null): void {
       })
     }
   } catch (err) {
-    console.error('[scheduler] checkMeetings failed:', err)
+    log.error('[scheduler] checkMeetings failed:', err)
   }
 }

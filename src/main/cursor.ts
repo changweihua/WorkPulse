@@ -8,6 +8,8 @@
  * 每次 drag-move 重新 SetCursor，因为 WM_SETCURSOR 会持续覆盖。
  */
 
+import log from 'electron-log/main';
+
 const IDC_ARROW = 32512
 const IDC_SIZEALL = 32646 // 四向箭头（移动/拖拽）
 
@@ -28,7 +30,7 @@ function ensureInit(): boolean {
     hMove = loadCursorW(null, IDC_SIZEALL)
     return true
   } catch (err) {
-    console.warn('[cursor] koffi/user32 load failed:', err)
+    log.warn('[cursor] koffi/user32 load failed:', err)
     return false
   }
 }
@@ -39,7 +41,7 @@ export function setMoveCursor(): boolean {
     setCursorFn(hMove)
     return true
   } catch (err) {
-    console.warn('[cursor] setMoveCursor failed:', err)
+    log.warn('[cursor] setMoveCursor failed:', err)
     return false
   }
 }
@@ -50,7 +52,7 @@ export function restoreCursor(): boolean {
     setCursorFn(hArrow)
     return true
   } catch (err) {
-    console.warn('[cursor] restoreCursor failed:', err)
+    log.warn('[cursor] restoreCursor failed:', err)
     return false
   }
 }

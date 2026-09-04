@@ -37,7 +37,7 @@ import {
 } from './db'
 import { generateReport, streamChat } from './ai'
 import { ensureModelFiles, setModelProgressSender } from './model-files'
-import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey } from './secureSettings'
+import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey, saveLLMToken, getLLMToken, deleteLLMToken } from './secureSettings'
 import { sendNotification } from './notifier'
 import { tMain } from './i18n'
 import { registerAttachmentIPC } from './attachments'
@@ -212,7 +212,31 @@ export function registerIpcHandlers(): void {
 
   // --- Settings ---
 
+  // 渲染进程允许访问的 settings 键白名单
+  const ALLOWED_SETTINGS_KEYS = new Set([
+    'api_key',            // 特殊处理
+    'reminder_enabled',
+    'reminder_lead',
+    'radial_enabled',
+    'radial_items',
+    'ai_provider',
+    'ai_base_url',
+    'ai_model',
+    'report_language',
+    'report_style',
+    'system_prompt',
+    'report_template',
+    'shortcut_quick_log',
+    'shortcut_quick_task',
+    'app_language',
+    'theme',
+    'ui_accent',
+  ])
+
   ipcMain.handle('settings:get', (_event, key: string) => {
+    if (!ALLOWED_SETTINGS_KEYS.has(key)) {
+      throw new Error(`拒绝访问未授权的 settings 键: ${key}`)
+    }
     if (key === 'api_key') {
       return getStoredApiKey()
     }
@@ -220,6 +244,9 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('settings:set', (_event, key: string, value: string) => {
+    if (!ALLOWED_SETTINGS_KEYS.has(key)) {
+      throw new Error(`拒绝写入未授权的 settings 键: ${key}`)
+    }
     if (key === 'api_key') {
       setStoredApiKey(value)
       return
@@ -228,11 +255,30 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('settings:delete', (_event, key: string) => {
+    if (!ALLOWED_SETTINGS_KEYS.has(key)) {
+      throw new Error(`拒绝删除未授权的 settings 键: ${key}`)
+    }
     if (key === 'api_key') {
       deleteStoredApiKey()
       return
     }
     deleteSetting(key)
+  })
+
+  // --- LLM Token Management (encrypted storage) ---
+
+  ipcMain.handle('llm-tokens:save', async (_event, params: { modelId: string; token: string }) => {
+    saveLLMToken(params.modelId, params.token)
+    return true
+  })
+
+  ipcMain.handle('llm-tokens:get', async (_event, modelId: string) => {
+    return getLLMToken(modelId)
+  })
+
+  ipcMain.handle('llm-tokens:delete', async (_event, modelId: string) => {
+    deleteLLMToken(modelId)
+    return true
   })
 
   // --- Export ---
@@ -441,7 +487,11 @@ export function registerIpcHandlers(): void {
     const controller = new AbortController();
 
     try {
-      const apiKey = config.token || process.env.API_KEY;
+      let apiKey = config.token || process.env.API_KEY;
+      // If no token in config, look up from encrypted storage by config ID
+      if (!apiKey && config.id) {
+        apiKey = getLLMToken(config.id);
+      }
       if (!apiKey) {
         throw new Error('未提供 API Key');
       }
@@ -451,7 +501,7 @@ export function registerIpcHandlers(): void {
         try {
           defaultHeaders = JSON.parse(config.headers);
         } catch (e) {
-          console.warn('解析 headers 失败');
+          log.warn('解析 headers 失败');
         }
       }
 

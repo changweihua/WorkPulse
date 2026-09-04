@@ -4,6 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import { app } from 'electron';
 import { pathToFileURL } from 'url';
+import { sanitizeLogMessage } from './logSanitizer';
 
 // ── 日志 ──
 
@@ -26,8 +27,9 @@ function writeLog(entry: string) {
 
 function log(msg: string, data?: unknown) {
     const entry = `[${new Date().toISOString()}] ${msg}${data ? ' ' + JSON.stringify(data, null, 2) : ''}`;
-    console.log(entry);
-    writeLog(entry);
+    const sanitized = sanitizeLogMessage(entry);
+    console.log(sanitized);
+    writeLog(sanitized);
 }
 
 // ── 路径解析 ──

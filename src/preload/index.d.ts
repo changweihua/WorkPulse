@@ -253,6 +253,9 @@ declare global {
       invoke: (channel: string, ...args: any[]) => Promise<any>;
       on: (channel: string, listener: (...args: any[]) => void) => void;
       removeAllListeners: (channel: string) => void;
+      saveLLMToken: (modelId: string, token: string) => Promise<boolean>;
+      getLLMToken: (modelId: string) => Promise<string | null>;
+      deleteLLMToken: (modelId: string) => Promise<boolean>;
     };
     window: {
       minimize: () => void;

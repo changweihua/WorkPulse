@@ -244,6 +244,9 @@ if (process.contextIsolated) {
           ipcRenderer.removeAllListeners(channel);
         }
       },
+      saveLLMToken: (modelId: string, token: string) => ipcRenderer.invoke('llm-tokens:save', { modelId, token }),
+      getLLMToken: (modelId: string) => ipcRenderer.invoke('llm-tokens:get', modelId),
+      deleteLLMToken: (modelId: string) => ipcRenderer.invoke('llm-tokens:delete', modelId),
     });
 
     // 暴露安全的 API 给渲染进程

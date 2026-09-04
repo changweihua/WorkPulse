@@ -441,8 +441,18 @@ export default function AIChatPanel() {
     const currentConv = conversations.find((c) => c.id === currentConvId);
     const messages = currentConv?.messages || [];
 
-    // ── Persistence ──
-    useEffect(() => { localStorage.setItem('chatPanelModelConfigs', JSON.stringify(configs)); }, [configs]);
+    // ── Persistence — tokens 存储到 main process 加密存储，localStorage 只存脱敏版本 ──
+    useEffect(() => {
+        // Save tokens to encrypted storage via IPC
+        configs.forEach((config) => {
+            if (config.token && window.ai?.saveLLMToken) {
+                window.ai.saveLLMToken(config.id, config.token);
+            }
+        });
+        // Strip tokens before saving to localStorage (security)
+        const stripped = configs.map(({ token: _, ...rest }) => ({ ...rest, token: '' }));
+        localStorage.setItem('chatPanelModelConfigs', JSON.stringify(stripped));
+    }, [configs]);
     useEffect(() => { localStorage.setItem('chatPanelCurrentConfigId', currentConfigId); }, [currentConfigId]);
     useEffect(() => { localStorage.setItem('chatPanelConversations', JSON.stringify(conversations)); }, [conversations]);
     useEffect(() => { localStorage.setItem('chatPanelCurrentConvId', currentConvId); }, [currentConvId]);
@@ -649,6 +659,7 @@ export default function AIChatPanel() {
             userMessage: userMsg.content,
             history: conv?.messages.map((m) => ({ role: m.role, content: m.content })) || [],
             config: {
+                id: currentConfig.id,
                 baseURL: currentConfig.baseURL,
                 model: currentConfig.model,
                 token: currentConfig.token,
@@ -671,6 +682,10 @@ export default function AIChatPanel() {
 
     const handleDeleteConfig = (id: string) => {
         if (configs.length <= 1) return;
+        // Clean up encrypted token
+        if (window.ai?.deleteLLMToken) {
+            window.ai.deleteLLMToken(id);
+        }
         setConfigs((prev) => prev.filter((c) => c.id !== id));
         if (currentConfigId === id) setCurrentConfigId(configs[0]?.id || '');
     };
