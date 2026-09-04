@@ -156,21 +156,13 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background:
-    radial-gradient(ellipse at 20% 50%, rgba(120,160,255,0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(180,120,255,0.06) 0%, transparent 40%),
-    radial-gradient(ellipse at 50% 80%, rgba(120,220,180,0.05) 0%, transparent 45%),
-    var(--color-surface-inset);
+  background: var(--color-surface-inset);
   color: var(--color-text);
 }
 
 .dark body,
 :root.dark body {
-  background:
-    radial-gradient(ellipse at 20% 50%, rgba(60,90,200,0.10) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(120,60,200,0.08) 0%, transparent 40%),
-    radial-gradient(ellipse at 50% 80%, rgba(40,140,100,0.06) 0%, transparent 45%),
-    var(--color-surface-inset);
+  background: var(--color-surface-inset);
   color: var(--color-text);
 }
 

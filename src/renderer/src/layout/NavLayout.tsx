@@ -2,18 +2,12 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Link, useLocation, useMatches, useNavigate } from 'react-router-dom';
 import AnimatedOutlet from '../components/AnimatedOutlet';
 import { AnimatePresence, motion } from 'motion/react';
+import { Icon } from '@iconify/react';
 import {
-    Settings,
-    FileText,
-    ClipboardList,
-    Columns3,
     BarChart3,
-    Calendar,
     CalendarRange,
     Zap,
     ArrowUp,
-    ChevronLeft,
-    ChevronRight,
 } from 'lucide-react';
 import { SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
 import { useI18n } from '../stores/languageStore';
@@ -110,18 +104,42 @@ export default function NavLayout() {
             id: 'core',
             label: '核心',
             items: [
-                { path: 'worklog', icon: <ClipboardList className="w-[18px] h-[18px]" />, label: t('nav.worklog') },
-                { path: 'kanban', icon: <Columns3 className="w-[18px] h-[18px]" />, label: t('nav.kanban') },
-                { path: 'calendar', icon: <Calendar className="w-[18px] h-[18px]" />, label: t('nav.calendar') },
-                { path: 'stats', icon: <BarChart3 className="w-[18px] h-[18px]" />, label: t('nav.stats') },
+                {
+                    path: 'worklog',
+                    icon: <Icon icon="line-md:clipboard-list" width={18} height={18} />,
+                    label: t('nav.worklog'),
+                },
+                {
+                    path: 'kanban',
+                    icon: <Icon icon="line-md:grid-3" width={18} height={18} />,
+                    label: t('nav.kanban'),
+                },
+                {
+                    path: 'calendar',
+                    icon: <Icon icon="line-md:calendar" width={18} height={18} />,
+                    label: t('nav.calendar'),
+                },
+                {
+                    path: 'stats',
+                    icon: <BarChart3 className="w-[18px] h-[18px]" />,
+                    label: t('nav.stats'),
+                },
             ],
         },
         {
             id: 'insights',
             label: '洞察',
             items: [
-                { path: 'report', icon: <FileText className="w-[18px] h-[18px]" />, label: t('nav.report') },
-                { path: 'reports', icon: <CalendarRange className="w-[18px] h-[18px]" />, label: t('nav.weekly') },
+                {
+                    path: 'report',
+                    icon: <Icon icon="line-md:text-box" width={18} height={18} />,
+                    label: t('nav.report'),
+                },
+                {
+                    path: 'reports',
+                    icon: <CalendarRange className="w-[18px] h-[18px]" />,
+                    label: t('nav.weekly'),
+                },
             ],
         },
         {
@@ -172,7 +190,7 @@ export default function NavLayout() {
                     >
                         工作台
                     </span>
-                    {/* Toggle button — always at the far right of sidebar */}
+                    {/* Toggle button — line-md animated hamburger ↔ fold */}
                     <button
                         onClick={toggleCollapse}
                         className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-700
@@ -182,9 +200,9 @@ export default function NavLayout() {
                         aria-label={collapsed ? '展开侧栏' : '收起侧栏'}
                     >
                         {collapsed ? (
-                            <ChevronRight className="w-4 h-4" />
+                            <Icon key="hamburger" icon="line-md:menu" width={18} height={18} />
                         ) : (
-                            <ChevronLeft className="w-4 h-4" />
+                            <Icon key="close" icon="line-md:close" width={18} height={18} />
                         )}
                     </button>
                 </div>
@@ -227,7 +245,7 @@ export default function NavLayout() {
                                         {active && (
                                             <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-blue-500" />
                                         )}
-                                        <span className="flex items-center justify-center shrink-0">
+                                        <span key={`${item.path}-${collapsed}`} className="flex items-center justify-center shrink-0">
                                             {item.icon}
                                         </span>
                                         {!collapsed && (
@@ -264,7 +282,7 @@ export default function NavLayout() {
                             <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-blue-500" />
                         )}
                         <span className="flex items-center justify-center shrink-0">
-                            <Settings className="w-[18px] h-[18px]" />
+                            <Icon icon="line-md:cog" width={18} height={18} />
                         </span>
                         {!collapsed && (
                             <span className="truncate whitespace-nowrap">
