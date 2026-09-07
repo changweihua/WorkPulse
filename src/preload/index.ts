@@ -200,6 +200,8 @@ const api = {
       star: (id: number) => ipcRenderer.invoke('feed:articles:star', id),
       readAll: (feedId?: number) => ipcRenderer.invoke('feed:articles:readAll', feedId),
     },
+    exportPdf: (html: string, title: string) =>
+      ipcRenderer.invoke('feed:exportPdf', html, title),
   },
   // 新增：窗口控制
   window: {

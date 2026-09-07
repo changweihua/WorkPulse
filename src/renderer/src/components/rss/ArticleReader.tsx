@@ -1,6 +1,6 @@
 import React from 'react'
 import { useRssStore } from '@/stores/rssStore'
-import { ExternalLink, Star, Clock, User } from 'lucide-react'
+import { ExternalLink, Star, Clock, User, FileDown } from 'lucide-react'
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return ''
@@ -69,6 +69,18 @@ export default function ArticleReader() {
               在浏览器中打开
             </button>
           )}
+          <button
+            onClick={async () => {
+              const result = await window.api.feed.exportPdf(content, article.title)
+              if (result?.success) {
+                window.api.notification?.show?.({ title: 'PDF 已保存', body: result.filePath || '', urgency: 'normal' })
+              }
+            }}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)] transition-colors"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            导出 PDF
+          </button>
         </div>
       </div>
 

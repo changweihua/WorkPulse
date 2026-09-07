@@ -633,6 +633,51 @@ export function registerIpcHandlers(): void {
     markAllRead(feedId)
   })
 
+  ipcMain.handle('feed:exportPdf', async (_event, html: string, title: string) => {
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      defaultPath: `${title.replace(/[<>:"/\\|?*]/g, '_')}.pdf`,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    })
+    if (canceled || !filePath) return { success: false }
+
+    const win = new BrowserWindow({
+      show: false,
+      width: 800,
+      webPreferences: { offscreen: true },
+    })
+
+    const wrappedHtml = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${title}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #1a1a1a; line-height: 1.7; max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 8px; }
+  img { max-width: 100%; height: auto; }
+  a { color: #2563eb; }
+  pre, code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  pre { padding: 12px; overflow-x: auto; }
+  blockquote { border-left: 3px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+</style></head><body>
+  <h1>${title}</h1>
+  <hr style="border:none;border-top:1px solid #eee;margin:16px 0">
+  ${html}
+</body></html>`
+
+    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(wrappedHtml)}`)
+
+    // Wait for images to load
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    const pdfData = await win.webContents.printToPDF({
+      printBackground: true,
+      pageSize: 'A4',
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    })
+
+    writeFileSync(filePath, pdfData)
+    win.destroy()
+    return { success: true, filePath }
+  })
+
   // --- Attachments ---
 
   registerAttachmentIPC(getDatabase())
