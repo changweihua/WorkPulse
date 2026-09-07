@@ -1,1 +1,1 @@
-#!/bin/sh
+npx --no -- tsx scripts/generate-changelog.ts
