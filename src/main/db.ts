@@ -7,6 +7,45 @@ import log from 'electron-log/main'
 
 export type { Attachment }
 
+export interface FeedCategory {
+  id: number
+  name: string
+  sort_order: number
+  created_at: string
+}
+
+export interface Feed {
+  id: number
+  url: string
+  title: string | null
+  description: string | null
+  site_url: string | null
+  favicon_url: string | null
+  category_id: number | null
+  refresh_interval: number
+  last_fetched_at: string | null
+  is_muted: number
+  created_at: string
+  unread_count?: number
+}
+
+export interface Article {
+  id: number
+  feed_id: number
+  guid: string | null
+  title: string
+  url: string | null
+  author: string | null
+  content: string | null
+  summary: string | null
+  published_at: string | null
+  is_read: number
+  is_starred: number
+  created_at: string
+  feed_title?: string
+  feed_favicon_url?: string | null
+}
+
 let db: Database.Database
 
 const DB_NAME = 'workpulse.db'
@@ -109,6 +148,49 @@ function createTables(): void {
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_reports_dates ON reports(date_from, date_to);
     CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
+
+    CREATE TABLE IF NOT EXISTS feed_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS feeds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      url TEXT NOT NULL UNIQUE,
+      title TEXT,
+      description TEXT,
+      site_url TEXT,
+      favicon_url TEXT,
+      category_id INTEGER REFERENCES feed_categories(id) ON DELETE SET NULL,
+      refresh_interval INTEGER NOT NULL DEFAULT 3600,
+      last_fetched_at TEXT,
+      is_muted INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS articles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      feed_id INTEGER NOT NULL REFERENCES feeds(id) ON DELETE CASCADE,
+      guid TEXT,
+      title TEXT NOT NULL,
+      url TEXT,
+      author TEXT,
+      content TEXT,
+      summary TEXT,
+      published_at TEXT,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      is_starred INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+      UNIQUE(feed_id, guid)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_feeds_category ON feeds(category_id);
+    CREATE INDEX IF NOT EXISTS idx_articles_feed ON articles(feed_id);
+    CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at);
+    CREATE INDEX IF NOT EXISTS idx_articles_read ON articles(is_read);
+    CREATE INDEX IF NOT EXISTS idx_articles_starred ON articles(is_starred);
   `)
 
   createAttachmentTable(db)
@@ -735,4 +817,155 @@ export function getDueMeetings(leadMinutes: number): CalendarEvent[] {
 export function markEventNotified(id: number): boolean {
   const stmt = db.prepare('UPDATE calendar_events SET notified = 1 WHERE id = ? AND notified = 0')
   return stmt.run(id).changes > 0
+}
+
+// --- RSS Feed Categories CRUD ---
+
+export function addFeedCategory(name: string): FeedCategory {
+  const stmt = db.prepare(
+    'INSERT INTO feed_categories (name) VALUES (?) RETURNING *'
+  )
+  return stmt.get(name) as FeedCategory
+}
+
+export function getFeedCategories(): FeedCategory[] {
+  return db.prepare('SELECT * FROM feed_categories ORDER BY sort_order, name').all() as FeedCategory[]
+}
+
+export function updateFeedCategory(id: number, name: string): FeedCategory | null {
+  const stmt = db.prepare('UPDATE feed_categories SET name = ? WHERE id = ? RETURNING *')
+  return stmt.get(name, id) as FeedCategory | null
+}
+
+export function deleteFeedCategory(id: number): boolean {
+  return db.prepare('DELETE FROM feed_categories WHERE id = ?').run(id).changes > 0
+}
+
+// --- RSS Feeds CRUD ---
+
+export function addFeed(
+  url: string,
+  title: string | null,
+  description: string | null,
+  siteUrl: string | null,
+  faviconUrl: string | null,
+  categoryId: number | null
+): Feed {
+  const stmt = db.prepare(
+    `INSERT INTO feeds (url, title, description, site_url, favicon_url, category_id)
+     VALUES (?, ?, ?, ?, ?, ?) RETURNING *`
+  )
+  return stmt.get(url, title, description, siteUrl, faviconUrl, categoryId) as Feed
+}
+
+export function getFeeds(): Feed[] {
+  return db.prepare(
+    `SELECT f.*, 
+       (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id AND a.is_read = 0) as unread_count
+     FROM feeds f ORDER BY f.title`
+  ).all() as Feed[]
+}
+
+export function getFeedById(id: number): Feed | null {
+  const stmt = db.prepare('SELECT * FROM feeds WHERE id = ?')
+  return (stmt.get(id) as Feed | undefined) ?? null
+}
+
+export function updateFeed(id: number, updates: Partial<Pick<Feed, 'title' | 'description' | 'site_url' | 'favicon_url' | 'category_id' | 'refresh_interval' | 'is_muted' | 'last_fetched_at'>>): Feed | null {
+  const fields: string[] = []
+  const values: unknown[] = []
+  for (const [key, value] of Object.entries(updates)) {
+    fields.push(`${key} = ?`)
+    values.push(value)
+  }
+  if (fields.length === 0) return getFeedById(id)
+  values.push(id)
+  const stmt = db.prepare(`UPDATE feeds SET ${fields.join(', ')} WHERE id = ? RETURNING *`)
+  return stmt.get(...values) as Feed | null
+}
+
+export function deleteFeed(id: number): boolean {
+  return db.prepare('DELETE FROM feeds WHERE id = ?').run(id).changes > 0
+}
+
+export function getFeedByUrl(url: string): Feed | null {
+  const stmt = db.prepare('SELECT * FROM feeds WHERE url = ?')
+  return (stmt.get(url) as Feed | undefined) ?? null
+}
+
+// --- RSS Articles CRUD ---
+
+export function addArticle(
+  feedId: number,
+  guid: string | null,
+  title: string,
+  url: string | null,
+  author: string | null,
+  content: string | null,
+  summary: string | null,
+  publishedAt: string | null
+): Article | null {
+  const stmt = db.prepare(
+    `INSERT INTO articles (feed_id, guid, title, url, author, content, summary, published_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(feed_id, guid) DO UPDATE SET
+       title = excluded.title, url = excluded.url, author = excluded.author,
+       content = excluded.content, summary = excluded.summary, published_at = excluded.published_at
+     RETURNING *`
+  )
+  return stmt.get(feedId, guid, title, url, author, content, summary, publishedAt) as Article | null
+}
+
+export function getArticles(
+  feedId?: number,
+  filter: 'all' | 'unread' | 'starred' = 'all',
+  limit = 100,
+  offset = 0
+): Article[] {
+  let where = 'WHERE 1=1'
+  const params: unknown[] = []
+  if (feedId) { where += ' AND a.feed_id = ?'; params.push(feedId) }
+  if (filter === 'unread') { where += ' AND a.is_read = 0' }
+  if (filter === 'starred') { where += ' AND a.is_starred = 1' }
+  params.push(limit, offset)
+
+  return db.prepare(
+    `SELECT a.*, f.title as feed_title, f.favicon_url as feed_favicon_url
+     FROM articles a
+     JOIN feeds f ON f.id = a.feed_id
+     ${where}
+     ORDER BY a.published_at DESC
+     LIMIT ? OFFSET ?`
+  ).all(...params) as Article[]
+}
+
+export function getArticleById(id: number): Article | null {
+  const stmt = db.prepare(
+    `SELECT a.*, f.title as feed_title, f.favicon_url as feed_favicon_url
+     FROM articles a JOIN feeds f ON f.id = a.feed_id WHERE a.id = ?`
+  )
+  return (stmt.get(id) as Article | undefined) ?? null
+}
+
+export function markArticleRead(id: number): Article | null {
+  const stmt = db.prepare('UPDATE articles SET is_read = 1 WHERE id = ? RETURNING *')
+  return stmt.get(id) as Article | null
+}
+
+export function markArticleUnread(id: number): Article | null {
+  const stmt = db.prepare('UPDATE articles SET is_read = 0 WHERE id = ? RETURNING *')
+  return stmt.get(id) as Article | null
+}
+
+export function toggleArticleStar(id: number): Article | null {
+  const stmt = db.prepare('UPDATE articles SET is_starred = 1 - is_starred WHERE id = ? RETURNING *')
+  return stmt.get(id) as Article | null
+}
+
+export function markAllRead(feedId?: number): void {
+  if (feedId) {
+    db.prepare('UPDATE articles SET is_read = 1 WHERE feed_id = ? AND is_read = 0').run(feedId)
+  } else {
+    db.prepare('UPDATE articles SET is_read = 1 WHERE is_read = 0').run()
+  }
 }

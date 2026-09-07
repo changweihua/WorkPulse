@@ -33,8 +33,24 @@ import {
   type CalendarEventInput,
   updateWorkLog,
   workLogExists,
-  getDatabase
+  getDatabase,
+  addFeed,
+  getFeeds,
+  getFeedById,
+  updateFeed,
+  deleteFeed,
+  getArticles,
+  getArticleById,
+  markArticleRead,
+  markArticleUnread,
+  toggleArticleStar,
+  markAllRead,
+  getFeedCategories,
+  addFeedCategory,
+  updateFeedCategory,
+  deleteFeedCategory
 } from './db'
+import { subscribeFeed, refreshFeed, refreshAllFeeds, importOpmlData, generateOpmlData } from './feedService'
 import { generateReport, streamChat } from './ai'
 import { ensureModelFiles, setModelProgressSender } from './model-files'
 import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey, saveLLMToken, getLLMToken, deleteLLMToken } from './secureSettings'
@@ -546,6 +562,76 @@ export function registerIpcHandlers(): void {
       event.sender.send('ai-stream-error', String(error));
     }
   });
+
+  // --- RSS ---
+
+  ipcMain.handle('feed:add', async (_event, url: string, categoryId?: number | null) => {
+    return subscribeFeed(url, categoryId ?? null)
+  })
+
+  ipcMain.handle('feed:list', () => {
+    return getFeeds()
+  })
+
+  ipcMain.handle('feed:update', (_event, id: number, updates: Record<string, unknown>) => {
+    return updateFeed(id, updates as any)
+  })
+
+  ipcMain.handle('feed:delete', (_event, id: number) => {
+    return deleteFeed(id)
+  })
+
+  ipcMain.handle('feed:refresh', async (_event, id: number) => {
+    return refreshFeed(id)
+  })
+
+  ipcMain.handle('feed:refreshAll', async () => {
+    return refreshAllFeeds()
+  })
+
+  ipcMain.handle('feed:importOpml', (_event, xml: string) => {
+    return importOpmlData(xml)
+  })
+
+  ipcMain.handle('feed:exportOpml', () => {
+    return generateOpmlData()
+  })
+
+  ipcMain.handle('feed:categories:list', () => {
+    return getFeedCategories()
+  })
+
+  ipcMain.handle('feed:categories:add', (_event, name: string) => {
+    return addFeedCategory(name)
+  })
+
+  ipcMain.handle('feed:categories:update', (_event, id: number, name: string) => {
+    return updateFeedCategory(id, name)
+  })
+
+  ipcMain.handle('feed:categories:delete', (_event, id: number) => {
+    return deleteFeedCategory(id)
+  })
+
+  ipcMain.handle('feed:articles:list', (_event, feedId?: number, filter?: string, limit?: number, offset?: number) => {
+    return getArticles(feedId, (filter as any) ?? 'all', limit ?? 100, offset ?? 0)
+  })
+
+  ipcMain.handle('feed:articles:read', (_event, id: number) => {
+    return markArticleRead(id)
+  })
+
+  ipcMain.handle('feed:articles:unread', (_event, id: number) => {
+    return markArticleUnread(id)
+  })
+
+  ipcMain.handle('feed:articles:star', (_event, id: number) => {
+    return toggleArticleStar(id)
+  })
+
+  ipcMain.handle('feed:articles:readAll', (_event, feedId?: number) => {
+    markAllRead(feedId)
+  })
 
   // --- Attachments ---
 

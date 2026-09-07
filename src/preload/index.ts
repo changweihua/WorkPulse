@@ -175,6 +175,32 @@ const api = {
     delete: (id: number) => ipcRenderer.invoke('attachment:delete', id),
     pickFile: () => ipcRenderer.invoke('attachment:pickFile'),
   },
+  feed: {
+    add: (url: string, categoryId?: number | null) =>
+      ipcRenderer.invoke('feed:add', url, categoryId),
+    list: () => ipcRenderer.invoke('feed:list'),
+    update: (id: number, updates: Record<string, unknown>) =>
+      ipcRenderer.invoke('feed:update', id, updates),
+    delete: (id: number) => ipcRenderer.invoke('feed:delete', id),
+    refresh: (id: number) => ipcRenderer.invoke('feed:refresh', id),
+    refreshAll: () => ipcRenderer.invoke('feed:refreshAll'),
+    importOpml: (xml: string) => ipcRenderer.invoke('feed:importOpml', xml),
+    exportOpml: () => ipcRenderer.invoke('feed:exportOpml'),
+    categories: {
+      list: () => ipcRenderer.invoke('feed:categories:list'),
+      add: (name: string) => ipcRenderer.invoke('feed:categories:add', name),
+      update: (id: number, name: string) => ipcRenderer.invoke('feed:categories:update', id, name),
+      delete: (id: number) => ipcRenderer.invoke('feed:categories:delete', id),
+    },
+    articles: {
+      list: (feedId?: number, filter?: string, limit?: number, offset?: number) =>
+        ipcRenderer.invoke('feed:articles:list', feedId, filter, limit, offset),
+      read: (id: number) => ipcRenderer.invoke('feed:articles:read', id),
+      unread: (id: number) => ipcRenderer.invoke('feed:articles:unread', id),
+      star: (id: number) => ipcRenderer.invoke('feed:articles:star', id),
+      readAll: (feedId?: number) => ipcRenderer.invoke('feed:articles:readAll', feedId),
+    },
+  },
   // 新增：窗口控制
   window: {
     minimize: () => ipcRenderer.send('window-control', 'minimize'),

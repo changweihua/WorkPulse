@@ -8,6 +8,7 @@ import {
     CalendarRange,
     Zap,
     ArrowUp,
+    Rss,
 } from 'lucide-react';
 import { SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
 import { useI18n } from '../stores/languageStore';
@@ -140,6 +141,13 @@ export default function NavLayout() {
                     icon: <CalendarRange className="w-[18px] h-[18px]" />,
                     label: t('nav.weekly'),
                 },
+            ],
+        },
+        {
+            id: 'reading',
+            label: '阅读',
+            items: [
+                { path: 'rss', icon: <Rss className="w-[18px] h-[18px]" />, label: 'RSS' },
             ],
         },
         {
