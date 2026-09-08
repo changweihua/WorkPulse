@@ -271,6 +271,12 @@ body,
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
+/* Liquid glass shimmer — animated light streak across surfaces */
+@keyframes glass-shimmer {
+  0% { transform: translateX(-100%) rotate(25deg); }
+  100% { transform: translateX(200%) rotate(25deg); }
+}
+
 /* ===== Animation Classes ===== */
 
 .animate-shake { animation: shake 0.4s ease-in-out; }
@@ -357,6 +363,8 @@ body,
 
 /* Stat card: liquid glass surface */
 .stat-card {
+  position: relative;
+  overflow: hidden;
   background:
     linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.02) 40%, rgba(200,220,255,0.06) 70%, rgba(255,255,255,0.12) 100%),
     var(--color-surface-card);
@@ -383,6 +391,36 @@ body,
   box-shadow:
     inset 0 1px 2px rgba(255,255,255,0.25),
     0 8px 24px rgb(0 0 0 / 12%), 0 16px 48px rgb(0 0 0 / 6%);
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.12) 45%,
+    rgba(255, 255, 255, 0.18) 50%,
+    rgba(255, 255, 255, 0.12) 55%,
+    transparent 60%
+  );
+  transform: translateX(-100%) rotate(25deg);
+  animation: glass-shimmer 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+.dark .stat-card::before {
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.04) 45%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 55%,
+    transparent 60%
+  );
+}
+.stat-card:hover::before {
+  animation-duration: 2s;
 }
 .stat-card-icon {
   box-shadow: 0 1px 3px rgb(0 0 0 / 6%), inset 0 1px 0 rgb(255 255 255 / 0.5);
@@ -413,6 +451,8 @@ body,
 /* Card: liquid glass surface. Built-in radius keeps legacy
    usages that omit a Tailwind rounded-* utility rounded. */
 .surface-card {
+  position: relative;
+  overflow: hidden;
   background:
     linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.02) 40%, rgba(200,220,255,0.08) 70%, rgba(255,255,255,0.12) 100%),
     var(--color-surface-card);
@@ -434,6 +474,34 @@ body,
     inset 0 -1px 0 rgba(255,255,255,0.04),
     var(--glass-shadow);
 }
+.surface-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.10) 45%,
+    rgba(255, 255, 255, 0.16) 50%,
+    rgba(255, 255, 255, 0.10) 55%,
+    transparent 60%
+  );
+  transform: translateX(-100%) rotate(25deg);
+  animation: glass-shimmer 6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+}
+.dark .surface-card::before {
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.03) 45%,
+    rgba(255, 255, 255, 0.06) 50%,
+    rgba(255, 255, 255, 0.03) 55%,
+    transparent 60%
+  );
+}
 
 /* Elevated: modals, dropdowns — higher opacity + stronger shadow */
 .surface-elevated {
@@ -445,6 +513,8 @@ body,
 
 /* Input: liquid glass field */
 .surface-input {
+  position: relative;
+  overflow: hidden;
   background:
     linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.02) 50%, rgba(255,255,255,0.10) 100%),
     var(--color-surface-input);
@@ -463,6 +533,54 @@ body,
   box-shadow:
     inset 0 1px 1px rgba(255,255,255,0.06),
     0 1px 2px rgb(0 0 0 / 0.1);
+}
+.surface-input::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.08) 45%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.08) 55%,
+    transparent 60%
+  );
+  transform: translateX(-100%) rotate(25deg);
+  animation: glass-shimmer 5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+/* Active/focused glass border — rotating gradient */
+.glass-border-active {
+  position: relative;
+  z-index: 0;
+}
+.glass-border-active::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from 0deg,
+    rgba(99, 130, 255, 0.4),
+    rgba(168, 100, 255, 0.3),
+    rgba(56, 198, 165, 0.3),
+    rgba(99, 130, 255, 0.4)
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: glass-border-spin 3s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes glass-border-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Inset: recessed areas like code blocks, result panels */

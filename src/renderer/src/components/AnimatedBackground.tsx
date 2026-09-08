@@ -82,6 +82,20 @@ export function AnimatedBackground() {
           willChange: 'left, top',
         }}
       />
+      {/* Amber blob — warm accent, slowest */}
+      <div
+        style={{
+          position: 'absolute',
+          left: roundedX * 0.5 + 200,
+          top: roundedY * 0.6 + 100,
+          width: 350,
+          height: 350,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(234,88,12,0.035) 0%, rgba(234,88,12,0.008) 50%, transparent 70%)',
+          filter: 'blur(55px)',
+          willChange: 'left, top',
+        }}
+      />
     </div>
   )
 }

@@ -13,6 +13,7 @@ import {
 import { SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
 import { useI18n } from '../stores/languageStore';
 import { useClickAway } from 'react-use';
+import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 
 interface NavItem {
     path: string;
@@ -158,6 +159,7 @@ export default function NavLayout() {
                 { path: 'pp', icon: <SiPaddlepaddle className="w-[18px] h-[18px]" />, label: t('nav.pp') },
                 { path: 'xray', icon: <Zap className="w-[18px] h-[18px]" />, label: t('nav.xray') },
                 { path: 'onnx', icon: <SiOnnx className="w-[18px] h-[18px]" />, label: t('nav.onnx') },
+                { path: 'fluid-glass', icon: <Icon icon="mdi:glass-water" className="w-[18px] h-[18px]" />, label: t('nav.fluidGlass') },
             ],
         },
     ];
@@ -190,6 +192,17 @@ export default function NavLayout() {
                 animate={{ width: sidebarWidth }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
+                {/* Liquid glass caustic overlay */}
+                <LiquidGlassSurface
+                    className="absolute inset-0 z-0"
+                    frosted={false}
+                    intensity={0.3}
+                    animated={true}
+                    style={{ pointerEvents: 'none' }}
+                >
+                    <div className="w-full h-full" />
+                </LiquidGlassSurface>
+
                 {/* -- Top: brand + toggle -- */}
                 <div className="flex items-center justify-between px-4 py-3 shrink-0">
                     <span

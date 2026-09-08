@@ -16,6 +16,7 @@ const OnnxPage = lazy(() => import('./pages/OnnxPage'));
 const OcrPage = lazy(() => import('./pages/OcrPage'));
 const OcrPagePP = lazy(() => import('./pages/OcrPagePP'));
 const RssPage = lazy(() => import('./pages/RssPage'));
+const FluidGlassPage = lazy(() => import('./pages/FluidGlassPage'));
 
 function PageLoader() {
     return (
@@ -56,6 +57,7 @@ export const router = createHashRouter([
                     { path: 'rss', element: <Suspense fallback={<PageLoader />}><RssPage /></Suspense>, handle: { fluid: true } },
                     { path: 'ocr', element: <Suspense fallback={<PageLoader />}><OcrPage /></Suspense>, handle: { fluid: true } },
                     { path: 'pp', element: <Suspense fallback={<PageLoader />}><OcrPagePP /></Suspense>, handle: { fluid: true } },
+                    { path: 'fluid-glass', element: <Suspense fallback={<PageLoader />}><FluidGlassPage /></Suspense>, handle: { fluid: true } },
                     { path: 'settings', element: <Suspense fallback={<PageLoader />}><SettingsPage /></Suspense> },
                 ],
             },

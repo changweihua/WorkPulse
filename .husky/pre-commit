@@ -1,1 +1,2 @@
+npx --no -- lint-staged
 npx --no -- tsx scripts/generate-changelog.ts

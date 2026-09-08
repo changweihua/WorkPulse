@@ -67,6 +67,7 @@ export default defineConfig(({ mode }) => {
     renderer: {
       // 可选项：配置环境文件目录（默认根目录）
       envDir: './',  // 默认就是根目录
+      publicDir: resolve(__dirname, 'public'),  // GLB 等静态资源在项目根 public/ 下
       define,  // ✅ 渲染进程通过 import.meta.env 读取
       // define: {
       //   'import.meta.env.VITE_APP_TITLE': JSON.stringify('WorkPulseX')

@@ -34,6 +34,9 @@
       "path": "node_modules/cz-customizable"
     }
   },
+  "lint-staged": {
+    "*.{ts,tsx}": "bash -c 'tsc --noEmit --pretty'"
+  },
   "build": {
     "appId": "cmono.workpulse.app",
     "productName": "WorkPulse",
@@ -205,7 +208,7 @@
     "@fauzitech/ai-ui": "^0.1.0",
     "@huggingface/transformers": "^4.2.0",
     "@iconify-json/line-md": "^1.2.16",
-    "@iconify-json/lucide": "^1.2.129",
+    "@iconify-json/lucide": "^1.2.130",
     "@iconify/react": "^6.0.2",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
@@ -221,8 +224,9 @@
     "extract-file-icon": "^0.3.2",
     "feedsmith": "^2.9.6",
     "koffi": "^3.2.1",
-    "lucide-react": "^1.41.0",
+    "lucide-react": "^1.42.0",
     "lunar-typescript": "^1.8.6",
+    "maath": "^0.10.8",
     "motion": "^13.2.0",
     "node-api-dotnet": "^0.9.27",
     "onnxruntime-web": "^1.29.0",
@@ -259,6 +263,7 @@
     "electron-vite": "^6.0.0-beta.1",
     "husky": "^9.1.7",
     "javascript-obfuscator": "^5.6.0",
+    "lint-staged": "^17.5.0",
     "rcedit": "^5.0.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

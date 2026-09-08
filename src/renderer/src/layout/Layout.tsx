@@ -15,6 +15,7 @@ import { TitleBar } from '../components/TitleBar';
 import { useToast } from '../components/Toast';
 import { useI18n } from '../stores/languageStore';
 import { QuickCreate } from '../components/QuickCreate';
+import { AnimatedBackground } from '../components/AnimatedBackground';
 
 export default function Layout() {
     const navigate = useNavigate();
@@ -135,7 +136,8 @@ export default function Layout() {
             </header>
 
             <main className="flex-1 overflow-auto relative">
-                <div className={fluid ? '' : 'max-w-3xl mx-auto px-4 py-6'}>
+                <AnimatedBackground />
+                <div className={`relative z-10 ${fluid ? '' : 'max-w-3xl mx-auto px-4 py-6'}`}>
                     <Outlet />
                 </div>
             </main>

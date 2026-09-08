@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Message } from '@fauzitech/ai-ui';
 import { useAIPanelStore } from '../stores/aiPanelStore';
+import { LiquidGlassSurface } from './LiquidGlassSurface';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface ModelConfig {
@@ -727,6 +728,17 @@ export default function AIChatPanel() {
                                    shadow-[-8px_0_32px_rgba(0,0,0,0.08)] dark:shadow-[-8px_0_32px_rgba(0,0,0,0.25)]
                                    flex flex-col overflow-hidden"
                     >
+                        {/* Liquid glass caustic overlay */}
+                        <LiquidGlassSurface
+                            className="absolute inset-0 z-0"
+                            frosted={false}
+                            intensity={0.25}
+                            animated={true}
+                            style={{ pointerEvents: 'none' }}
+                        >
+                            <div className="w-full h-full" />
+                        </LiquidGlassSurface>
+
                         {/* Header */}
                         <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200/40 dark:border-zinc-700/40 shrink-0">
                             <div className="flex items-center gap-2 min-w-0">
