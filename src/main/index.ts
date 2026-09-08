@@ -532,12 +532,11 @@ function createWindow(): void {
     // 注册主窗口引用到径向菜单模块
     setMainWindow(mainWindow)
     // 无边框窗口：先 show + maximize 再 hide，确保最大化状态正确
-    // 但延迟 100ms 让 maximize 生效后再隐藏，减少闪烁
     mainWindow.maximize()
-    mainWindow.hide() // 隐藏主窗口，通过径向菜单打开
     // 必须设置图标（无边框窗口需要）
     mainWindow.setIcon(APP_ICON_PATH)
-    // 自动显示径向悬浮窗
+    // 无论手动启动还是系统自动启动，都隐藏主窗口，只显示径向悬浮窗
+    mainWindow.hide()
     appBus.emit(SHOW_RADIAL, mainWindow)
   })
   if (process.platform !== 'darwin') {
