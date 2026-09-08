@@ -222,6 +222,7 @@
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.9",
     "extract-file-icon": "^0.3.2",
+    "feedparser": "^2.6.0",
     "feedsmith": "^2.9.6",
     "koffi": "^3.2.1",
     "lucide-react": "^1.42.0",

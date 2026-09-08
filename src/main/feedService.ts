@@ -1,4 +1,6 @@
 import { parseFeed, parseOpml, generateOpml } from 'feedsmith'
+import FeedParser from 'feedparser'
+import { Readable } from 'stream'
 import {
   addFeed,
   getFeeds,
@@ -15,7 +17,10 @@ import {
 } from './db'
 import log from 'electron-log/main'
 
-function extractItems(parsed: ReturnType<typeof parseFeed>): Array<{
+/** Max items to collect from a feed (prevents memory blowup on huge feeds). */
+const MAX_ITEMS = 500
+
+type FeedItem = {
   guid: string | null
   title: string
   url: string | null
@@ -23,17 +28,68 @@ function extractItems(parsed: ReturnType<typeof parseFeed>): Array<{
   content: string | null
   summary: string | null
   publishedAt: string | null
-}> {
+}
+
+/**
+ * Stream-parse an XML/Atom/RSS feed using feedparser.
+ * Collects at most `MAX_ITEMS` items, then destroys the stream
+ * so we never need to load the entire XML DOM into memory.
+ */
+function streamParseFeed(
+  stream: Readable,
+  feedUrl: string
+): Promise<{ title: string; description: string | null; siteUrl: string | null; items: FeedItem[] }> {
+  return new Promise((resolve, reject) => {
+    const fp = new FeedParser({ feedurl: feedUrl })
+    const items: FeedItem[] = []
+    let meta: FeedParser.Meta | null = null
+
+    fp.on('meta', (m: FeedParser.Meta) => {
+      meta = m
+    })
+
+    fp.on('data', (item: FeedParser.Item) => {
+      if (items.length >= MAX_ITEMS) {
+        fp.destroy()
+        return
+      }
+      items.push({
+        guid: item.guid ?? item.link ?? null,
+        title: item.title ?? 'Untitled',
+        url: item.link ?? null,
+        author: item.author ?? null,
+        // feedparser merges content:encoded into summary when present
+        content: (item as any)['content:encoded'] ?? item.description ?? null,
+        summary: item.summary ?? item.description ?? null,
+        publishedAt: item.pubdate ? new Date(item.pubdate).toISOString() : item.date ? new Date(item.date).toISOString() : null,
+      })
+    })
+
+    fp.on('error', (err: Error) => {
+      reject(err)
+    })
+
+    fp.on('end', () => {
+      resolve({
+        title: meta?.title ?? new URL(feedUrl).hostname,
+        description: meta?.description ?? null,
+        siteUrl: meta?.link ?? null,
+        items,
+      })
+    })
+
+    // Pipe the fetched response body through feedparser
+    stream.pipe(fp)
+  })
+}
+
+/**
+ * Fallback: parse XML/Atom/RSS via feedsmith (DOM-based).
+ * Used only for JSON feeds or when streaming fails.
+ */
+function domParseItems(parsed: ReturnType<typeof parseFeed>): FeedItem[] {
   const { format, feed } = parsed
-  const items: Array<{
-    guid: string | null
-    title: string
-    url: string | null
-    author: string | null
-    content: string | null
-    summary: string | null
-    publishedAt: string | null
-  }> = []
+  const items: FeedItem[] = []
 
   for (const item of feed.items ?? []) {
     let guid: string | null = null
@@ -86,18 +142,10 @@ export async function fetchAndParseFeed(url: string): Promise<{
   description: string | null
   siteUrl: string | null
   faviconUrl: string | null
-  items: Array<{
-    guid: string | null
-    title: string
-    url: string | null
-    author: string | null
-    content: string | null
-    summary: string | null
-    publishedAt: string | null
-  }>
+  items: FeedItem[]
 }> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 15000)
+  const timeout = setTimeout(() => controller.abort(), 60000)
 
   try {
     const res = await fetch(url, {
@@ -112,33 +160,27 @@ export async function fetchAndParseFeed(url: string): Promise<{
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
 
     const contentType = res.headers.get('content-type') ?? ''
-    const text = await res.text()
+    const isJson = contentType.includes('json') || url.endsWith('.json') || url.endsWith('.jsonfeed')
 
-    let parsed: ReturnType<typeof parseFeed>
-    if (contentType.includes('json') || url.endsWith('.json') || url.endsWith('.jsonfeed')) {
+    if (isJson) {
+      // JSON feeds are typically small — parse directly
+      const text = await res.text()
       const json = JSON.parse(text)
-      parsed = { format: 'json', feed: json }
-    } else {
-      parsed = parseFeed(text)
+      const parsed = { format: 'json' as const, feed: json }
+      const items = domParseItems(parsed)
+      return {
+        title: parsed.feed.title ?? new URL(url).hostname,
+        description: parsed.feed.description ?? null,
+        siteUrl: typeof parsed.feed.link === 'string' ? parsed.feed.link : null,
+        faviconUrl: null,
+        items,
+      }
     }
 
-    const items = extractItems(parsed)
-    const feedTitle = parsed.feed.title ?? new URL(url).hostname
-    const description = parsed.feed.description ?? null
-    let siteUrl: string | null = null
-    if (typeof parsed.feed.link === 'string') {
-      siteUrl = parsed.feed.link
-    } else if (Array.isArray(parsed.feed.link)) {
-      siteUrl = parsed.feed.link[0]?.href ?? null
-    }
-
-    return {
-      title: feedTitle,
-      description,
-      siteUrl,
-      faviconUrl: null,
-      items
-    }
+    // XML/Atom/RSS: use streaming parser to avoid loading entire DOM into memory
+    const nodeStream = Readable.fromWeb(res.body as any)
+    const result = await streamParseFeed(nodeStream, url)
+    return { ...result, faviconUrl: null }
   } finally {
     clearTimeout(timeout)
   }
