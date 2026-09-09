@@ -83,10 +83,35 @@ function streamParseFeed(
   })
 }
 
-/**
- * Fallback: parse XML/Atom/RSS via feedsmith (DOM-based).
- * Used only for JSON feeds or when streaming fails.
- */
+/** Strip YAML frontmatter (--- ... ---) from markdown content. */
+function stripFrontmatter(raw: string | null): string | null {
+  if (!raw) return raw
+  const trimmed = raw.trimStart()
+  if (!trimmed.startsWith('---')) return raw
+  const end = trimmed.indexOf('---', 3)
+  if (end === -1) return raw
+  return trimmed.slice(end + 3).trimStart()
+}
+
+/** Coerce any value to string|null. Feedsmith may return objects like { type, value }. */
+function toStr(v: unknown): string | null {
+  if (v == null) return null
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  if (typeof v === 'object') {
+    // feedsmith wraps some fields: { type: 'html', value: '...' }
+    const obj = v as Record<string, unknown>
+    if ('value' in obj && typeof obj.value === 'string') return obj.value
+    if ('_text' in obj && typeof obj._text === 'string') return obj._text
+    // content:encoded may be { encoded: '...' }
+    if ('encoded' in obj && typeof obj.encoded === 'string') return obj.encoded
+    // Atom content may be { _: '...' } or similar
+    if ('_' in obj && typeof obj._ === 'string') return obj._
+    return null
+  }
+  return String(v)
+}
+
 function domParseItems(parsed: ReturnType<typeof parseFeed>): FeedItem[] {
   const { format, feed } = parsed
   const items: FeedItem[] = []
@@ -102,36 +127,44 @@ function domParseItems(parsed: ReturnType<typeof parseFeed>): FeedItem[] {
 
     if (format === 'atom') {
       const entry = item as any
-      guid = entry.id ?? null
-      title = entry.title ?? 'Untitled'
+      guid = toStr(entry.id)
+      title = toStr(entry.title) ?? 'Untitled'
       const link = Array.isArray(entry.link) ? entry.link[0] : entry.link
-      url = link?.href ?? null
-      author = entry.author?.name ?? null
-      content = entry.content?.value ?? entry.content ?? null
-      summary = entry.summary?.value ?? entry.summary ?? null
-      publishedAt = entry.published ?? entry.updated ?? null
+      url = toStr(link?.href)
+      author = toStr(entry.author?.name)
+      content = toStr(entry.content?.value ?? entry.content)
+      summary = toStr(entry.summary?.value ?? entry.summary)
+      publishedAt = toStr(entry.published ?? entry.updated)
     } else if (format === 'json') {
       const entry = item as any
-      guid = entry.id ?? null
-      title = entry.title ?? 'Untitled'
-      url = entry.url ?? entry.external_url ?? null
-      author = entry.author?.name ?? entry.author ?? null
-      content = entry.content_html ?? entry.content ?? null
-      summary = entry.summary ?? null
-      publishedAt = entry.date_published ?? entry.date_modified ?? null
+      guid = toStr(entry.id)
+      title = toStr(entry.title) ?? 'Untitled'
+      url = toStr(entry.url ?? entry.external_url)
+      author = toStr(entry.author?.name ?? entry.author)
+      content = toStr(entry.content_html ?? entry.content)
+      summary = toStr(entry.summary)
+      publishedAt = toStr(entry.date_published ?? entry.date_modified)
     } else {
       // RSS / RDF
       const entry = item as any
-      guid = entry.guid ?? entry.id ?? entry.link ?? null
-      title = entry.title ?? 'Untitled'
-      url = entry.link ?? null
-      author = entry.creator ?? entry.author ?? null
-      content = entry['content:encoded'] ?? entry.content ?? entry.description ?? null
-      summary = entry.description ?? null
-      publishedAt = entry.pubDate ?? entry.date ?? null
+      guid = toStr(entry.guid ?? entry.id ?? entry.link)
+      title = toStr(entry.title) ?? 'Untitled'
+      url = toStr(entry.link)
+      author = toStr(entry.creator ?? entry.author)
+      content = toStr(entry['content:encoded'] ?? entry.content ?? entry.description)
+      summary = toStr(entry.description)
+      publishedAt = toStr(entry.pubDate ?? entry.date)
     }
 
-    items.push({ guid, title, url, author, content, summary, publishedAt })
+    items.push({
+      guid,
+      title,
+      url,
+      author,
+      content: stripFrontmatter(content),
+      summary: stripFrontmatter(summary),
+      publishedAt,
+    })
   }
 
   return items
@@ -162,9 +195,12 @@ export async function fetchAndParseFeed(url: string): Promise<{
     const contentType = res.headers.get('content-type') ?? ''
     const isJson = contentType.includes('json') || url.endsWith('.json') || url.endsWith('.jsonfeed')
 
+    // Buffer the response text and parse with feedsmith (DOM-based parser).
+    // feedparser's streaming pipe has compatibility issues with Web Streams
+    // and Node.js streams (stream.push() after EOF). feedsmith handles all
+    // formats (RSS, Atom, JSON Feed) reliably in a single code path.
+    const text = await res.text()
     if (isJson) {
-      // JSON feeds are typically small — parse directly
-      const text = await res.text()
       const json = JSON.parse(text)
       const parsed = { format: 'json' as const, feed: json }
       const items = domParseItems(parsed)
@@ -177,10 +213,15 @@ export async function fetchAndParseFeed(url: string): Promise<{
       }
     }
 
-    // XML/Atom/RSS: use streaming parser to avoid loading entire DOM into memory
-    const nodeStream = Readable.fromWeb(res.body as any)
-    const result = await streamParseFeed(nodeStream, url)
-    return { ...result, faviconUrl: null }
+    const parsed = parseFeed(text)
+    const items = domParseItems(parsed)
+    return {
+      title: (parsed.feed.title as string) ?? new URL(url).hostname,
+      description: (parsed.feed.description as string) ?? null,
+      siteUrl: (parsed.feed.link as string) ?? null,
+      faviconUrl: null,
+      items,
+    }
   } finally {
     clearTimeout(timeout)
   }
@@ -196,8 +237,8 @@ export async function subscribeFeed(url: string, categoryId?: number | null): Pr
   let imported = 0
   for (const item of info.items) {
     const publishedAt = item.publishedAt ? new Date(item.publishedAt).toISOString() : null
-    addArticle(feed.id, item.guid, item.title, item.url, item.author, item.content, item.summary, publishedAt)
-    imported++
+    const result = addArticle(feed.id, item.guid, item.title, item.url, item.author, item.content, item.summary, publishedAt)
+    if (result) imported++
   }
 
   updateFeed(feed.id, { last_fetched_at: new Date().toISOString() })

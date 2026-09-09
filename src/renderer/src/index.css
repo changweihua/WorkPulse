@@ -147,6 +147,26 @@
   --tw-prose-td-borders: rgb(255 255 255 / 10%);
 }
 
+/* ===== Dark mode: highlight.js 代码高亮 ===== */
+.dark .hljs {
+  background: #24292e;
+  color: #e1e4e8;
+}
+.dark .hljs-comment, .dark .hljs-quote { color: #6a737d; }
+.dark .hljs-keyword, .dark .hljs-selector-tag { color: #f97583; }
+.dark .hljs-string, .dark .hljs-attr { color: #9ecbff; }
+.dark .hljs-number, .dark .hljs-literal { color: #79b8ff; }
+.dark .hljs-built_in, .dark .hljs-type { color: #f97583; }
+.dark .hljs-function .hljs-title, .dark .hljs-title.function_ { color: #d2a8ff; }
+.dark .hljs-variable, .dark .hljs-template-variable { color: #ffa657; }
+.dark .hljs-params { color: #e1e4e8; }
+.dark .hljs-meta { color: #6a737d; }
+.dark .hljs-tag { color: #7ee787; }
+.dark .hljs-name { color: #7ee787; }
+.dark .hljs-attribute { color: #79b8ff; }
+.dark .hljs-selector-class { color: #d2a8ff; }
+.dark .hljs-selector-id { color: #d2a8ff; }
+
 /* ===== Base: transparent body for Acrylic ===== */
 html {
   background: transparent;
@@ -435,6 +455,345 @@ body,
 }
 .dark .stat-card:hover .stat-card-icon {
   box-shadow: 0 2px 8px rgb(0 0 0 / 30%), inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+/* ===== GitHub-style Markdown (ArticleReader) ===== */
+
+/* ── Container ── */
+.github-markdown-body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  word-wrap: break-word;
+}
+
+/* ── Headings with bottom border ── */
+.github-heading {
+  position: relative;
+  padding-bottom: 0.3em;
+  margin-top: 1.5em;
+  margin-bottom: 0.8em;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+}
+.github-heading-1 { font-size: 2em; }
+.github-heading-2 { font-size: 1.5em; }
+.github-heading-3 { font-size: 1.25em; }
+.github-heading-4 { font-size: 1em; }
+.github-heading-5 { font-size: 0.875em; }
+.github-heading-6 { font-size: 0.85em; color: var(--color-text-tertiary); }
+
+/* Anchor link on hover */
+.github-anchor {
+  margin-left: 0.4em;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  text-decoration: none;
+  color: var(--color-text-tertiary);
+  vertical-align: middle;
+}
+.github-heading:hover .github-anchor {
+  opacity: 1;
+}
+.github-anchor:hover {
+  color: var(--color-text-secondary);
+}
+.github-anchor-icon {
+  width: 0.8em;
+  height: 0.8em;
+}
+
+/* ── Code Blocks (GitHub style) ── */
+.github-code-block {
+  margin: 1em 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f6f8fa;
+  border: 1px solid var(--color-border);
+}
+.dark .github-code-block {
+  background: #24292e;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.github-code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #e8ecf0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+}
+.dark .github-code-header {
+  background: #2d333b;
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+.github-code-lang {
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  text-transform: lowercase;
+  font-size: 12px;
+}
+.github-code-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+.github-code-copy:hover {
+  background: var(--color-surface-inset);
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+.github-code-copy:active {
+  transform: scale(0.95);
+}
+.github-code-block pre {
+  background: transparent !important;
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+}
+.github-code-block pre code {
+  background: transparent !important;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* ── Inline Code ── */
+.github-inline-code {
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  font-family: var(--font-mono);
+  background: rgba(175, 184, 193, 0.2);
+  border-radius: 6px;
+  color: var(--color-text);
+}
+.dark .github-inline-code {
+  background: rgba(110, 118, 129, 0.4);
+}
+
+/* ── Tables (GitHub style) ── */
+.github-table-wrapper {
+  overflow-x: auto;
+  margin: 1em 0;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+.github-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 14px;
+}
+.github-thead {
+  background: var(--color-surface-inset);
+}
+.github-th {
+  padding: 8px 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  border-bottom: 2px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+.github-td {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+.github-table tr:last-child .github-td {
+  border-bottom: none;
+}
+.github-table tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.02);
+}
+.dark .github-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+.github-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.dark .github-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Blockquotes (GitHub style) ── */
+.github-blockquote {
+  margin: 1em 0;
+  padding: 12px 16px;
+  border-left: 4px solid #d0d7de;
+  background: #f6f8fa;
+  color: var(--color-text-secondary);
+  border-radius: 0 6px 6px 0;
+}
+.dark .github-blockquote {
+  border-left-color: #3b434b;
+  background: rgba(255, 255, 255, 0.03);
+}
+.github-blockquote p {
+  margin: 0;
+}
+.github-blockquote p + p {
+  margin-top: 0.5em;
+}
+
+/* ── Links (GitHub style) ── */
+.github-link {
+  color: #0969da;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.github-link:hover {
+  text-decoration: underline;
+}
+.dark .github-link {
+  color: #58a6ff;
+}
+.github-external-icon {
+  width: 0.85em;
+  height: 0.85em;
+  margin-left: 2px;
+  vertical-align: middle;
+  opacity: 0.6;
+  display: inline;
+}
+
+/* ── Images (GitHub style) ── */
+.github-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 0.5em 0;
+}
+.dark .github-image {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Horizontal Rules (GitHub style) ── */
+.github-hr {
+  height: 4px;
+  padding: 0;
+  margin: 1.5em 0;
+  background-color: var(--color-border);
+  border: 0;
+  border-radius: 2px;
+}
+
+/* ── Lists (GitHub style) ── */
+.github-list {
+  padding-left: 2em;
+  margin: 1em 0;
+}
+.github-list-item {
+  margin: 0.25em 0;
+  line-height: 1.6;
+}
+.github-list-item + .github-list-item {
+  margin-top: 0.25em;
+}
+.github-list-item > p {
+  margin: 0.5em 0;
+}
+.github-list-item > ul,
+.github-list-item > ol {
+  margin: 0.25em 0;
+}
+
+/* ── Task List Checkboxes (GitHub style) ── */
+.github-task-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+  top: -1px;
+}
+.github-task-checkbox:checked {
+  background-color: #0969da;
+  border-color: #0969da;
+}
+.dark .github-task-checkbox:checked {
+  background-color: #58a6ff;
+  border-color: #58a6ff;
+}
+.github-task-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* ── Paragraphs & Spacing ── */
+.github-markdown-body > p {
+  margin: 0 0 1em;
+}
+
+/* ── Strong / Emphasis ── */
+.github-markdown-body strong {
+  font-weight: 600;
+  color: var(--color-text);
+}
+.github-markdown-body em {
+  font-style: italic;
+}
+
+/* ── Definition Lists ── */
+.github-markdown-body dl {
+  padding: 0;
+  margin: 1em 0;
+}
+.github-markdown-body dt {
+  font-weight: 600;
+  color: var(--color-text);
+}
+.github-markdown-body dd {
+  margin: 0 0 0 2em;
+  padding: 0 0 0 0;
+}
+
+/* ── Keyboard Input ── */
+.github-markdown-body kbd {
+  display: inline-block;
+  padding: 3px 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 10px;
+  color: var(--color-text-secondary);
+  vertical-align: middle;
+  background: var(--color-surface-inset);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: inset 0 -1px 0 var(--color-border);
+}
+
+/* ── Strikethrough ── */
+.github-markdown-body del {
+  color: var(--color-text-tertiary);
 }
 
 /* ===== Hide scrollbar but allow scrolling ===== */

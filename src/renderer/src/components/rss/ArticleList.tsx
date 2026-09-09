@@ -119,10 +119,13 @@ export default function ArticleList() {
           </div>
         ) : (
           articles.map(article => (
-            <button
+            <div
               key={article.id}
+              role="button"
+              tabIndex={0}
               onClick={() => setSelectedArticle(article.id)}
-              className={`w-full text-left px-3 py-2.5 border-b border-[var(--color-border-subtle)] transition-colors ${
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedArticle(article.id) } }}
+              className={`w-full text-left px-3 py-2.5 border-b border-[var(--color-border-subtle)] transition-colors cursor-pointer ${
                 selectedArticleId === article.id
                   ? 'bg-blue-500/8'
                   : 'hover:bg-[var(--color-surface-inset)]'
@@ -153,7 +156,7 @@ export default function ArticleList() {
                   <Star className={`w-3 h-3 ${article.is_starred ? 'fill-amber-400 text-amber-400' : 'text-[var(--color-text-tertiary)]'}`} />
                 </button>
               </div>
-            </button>
+            </div>
           ))
         )}
       </div>

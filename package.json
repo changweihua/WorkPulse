@@ -236,6 +236,7 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.3",
     "react-use": "^17.6.1",
+    "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
     "streamdown": "^2.6.0",
     "three": "^0.185.1",

@@ -1,18 +1,22 @@
 import React, { useState, useRef } from 'react'
 import { useRssStore } from '@/stores/rssStore'
-import { Rss, Star, Eye, EyeOff, ChevronDown, ChevronRight, Plus, RefreshCw, MoreHorizontal, Trash2, CheckCheck, Download, Upload } from 'lucide-react'
+import { Rss, Star, Eye, EyeOff, ChevronDown, ChevronRight, Plus, RefreshCw, MoreHorizontal, Trash2, CheckCheck, Download, Upload, Pencil } from 'lucide-react'
 
 export default function FeedSidebar() {
   const {
-    feeds, categories, selectedFeedId, filter, searchQuery,
+    feeds, categories, selectedFeedId, filter, searchQuery, editingFeed,
     setSelectedFeed, setFilter, setSearchQuery,
     setShowAddFeedDialog, refreshAll, deleteFeed, markAllRead,
+    setEditingFeed, updateFeed,
     isRefreshing
   } = useRssStore()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set())
   const [contextMenu, setContextMenu] = useState<{ feedId: number; x: number; y: number } | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editUrl, setEditUrl] = useState('')
+  const [editCategoryId, setEditCategoryId] = useState<number | null>(null)
 
   const toggleCategory = (id: number) => {
     setExpandedCategories(prev => {
@@ -42,7 +46,23 @@ export default function FeedSidebar() {
 
   const handleContextMenu = (e: React.MouseEvent, feedId: number) => {
     e.preventDefault()
+    e.stopPropagation()
     setContextMenu({ feedId, x: e.clientX, y: e.clientY })
+  }
+
+  const openEditDialog = (feedId: number) => {
+    const feed = feeds.find(f => f.id === feedId)
+    if (!feed) return
+    setEditTitle(feed.title ?? '')
+    setEditUrl(feed.url)
+    setEditCategoryId(feed.category_id ?? null)
+    setEditingFeed(feed)
+    setContextMenu(null)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingFeed) return
+    await updateFeed(editingFeed.id, { title: editTitle, url: editUrl, category_id: editCategoryId })
   }
 
   const handleExportOpml = async () => {
@@ -67,6 +87,7 @@ export default function FeedSidebar() {
   }
 
   return (
+    <>
     <div className="w-64 h-full flex flex-col surface-card rounded-xl overflow-hidden">
       {/* Header */}
       <div className="p-3 border-b border-[var(--color-border-subtle)]">
@@ -212,8 +233,9 @@ export default function FeedSidebar() {
           />
         </div>
       </div>
+    </div>
 
-      {/* Context menu */}
+      {/* Context menu — rendered outside overflow-hidden container */}
       {contextMenu && (
         <>
           <div className="fixed inset-0 z-50" onClick={() => setContextMenu(null)} />
@@ -221,6 +243,12 @@ export default function FeedSidebar() {
             className="fixed z-50 surface-elevated rounded-lg shadow-lg py-1 min-w-[160px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
+            <button
+              onClick={() => openEditDialog(contextMenu.feedId)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)]"
+            >
+              <Pencil className="w-3.5 h-3.5" /> 编辑订阅
+            </button>
             <button
               onClick={() => { markAllRead(contextMenu.feedId); setContextMenu(null) }}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)]"
@@ -237,7 +265,64 @@ export default function FeedSidebar() {
           </div>
         </>
       )}
-    </div>
+
+      {/* Edit Feed Dialog — rendered outside overflow-hidden container */}
+      {editingFeed && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setEditingFeed(null)} />
+          <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 surface-elevated rounded-xl shadow-xl p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-[var(--color-text)]">编辑订阅</h3>
+            <div className="space-y-1.5">
+              <label className="text-xs text-[var(--color-text-secondary)]">标题</label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full px-2.5 py-1.5 text-xs surface-input rounded-lg border border-[var(--color-border-subtle)] outline-none text-[var(--color-text)] placeholder:text-[var(--color-text-tertiary)]"
+                placeholder="订阅源标题"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-[var(--color-text-secondary)]">URL</label>
+              <input
+                type="text"
+                value={editUrl}
+                onChange={(e) => setEditUrl(e.target.value)}
+                className="w-full px-2.5 py-1.5 text-xs surface-input rounded-lg border border-[var(--color-border-subtle)] outline-none text-[var(--color-text)] placeholder:text-[var(--color-text-tertiary)]"
+                placeholder="https://example.com/feed.rss"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-[var(--color-text-secondary)]">分类</label>
+              <select
+                value={editCategoryId ?? ''}
+                onChange={(e) => setEditCategoryId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-2.5 py-1.5 text-xs surface-input rounded-lg border border-[var(--color-border-subtle)] outline-none text-[var(--color-text)]"
+              >
+                <option value="">未分类</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={() => setEditingFeed(null)}
+                className="px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)] rounded-lg transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-3 py-1.5 text-xs font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   )
 }
 
