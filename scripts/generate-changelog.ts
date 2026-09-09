@@ -28,6 +28,8 @@ const SUBJECT_MAP: Record<string, string> = {
   'always show radial menu on startup regardless of launch method': '恢复启动时始终显示径向菜单',
   'add complete changelog with pre-commit auto-generation': '自动变更日志生成（pre-commit hook）',
   'use streaming rss parser to handle large feeds': 'RSS 改用 feedsmith DOM 解析修复大订阅源',
+  'add chinese subject mapping to changelog generator': '变更日志生成器支持中文翻译映射',
+  'fix changelog should include pending commit': '修正变更日志在 commit 前生成',
 }
 
 // Emoji to category mapping
@@ -71,6 +73,15 @@ function parseCommit(line: string): { hash: string; date: string; emoji: string;
   return { hash, date, emoji, type: category, subject: subject.trim() }
 }
 
+function parsePendingCommit(message: string): { emoji: string; type: string; subject: string } | null {
+  const firstLine = message.split('\n')[0].trim()
+  const emojiMatch = firstLine.match(/^([\p{Emoji}])\s+(\w+):\s*(.+)/u)
+  if (!emojiMatch) return null
+  const [, emoji, rawType, subject] = emojiMatch
+  const category = TYPE_MAP[emoji] || rawType
+  return { emoji, type: category, subject: subject.trim() }
+}
+
 function generate(): void {
   let lastTag: string
   try {
@@ -102,17 +113,31 @@ function generate(): void {
     }
   }
 
+  // Also include the pending commit message (pre-commit hook context)
+  try {
+    const commitMsg = readFileSync(resolve(__dirname, '..', '.git', 'COMMIT_EDITMSG'), 'utf-8').trim()
+    if (commitMsg && !shouldSkip(commitMsg)) {
+      const parsed = parsePendingCommit(commitMsg)
+      if (parsed) {
+        entries.push({ emoji: parsed.emoji, type: parsed.type, subject: parsed.subject })
+      }
+    }
+  } catch { /* not in pre-commit context */ }
+
   if (entries.length === 0) {
     console.log('No meaningful commits to add to CHANGELOG.')
     return
   }
 
-  // Group by category
+  // Group by category (deduplicated by translated subject)
   const grouped: Record<string, string[]> = {}
+  const seen = new Set<string>()
   for (const entry of entries) {
     const cat = entry.type
-    if (!grouped[cat]) grouped[cat] = []
     const translated = SUBJECT_MAP[entry.subject] || entry.subject
+    if (seen.has(translated)) continue
+    seen.add(translated)
+    if (!grouped[cat]) grouped[cat] = []
     grouped[cat].push(`- ${translated}`)
   }
 
