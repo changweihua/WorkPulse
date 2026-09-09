@@ -5,8 +5,16 @@
 ## [未发布]
 
 ### 新增
-- AI 报告与对话的 Markdown 渲染支持 Mermaid 图表（Streamdown 内置懒加载，跟随深浅主题，`securityLevel: strict` 渲染层净化）
+- add github-style markdown renderer and rss error handling
+- add liquid glass effect with WebGL and CSS shimmer
+- add complete changelog with pre-commit auto-generation
+- add PDF export for RSS article reader
 
+### 修复
+- use streaming rss parser to handle large feeds
+
+### 变更
+- always show radial menu on startup regardless of launch method
 ## [0.3.1] - 2026-09-07
 
 ### 新增
