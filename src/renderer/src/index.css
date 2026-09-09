@@ -694,6 +694,21 @@ body,
   border-radius: 2px;
 }
 
+/* ── Mermaid Diagrams ── */
+.github-mermaid {
+  margin: 1em 0;
+  padding: 16px;
+  text-align: center;
+  background: var(--color-surface-inset);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  overflow-x: auto;
+}
+.github-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
 /* ── Lists (GitHub style) ── */
 .github-list {
   padding-left: 2em;

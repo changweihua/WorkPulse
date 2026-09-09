@@ -1,4 +1,5 @@
-import React, { useState, useCallback, type ReactNode } from 'react'
+import React, { useState, useCallback, useRef, useEffect, type ReactNode } from 'react'
+import mermaid from 'mermaid'
 import { useRssStore } from '@/stores/rssStore'
 import { ExternalLink, Star, Clock, User, FileDown, Hash } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
@@ -22,6 +23,43 @@ function uniqueSlug(text: string): string {
   const count = headingCounts.get(base) || 0
   headingCounts.set(base, count + 1)
   return count > 0 ? `${base}-${count}` : base
+}
+
+// ── Mermaid Diagram ──
+let mermaidInitialized = false
+
+function MermaidDiagram({ code }: { code: string }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+
+    const isDark = document.body.classList.contains('dark')
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: isDark ? 'dark' : 'default',
+      securityLevel: 'loose',
+    })
+
+    const renderDiagram = async () => {
+      if (!containerRef.current) return
+      try {
+        const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        const { svg } = await mermaid.render(id, code.trim())
+        if (containerRef.current) {
+          containerRef.current.innerHTML = svg
+        }
+      } catch {
+        if (containerRef.current) {
+          containerRef.current.innerHTML = `<pre style="color: #cf222e; padding: 12px; background: #fff1f0; border-radius: 6px;">Mermaid 图表渲染失败</pre>`
+        }
+      }
+    }
+
+    renderDiagram()
+  }, [code])
+
+  return <div ref={containerRef} className="github-mermaid" />
 }
 
 // ── Custom Code Block (with language label + copy button) ──
@@ -54,6 +92,11 @@ function CodeBlock({ children, className, ...props }: { children: ReactNode; cla
   }, [codeString])
 
   if (isBlockCode) {
+    // Mermaid diagram
+    if (language === 'mermaid') {
+      return <MermaidDiagram code={codeString} />
+    }
+
     return (
       <div className="github-code-block">
         <div className="github-code-header">
