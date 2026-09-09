@@ -4,17 +4,23 @@
 
 ## [未发布]
 
+## [0.3.2] - 2026-09-09
+
 ### 新增
-- add github-style markdown renderer and rss error handling
-- add liquid glass effect with WebGL and CSS shimmer
-- add complete changelog with pre-commit auto-generation
-- add PDF export for RSS article reader
+- RSS 文章导出 PDF
+- GitHub 风格 Markdown 渲染（代码块语言标签 + 复制按钮、表格、引用块、标题锚点、任务列表）
+- Mermaid 图表渲染（自动适配亮/暗主题）
+- 代码语法高亮（rehype-highlight + GitHub 暗色主题）
+- RSS 错误提示（订阅/刷新失败 toast 通知）
+- 液态玻璃效果（WebGL + CSS shimmer）
 
 ### 修复
-- use streaming rss parser to handle large feeds
+- RSS 订阅加载失败：`stream.push() after EOF` 错误，改用 feedsmith DOM 解析
+- 恢复启动时始终显示径向菜单
 
 ### 变更
-- always show radial menu on startup regardless of launch method
+- 自动变更日志生成（pre-commit hook）
+
 ## [0.3.1] - 2026-09-07
 
 ### 新增
