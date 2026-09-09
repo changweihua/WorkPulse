@@ -14,6 +14,22 @@ import { resolve } from 'path'
 
 const CHANGELOG_PATH = resolve(__dirname, '..', 'CHANGELOG.md')
 
+// Subject translation: English commit subjects → Chinese changelog entries
+const SUBJECT_MAP: Record<string, string> = {
+  'add mermaid diagram rendering to markdown': 'Markdown 渲染支持 Mermaid 图表',
+  'add github-style markdown renderer and rss error handling': 'GitHub 风格 Markdown 渲染与 RSS 错误提示',
+  'add mermaid diagram rendering to article reader': '文章阅读器支持 Mermaid 图表',
+  'add code syntax highlighting': '代码语法高亮',
+  'add PDF export for RSS article reader': 'RSS 文章导出 PDF',
+  'fix changelog language and table auto-width': '修正变更日志语言与表格宽度自适应',
+  'fix changelog for v0.3.2': '修正 v0.3.2 变更日志',
+  'update changelog for v0.3.2': '更新 v0.3.2 变更日志',
+  'add liquid glass effect with WebGL and CSS shimmer': '液态玻璃效果（WebGL + CSS shimmer）',
+  'always show radial menu on startup regardless of launch method': '恢复启动时始终显示径向菜单',
+  'add complete changelog with pre-commit auto-generation': '自动变更日志生成（pre-commit hook）',
+  'use streaming rss parser to handle large feeds': 'RSS 改用 feedsmith DOM 解析修复大订阅源',
+}
+
 // Emoji to category mapping
 const TYPE_MAP: Record<string, string> = {
   '✨': '新增',
@@ -96,7 +112,8 @@ function generate(): void {
   for (const entry of entries) {
     const cat = entry.type
     if (!grouped[cat]) grouped[cat] = []
-    grouped[cat].push(`- ${entry.subject}`)
+    const translated = SUBJECT_MAP[entry.subject] || entry.subject
+    grouped[cat].push(`- ${translated}`)
   }
 
   // Build new [未发布] block
