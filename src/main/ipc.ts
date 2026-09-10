@@ -55,6 +55,7 @@ import { generateReport, streamChat } from './ai'
 import { ensureModelFiles, setModelProgressSender } from './model-files'
 import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey, saveLLMToken, getLLMToken, deleteLLMToken } from './secureSettings'
 import { sendNotification } from './notifier'
+import { showNotification } from './notification'
 import { tMain } from './i18n'
 import { registerAttachmentIPC } from './attachments'
 import OpenAI from 'openai';
@@ -197,8 +198,17 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  ipcMain.handle('task:completeOnly', (_event, id: number) => {
-    return updateTask(id, { status: 'done' })
+  ipcMain.handle('task:completeOnly', async (_event, id: number) => {
+    const task = await updateTask(id, { status: 'done' })
+    if (task) {
+      showNotification({
+        title: '任务已完成',
+        body: task.title || '任务',
+        tag: 'task-complete',
+        group: 'workpulse',
+      })
+    }
+    return task
   })
 
   // --- Calendar Events (todos & meetings) ---
@@ -343,6 +353,12 @@ export function registerIpcHandlers(): void {
     }
 
     writeFileSync(result.filePath, content, 'utf-8')
+    showNotification({
+      title: '工作日志已导出',
+      body: result.filePath,
+      tag: 'export-logs',
+      group: 'workpulse',
+    })
     return result.filePath
   })
 
@@ -410,6 +426,15 @@ export function registerIpcHandlers(): void {
       }
     }
 
+    if (imported > 0) {
+      showNotification({
+        title: '工作日志已导入',
+        body: `成功导入 ${imported} 条${skipped > 0 ? `，跳过 ${skipped} 条` : ''}`,
+        tag: 'import-logs',
+        group: 'workpulse',
+      })
+    }
+
     return { imported, skipped, filePath }
   })
 
@@ -423,6 +448,12 @@ export function registerIpcHandlers(): void {
     if (result.canceled || !result.filePath) return null
 
     writeFileSync(result.filePath, reportContent, 'utf-8')
+    showNotification({
+      title: '报告已导出',
+      body: result.filePath,
+      tag: 'export-report',
+      group: 'workpulse',
+    })
     return result.filePath
   })
 
@@ -582,19 +613,48 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('feed:refresh', async (_event, id: number) => {
-    return refreshFeed(id)
+    const result = await refreshFeed(id)
+    showNotification({
+      title: '订阅源已刷新',
+      body: result.newArticles > 0 ? `获取 ${result.newArticles} 篇新文章` : '无新文章',
+      tag: 'feed-refresh',
+      group: 'workpulse',
+    })
+    return result
   })
 
   ipcMain.handle('feed:refreshAll', async () => {
-    return refreshAllFeeds()
+    const results = await refreshAllFeeds()
+    const totalNew = results.reduce((sum, r) => sum + r.result.newArticles, 0)
+    showNotification({
+      title: '全部订阅源已刷新',
+      body: totalNew > 0 ? `获取 ${totalNew} 篇新文章` : '无新文章',
+      tag: 'feed-refresh-all',
+      group: 'workpulse',
+    })
+    return results
   })
 
   ipcMain.handle('feed:importOpml', (_event, xml: string) => {
-    return importOpmlData(xml)
+    const result = importOpmlData(xml)
+    showNotification({
+      title: 'OPML 已导入',
+      body: `导入 ${result.feeds.length} 个订阅源，${result.categories.length} 个分类`,
+      tag: 'feed-import-opml',
+      group: 'workpulse',
+    })
+    return result
   })
 
   ipcMain.handle('feed:exportOpml', () => {
-    return generateOpmlData()
+    const opml = generateOpmlData()
+    showNotification({
+      title: 'OPML 已生成',
+      body: '订阅源数据已准备就绪',
+      tag: 'feed-export-opml',
+      group: 'workpulse',
+    })
+    return opml
   })
 
   ipcMain.handle('feed:categories:list', () => {

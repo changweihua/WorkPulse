@@ -3,6 +3,7 @@ import { join } from 'path'
 import { existsSync, mkdirSync, copyFileSync, unlinkSync, readFileSync, writeFileSync } from 'fs'
 import { randomUUID } from 'crypto'
 import type Database from 'better-sqlite3'
+import { showNotification } from './notification'
 
 const ATTACHMENTS_DIR = join(app.getPath('userData'), 'attachments')
 
@@ -153,7 +154,7 @@ export function registerAttachmentIPC(db: Database.Database): void {
       fileSize = buffer.length
     }
 
-    return addAttachment(db, {
+    const result = addAttachment(db, {
       workLogId,
       type: attachmentData.type,
       originalName: attachmentData.originalName,
@@ -162,6 +163,13 @@ export function registerAttachmentIPC(db: Database.Database): void {
       url: attachmentData.url,
       fileSize,
     })
+    showNotification({
+      title: '附件已添加',
+      body: attachmentData.originalName,
+      tag: 'attachment-add',
+      group: 'workpulse',
+    })
+    return result
   })
 
   ipcMain.handle('attachment:list', (_event, workLogId: number) => {

@@ -1,6 +1,6 @@
 import { net } from 'electron'
 import log from 'electron-log/main'
-import { showNotification } from './notification'
+import { showNotification, NotifyOptions } from './notification'
 
 /** Bark 推送（iOS），BARK_KEY 通过环境变量或项目 .env 提供；可选 BARK_SERVER 自建服务地址 */
 async function pushBark(title: string, body: string): Promise<void> {
@@ -26,12 +26,6 @@ async function pushBark(title: string, body: string): Promise<void> {
   } catch (err) {
     log.error('[notifier] Bark 请求异常:', err)
   }
-}
-
-export interface NotifyOptions {
-  title: string
-  body: string
-  onClick?: () => void
 }
 
 /** 发送系统通知，同时推送 Bark（已配置时） */

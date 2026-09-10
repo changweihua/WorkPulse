@@ -776,8 +776,13 @@ app.whenReady().then(async () => {
     urgency?: 'normal' | 'low' | 'critical'
     silent?: boolean
   }) => {
-    showNotification(options)
-    return { ok: true }
+    try {
+      showNotification(options)
+      return { ok: true }
+    } catch (err) {
+      log.error('[Notification] IPC show failed:', err)
+      return { ok: false, error: String(err) }
+    }
   })
 
   // ===== 区域截图：主进程管理覆盖窗口 + 裁剪 =====
