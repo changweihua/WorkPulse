@@ -5,6 +5,7 @@
 ## [未发布]
 
 ### 新增
+- disable cursorring, keep code for future
 - add webgl fluid, spring animations, cursor ring and cancel
 - add system notifications for user operations
 - Markdown 渲染支持 Mermaid 图表
