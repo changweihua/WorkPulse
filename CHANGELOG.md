@@ -5,9 +5,12 @@
 ## [未发布]
 
 ### 新增
+- add webgl fluid, spring animations, cursor ring and cancel
+- add system notifications for user operations
 - Markdown 渲染支持 Mermaid 图表
 
 ### 变更
+- fix changelog to include pending commit and dedup entries
 - 变更日志生成器支持中文翻译映射
 - 修正变更日志语言与表格宽度自适应
 - 修正 v0.3.2 变更日志
