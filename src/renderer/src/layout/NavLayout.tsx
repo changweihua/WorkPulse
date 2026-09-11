@@ -15,7 +15,7 @@ import { useI18n } from '../stores/languageStore';
 import { useClickAway } from 'react-use';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import WebGLFluid from '../components/WebGLFluid';
-import CursorRing from '../components/CursorRing';
+// import CursorRing from '../components/CursorRing';
 
 interface NavItem {
     path: string;
@@ -182,7 +182,7 @@ export default function NavLayout() {
         <div className="flex h-full">
             {/* ===== Global Background Layers ===== */}
             <WebGLFluid opacity={0.04} speed={0.25} />
-            <CursorRing />
+            {/* <CursorRing /> */}
 
             {/* ===== Sidebar ===== */}
             <motion.aside
