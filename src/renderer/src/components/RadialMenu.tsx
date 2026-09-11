@@ -390,9 +390,10 @@ visibleItemsRef.current = visibleItems
               key={`icon-${item.key}`}
               className="absolute flex items-center justify-center pointer-events-none"
               style={{
-                left: pos.x, top: pos.y, zIndex: 3,
+                left: pos.x - ICON_CONTAINER / 2,
+                top: pos.y - ICON_CONTAINER / 2,
+                zIndex: 3,
                 width: ICON_CONTAINER, height: ICON_CONTAINER,
-                transform: 'translate(-50%, -50%)',
               }}
               initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
