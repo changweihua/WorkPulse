@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { SPRING_SPRING } from './Motion'
 
 /* ── 尺寸参数（所有派生值均从这里计算，无硬编码） ── */
 const OUTER_R = 94
@@ -344,7 +345,7 @@ visibleItemsRef.current = visibleItems
         style={{ width: WIDGET_SIZE, height: WIDGET_SIZE, zIndex: 3, pointerEvents: 'none' }}
         initial={{ clipPath: collapsedClip }}
         animate={{ clipPath: expanded ? expandedClip : collapsedClip }}
-        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+        transition={SPRING_SPRING}
       >
         {/* SVG 环形扇区 */}
         <svg
@@ -381,17 +382,24 @@ visibleItemsRef.current = visibleItems
           })}
         </svg>
 
-        {/* 扇区图标 */}
-        {visibleItems.map((item) => {
+        {/* 扇区图标 — 错峰弹簧入场 */}
+        {visibleItems.map((item, idx) => {
           const pos = angleToXY(item.angle, ICON_R, CX, CY)
           return (
-            <div
+            <motion.div
               key={`icon-${item.key}`}
               className="absolute flex items-center justify-center pointer-events-none"
               style={{
                 left: pos.x, top: pos.y, zIndex: 3,
                 width: ICON_CONTAINER, height: ICON_CONTAINER,
                 transform: 'translate(-50%, -50%)',
+              }}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{
+                // 弹簧做 scale 位移，opacity 独立过渡
+                scale: { type: 'spring', stiffness: 180, damping: 28, delay: idx * 0.04 },
+                opacity: { duration: 0.15, ease: 'easeOut', delay: idx * 0.04 },
               }}
             >
               {item.icon ? (
@@ -404,7 +412,7 @@ visibleItemsRef.current = visibleItems
               ) : (
                 <span className="text-2xl drop-shadow-sm">{item.emoji ?? '📦'}</span>
               )}
-            </div>
+            </motion.div>
           )
         })}
 
@@ -470,7 +478,7 @@ visibleItemsRef.current = visibleItems
                 initial={{ rotate: -90, scale: 0, opacity: 0 }}
                 animate={{ rotate: 0, scale: 1, opacity: 1 }}
                 exit={{ rotate: 90, scale: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                transition={SPRING_SPRING}
               >
                 <line x1="6" y1="6" x2="18" y2="18" />
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -484,7 +492,7 @@ visibleItemsRef.current = visibleItems
                 initial={{ rotate: 90, scale: 0, opacity: 0 }}
                 animate={{ rotate: 0, scale: 1, opacity: 1 }}
                 exit={{ rotate: -90, scale: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                transition={SPRING_SPRING}
               />
             )}
           </AnimatePresence>

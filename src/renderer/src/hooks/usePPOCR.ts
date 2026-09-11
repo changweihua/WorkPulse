@@ -68,6 +68,12 @@ function getVariantConfig(variant: ModelVariant): ModelVariantInfo {
     return MODEL_VARIANTS.find((v) => v.id === variant) ?? MODEL_VARIANTS[0];
 }
 
+// 生成唯一 taskId
+let taskIdCounter = 0;
+function generateTaskId(): string {
+    return `ocr-${Date.now()}-${++taskIdCounter}`;
+}
+
 // ---------- Hook ----------
 export function usePPOCR(initialVariant: ModelVariant = 'tiny') {
     const [status, setStatus] = useState<OCRStatus>('idle');
@@ -84,6 +90,7 @@ export function usePPOCR(initialVariant: ModelVariant = 'tiny') {
     const variantRef = useRef<ModelVariant>(initialVariant);
     // 代数计数器：每次切换变体递增，防止过期的 loadModels 向新 worker 发送 init
     const loadGenerationRef = useRef(0);
+    const activeTaskIdRef = useRef<string | null>(null); // 当前活动任务的 taskId，用于取消
 
     // 通过 IPC 读取模型文件（返回 ArrayBuffer）
     const readModelFile = useCallback(async (fileName: string): Promise<ArrayBuffer> => {
@@ -92,6 +99,20 @@ export function usePPOCR(initialVariant: ModelVariant = 'tiny') {
             throw new Error('IPC 不可用，请确保 preload 脚本正确配置');
         }
         return await ipc.invoke('read-model-file', fileName);
+    }, []);
+
+    // 取消函数：发送 cancel 消息到 worker，清理本地状态
+    const cancel = useCallback(() => {
+        const taskId = activeTaskIdRef.current;
+        if (!taskId || !workerRef.current) return;
+        console.log(`[usePPOCR] 取消任务 taskId=${taskId}`);
+        workerRef.current.postMessage({ type: 'cancel', taskId } as WorkerRequest);
+        activeTaskIdRef.current = null;
+        // 恢复状态
+        setStatus('ready');
+        runResolveRef.current?.([]);
+        runResolveRef.current = null;
+        runRejectRef.current = null;
     }, []);
 
     // 处理来自 Worker 的消息
@@ -119,7 +140,17 @@ export function usePPOCR(initialVariant: ModelVariant = 'tiny') {
                     },
                 ]);
                 break;
+            case 'cancelled':
+                // 任务被取消，清理状态
+                activeTaskIdRef.current = null;
+                setStatus('ready');
+                setProgress({ percent: 100, step: '已取消' });
+                runResolveRef.current?.([]);
+                runResolveRef.current = null;
+                runRejectRef.current = null;
+                break;
             case 'done':
+                activeTaskIdRef.current = null;
                 setResults(msg.results);
                 setStatus('ready');
                 setProgress({ percent: 100, step: '完成' });
@@ -128,6 +159,7 @@ export function usePPOCR(initialVariant: ModelVariant = 'tiny') {
                 runRejectRef.current = null;
                 break;
             case 'error':
+                activeTaskIdRef.current = null;
                 setStatus('error');
                 setError(msg.message);
                 runRejectRef.current?.(new Error(msg.message));
@@ -194,19 +226,31 @@ export function usePPOCR(initialVariant: ModelVariant = 'tiny') {
                 throw new Error('模型未加载完成');
             }
 
+            // 如果有正在运行的任务，先取消
+            if (activeTaskIdRef.current) {
+                cancel();
+            }
+
             setStatus('running');
             setResults([]);
             setProgress({ percent: 0, step: '开始处理...' });
 
+            const taskId = generateTaskId();
+            activeTaskIdRef.current = taskId;
             const worker = workerRef.current;
             return new Promise<RecognitionResult[]>((resolve, reject) => {
                 runResolveRef.current = resolve;
                 runRejectRef.current = reject;
                 // 不转移 buffer，保留渲染线程的 imgData 供 Canvas 绘制使用
-                worker.postMessage({ type: 'run', imageData: imgData } as WorkerRequest);
+                worker.postMessage({
+                    type: 'run',
+                    imageData: imgData,
+                    taskId,
+                    version: 0, // 版本号由 worker 内部管理，此处占位
+                } as WorkerRequest);
             });
         },
-        [status]
+        [status, cancel]
     );
 
     // 切换模型变体：终止旧 Worker，创建新 Worker，加载新模型
@@ -219,11 +263,12 @@ export function usePPOCR(initialVariant: ModelVariant = 'tiny') {
             setError(null);
             setBackend(null);
 
-            // 终止旧 Worker
+            // 终止旧 Worker（自动取消正在运行的任务）
             if (workerRef.current) {
                 workerRef.current.terminate();
                 workerRef.current = null;
             }
+            activeTaskIdRef.current = null;
 
             // 创建新 Worker 并加载模型
             const worker = new Worker(new URL('../workers/ppocr.worker.ts', import.meta.url), {
@@ -254,6 +299,7 @@ export function usePPOCR(initialVariant: ModelVariant = 'tiny') {
             workerRef.current = null;
             runResolveRef.current = null;
             runRejectRef.current = null;
+            activeTaskIdRef.current = null;
         };
     }, [loadModels, handleWorkerMessage, handleWorkerError]);
 
@@ -265,6 +311,7 @@ export function usePPOCR(initialVariant: ModelVariant = 'tiny') {
         imageData,
         setImageData,
         runOCR,
+        cancel,
         loadModels,
         variant,
         switchVariant,

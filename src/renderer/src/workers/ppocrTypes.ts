@@ -13,9 +13,16 @@ export interface InitMessage {
 export interface RunMessage {
     type: 'run';
     imageData: ImageData; // 原始图像
+    taskId: string; // 唯一任务标识，用于取消/超时
+    version: number; // 单调递增版本号，Worker 丢弃过期结果
 }
 
-export type WorkerRequest = InitMessage | RunMessage;
+export interface CancelMessage {
+    type: 'cancel';
+    taskId: string; // 要取消的任务 ID
+}
+
+export type WorkerRequest = InitMessage | RunMessage | CancelMessage;
 
 // ---------- Worker -> 渲染进程 ----------
 export interface ProgressMessage {
@@ -50,9 +57,14 @@ export interface ErrorMessage {
     message: string;
 }
 
+export interface CancelledMessage {
+    type: 'cancelled';
+}
+
 export type WorkerResponse =
     | ProgressMessage
     | BoxRecognizedMessage
     | DoneMessage
     | ReadyMessage
-    | ErrorMessage;
+    | ErrorMessage
+    | CancelledMessage;

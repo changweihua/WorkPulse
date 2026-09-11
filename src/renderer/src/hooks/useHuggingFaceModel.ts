@@ -91,6 +91,12 @@ function getWorker(): Worker {
         });
         worker.onmessage = (e: MessageEvent) => {
             const msg = e.data;
+            // cancelled 消息通过 rid 路由
+            if (msg.type === 'cancelled') {
+                const handler = messageHandlers.get(msg.rid);
+                if (handler) handler(msg);
+                return;
+            }
             const handler = messageHandlers.get(msg.rid);
             if (handler) handler(msg);
         };
@@ -112,6 +118,12 @@ async function toSerializableImage(src: HTMLImageElement | string): Promise<stri
     } catch {
         return src.src;
     }
+}
+
+// 生成唯一 taskId
+let taskIdCounter = 0;
+function generateTaskId(): string {
+    return `hf-${Date.now()}-${++taskIdCounter}`;
 }
 
 export function useHuggingFaceModel<T extends PipelineType>({
@@ -137,6 +149,8 @@ export function useHuggingFaceModel<T extends PipelineType>({
     const loadedComboRef = useRef<{ dtype: DType; device: DeviceType } | null>(null);
     const mountedRef = useRef<boolean>(true);
     const myRidsRef = useRef<Set<number>>(new Set()); // 本 hook 实例发起的请求，卸载时清理
+    const activeTaskIdRef = useRef<string | null>(null); // 当前活动任务的 taskId，用于取消
+    const activeRidRef = useRef<number | null>(null); // 当前活动请求的 rid，用于取消
 
     useEffect(() => {
         pendingModelRef.current = pendingModel;
@@ -146,10 +160,32 @@ export function useHuggingFaceModel<T extends PipelineType>({
         mountedRef.current = true;
         return () => {
             mountedRef.current = false;
+            // 卸载时取消任何正在运行的任务
+            cancel();
             // 卸载时清理本实例注册的 worker 回调，避免对已卸载组件 setState
             myRidsRef.current.forEach((rid) => messageHandlers.delete(rid));
             myRidsRef.current.clear();
         };
+    }, []);
+
+    // ---------- 取消函数 ----------
+    const cancel = useCallback(() => {
+        const taskId = activeTaskIdRef.current;
+        if (!taskId) return;
+        console.log(`[useHuggingFaceModel] 取消任务 taskId=${taskId}`);
+        // 通知 worker 取消
+        getWorker().postMessage({ type: 'cancel', taskId });
+        // 清理本地状态
+        const rid = activeRidRef.current;
+        if (rid !== null) {
+            messageHandlers.delete(rid);
+            myRidsRef.current.delete(rid);
+        }
+        activeTaskIdRef.current = null;
+        activeRidRef.current = null;
+        if (mountedRef.current) {
+            setStatus('ready');
+        }
     }, []);
 
     // ---------- 主进程下载进度合并（本地文件夹缓存） ----------
@@ -300,20 +336,35 @@ export function useHuggingFaceModel<T extends PipelineType>({
             setError(null);
             const { dtype, device } = loadedComboRef.current;
             const rid = ++reqIdRef.current;
+            const taskId = generateTaskId();
             myRidsRef.current.add(rid);
+            activeTaskIdRef.current = taskId;
+            activeRidRef.current = rid;
             return new Promise<string>((resolve, reject) => {
                 messageHandlers.set(rid, (msg: any) => {
                     if (msg.type === 'token') {
                         onToken?.(msg.text);
+                    } else if (msg.type === 'cancelled') {
+                        messageHandlers.delete(rid);
+                        myRidsRef.current.delete(rid);
+                        activeTaskIdRef.current = null;
+                        activeRidRef.current = null;
+                        if (!mountedRef.current) return;
+                        setStatus('ready');
+                        resolve('');
                     } else if (msg.type === 'done') {
                         messageHandlers.delete(rid);
                         myRidsRef.current.delete(rid);
+                        activeTaskIdRef.current = null;
+                        activeRidRef.current = null;
                         if (!mountedRef.current) return;
                         setStatus('ready');
                         resolve(msg.fullText || '');
                     } else if (msg.type === 'error') {
                         messageHandlers.delete(rid);
                         myRidsRef.current.delete(rid);
+                        activeTaskIdRef.current = null;
+                        activeRidRef.current = null;
                         if (!mountedRef.current) return;
                         setStatus('error');
                         setError(msg.message);
@@ -323,6 +374,8 @@ export function useHuggingFaceModel<T extends PipelineType>({
                 getWorker().postMessage({
                     type: 'generate',
                     rid,
+                    taskId,
+                    version: 0, // 版本号由 worker 内部管理，此处占位
                     task,
                     modelId: currentModel,
                     dtype,
@@ -358,20 +411,35 @@ export function useHuggingFaceModel<T extends PipelineType>({
             const { dtype, device } = loadedComboRef.current;
             const imageData = await toSerializableImage(imageSource);
             const rid = ++reqIdRef.current;
+            const taskId = generateTaskId();
             myRidsRef.current.add(rid);
+            activeTaskIdRef.current = taskId;
+            activeRidRef.current = rid;
             return new Promise<string>((resolve, reject) => {
                 messageHandlers.set(rid, (msg: any) => {
                     if (msg.type === 'token') {
                         onToken?.(msg.text);
+                    } else if (msg.type === 'cancelled') {
+                        messageHandlers.delete(rid);
+                        myRidsRef.current.delete(rid);
+                        activeTaskIdRef.current = null;
+                        activeRidRef.current = null;
+                        if (!mountedRef.current) return;
+                        setStatus('ready');
+                        resolve('');
                     } else if (msg.type === 'result') {
                         messageHandlers.delete(rid);
                         myRidsRef.current.delete(rid);
+                        activeTaskIdRef.current = null;
+                        activeRidRef.current = null;
                         if (!mountedRef.current) return;
                         setStatus('ready');
                         resolve(msg.data || '');
                     } else if (msg.type === 'error') {
                         messageHandlers.delete(rid);
                         myRidsRef.current.delete(rid);
+                        activeTaskIdRef.current = null;
+                        activeRidRef.current = null;
                         if (!mountedRef.current) return;
                         setStatus('error');
                         setError(msg.message);
@@ -381,6 +449,8 @@ export function useHuggingFaceModel<T extends PipelineType>({
                 getWorker().postMessage({
                     type: 'recognize',
                     rid,
+                    taskId,
+                    version: 0, // 版本号由 worker 内部管理，此处占位
                     task,
                     modelId: currentModel,
                     dtype,
@@ -441,6 +511,7 @@ export function useHuggingFaceModel<T extends PipelineType>({
         generate,
         generateStream,
         recognize,
+        cancel,
         switchModel,
         retry,
         modelList,

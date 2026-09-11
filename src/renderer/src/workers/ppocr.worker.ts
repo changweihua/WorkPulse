@@ -20,6 +20,10 @@ let charList: string[] = [];
 // 预分配的 CHW buffer，避免频繁 GC
 let recBuffer: Float32Array | null = null;
 
+// ---------- 取消/版本控制状态 ----------
+let currentTaskId: string = '';
+let currentVersion: number = 0;
+
 // 使用类型安全的 postMessage（避免 DOM lib 的 postMessage 签名冲突）
 const ctx = self as unknown as {
     postMessage: (msg: WorkerResponse) => void;
@@ -261,7 +265,7 @@ async function initSessions(detBuffer: ArrayBuffer, recModelBuffer: ArrayBuffer,
 }
 
 // ---------- 主推理流程 ----------
-async function runPipeline(imageData: ImageData): Promise<void> {
+async function runPipeline(imageData: ImageData, taskId: string, version: number): Promise<void> {
     if (!detSession || !recSession) {
         throw new Error('模型未初始化');
     }
@@ -303,6 +307,23 @@ async function runPipeline(imageData: ImageData): Promise<void> {
 
     // 逐框识别（onnxruntime WASM 不支持同一 session 并发 run）
     for (const { b, i } of boxes.map((b, i) => ({ b, i }))) {
+        // 在每个 chunk 边界检查版本号——如果版本已变，说明有新任务或取消，丢弃结果
+        if (version !== currentVersion) {
+            console.log(`[OCR Worker] 版本过期 (${version} !== ${currentVersion})，丢弃结果`);
+            post({ type: 'cancelled' });
+            return;
+        }
+
+        // 让出事件循环，允许 cancel 消息被处理
+        await new Promise<void>((r) => setTimeout(r, 0));
+
+        // 再次检查——等待期间可能已被取消
+        if (version !== currentVersion) {
+            console.log(`[OCR Worker] 版本过期 (${version} !== ${currentVersion})，丢弃结果`);
+            post({ type: 'cancelled' });
+            return;
+        }
+
         const cw = b.x1 - b.x0;
         const ch = b.y1 - b.y0;
         if (cw < 2 || ch < 2) {
@@ -360,6 +381,12 @@ async function runPipeline(imageData: ImageData): Promise<void> {
         }
     }
 
+    // 最终版本检查
+    if (version !== currentVersion) {
+        post({ type: 'cancelled' });
+        return;
+    }
+
     const finalResults = results.filter((r): r is RecognitionResult => r !== null);
     postProgress('完成', 100);
     post({ type: 'done', results: finalResults });
@@ -373,7 +400,18 @@ ctx.onmessage = async (e: MessageEvent<WorkerRequest>) => {
             await initSessions(msg.detBuffer, msg.recBuffer, msg.charList);
             // ready message is posted inside initSessions with backend info
         } else if (msg.type === 'run') {
-            await runPipeline(msg.imageData);
+            // 新任务到来：递增版本号，标记当前 taskId
+            currentVersion++;
+            currentTaskId = msg.taskId;
+            const myVersion = currentVersion;
+            console.log(`[OCR Worker] 新任务 taskId=${msg.taskId}, version=${myVersion}`);
+            await runPipeline(msg.imageData, msg.taskId, myVersion);
+        } else if (msg.type === 'cancel') {
+            // 收到取消指令：递增版本号，使正在运行的任务过期
+            if (msg.taskId === currentTaskId) {
+                console.log(`[OCR Worker] 取消任务 taskId=${msg.taskId}`);
+                currentVersion++;
+            }
         }
     } catch (err) {
         post({ type: 'error', message: (err as Error).message });
