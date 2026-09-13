@@ -243,6 +243,15 @@ interface API {
     getMaterial: () => Promise<string>
     setMaterial: (material: string) => Promise<{ success: boolean }>
   }
+  vector: {
+    initialize: () => Promise<{ ok: boolean }>
+    indexWorklog: (id: number, content: string, category: string, date: string) => Promise<{ ok: boolean }>
+    indexConversation: (id: string, title: string, messages: Array<{ role: string; content: string }>) => Promise<{ ok: boolean }>
+    search: (query: string, options?: { type?: string; topK?: number; bm25?: boolean }) => Promise<Array<{ uri: string; score: number; text: string; metadata: Record<string, unknown> }>>
+    stats: () => Promise<{ itemCount: number; indexSize: number }>
+    remove: (uri: string) => Promise<{ ok: boolean }>
+    rebuild: () => Promise<{ ok: boolean }>
+  }
 }
 
 declare global {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Message } from '@fauzitech/ai-ui';
 // @ts-ignore
 import '@fauzitech/ai-ui/styles.css';
+import { recoverConversations, recoverConfigs, saveConversation, saveConversationsBatch, saveConfig, canWrite, getCacheStatus } from '../lib/chat-storage';
 import {
     Bot,
     User,
@@ -937,31 +938,14 @@ function NumberField({ label, step, min, max, value, onChange }: {
 // ========== 主组件 ==========
 export default function ChatPage() {
     // 配置
-    const [configs, setConfigs] = useState<ModelConfig[]>(() => {
-        try {
-            const saved = localStorage.getItem('chatModelConfigs');
-            return saved ? JSON.parse(saved) : DEFAULT_CONFIGS;
-        } catch {
-            return DEFAULT_CONFIGS;
-        }
-    });
-    const [currentConfigId, setCurrentConfigId] = useState(() => {
-        return localStorage.getItem('chatCurrentConfigId') || configs[0]?.id || '';
-    });
+    const [configs, setConfigs] = useState<ModelConfig[]>(DEFAULT_CONFIGS);
+    const [currentConfigId, setCurrentConfigId] = useState('');
     const [showConfigDrawer, setShowConfigDrawer] = useState(false);
 
     // 会话
-    const [conversations, setConversations] = useState<Conversation[]>(() => {
-        try {
-            const saved = localStorage.getItem('chatConversations');
-            return saved ? JSON.parse(saved) : [];
-        } catch {
-            return [];
-        }
-    });
-    const [currentConvId, setCurrentConvId] = useState(() => {
-        return localStorage.getItem('chatCurrentConvId') || '';
-    });
+    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [currentConvId, setCurrentConvId] = useState('');
+    const [isHydrated, setIsHydrated] = useState(false);
 
     // 聊天
     const [isStreaming, setIsStreaming] = useState(false);
@@ -971,6 +955,47 @@ export default function ChatPage() {
     // UI
     const [showStats, setShowStats] = useState(true);
     const [showSidebar, setShowSidebar] = useState(true);
+
+    // Load tokens from encrypted storage into configs
+    const loadTokens = useCallback(async (configsToLoad: ModelConfig[]): Promise<ModelConfig[]> => {
+        if (!window.ai?.getLLMToken) return configsToLoad;
+        const results = await Promise.all(
+            configsToLoad.map(async (config) => {
+                try {
+                    const token = await window.ai.getLLMToken(config.id);
+                    return { ...config, token: token || '' };
+                } catch {
+                    return config;
+                }
+            })
+        );
+        return results;
+    }, []);
+
+    // Hydrate from IndexedDB on mount (local-first recovery)
+    useEffect(() => {
+        (async () => {
+            try {
+                const [savedConfigs, savedConversations] = await Promise.all([
+                    recoverConfigs('chat'),
+                    recoverConversations('chat'),
+                ]);
+                if (savedConfigs.length > 0) {
+                    const withTokens = await loadTokens(savedConfigs);
+                    setConfigs(withTokens);
+                }
+                setConversations(savedConversations);
+                const savedConfigId = localStorage.getItem('chatCurrentConfigId') || savedConfigs[0]?.id || '';
+                const savedConvId = localStorage.getItem('chatCurrentConvId') || '';
+                setCurrentConfigId(savedConfigId);
+                setCurrentConvId(savedConvId);
+            } catch (err) {
+                console.warn('IndexedDB hydration failed, falling back to defaults:', err);
+            } finally {
+                setIsHydrated(true);
+            }
+        })();
+    }, [loadTokens]);
 
     const currentConfig = configs.find((c) => c.id === currentConfigId) || configs[0];
     const currentConv = conversations.find((c) => c.id === currentConvId);
@@ -997,21 +1022,35 @@ export default function ChatPage() {
         };
     }, [messages]);
 
-    // 持久化 — tokens 存储到 main process 加密存储，localStorage 只存脱敏版本
+    // 持久化 — IndexedDB + encrypted token storage
     useEffect(() => {
+        if (!isHydrated) return;
         // Save tokens to encrypted storage via IPC
         configs.forEach((config) => {
             if (config.token && window.ai?.saveLLMToken) {
                 window.ai.saveLLMToken(config.id, config.token);
             }
         });
-        // Strip tokens before saving to localStorage (security)
-        const stripped = configs.map(({ token: _, ...rest }) => ({ ...rest, token: '' }));
-        localStorage.setItem('chatModelConfigs', JSON.stringify(stripped));
-    }, [configs]);
-    useEffect(() => { localStorage.setItem('chatCurrentConfigId', currentConfigId); }, [currentConfigId]);
-    useEffect(() => { localStorage.setItem('chatConversations', JSON.stringify(conversations)); }, [conversations]);
-    useEffect(() => { localStorage.setItem('chatCurrentConvId', currentConvId); }, [currentConvId]);
+        // Save configs to IndexedDB (tokens stripped automatically)
+        configs.forEach((config) => {
+            saveConfig(config).catch(console.error);
+        });
+    }, [configs, isHydrated]);
+    useEffect(() => {
+        if (!isHydrated) return;
+        localStorage.setItem('chatCurrentConfigId', currentConfigId);
+    }, [currentConfigId, isHydrated]);
+    useEffect(() => {
+        if (!isHydrated) return;
+        // Save conversations to IndexedDB (stable snapshot filtering applied inside)
+        conversations.forEach((conv) => {
+            saveConversation(conv).catch(console.error);
+        });
+    }, [conversations, isHydrated]);
+    useEffect(() => {
+        if (!isHydrated) return;
+        localStorage.setItem('chatCurrentConvId', currentConvId);
+    }, [currentConvId, isHydrated]);
 
     // 自动滚动
     useEffect(() => {

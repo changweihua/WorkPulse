@@ -1,7 +1,7 @@
 /**
  * AIChatPanel — Slide-in drawer panel for AI conversation.
  * Renders as a right-side overlay (z-40) that slides in over the current page content.
- * Uses useAIPanelStore for open/close state, and persists chat data with `chatPanel_*` keys.
+ * Uses useAIPanelStore for open/close state, and persists chat data via IndexedDB.
  */
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -22,6 +22,7 @@ import {
 import { Message } from '@fauzitech/ai-ui';
 import { useAIPanelStore } from '../stores/aiPanelStore';
 import { LiquidGlassSurface } from './LiquidGlassSurface';
+import { recoverConversations, recoverConfigs, saveConversation, saveConfig } from '../lib/chat-storage';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface ModelConfig {
@@ -399,36 +400,11 @@ export default function AIChatPanel() {
     const { open, closePanel } = useAIPanelStore();
 
     // ── State ──
-    const [configs, setConfigs] = useState<ModelConfig[]>(() => {
-        try {
-            const saved = localStorage.getItem('chatPanelModelConfigs');
-            return saved ? JSON.parse(saved) : DEFAULT_CONFIGS;
-        } catch {
-            return DEFAULT_CONFIGS;
-        }
-    });
-    const [currentConfigId, setCurrentConfigId] = useState<string>(() => {
-        try {
-            return localStorage.getItem('chatPanelCurrentConfigId') || configs[0]?.id || '';
-        } catch {
-            return configs[0]?.id || '';
-        }
-    });
-    const [conversations, setConversations] = useState<Conversation[]>(() => {
-        try {
-            const saved = localStorage.getItem('chatPanelConversations');
-            return saved ? JSON.parse(saved) : [];
-        } catch {
-            return [];
-        }
-    });
-    const [currentConvId, setCurrentConvId] = useState<string>(() => {
-        try {
-            return localStorage.getItem('chatPanelCurrentConvId') || '';
-        } catch {
-            return '';
-        }
-    });
+    const [configs, setConfigs] = useState<ModelConfig[]>(DEFAULT_CONFIGS);
+    const [currentConfigId, setCurrentConfigId] = useState<string>('');
+    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [currentConvId, setCurrentConvId] = useState<string>('');
+    const [isHydrated, setIsHydrated] = useState(false);
     const [input, setInput] = useState('');
     const [isStreaming, setIsStreaming] = useState(false);
     const [showConfigEditor, setShowConfigEditor] = useState(false);
@@ -437,26 +413,73 @@ export default function AIChatPanel() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+    // Hydrate from IndexedDB on mount (local-first recovery)
+    useEffect(() => {
+        (async () => {
+            try {
+                const [savedConfigs, savedConversations] = await Promise.all([
+                    recoverConfigs('chatPanel'),
+                    recoverConversations('chatPanel'),
+                ]);
+                if (savedConfigs.length > 0) {
+                    // Load tokens from encrypted storage
+                    const withTokens = await Promise.all(
+                        savedConfigs.map(async (config) => {
+                            try {
+                                const token = await window.ai?.getLLMToken?.(config.id);
+                                return { ...config, token: token || '' };
+                            } catch {
+                                return config;
+                            }
+                        })
+                    );
+                    setConfigs(withTokens);
+                }
+                if (savedConversations.length > 0) {
+                    setConversations(savedConversations);
+                }
+                const savedConfigId = localStorage.getItem('chatPanelCurrentConfigId') || savedConfigs[0]?.id || '';
+                const savedConvId = localStorage.getItem('chatPanelCurrentConvId') || '';
+                setCurrentConfigId(savedConfigId);
+                setCurrentConvId(savedConvId);
+            } catch (err) {
+                console.warn('IndexedDB hydration failed:', err);
+            } finally {
+                setIsHydrated(true);
+            }
+        })();
+    }, []);
+
     // Derived
     const currentConfig = configs.find((c) => c.id === currentConfigId) || configs[0];
     const currentConv = conversations.find((c) => c.id === currentConvId);
     const messages = currentConv?.messages || [];
 
-    // ── Persistence — tokens 存储到 main process 加密存储，localStorage 只存脱敏版本 ──
+    // ── Persistence — IndexedDB for configs/conversations, localStorage for lightweight IDs ──
     useEffect(() => {
+        if (!isHydrated) return;
         // Save tokens to encrypted storage via IPC
         configs.forEach((config) => {
             if (config.token && window.ai?.saveLLMToken) {
                 window.ai.saveLLMToken(config.id, config.token);
             }
+            saveConfig(config).catch(console.error);
         });
-        // Strip tokens before saving to localStorage (security)
-        const stripped = configs.map(({ token: _, ...rest }) => ({ ...rest, token: '' }));
-        localStorage.setItem('chatPanelModelConfigs', JSON.stringify(stripped));
-    }, [configs]);
-    useEffect(() => { localStorage.setItem('chatPanelCurrentConfigId', currentConfigId); }, [currentConfigId]);
-    useEffect(() => { localStorage.setItem('chatPanelConversations', JSON.stringify(conversations)); }, [conversations]);
-    useEffect(() => { localStorage.setItem('chatPanelCurrentConvId', currentConvId); }, [currentConvId]);
+    }, [configs, isHydrated]);
+    useEffect(() => {
+        if (!isHydrated) return;
+        conversations.forEach((conv) => {
+            saveConversation(conv).catch(console.error);
+        });
+    }, [conversations, isHydrated]);
+    useEffect(() => {
+        if (!isHydrated) return;
+        localStorage.setItem('chatPanelCurrentConfigId', currentConfigId);
+    }, [currentConfigId, isHydrated]);
+    useEffect(() => {
+        if (!isHydrated) return;
+        localStorage.setItem('chatPanelCurrentConvId', currentConvId);
+    }, [currentConvId, isHydrated]);
 
     // ── Auto-scroll ──
     useEffect(() => {

@@ -203,6 +203,18 @@ const api = {
     exportPdf: (html: string, title: string) =>
       ipcRenderer.invoke('feed:exportPdf', html, title),
   },
+  vector: {
+    initialize: () => ipcRenderer.invoke('vector:initialize'),
+    indexWorklog: (id: number, content: string, category: string, date: string) =>
+      ipcRenderer.invoke('vector:index-worklog', id, content, category, date),
+    indexConversation: (id: string, title: string, messages: Array<{ role: string; content: string }>) =>
+      ipcRenderer.invoke('vector:index-conversation', id, title, messages),
+    search: (query: string, options?: { type?: string; topK?: number; bm25?: boolean }) =>
+      ipcRenderer.invoke('vector:search', query, options),
+    stats: () => ipcRenderer.invoke('vector:stats'),
+    remove: (uri: string) => ipcRenderer.invoke('vector:remove', uri),
+    rebuild: () => ipcRenderer.invoke('vector:rebuild'),
+  },
   // 新增：窗口控制
   window: {
     minimize: () => ipcRenderer.send('window-control', 'minimize'),
