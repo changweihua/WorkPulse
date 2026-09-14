@@ -290,7 +290,8 @@ export async function streamChat(
   prompt: string,
   onChunk: (text: string) => void,
   onDone: () => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  signal?: AbortSignal
 ): Promise<void> {
   const apiKey = getStoredApiKey()
   if (!apiKey) {
@@ -314,51 +315,84 @@ export async function streamChat(
     { role: 'user', content: prompt }
   ]
 
-  try {
-    const url = getApiUrl(provider, baseUrl)
-    const headers = getHeaders(provider, apiKey)
+  const maxRetries = 3
+  const baseDelay = 1000
 
-    const body: Record<string, unknown> = {
-      model: getDefaultModel(provider, model),
-      messages,
-      stream: true,
-      temperature: 0.7,
-      max_tokens: 2000
-    }
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const url = getApiUrl(provider, baseUrl)
+      const headers = getHeaders(provider, apiKey)
 
-    const response = await net.fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body)
-    })
+      const body: Record<string, unknown> = {
+        model: getDefaultModel(provider, model),
+        messages,
+        stream: true,
+        temperature: 0.7,
+        max_tokens: 2000
+      }
 
-    if (!response.ok) {
-      const error = await response.text()
-      onError(`${response.status}: ${error}`)
-      return
-    }
+      const response = await net.fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal
+      })
 
-    const reader = response.body?.getReader()
-    const decoder = new TextDecoder()
-
-    if (reader) {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) {
-          onDone()
-          break
+      if (!response.ok) {
+        const error = await response.text()
+        // Don't retry on client errors (4xx except 429)
+        if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+          onError(`${response.status}: ${error}`)
+          return
         }
+        // Retry on server errors (5xx) and rate limits (429)
+        if (attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 500
+          await new Promise((r) => setTimeout(r, delay))
+          continue
+        }
+        onError(`${response.status}: ${error}`)
+        return
+      }
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
-        for (const line of lines) {
-          const text = parseSSEChunk(line)
-          if (text) onChunk(text)
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) {
+            onDone()
+            return
+          }
+
+          // Check if aborted
+          if (signal?.aborted) {
+            return
+          }
+
+          const chunk = decoder.decode(value, { stream: true })
+          const lines = chunk.split('\n')
+          for (const line of lines) {
+            const text = parseSSEChunk(line)
+            if (text) onChunk(text)
+          }
         }
       }
+    } catch (err) {
+      // Don't retry if aborted
+      if (signal?.aborted) {
+        return
+      }
+      // Retry on network errors
+      if (attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 500
+        await new Promise((r) => setTimeout(r, delay))
+        continue
+      }
+      onError(String(err))
+      return
     }
-  } catch (err) {
-    onError(String(err))
   }
 }
 
