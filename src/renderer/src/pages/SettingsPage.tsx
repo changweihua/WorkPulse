@@ -597,7 +597,7 @@ function SettingsPage(): ReactNode {
   return (
     <div className="flex flex-col bg-transparent">
       <main className="flex-1">
-        <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
+        <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
           {/* AI Configuration */}
           <section className="surface-card p-5">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.aiConfig')}</h2>
