@@ -52,6 +52,22 @@ import {
 } from './db'
 import { subscribeFeed, refreshFeed, refreshAllFeeds, importOpmlData, generateOpmlData } from './feedService'
 import { generateReport, streamChat } from './ai'
+import {
+  validate,
+  extractAiErrorMessage,
+  AiChatStreamSchema,
+  AiStreamChatSchema,
+  WorklogAddSchema,
+  WorklogUpdateSchema,
+  WorklogDeleteSchema,
+  TaskAddSchema,
+  TaskUpdateSchema,
+  TaskDeleteSchema,
+  SettingsSetSchema,
+  SettingsGetSchema,
+  EventAddSchema,
+  EventDeleteSchema,
+} from './ipc-schemas'
 import { ensureModelFiles, setModelProgressSender } from './model-files'
 import { deleteStoredApiKey, getStoredApiKey, setStoredApiKey, saveLLMToken, getLLMToken, deleteLLMToken } from './secureSettings'
 import { sendNotification } from './notifier'
@@ -68,7 +84,8 @@ export function registerIpcHandlers(): void {
   // --- Work Logs ---
 
   ipcMain.handle('worklog:add', (_event, content: string, category?: string) => {
-    return addWorkLog(content, category)
+    const v = validate(WorklogAddSchema, { content, category })
+    return addWorkLog(v.content, v.category)
   })
 
   ipcMain.handle('worklog:list', (_event, limit?: number, offset?: number) => {
@@ -92,11 +109,13 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('worklog:update', (_event, id: number, content: string, category: string, created_at?: string) => {
-    return updateWorkLog(id, content, category, created_at)
+    const v = validate(WorklogUpdateSchema, { id, content, category, created_at })
+    return updateWorkLog(v.id, v.content, v.category, v.created_at)
   })
 
   ipcMain.handle('worklog:delete', (_event, id: number) => {
-    return deleteWorkLog(id)
+    const v = validate(WorklogDeleteSchema, { id })
+    return deleteWorkLog(v.id)
   })
 
   ipcMain.handle(
@@ -153,7 +172,8 @@ export function registerIpcHandlers(): void {
   // --- Tasks ---
 
   ipcMain.handle('task:add', (_event, title: string, description?: string, status?: 'todo' | 'draft', createdAt?: string) => {
-    return addTask(title, description, status, createdAt)
+    const v = validate(TaskAddSchema, { title, description, status, createdAt })
+    return addTask(v.title, v.description, v.status, v.createdAt)
   })
 
   ipcMain.handle('task:list', () => {
@@ -167,9 +187,10 @@ export function registerIpcHandlers(): void {
       id: number,
       updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'position' | 'due_date'>>
     ) => {
-      const prevStatus = getTaskById(id)?.status
-      const task = updateTask(id, updates)
-      if (task && updates.status === 'done' && prevStatus !== 'done') {
+      const v = validate(TaskUpdateSchema, { id, updates })
+      const prevStatus = getTaskById(v.id)?.status
+      const task = updateTask(v.id, v.updates as Partial<Pick<Task, 'title' | 'description' | 'status' | 'position' | 'due_date'>>)
+      if (task && v.updates.status === 'done' && prevStatus !== 'done') {
         sendNotification({ title: '任务完成', body: task.title })
       }
       return task
@@ -177,7 +198,8 @@ export function registerIpcHandlers(): void {
   )
 
   ipcMain.handle('task:delete', (_event, id: number) => {
-    return deleteTask(id)
+    const v = validate(TaskDeleteSchema, { id })
+    return deleteTask(v.id)
   })
 
   ipcMain.handle('task:reorder', (_event, taskIds: number[], status: string) => {
@@ -215,7 +237,8 @@ export function registerIpcHandlers(): void {
   // --- Calendar Events (todos & meetings) ---
 
   ipcMain.handle('event:add', (_event, input: CalendarEventInput) => {
-    return addEvent(input)
+    const v = validate(EventAddSchema, input as unknown as Record<string, unknown>)
+    return addEvent(v as unknown as CalendarEventInput)
   })
 
   ipcMain.handle('event:byDate', (_event, date: string) => {
@@ -234,7 +257,8 @@ export function registerIpcHandlers(): void {
   )
 
   ipcMain.handle('event:delete', (_event, id: number) => {
-    return deleteEvent(id)
+    const v = validate(EventDeleteSchema, { id })
+    return deleteEvent(v.id)
   })
 
   // --- Settings ---
@@ -261,24 +285,26 @@ export function registerIpcHandlers(): void {
   ])
 
   ipcMain.handle('settings:get', (_event, key: string) => {
-    if (!ALLOWED_SETTINGS_KEYS.has(key)) {
-      throw new Error(`拒绝访问未授权的 settings 键: ${key}`)
+    const v = validate(SettingsGetSchema, { key })
+    if (!ALLOWED_SETTINGS_KEYS.has(v.key)) {
+      throw new Error(`拒绝访问未授权的 settings 键: ${v.key}`)
     }
-    if (key === 'api_key') {
+    if (v.key === 'api_key') {
       return getStoredApiKey()
     }
-    return getSetting(key)
+    return getSetting(v.key)
   })
 
   ipcMain.handle('settings:set', (_event, key: string, value: string) => {
-    if (!ALLOWED_SETTINGS_KEYS.has(key)) {
-      throw new Error(`拒绝写入未授权的 settings 键: ${key}`)
+    const v = validate(SettingsSetSchema, { key, value })
+    if (!ALLOWED_SETTINGS_KEYS.has(v.key)) {
+      throw new Error(`拒绝写入未授权的 settings 键: ${v.key}`)
     }
-    if (key === 'api_key') {
-      setStoredApiKey(value)
+    if (v.key === 'api_key') {
+      setStoredApiKey(v.value)
       return
     }
-    setSetting(key, value)
+    setSetting(v.key, v.value)
   })
 
   ipcMain.handle('settings:delete', (_event, key: string) => {
@@ -530,68 +556,104 @@ export function registerIpcHandlers(): void {
   //   //   }
   //   // });
 
+  // --- Active stream controllers for cancellation ---
+  const activeStreams = new Map<string, AbortController>();
+
+  ipcMain.handle('ai-chat-cancel', (_event, requestId: string) => {
+    const controller = activeStreams.get(requestId);
+    if (controller) {
+      controller.abort();
+      activeStreams.delete(requestId);
+    }
+  });
+
   ipcMain.handle('ai-chat-stream', async (event, params) => {
-    const { userMessage, history, config } = params;
-    const controller = new AbortController();
+    const validated = validate(AiChatStreamSchema, params);
+    const { userMessage, history, config } = validated;
 
-    try {
-      let apiKey = config.token || process.env.API_KEY;
-      // If no token in config, look up from encrypted storage by config ID
-      if (!apiKey && config.id) {
-        apiKey = getLLMToken(config.id);
-      }
-      if (!apiKey) {
-        throw new Error('未提供 API Key');
-      }
+    let apiKey = config.token || process.env.API_KEY;
+    if (!apiKey && config.id) {
+      apiKey = getLLMToken(config.id);
+    }
+    if (!apiKey) {
+      event.sender.send('ai-stream-error', '未提供 API Key');
+      return;
+    }
 
-      let defaultHeaders: Record<string, string> = {};
-      if (config.headers) {
-        try {
-          defaultHeaders = JSON.parse(config.headers);
-        } catch (e) {
-          log.warn('解析 headers 失败');
+    let defaultHeaders: Record<string, string> = {};
+    if (config.headers) {
+      try { defaultHeaders = JSON.parse(config.headers); } catch (e) { log.warn('解析 headers 失败'); }
+    }
+
+    const MAX_RETRIES = 3;
+    const BASE_DELAY = 1000;
+    const isTransient = (status?: number) =>
+      !status || status === 429 || status >= 500;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const requestId = `chat-${Date.now()}-${attempt}`;
+      const controller = new AbortController();
+      activeStreams.set(requestId, controller);
+      event.sender.send('ai-stream-request-id', requestId);
+
+      try {
+        const client = new OpenAI({
+          baseURL: config.baseURL,
+          apiKey,
+          defaultHeaders,
+        });
+
+        const stream = (await client.chat.completions.create(
+          {
+            model: config.model,
+            messages: [...history, { role: 'user', content: userMessage }],
+            stream: true,
+            temperature: config.temperature ?? 0.7,
+            max_tokens: config.max_tokens ?? 2048,
+            top_p: config.top_p ?? 0.9,
+          },
+          { signal: controller.signal }
+        )) as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+
+        for await (const chunk of stream) {
+          if (chunk.choices.length === 0) continue;
+          const delta = chunk.choices[0].delta;
+          if ('reasoning_content' in delta && delta.reasoning_content) {
+            event.sender.send('ai-stream-reasoning', delta.reasoning_content);
+          }
+          if (delta.content) {
+            event.sender.send('ai-stream-chunk', delta.content);
+          }
         }
-      }
 
-      const client = new OpenAI({
-        baseURL: config.baseURL,
-        apiKey: apiKey,
-        defaultHeaders: defaultHeaders,
-      });
-
-      const requestParams: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
-        model: config.model,
-        messages: [...history, { role: 'user', content: userMessage }],
-        stream: true,
-        temperature: config.temperature ?? 0.7,
-        max_tokens: config.max_tokens ?? 2048,
-        top_p: config.top_p ?? 0.9,
-      };
-
-      // ✅ 添加类型断言，让 TypeScript 知道返回的是可迭代流
-      const stream = (await client.chat.completions.create(
-        requestParams,
-        { signal: controller.signal }
-      )) as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
-
-      for await (const chunk of stream) {
-        if (chunk.choices.length === 0) continue;
-        const delta = chunk.choices[0].delta;
-
-        if ('reasoning_content' in delta && delta.reasoning_content) {
-          event.sender.send('ai-stream-reasoning', delta.reasoning_content);
-        }
-        if (delta.content) {
-          event.sender.send('ai-stream-chunk', delta.content);
-        }
-      }
-      event.sender.send('ai-stream-done');
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
         event.sender.send('ai-stream-done');
-        return;
+        activeStreams.delete(requestId);
+        return; // success
+      } catch (error: any) {
+        activeStreams.delete(requestId);
+
+        if (error.name === 'AbortError') {
+          event.sender.send('ai-stream-done');
+          return;
+        }
+
+        const status = error?.status || error?.response?.status;
+        if (!isTransient(status)) {
+          event.sender.send('ai-stream-error', extractAiErrorMessage(error));
+          return;
+        }
+
+        if (attempt < MAX_RETRIES) {
+          const delay = Math.min(BASE_DELAY * Math.pow(2, attempt), 8000);
+          const jitter = Math.random() * 500;
+          log.warn(`[ai-chat-stream] Attempt ${attempt + 1} failed (${status || error.message}), retrying in ${delay}ms...`);
+          event.sender.send('ai-stream-retry', { attempt: attempt + 1, maxRetries: MAX_RETRIES, waitMs: delay });
+          await new Promise((r) => setTimeout(r, delay + jitter));
+          continue;
+        }
+
+        event.sender.send('ai-stream-error', `${extractAiErrorMessage(error)}（已重试${MAX_RETRIES}次）`);
       }
-      event.sender.send('ai-stream-error', String(error));
     }
   });
 

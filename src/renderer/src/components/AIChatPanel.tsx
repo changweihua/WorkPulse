@@ -22,7 +22,7 @@ import {
 import { Message } from '@fauzitech/ai-ui';
 import { useAIPanelStore } from '../stores/aiPanelStore';
 import { LiquidGlassSurface } from './LiquidGlassSurface';
-import { recoverConversations, recoverConfigs, saveConversation, saveConfig } from '../lib/chat-storage';
+import { recoverConversations, recoverConfigs, saveConversation, saveConfig, onSyncEvent } from '../lib/chat-storage';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface ModelConfig {
@@ -409,6 +409,8 @@ export default function AIChatPanel() {
     const [isStreaming, setIsStreaming] = useState(false);
     const [showConfigEditor, setShowConfigEditor] = useState(false);
     const [showConvList, setShowConvList] = useState(false);
+    const currentRequestIdRef = useRef<string>('');
+    const [retryInfo, setRetryInfo] = useState<{ attempt: number; maxRetries: number; waitMs: number } | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -496,6 +498,16 @@ export default function AIChatPanel() {
         return () => window.removeEventListener('keydown', handler);
     }, [open, closePanel]);
 
+    // ── Cross-tab sync: reload from IndexedDB when another tab updates data ──
+    useEffect(() => {
+        const unsubscribe = onSyncEvent((event) => {
+            if (event.type === 'conversation-updated' || event.type === 'conversation-deleted') {
+                recoverConversations('chatPanel').then(setConversations).catch(console.warn);
+            }
+        });
+        return unsubscribe;
+    }, []);
+
     // ── IPC streaming listeners ──
     useEffect(() => {
         if (!window.ai || !open) return;
@@ -542,6 +554,7 @@ export default function AIChatPanel() {
 
         const onDone = () => {
             setIsStreaming(false);
+            setRetryInfo(null);
             setConversations((prev) =>
                 prev.map((conv) => {
                     if (conv.id !== currentConvId) return conv;
@@ -572,6 +585,7 @@ export default function AIChatPanel() {
 
         const onError = (_: any, error: string) => {
             setIsStreaming(false);
+            setRetryInfo(null);
             setConversations((prev) =>
                 prev.map((conv) => {
                     if (conv.id !== currentConvId) return conv;
@@ -592,11 +606,22 @@ export default function AIChatPanel() {
         window.ai.on('ai-stream-done', onDone);
         window.ai.on('ai-stream-error', onError);
 
+        const onRetry = (_: any, info: { attempt: number; maxRetries: number; waitMs: number }) => {
+            setRetryInfo(info);
+        };
+        const onRequestId = (_: any, requestId: string) => {
+            currentRequestIdRef.current = requestId;
+        };
+        window.ai.on('ai-stream-retry', onRetry);
+        window.ai.on('ai-stream-request-id', onRequestId);
+
         return () => {
             window.ai.removeAllListeners('ai-stream-reasoning');
             window.ai.removeAllListeners('ai-stream-chunk');
             window.ai.removeAllListeners('ai-stream-done');
             window.ai.removeAllListeners('ai-stream-error');
+            window.ai.removeAllListeners('ai-stream-retry');
+            window.ai.removeAllListeners('ai-stream-request-id');
         };
     }, [currentConvId, open]);
 
@@ -967,19 +992,30 @@ export default function AIChatPanel() {
                                     }}
                                 />
                                 <button
-                                    onClick={handleSend}
-                                    disabled={isStreaming || !input.trim()}
-                                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl
-                                               bg-blue-500 hover:bg-blue-600 disabled:bg-zinc-300 dark:disabled:bg-zinc-700
-                                               text-white transition shadow-sm"
+                                    onClick={isStreaming && currentRequestIdRef.current
+                                        ? () => (window.ai as any).cancel?.(currentRequestIdRef.current)
+                                        : handleSend}
+                                    disabled={!isStreaming && !input.trim()}
+                                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl transition shadow-sm"
+                                    style={isStreaming
+                                        ? { backgroundColor: '#ef4444', color: 'white' }
+                                        : { backgroundColor: '#3b82f6', color: 'white' }}
                                 >
-                                    {isStreaming ? <Loader2 size={15} className="animate-spin" /> : <Send size={14} />}
+                                    {isStreaming ? <X size={15} /> : <Send size={14} />}
                                 </button>
                             </div>
                             <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-400 dark:text-zinc-500 px-0.5">
-                                <span className="truncate">{currentConfig ? `${currentConfig.name}` : '未选择模型'}</span>
-                                {currentConfig && (
-                                    <span className="shrink-0 ml-2 opacity-60">{currentConfig.model}</span>
+                                {retryInfo ? (
+                                    <span className="text-amber-500 dark:text-amber-400 truncate">
+                                        连接中断，第 {retryInfo.attempt}/{retryInfo.maxRetries} 次重连中...
+                                    </span>
+                                ) : (
+                                    <>
+                                        <span className="truncate">{currentConfig ? `${currentConfig.name}` : '未选择模型'}</span>
+                                        {currentConfig && (
+                                            <span className="shrink-0 ml-2 opacity-60">{currentConfig.model}</span>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>

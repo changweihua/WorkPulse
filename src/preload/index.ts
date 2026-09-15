@@ -266,24 +266,25 @@ if (process.contextIsolated) {
     // 暴露给渲染进程的 API，封装在 `ai` 命名空间下
     contextBridge.exposeInMainWorld('ai', {
       invoke: (channel: string, ...args: any[]) => {
-        const validChannels = ['ai-chat-stream'];
+        const validChannels = ['ai-chat-stream', 'ai-chat-cancel'];
         if (validChannels.includes(channel)) {
           return ipcRenderer.invoke(channel, ...args);
         }
         throw new Error(`Invalid channel: ${channel}`);
       },
       on: (channel: string, listener: (...args: any[]) => void) => {
-        const validChannels = ['ai-stream-chunk', 'ai-stream-done', 'ai-stream-error', 'ai-stream-reasoning',];
+        const validChannels = ['ai-stream-chunk', 'ai-stream-done', 'ai-stream-error', 'ai-stream-reasoning', 'ai-stream-retry', 'ai-stream-request-id'];
         if (validChannels.includes(channel)) {
           ipcRenderer.on(channel, listener);
         }
       },
       removeAllListeners: (channel: string) => {
-        const validChannels = ['ai-stream-chunk', 'ai-stream-done', 'ai-stream-error', 'ai-stream-reasoning'];
+        const validChannels = ['ai-stream-chunk', 'ai-stream-done', 'ai-stream-error', 'ai-stream-reasoning', 'ai-stream-retry', 'ai-stream-request-id'];
         if (validChannels.includes(channel)) {
           ipcRenderer.removeAllListeners(channel);
         }
       },
+      cancel: (requestId: string) => ipcRenderer.invoke('ai-chat-cancel', requestId),
       saveLLMToken: (modelId: string, token: string) => ipcRenderer.invoke('llm-tokens:save', { modelId, token }),
       getLLMToken: (modelId: string) => ipcRenderer.invoke('llm-tokens:get', modelId),
       deleteLLMToken: (modelId: string) => ipcRenderer.invoke('llm-tokens:delete', modelId),

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Message } from '@fauzitech/ai-ui';
 // @ts-ignore
 import '@fauzitech/ai-ui/styles.css';
-import { recoverConversations, recoverConfigs, saveConversation, saveConversationsBatch, saveConfig, canWrite, getCacheStatus } from '../lib/chat-storage';
+import { recoverConversations, recoverConfigs, saveConversation, saveConversationsBatch, saveConfig, canWrite, getCacheStatus, onSyncEvent } from '../lib/chat-storage';
 import {
     Bot,
     User,
@@ -951,6 +951,8 @@ export default function ChatPage() {
     const [isStreaming, setIsStreaming] = useState(false);
     const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const currentRequestIdRef = useRef<string>('');
+    const [retryInfo, setRetryInfo] = useState<{ attempt: number; maxRetries: number; waitMs: number } | null>(null);
 
     // UI
     const [showStats, setShowStats] = useState(true);
@@ -1052,6 +1054,16 @@ export default function ChatPage() {
         localStorage.setItem('chatCurrentConvId', currentConvId);
     }, [currentConvId, isHydrated]);
 
+    // Cross-tab sync: reload from IndexedDB when another tab updates data
+    useEffect(() => {
+        const unsubscribe = onSyncEvent((event) => {
+            if (event.type === 'conversation-updated' || event.type === 'conversation-deleted') {
+                recoverConversations('chat').then(setConversations).catch(console.warn);
+            }
+        });
+        return unsubscribe;
+    }, []);
+
     // 自动滚动
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1103,6 +1115,7 @@ export default function ChatPage() {
 
         const onDone = () => {
             setIsStreaming(false);
+            setRetryInfo(null);
             setConversations((prev) =>
                 prev.map((conv) => {
                     if (conv.id !== currentConvId) return conv;
@@ -1129,6 +1142,7 @@ export default function ChatPage() {
 
         const onError = (_: any, error: string) => {
             setIsStreaming(false);
+            setRetryInfo(null);
             setConversations((prev) =>
                 prev.map((conv) => {
                     if (conv.id !== currentConvId) return conv;
@@ -1149,11 +1163,22 @@ export default function ChatPage() {
         window.ai.on('ai-stream-done', onDone);
         window.ai.on('ai-stream-error', onError);
 
+        const onRetry = (_: any, info: { attempt: number; maxRetries: number; waitMs: number }) => {
+            setRetryInfo(info);
+        };
+        const onRequestId = (_: any, requestId: string) => {
+            currentRequestIdRef.current = requestId;
+        };
+        window.ai.on('ai-stream-retry', onRetry);
+        window.ai.on('ai-stream-request-id', onRequestId);
+
         return () => {
             window.ai.removeAllListeners('ai-stream-reasoning');
             window.ai.removeAllListeners('ai-stream-chunk');
             window.ai.removeAllListeners('ai-stream-done');
             window.ai.removeAllListeners('ai-stream-error');
+            window.ai.removeAllListeners('ai-stream-retry');
+            window.ai.removeAllListeners('ai-stream-request-id');
         };
     }, [currentConvId]);
 
@@ -1417,17 +1442,29 @@ export default function ChatPage() {
                             />
                         </div>
                         <button
-                            onClick={handleSend}
-                            disabled={isStreaming || !input.trim()}
-                            className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-blue-500 hover:bg-blue-600 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 text-white transition shadow-sm"
+                            onClick={isStreaming && currentRequestIdRef.current
+                                ? () => (window.ai as any).cancel?.(currentRequestIdRef.current)
+                                : handleSend}
+                            disabled={!isStreaming && !input.trim()}
+                            className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition shadow-sm"
+                            style={isStreaming
+                                ? { backgroundColor: '#ef4444', color: 'white' }
+                                : { backgroundColor: '#3b82f6', color: 'white' }}
                         >
-                            {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={17} />}
+                            {isStreaming ? <X size={18} /> : <Send size={17} />}
                         </button>
                     </div>
                     <div className="max-w-4xl mx-auto mt-1.5 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500">
-                        <span>
-                            {currentConfig ? `${currentConfig.name} · ${currentConfig.model}` : '未选择模型'}
-                        </span>
+                        {retryInfo && (
+                            <span className="text-amber-500 dark:text-amber-400">
+                                连接中断，第 {retryInfo.attempt}/{retryInfo.maxRetries} 次重连中...
+                            </span>
+                        )}
+                        {!retryInfo && (
+                            <span>
+                                {currentConfig ? `${currentConfig.name} · ${currentConfig.model}` : '未选择模型'}
+                            </span>
+                        )}
                         <span>
                             {tokenStats.totalTokens > 0 && `${tokenStats.totalTokens.toLocaleString()} tokens`}
                         </span>

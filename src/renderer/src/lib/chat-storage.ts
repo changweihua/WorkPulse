@@ -28,6 +28,7 @@ export interface Conversation {
   messages: ChatMessage[];
   createdAt: number;
   updatedAt: number;
+  revision?: number;
 }
 
 export interface ModelConfig {
@@ -60,6 +61,46 @@ function filterCompletedMessages(messages: ChatMessage[]): ChatMessage[] {
     if (msg.role === 'assistant' && !msg.content?.trim()) return false;
     return true;
   });
+}
+
+// ─── Capacity Limits ──────────────────────────────────────────────────────
+const MAX_MESSAGES_PER_CONVERSATION = 200;
+const MAX_CONVERSATIONS = 50;
+
+function trimMessages(messages: ChatMessage[]): ChatMessage[] {
+  if (messages.length > MAX_MESSAGES_PER_CONVERSATION) {
+    return messages.slice(-MAX_MESSAGES_PER_CONVERSATION);
+  }
+  return messages;
+}
+
+// ─── Multi-Tab Sync (BroadcastChannel) ────────────────────────────────────
+type SyncEvent = { type: 'conversation-updated' | 'conversation-deleted' | 'config-updated'; id: string };
+let syncChannel: BroadcastChannel | null = null;
+let syncListeners: Array<(event: SyncEvent) => void> = [];
+
+function getSyncChannel(): BroadcastChannel {
+  if (!syncChannel) {
+    syncChannel = new BroadcastChannel('workpulse-chat-sync');
+    syncChannel.onmessage = (event: MessageEvent<SyncEvent>) => {
+      syncListeners.forEach((fn) => fn(event.data));
+    };
+  }
+  return syncChannel;
+}
+
+function broadcastSync(event: SyncEvent): void {
+  try {
+    getSyncChannel().postMessage(event);
+  } catch { /* BroadcastChannel not supported */ }
+}
+
+export function onSyncEvent(listener: (event: SyncEvent) => void): () => void {
+  syncListeners.push(listener);
+  getSyncChannel();
+  return () => {
+    syncListeners = syncListeners.filter((fn) => fn !== listener);
+  };
 }
 
 // ─── Database Setup ────────────────────────────────────────────────────────
@@ -139,6 +180,7 @@ function openDatabase(): Promise<IDBDatabase> {
 /**
  * Save a conversation to IndexedDB (stable snapshot).
  * Only stores completed messages, filters out streaming ones.
+ * Applies capacity trimming to keep storage bounded.
  */
 export async function saveConversation(conversation: Conversation): Promise<void> {
   const db = await openDatabase();
@@ -146,17 +188,60 @@ export async function saveConversation(conversation: Conversation): Promise<void
     const tx = db.transaction(STORE_CONVERSATIONS, 'readwrite');
     const store = tx.objectStore(STORE_CONVERSATIONS);
 
-    // Apply stable snapshot filtering
     const filteredConversation: Conversation = {
       ...conversation,
-      messages: filterCompletedMessages(conversation.messages),
+      messages: trimMessages(filterCompletedMessages(conversation.messages)),
       updatedAt: Date.now(),
     };
 
     const request = store.put(filteredConversation);
 
-    request.onsuccess = () => resolve();
+    request.onsuccess = () => {
+      broadcastSync({ type: 'conversation-updated', id: conversation.id });
+      resolve();
+    };
     request.onerror = (event) => reject((event.target as IDBRequest).error);
+  });
+}
+
+/**
+ * Save a conversation with revision check (optimistic locking).
+ * Won't overwrite a newer revision written by another tab.
+ * Returns true if saved, false if rejected (another tab is newer).
+ */
+export async function saveConversationSafe(conversation: Conversation): Promise<boolean> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_CONVERSATIONS, 'readwrite');
+    const store = tx.objectStore(STORE_CONVERSATIONS);
+
+    const getRequest = store.get(conversation.id);
+    getRequest.onsuccess = () => {
+      const existing = getRequest.result as Conversation | undefined;
+      const currentRevision = existing?.revision ?? 0;
+
+      // Reject if existing is newer (another tab wrote first)
+      if (existing?.revision != null && existing.revision > (conversation.revision ?? 0)) {
+        resolve(false);
+        return;
+      }
+
+      const newRevision = currentRevision + 1;
+      const updated: Conversation = {
+        ...conversation,
+        messages: trimMessages(filterCompletedMessages(conversation.messages)),
+        updatedAt: Date.now(),
+        revision: newRevision,
+      };
+
+      const putRequest = store.put(updated);
+      putRequest.onsuccess = () => {
+        broadcastSync({ type: 'conversation-updated', id: conversation.id });
+        resolve(true);
+      };
+      putRequest.onerror = (event) => reject((event.target as IDBRequest).error);
+    };
+    getRequest.onerror = (event) => reject((event.target as IDBRequest).error);
   });
 }
 
@@ -213,13 +298,17 @@ export async function deleteConversation(id: string): Promise<void> {
     const store = tx.objectStore(STORE_CONVERSATIONS);
     const request = store.delete(id);
 
-    request.onsuccess = () => resolve();
+    request.onsuccess = () => {
+      broadcastSync({ type: 'conversation-deleted', id });
+      resolve();
+    };
     request.onerror = (event) => reject((event.target as IDBRequest).error);
   });
 }
 
 /**
  * Batch save multiple conversations (for migration/sync).
+ * Enforces capacity limits on both message count and conversation count.
  */
 export async function saveConversationsBatch(conversations: Conversation[]): Promise<void> {
   const db = await openDatabase();
@@ -227,10 +316,14 @@ export async function saveConversationsBatch(conversations: Conversation[]): Pro
     const tx = db.transaction(STORE_CONVERSATIONS, 'readwrite');
     const store = tx.objectStore(STORE_CONVERSATIONS);
 
-    for (const conv of conversations) {
+    const sorted = [...conversations]
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+      .slice(0, MAX_CONVERSATIONS);
+
+    for (const conv of sorted) {
       const filtered: Conversation = {
         ...conv,
-        messages: filterCompletedMessages(conv.messages),
+        messages: trimMessages(filterCompletedMessages(conv.messages)),
         updatedAt: Date.now(),
       };
       store.put(filtered);

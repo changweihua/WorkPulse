@@ -1021,3 +1021,142 @@ body,
 *::-webkit-scrollbar {
   display: none;
 }
+
+/* ===== Modern CSS: @property for animated custom properties ===== */
+@property --gradient-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@property --scroll-progress {
+  syntax: '<number>';
+  initial-value: 0;
+  inherits: false;
+}
+
+/* ===== Modern CSS: View Transitions API ===== */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+  animation-timing-function: ease-out;
+}
+
+::view-transition-old(root) {
+  animation-name: vt-fade-out;
+}
+
+::view-transition-new(root) {
+  animation-name: vt-fade-in;
+}
+
+@keyframes vt-fade-out {
+  to { opacity: 0; transform: translateY(-4px); }
+}
+
+@keyframes vt-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+/* ===== Modern CSS: Scroll-driven progress bar ===== */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(to right, var(--color-blue-500, #3b82f6), var(--color-blue-400, #60a5fa));
+  transform-origin: left;
+  z-index: 9999;
+  animation: scroll-progress-grow linear;
+  animation-timeline: scroll();
+}
+
+@keyframes scroll-progress-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@supports not (animation-timeline: scroll()) {
+  .scroll-progress { display: none; }
+}
+
+/* ===== Modern CSS: Container Queries for dashboard cards ===== */
+.dashboard-grid {
+  container-type: inline-size;
+  container-name: dashboard;
+}
+
+@container dashboard (min-width: 600px) {
+  .dashboard-responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@container dashboard (min-width: 900px) {
+  .dashboard-responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ===== Modern CSS: :has() parent state styling ===== */
+/* Form groups that highlight based on child state */
+.form-group:has(:focus-visible) {
+  border-color: var(--color-blue-500, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-group:has(:user-invalid) {
+  border-color: var(--color-error, #ef4444);
+  background: var(--color-error-subtle, rgba(239, 68, 68, 0.1));
+}
+
+/* Surface card with interactive child glow */
+.surface-card:has(:focus-visible) {
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,0.25),
+    0 0 0 2px rgba(59, 130, 246, 0.3),
+    var(--glass-shadow);
+}
+
+/* ===== Modern CSS: Rotating gradient border via @property ===== */
+.animated-gradient-border {
+  --gradient-angle: 0deg;
+  position: relative;
+  z-index: 0;
+}
+
+.animated-gradient-border::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--gradient-angle),
+    var(--color-blue-500, #3b82f6),
+    #a855f7,
+    #06b6d4,
+    var(--color-blue-500, #3b82f6)
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: gradient-spin 3s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.animated-gradient-border:hover::after {
+  animation-duration: 1.5s;
+}
+
+@keyframes gradient-spin {
+  from { --gradient-angle: 0deg; }
+  to { --gradient-angle: 360deg; }
+}
+
+/* Fallback for browsers without @property support */
+@supports not (animation-timeline: scroll()) {
+  .scroll-progress { display: none; }
+}
