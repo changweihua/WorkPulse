@@ -312,7 +312,7 @@ function WorkLogPage(): ReactNode {
   return (
     <div>
       {/* Input */}
-      <div className="mb-4">
+      <div className="mb-4 surface-card p-4">
         <div className="relative">
           <input
             ref={inputRef}
@@ -375,7 +375,7 @@ function WorkLogPage(): ReactNode {
       </div>
 
       {/* Search + Export */}
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 surface-card p-3 flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 o-4 text-zinc-400" />
           <input
@@ -405,14 +405,14 @@ function WorkLogPage(): ReactNode {
               fetchLogs()
             }
           }}
-          className="flex items-center gap-1 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce"
+          className="flex items-center gap-1 px-3 py-2 text-sm surface-card rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce"
           title={t('worklog.import')}
         >
           <Upload className="w-4 o-4" />
           {t('common.import')}
         </button>
         <div className="relative group">
-          <button className="flex items-center gap-1 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce">
+          <button className="flex items-center gap-1 px-3 py-2 text-sm surface-card rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce">
             <Download className="w-4 o-4" />
             {t('common.export')}
           </button>
@@ -469,7 +469,7 @@ function WorkLogPage(): ReactNode {
         <>
         <div role="list" className="space-y-6">
           {Array.from(grouped.entries()).map(([dateKey, dateLogs]) => (
-            <div key={dateKey} role="group">
+            <div key={dateKey} role="group" className="surface-card p-4">
               <h3 className="text-sm font-medium text-zinc-400 dark:text-zinc-500 mb-2">
                 {formatDate(dateKey + 'T00:00:00', resolvedLanguage)}
               </h3>
@@ -486,7 +486,7 @@ function WorkLogPage(): ReactNode {
                     <Fragment key={log.id}>
                       <motion.div
                         variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.25 } } }}
-                        className="group flex items-center justify-between py-2 px-3 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                        className="group flex items-center justify-between py-2 px-3 rounded-lg surface-card transition-all hover:shadow-md"
                       >
                         {editingId === log.id ? (
                           <>

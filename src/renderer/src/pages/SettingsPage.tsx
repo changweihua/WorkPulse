@@ -599,9 +599,9 @@ function SettingsPage(): ReactNode {
       <main className="flex-1">
         <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
           {/* AI Configuration */}
-          <section>
+          <section className="surface-card p-5">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.aiConfig')}</h2>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
+            <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
 
             {/* API Key */}
             <div className="mb-4">
@@ -710,9 +710,9 @@ function SettingsPage(): ReactNode {
           </section>
 
           {/* Report Preferences */}
-          <section>
+          <section className="surface-card p-5">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.reportPrefs')}</h2>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
+            <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
@@ -793,9 +793,9 @@ function SettingsPage(): ReactNode {
           </section>
 
           {/* Shortcuts */}
-          <section>
+          <section className="surface-card p-5">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.shortcuts')}</h2>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
+            <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
             <p className="text-xs text-zinc-400 mb-4">
               {t('settings.shortcutsHelp')}
             </p>
@@ -840,9 +840,9 @@ function SettingsPage(): ReactNode {
           </section>
 
           {/* Appearance */}
-          <section>
+          <section className="surface-card p-5">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.appearance')}</h2>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
+            <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
             <div className="mb-4">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('settings.language')}</label>
               <p className="text-xs text-zinc-400 mb-2">{t('settings.languageHelp')}</p>
@@ -925,9 +925,9 @@ function SettingsPage(): ReactNode {
           </section>
 
           {/* 开机启动 */}
-          <section>
+          <section className="surface-card p-5">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">开机启动</h2>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
+            <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-zinc-600 dark:text-zinc-300">登录时自动启动 WorkPulse</p>
@@ -1012,9 +1012,9 @@ function SettingsPage(): ReactNode {
           </section>
 
           {/* 径向菜单 */}
-          <section>
+          <section className="surface-card p-5">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">径向菜单</h2>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
+            <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-zinc-600 dark:text-zinc-300">启用径向菜单</p>
@@ -1132,9 +1132,9 @@ function SettingsPage(): ReactNode {
             )}
           </section>
 
-          <section>
+          <section className="surface-card p-5">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.updates')}</h2>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
+            <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
             <div className="flex items-start justify-between gap-4 mb-6">
               <div className="min-w-0">
                 <p className="text-sm text-zinc-600 dark:text-zinc-300">
@@ -1161,7 +1161,7 @@ function SettingsPage(): ReactNode {
                 <button
                   onClick={handleCheckUpdates}
                   disabled={isCheckingUpdate}
-                  className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md surface-card text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <RefreshCw className={`w-4 h-4 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
                   {isCheckingUpdate ? t('settings.checkingUpdates') : t('settings.checkUpdates')}
@@ -1178,23 +1178,25 @@ function SettingsPage(): ReactNode {
                 {updateState.releaseUrl && (
                   <button
                     onClick={() => window.open(updateState.releaseUrl, '_blank')}
-                    className="px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    className="px-3 py-2 text-sm rounded-md surface-card text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                   >
                     {t('settings.openRelease')}
                   </button>
                 )}
               </div>
             </div>
+          </section>
 
+          <section className="surface-card p-5">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.about')}</h2>
-            <div className="h-px bg-zinc-200 dark:bg-zinc-700 mb-4" />
+            <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
             <p className="text-sm text-zinc-500 dark:text-zinc-400">WorkPulse {currentVersion}</p>
             <p className="text-xs text-zinc-400 mt-1">{t('settings.aboutText')}</p>
             <button
               onClick={async () => {
                 await window.api.app.openBackupDir()
               }}
-              className="flex items-center gap-1.5 mt-3 px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              className="flex items-center gap-1.5 mt-3 px-3 py-2 text-sm rounded-md surface-card text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
             >
               <FolderOpen className="w-4 h-4" />
               {t('settings.openBackupDir')}
