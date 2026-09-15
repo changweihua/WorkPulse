@@ -494,4 +494,10 @@ function ToolButton({ def }: { def: ToolDef }): React.ReactNode {
   )
 }
 
-ReactDOM.createRoot(document.getElementById('overlay-root')!).render(<ScreenshotOverlay />)
+// Guard against HMR re-execution creating a duplicate root
+const overlayContainer = document.getElementById('overlay-root')!
+if (!(overlayContainer as any).__reactRoot) {
+  const root = ReactDOM.createRoot(overlayContainer);
+  (overlayContainer as any).__reactRoot = root;
+  root.render(<ScreenshotOverlay />);
+}
