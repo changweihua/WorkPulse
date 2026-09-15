@@ -186,10 +186,8 @@ export default function NavLayout() {
 
             {/* ===== Sidebar ===== */}
             <motion.aside
-                className="relative flex flex-col shrink-0 h-full
-                           bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl
-                           border-r border-zinc-200/40 dark:border-zinc-700/40
-                           select-none z-30"
+                className="flex flex-col shrink-0 h-full
+                           surface-sidebar select-none z-30"
                 style={{
                     boxShadow: collapsed
                         ? '2px 0 12px rgba(0,0,0,0.03)'
