@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import FluidGlass from '../components/FluidGlass'
+import MouseReactiveTitle from '../components/MouseReactiveTitle'
 import { useI18n } from '../stores/languageStore'
 
 type Mode = 'lens' | 'cube' | 'bar'
@@ -18,9 +19,13 @@ export default function FluidGlassPage() {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="shrink-0 px-6 py-4 border-b border-zinc-200/40 dark:border-zinc-700/40">
-        <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+        <MouseReactiveTitle
+          spotlightRadius={140}
+          timeScale={0.8}
+          className="text-lg font-semibold text-zinc-900 dark:text-zinc-100"
+        >
           {t('nav.fluidGlass') || '液态玻璃'}
-        </h1>
+        </MouseReactiveTitle>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
           Liquid Glass — Three.js + R3F + MeshTransmissionMaterial
         </p>
