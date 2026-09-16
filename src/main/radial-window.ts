@@ -183,7 +183,7 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
       webviewTag: false,
       webSecurity: true,
       allowRunningInsecureContent: false,
-      v8CacheOptions: 'none',
+      // v8CacheOptions: 'none', // 已启用全局 V8 编译缓存，不再禁用
     },
   })
 

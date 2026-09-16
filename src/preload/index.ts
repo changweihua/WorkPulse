@@ -1,6 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { exposeUIKit } from '@electron-uikit/core/preload'
 
 type QuickCreateType = 'log' | 'task'
 type NavigatePage = 'worklog' | 'kanban' | 'report' | 'reports' | 'stats' | 'calendar' | 'chat' | 'xray' | 'onnx' | 'ocr' | 'pp' | 'settings'
@@ -219,11 +218,8 @@ const api = {
     remove: (uri: string) => ipcRenderer.invoke('vector:remove', uri),
     rebuild: () => ipcRenderer.invoke('vector:rebuild'),
   },
-  // 新增：窗口控制
+  // 窗口控制（WCO 原生按钮接管 minimize/maximize/close，仅保留材质切换）
   window: {
-    minimize: () => ipcRenderer.send('window-control', 'minimize'),
-    maximize: () => ipcRenderer.send('window-control', 'maximize'),
-    close: () => ipcRenderer.send('window-control', 'close'),
     getMaterial: (): Promise<string> => ipcRenderer.invoke('get-window-material'),
     setMaterial: (material: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('set-window-material', material),
@@ -316,5 +312,3 @@ if (process.contextIsolated) {
   // @ts-ignore
   window.api = api
 }
-
-exposeUIKit()
