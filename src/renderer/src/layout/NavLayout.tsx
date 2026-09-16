@@ -162,6 +162,7 @@ export default function NavLayout() {
                 { path: 'xray', icon: <Zap className="w-[18px] h-[18px]" />, label: t('nav.xray') },
                 { path: 'onnx', icon: <SiOnnx className="w-[18px] h-[18px]" />, label: t('nav.onnx') },
                 { path: 'fluid-glass', icon: <Icon icon="mdi:glass-water" className="w-[18px] h-[18px]" />, label: t('nav.fluidGlass') },
+                { path: 'dotnet', icon: <Icon icon="mdi:dot-net" className="w-[18px] h-[18px]" />, label: t('nav.dotnet') },
             ],
         },
     ];
@@ -357,7 +358,7 @@ export default function NavLayout() {
                 {showTopBtn && (
                     <button
                         onClick={scrollToTop}
-                        className="fixed bottom-6 right-6 z-50 p-3 rounded-full bg-zinc-900 dark:bg-zinc-100
+                        className="fixed bottom-[88px] right-6 z-50 p-3 rounded-full bg-zinc-900 dark:bg-zinc-100
                                    text-white dark:text-zinc-900 shadow-lg hover:scale-110 transition-all duration-200"
                         aria-label="返回顶部"
                     >

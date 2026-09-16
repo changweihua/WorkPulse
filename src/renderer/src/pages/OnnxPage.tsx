@@ -325,7 +325,7 @@ function OnnxPageContent() {
     );
 
     return (
-        <div className="h-full overflow-hidden flex gap-4 bg-white/50 dark:bg-zinc-900/50">
+        <div className="h-full overflow-hidden flex gap-4 p-6 bg-white/50 dark:bg-zinc-900/50">
             <ModelPanel
                 status={status}
                 currentModel={currentModel}

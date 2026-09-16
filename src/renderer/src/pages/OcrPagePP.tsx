@@ -169,7 +169,7 @@ function OcrPageContent() {
     const hasImage = imageUrl !== null;
 
     return (
-        <div className="flex flex-col h-full bg-gray-50 dark:bg-zinc-900/40 text-gray-800 dark:text-zinc-100 overflow-hidden">
+        <div className="flex flex-col h-full p-6 bg-gray-50 dark:bg-zinc-900/40 text-gray-800 dark:text-zinc-100 overflow-hidden">
             <header className="flex items-center gap-4 px-6 py-3 border-b border-gray-200 dark:border-zinc-700/70 surface-card shrink-0">
                 <h1 className="text-xl font-semibold">浏览器端 OCR</h1>
                 <span className="px-3 py-1 text-xs border border-blue-300 bg-blue-50 text-blue-600 rounded-full">

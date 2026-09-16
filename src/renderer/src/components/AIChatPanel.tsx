@@ -2,6 +2,9 @@
  * AIChatPanel — Slide-in drawer panel for AI conversation.
  * Renders as a right-side overlay (z-40) that slides in over the current page content.
  * Uses useAIPanelStore for open/close state, and persists chat data via IndexedDB.
+ *
+ * Liquid Glass Personality: layered glass surfaces, gradient borders,
+ * glowing input focus, glass message bubbles, premium header strip.
  */
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -21,7 +24,6 @@ import {
 } from 'lucide-react';
 import { Message } from '@fauzitech/ai-ui';
 import { useAIPanelStore } from '../stores/aiPanelStore';
-import { LiquidGlassSurface } from './LiquidGlassSurface';
 import { recoverConversations, recoverConfigs, saveConversation, saveConfig, onSyncEvent } from '../lib/chat-storage';
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -261,7 +263,10 @@ function ConfigEditor({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-            className="absolute inset-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl flex flex-col"
+            className="absolute inset-0 z-10 flex flex-col backdrop-blur-xl"
+            style={{
+                background: 'var(--color-surface, rgba(255,255,255,0.95))',
+            }}
         >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/40 dark:border-zinc-700/40 shrink-0">
@@ -414,6 +419,19 @@ export default function AIChatPanel() {
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    // ── Dark mode detection for inline glass styles ──
+    const [isDark, setIsDark] = useState(() =>
+        typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+    );
+    useEffect(() => {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        const classObs = new MutationObserver(() => {
+            setIsDark(document.documentElement.classList.contains('dark'));
+        });
+        classObs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        return () => classObs.disconnect();
+    }, []);
 
     // Hydrate from IndexedDB on mount (local-first recovery)
     useEffect(() => {
@@ -758,8 +776,8 @@ export default function AIChatPanel() {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[1px]"
-                        style={{ top: 44 }}
+                        className="fixed inset-0 z-40 backdrop-blur-[4px]"
+                        style={{ top: 44, background: isDark ? 'linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.5))' : 'linear-gradient(135deg, rgba(0,0,0,0.15), rgba(0,0,0,0.25))' }}
                         onClick={closePanel}
                     />
 
@@ -771,27 +789,45 @@ export default function AIChatPanel() {
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', stiffness: 400, damping: 35 }}
                         className="fixed top-[44px] right-0 bottom-0 z-40 w-[420px]
-                                   bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl
-                                   border-l border-zinc-200/40 dark:border-zinc-700/40
-                                   shadow-[-8px_0_32px_rgba(0,0,0,0.08)] dark:shadow-[-8px_0_32px_rgba(0,0,0,0.25)]
                                    flex flex-col overflow-hidden"
+                        style={{
+                            background: isDark
+                                ? 'linear-gradient(180deg, rgba(22,25,38,0.97) 0%, rgba(18,20,32,0.96) 100%)'
+                                : 'linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(248,250,255,0.96) 100%)',
+                            backdropFilter: 'blur(24px) saturate(180%)',
+                            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+                            borderLeft: isDark
+                                ? '1px solid rgba(255,255,255,0.08)'
+                                : '1px solid rgba(0,0,0,0.06)',
+                            boxShadow: isDark
+                                ? '-12px 0 48px rgba(0,0,0,0.35), -2px 0 16px rgba(0,0,0,0.2), inset 1px 0 0 rgba(255,255,255,0.04)'
+                                : '-12px 0 48px rgba(59,130,246,0.08), -2px 0 16px rgba(0,0,0,0.05), inset 1px 0 0 rgba(255,255,255,0.8)',
+                        }}
                     >
-                        {/* Liquid glass caustic overlay */}
-                        <LiquidGlassSurface
-                            className="absolute inset-0 z-0"
-                            frosted={false}
-                            intensity={0.25}
-                            animated={true}
-                            style={{ pointerEvents: 'none' }}
-                        >
-                            <div className="w-full h-full" />
-                        </LiquidGlassSurface>
+                        {/* Liquid glass caustic overlay — removed: panel now uses backdrop-filter glass */}
 
                         {/* Header */}
-                        <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200/40 dark:border-zinc-700/40 shrink-0">
+                        <div className="flex items-center justify-between px-4 py-2.5 shrink-0 relative"
+                             style={{
+                                 borderBottom: isDark
+                                     ? '1px solid rgba(255,255,255,0.06)'
+                                     : '1px solid rgba(0,0,0,0.06)',
+                                 background: isDark
+                                     ? 'linear-gradient(135deg, rgba(30,40,70,0.3), rgba(20,25,45,0.2))'
+                                     : 'linear-gradient(135deg, rgba(240,245,255,0.5), rgba(255,255,255,0.3))',
+                             }}>
+                            {/* Gradient accent line at top — more visible */}
+                            <div className="absolute top-0 left-0 right-0 h-[2px]"
+                                 style={{
+                                     background: 'linear-gradient(90deg, transparent 5%, rgba(99,130,255,0.6) 30%, rgba(160,120,255,0.5) 70%, transparent 95%)',
+                                 }} />
                             <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0 shadow-sm">
-                                    <Bot size={14} className="text-white" />
+                                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 relative overflow-hidden"
+                                     style={{
+                                         background: 'linear-gradient(135deg, rgba(59,130,246,0.9), rgba(139,92,246,0.9))',
+                                         boxShadow: '0 2px 8px rgba(59,130,246,0.3), inset 0 1px 1px rgba(255,255,255,0.2)',
+                                     }}>
+                                    <Bot size={14} className="text-white relative z-[1]" />
                                 </div>
                                 <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate">
                                     AI 助手
@@ -816,23 +852,37 @@ export default function AIChatPanel() {
                         </div>
 
                         {/* Conversation bar */}
-                        <div className="flex items-center gap-1.5 px-3 py-2 border-b border-zinc-200/30 dark:border-zinc-700/30 shrink-0">
+                        <div className="flex items-center gap-1.5 px-3 py-2 shrink-0"
+                             style={{
+                                 borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.05)',
+                                 background: isDark ? 'rgba(25,30,50,0.2)' : 'rgba(245,248,255,0.3)',
+                             }}>
                             <button
                                 onClick={newConversation}
-                                className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium
-                                           bg-zinc-100/60 dark:bg-zinc-800/60 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60
-                                           text-zinc-600 dark:text-zinc-400 transition shrink-0"
+                                className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition shrink-0"
+                                style={{
+                                    background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                                    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+                                    color: isDark ? 'rgba(200,210,230,0.8)' : 'rgba(60,70,90,0.8)',
+                                }}
                             >
                                 <Plus size={12} />
                                 新建
                             </button>
                             <button
                                 onClick={() => setShowConvList(!showConvList)}
-                                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition shrink-0 ${
-                                    showConvList
-                                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                        : 'bg-zinc-100/60 dark:bg-zinc-800/60 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60 text-zinc-600 dark:text-zinc-400'
-                                }`}
+                                className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition shrink-0"
+                                style={{
+                                    background: showConvList
+                                        ? isDark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.08)'
+                                        : isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                                    border: showConvList
+                                        ? '1px solid rgba(59,130,246,0.25)'
+                                        : isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+                                    color: showConvList
+                                        ? 'rgba(59,130,246,0.9)'
+                                        : isDark ? 'rgba(200,210,230,0.8)' : 'rgba(60,70,90,0.8)',
+                                }}
                             >
                                 <MessageSquare size={12} />
                                 历史 ({conversations.length})
@@ -841,9 +891,12 @@ export default function AIChatPanel() {
                                 <select
                                     value={currentConfigId}
                                     onChange={(e) => setCurrentConfigId(e.target.value)}
-                                    className="flex-1 min-w-0 px-2 py-1 text-[11px] border border-zinc-200/40 dark:border-zinc-700/40 rounded-md
-                                               bg-white/50 dark:bg-zinc-900/50 text-zinc-600 dark:text-zinc-400
-                                               outline-none cursor-pointer truncate"
+                                    className="flex-1 min-w-0 px-2 py-1 text-[11px] rounded-md outline-none cursor-pointer truncate"
+                                    style={{
+                                        border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+                                        background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.5)',
+                                        color: isDark ? 'rgba(200,210,230,0.8)' : 'rgba(60,70,90,0.8)',
+                                    }}
                                 >
                                     {configs.map((c) => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
@@ -860,7 +913,10 @@ export default function AIChatPanel() {
                                     animate={{ height: 'auto', opacity: 1 }}
                                     exit={{ height: 0, opacity: 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="border-b border-zinc-200/30 dark:border-zinc-700/30 overflow-hidden shrink-0"
+                                    className="overflow-hidden shrink-0"
+                                    style={{
+                                        borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.05)',
+                                    }}
                                 >
                                     <div className="max-h-[160px] overflow-y-auto px-2 py-1.5 space-y-0.5">
                                         {conversations.length === 0 && (
@@ -872,11 +928,19 @@ export default function AIChatPanel() {
                                             <div
                                                 key={conv.id}
                                                 onClick={() => { setCurrentConvId(conv.id); setShowConvList(false); }}
-                                                className={`group flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition ${
-                                                    conv.id === currentConvId
-                                                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                                                        : 'hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 text-zinc-600 dark:text-zinc-400'
-                                                }`}
+                                                className="group flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs cursor-pointer transition-all duration-150"
+                                                style={{
+                                                    background: conv.id === currentConvId
+                                                        ? isDark ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.06)'
+                                                        : 'transparent',
+                                                    color: conv.id === currentConvId
+                                                        ? isDark ? 'rgba(130,170,255,0.95)' : 'rgba(59,130,246,0.9)'
+                                                        : isDark ? 'rgba(180,190,210,0.8)' : 'rgba(80,90,110,0.8)',
+                                                    borderLeft: conv.id === currentConvId
+                                                        ? '2px solid rgba(59,130,246,0.7)'
+                                                        : '2px solid transparent',
+                                                    borderRadius: '6px',
+                                                }}
                                             >
                                                 <span className="truncate min-w-0">{conv.title}</span>
                                                 <button
@@ -896,8 +960,20 @@ export default function AIChatPanel() {
                         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
                             {messages.length === 0 && !showConfigEditor && (
                                 <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mb-3 shadow-lg">
-                                        <Bot size={22} className="text-white" />
+                                    {/* Glowing orb avatar */}
+                                    <div className="relative mb-4">
+                                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center relative z-[1]"
+                                             style={{
+                                                 background: 'linear-gradient(135deg, rgba(59,130,246,0.9), rgba(139,92,246,0.9))',
+                                                 boxShadow: '0 4px 24px rgba(59,130,246,0.3), 0 0 40px rgba(139,92,246,0.15), inset 0 1px 2px rgba(255,255,255,0.2)',
+                                             }}>
+                                            <Bot size={24} className="text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" />
+                                        </div>
+                                        {/* Ambient glow ring */}
+                                        <div className="absolute inset-[-8px] rounded-3xl pointer-events-none"
+                                             style={{
+                                                 background: 'radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)',
+                                             }} />
                                     </div>
                                     <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                                         有什么可以帮你的？
@@ -911,8 +987,13 @@ export default function AIChatPanel() {
                                             <button
                                                 key={prompt}
                                                 onClick={() => setInput(prompt)}
-                                                className="px-2.5 py-1 text-[11px] rounded-full border border-zinc-200/40 dark:border-zinc-700/40
-                                                           hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 transition"
+                                                className="px-2.5 py-1 text-[11px] rounded-full transition-all duration-200 hover:scale-[1.03]"
+                                                style={{
+                                                    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+                                                    background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.6)',
+                                                    color: isDark ? 'rgba(200,210,230,0.7)' : 'rgba(100,110,130,0.8)',
+                                                    boxShadow: isDark ? '0 1px 4px rgba(0,0,0,0.1)' : '0 1px 4px rgba(0,0,0,0.04)',
+                                                }}
                                             >
                                                 {prompt}
                                             </button>
@@ -929,18 +1010,35 @@ export default function AIChatPanel() {
                                             className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center shadow-sm ${
                                                 isUser
                                                     ? 'bg-blue-500 text-white'
-                                                    : 'bg-gradient-to-br from-zinc-600 to-zinc-700 dark:from-zinc-500 dark:to-zinc-600 text-white'
+                                                    : 'text-white'
                                             }`}
+                                            style={!isUser ? {
+                                                background: 'linear-gradient(135deg, rgba(90,100,130,0.9), rgba(60,70,100,0.9))',
+                                                boxShadow: '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.1)',
+                                            } : undefined}
                                         >
                                             {isUser ? <User size={13} /> : <Bot size={13} />}
                                         </div>
                                         <div className={`max-w-[80%] space-y-1 ${isUser ? 'items-end' : 'items-start'}`}>
                                             <div
-                                                className={`rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
-                                                    isUser
-                                                        ? 'bg-blue-500 text-white rounded-br-md'
-                                                        : 'bg-zinc-100/80 dark:bg-zinc-800/80 text-zinc-800 dark:text-zinc-200 rounded-bl-md border border-zinc-200/30 dark:border-zinc-700/30'
-                                                }`}
+                                                className="rounded-2xl px-3 py-2 text-[13px] leading-relaxed"
+                                                style={isUser ? {
+                                                    background: 'linear-gradient(135deg, rgba(59,130,246,0.9), rgba(79,110,246,0.85))',
+                                                    color: 'white',
+                                                    borderRadius: '16px 16px 4px 16px',
+                                                    boxShadow: '0 2px 12px rgba(59,130,246,0.2), inset 0 1px 1px rgba(255,255,255,0.15)',
+                                                } : {
+                                                    background: isDark
+                                                        ? 'linear-gradient(135deg, rgba(35,40,60,0.7), rgba(25,30,50,0.6))'
+                                                        : 'linear-gradient(135deg, rgba(255,255,255,0.8), rgba(245,248,255,0.7))',
+                                                    color: isDark ? 'rgba(220,225,240,0.95)' : 'rgba(30,35,50,0.9)',
+                                                    borderRadius: '16px 16px 16px 4px',
+                                                    border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
+                                                    boxShadow: isDark
+                                                        ? '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.03)'
+                                                        : '0 2px 8px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.8)',
+                                                    backdropFilter: 'blur(8px)',
+                                                }}
                                             >
                                                 <Message role={msg.role} content={msg.content} />
                                             </div>
@@ -957,10 +1055,21 @@ export default function AIChatPanel() {
                             {/* Streaming indicator */}
                             {isStreaming && messages[messages.length - 1]?.id === 'streaming' && (
                                 <div className="flex items-start gap-2.5">
-                                    <div className="shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-700 dark:from-zinc-500 dark:to-zinc-600 flex items-center justify-center text-white shadow-sm">
+                                    <div className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-white shadow-sm"
+                                         style={{
+                                             background: 'linear-gradient(135deg, rgba(90,100,130,0.9), rgba(60,70,100,0.9))',
+                                             boxShadow: '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.1)',
+                                         }}>
                                         <Bot size={13} />
                                     </div>
-                                    <div className="rounded-2xl rounded-bl-md px-3 py-2 bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200/30 dark:border-zinc-700/30">
+                                    <div className="rounded-2xl rounded-bl-md px-3 py-2"
+                                         style={{
+                                             background: isDark
+                                                 ? 'linear-gradient(135deg, rgba(35,40,60,0.7), rgba(25,30,50,0.6))'
+                                                 : 'linear-gradient(135deg, rgba(255,255,255,0.8), rgba(245,248,255,0.7))',
+                                             border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
+                                             boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.04)',
+                                         }}>
                                         <LoadingDots />
                                     </div>
                                 </div>
@@ -970,7 +1079,13 @@ export default function AIChatPanel() {
                         </div>
 
                         {/* Input area */}
-                        <div className="shrink-0 px-3 py-2.5 border-t border-zinc-200/40 dark:border-zinc-700/40">
+                        <div className="shrink-0 px-3 py-2.5 relative"
+                             style={{
+                                 borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
+                                 background: isDark
+                                     ? 'linear-gradient(180deg, rgba(20,25,40,0.3), rgba(15,18,30,0.4))'
+                                     : 'linear-gradient(180deg, rgba(248,250,255,0.5), rgba(255,255,255,0.6))',
+                             }}>
                             <div className="flex items-end gap-2">
                                 <textarea
                                     ref={textareaRef}
@@ -980,11 +1095,30 @@ export default function AIChatPanel() {
                                     placeholder="输入消息... (Enter 发送)"
                                     disabled={isStreaming}
                                     rows={1}
-                                    className="flex-1 px-3 py-2 text-[13px] border border-zinc-200 dark:border-zinc-700 rounded-xl
-                                               bg-white/50 dark:bg-zinc-900/50 text-zinc-800 dark:text-zinc-200
-                                               outline-none focus:border-blue-400 resize-none disabled:opacity-50
-                                               min-h-[38px] max-h-[100px] transition"
-                                    style={{ height: 'auto' }}
+                                    className="flex-1 px-3 py-2 text-[13px] rounded-xl
+                                               text-zinc-800 dark:text-zinc-200
+                                               outline-none resize-none disabled:opacity-50
+                                               min-h-[38px] max-h-[100px] transition-all duration-200"
+                                    style={{
+                                        background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.7)',
+                                        border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+                                        boxShadow: isDark
+                                            ? 'inset 0 1px 4px rgba(0,0,0,0.15)'
+                                            : 'inset 0 1px 4px rgba(0,0,0,0.04), 0 1px 2px rgba(255,255,255,0.6)',
+                                        backdropFilter: 'blur(8px)',
+                                    }}
+                                    onFocus={(e) => {
+                                        e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)';
+                                        e.currentTarget.style.boxShadow = isDark
+                                            ? 'inset 0 1px 4px rgba(0,0,0,0.15), 0 0 0 3px rgba(59,130,246,0.1), 0 0 16px rgba(59,130,246,0.08)'
+                                            : 'inset 0 1px 4px rgba(0,0,0,0.04), 0 0 0 3px rgba(59,130,246,0.08), 0 0 16px rgba(59,130,246,0.06)';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+                                        e.currentTarget.style.boxShadow = isDark
+                                            ? 'inset 0 1px 4px rgba(0,0,0,0.15)'
+                                            : 'inset 0 1px 4px rgba(0,0,0,0.04), 0 1px 2px rgba(255,255,255,0.6)';
+                                    }}
                                     onInput={(e) => {
                                         const t = e.target as HTMLTextAreaElement;
                                         t.style.height = 'auto';
@@ -996,10 +1130,20 @@ export default function AIChatPanel() {
                                         ? () => (window.ai as any).cancel?.(currentRequestIdRef.current)
                                         : handleSend}
                                     disabled={!isStreaming && !input.trim()}
-                                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl transition shadow-sm"
+                                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200"
                                     style={isStreaming
-                                        ? { backgroundColor: '#ef4444', color: 'white' }
-                                        : { backgroundColor: '#3b82f6', color: 'white' }}
+                                        ? {
+                                            background: 'linear-gradient(135deg, rgba(239,68,68,0.9), rgba(220,50,50,0.85))',
+                                            color: 'white',
+                                            boxShadow: '0 2px 12px rgba(239,68,68,0.3), inset 0 1px 1px rgba(255,255,255,0.15)',
+                                        }
+                                        : {
+                                            background: 'linear-gradient(135deg, rgba(59,130,246,0.9), rgba(79,120,246,0.85))',
+                                            color: 'white',
+                                            boxShadow: input.trim()
+                                                ? '0 2px 12px rgba(59,130,246,0.35), inset 0 1px 1px rgba(255,255,255,0.15)'
+                                                : '0 2px 8px rgba(59,130,246,0.15)',
+                                        }}
                                 >
                                     {isStreaming ? <X size={15} /> : <Send size={14} />}
                                 </button>

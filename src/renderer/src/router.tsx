@@ -17,6 +17,7 @@ const OcrPage = lazy(() => import('./pages/OcrPage'));
 const OcrPagePP = lazy(() => import('./pages/OcrPagePP'));
 const RssPage = lazy(() => import('./pages/RssPage'));
 const FluidGlassPage = lazy(() => import('./pages/FluidGlassPage'));
+const DotnetBridgePage = lazy(() => import('./pages/DotnetBridgePage'));
 
 function PageLoader() {
     return (
@@ -58,6 +59,7 @@ export const router = createHashRouter([
                     { path: 'ocr', element: <Suspense fallback={<PageLoader />}><OcrPage /></Suspense>, handle: { fluid: true } },
                     { path: 'pp', element: <Suspense fallback={<PageLoader />}><OcrPagePP /></Suspense>, handle: { fluid: true } },
                     { path: 'fluid-glass', element: <Suspense fallback={<PageLoader />}><FluidGlassPage /></Suspense>, handle: { fluid: true } },
+                    { path: 'dotnet', element: <Suspense fallback={<PageLoader />}><DotnetBridgePage /></Suspense> },
                     { path: 'settings', element: <Suspense fallback={<PageLoader />}><SettingsPage /></Suspense> },
                 ],
             },
