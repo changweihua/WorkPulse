@@ -199,8 +199,13 @@ const api = {
       star: (id: number) => ipcRenderer.invoke('feed:articles:star', id),
       readAll: (feedId?: number) => ipcRenderer.invoke('feed:articles:readAll', feedId),
     },
-    exportPdf: (html: string, title: string) =>
-      ipcRenderer.invoke('feed:exportPdf', html, title),
+    exportPdf: (html: string, title: string, metadata?: { feedTitle?: string; author?: string; publishedAt?: string; url?: string }) =>
+      ipcRenderer.invoke('feed:exportPdf', html, title, metadata),
+    onExportPdfProgress: (cb: (data: { stage: string; percent: number }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { stage: string; percent: number }) => cb(data)
+      ipcRenderer.on('feed:exportPdf-progress', handler)
+      return () => ipcRenderer.removeListener('feed:exportPdf-progress', handler)
+    },
   },
   dotnet: {
     invoke: (method: string, ...args: unknown[]) =>

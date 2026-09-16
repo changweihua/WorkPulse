@@ -255,6 +255,36 @@ interface API {
   dotnet: {
     invoke: (method: string, ...args: unknown[]) => Promise<string | number>
   }
+  feed: {
+    add: (url: string, categoryId?: number | null) => Promise<any>
+    list: () => Promise<any[]>
+    update: (id: number, updates: Record<string, unknown>) => Promise<any>
+    delete: (id: number) => Promise<boolean>
+    refresh: (id: number) => Promise<{ newArticles: number }>
+    refreshAll: () => Promise<Array<{ feedId: number; result: { newArticles: number } }>>
+    importOpml: (xml: string) => Promise<{ feeds: any[]; categories: any[] }>
+    exportOpml: () => Promise<string>
+    categories: {
+      list: () => Promise<any[]>
+      add: (name: string) => Promise<any>
+      update: (id: number, name: string) => Promise<any>
+      delete: (id: number) => Promise<boolean>
+    }
+    articles: {
+      list: (feedId?: number, filter?: string, limit?: number, offset?: number) => Promise<any[]>
+      read: (id: number) => Promise<void>
+      unread: (id: number) => Promise<void>
+      star: (id: number) => Promise<void>
+      readAll: (feedId?: number) => Promise<void>
+    }
+    exportPdf: (html: string, title: string, metadata?: {
+      feedTitle?: string
+      author?: string
+      publishedAt?: string
+      url?: string
+    }) => Promise<{ success: boolean; filePath?: string }>
+    onExportPdfProgress: (cb: (data: { stage: string; percent: number }) => void) => () => void
+  }
 }
 
 declare global {

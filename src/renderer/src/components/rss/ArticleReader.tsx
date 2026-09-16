@@ -290,6 +290,33 @@ const components = {
 export default function ArticleReader() {
   const { articles, selectedArticleId, toggleStar } = useRssStore()
   const article = articles.find(a => a.id === selectedArticleId)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState({ stage: '', percent: 0 })
+
+  // 监听 PDF 导出进度事件（必须在早期返回之前）
+  useEffect(() => {
+    const unsub = window.api.feed.onExportPdfProgress?.((data) => {
+      setExportProgress(data)
+      if (data.stage === 'done' || data.percent >= 100) {
+        setTimeout(() => {
+          setExporting(false)
+          setExportProgress({ stage: '', percent: 0 })
+        }, 1500)
+      }
+    })
+    return () => { if (unsub) unsub() }
+  }, [])
+
+  // 导出超时安全网：15秒后强制重置
+  useEffect(() => {
+    if (!exporting) return
+    const timer = setTimeout(() => {
+      setExporting(false)
+      setExportProgress({ stage: '', percent: 0 })
+    }, 15000)
+    return () => clearTimeout(timer)
+  }, [exporting])
 
   if (!article) {
     return (
@@ -304,6 +331,32 @@ export default function ArticleReader() {
   }
 
   const content = article.content || article.summary || ''
+
+  const handleExportPdf = async () => {
+    if (!contentRef.current || exporting) return
+    setExporting(true)
+    setExportProgress({ stage: 'preparing', percent: 0 })
+
+    const renderedHtml = contentRef.current.innerHTML || content
+    const metadata = {
+      feedTitle: article.feed_title || '',
+      author: article.author || '',
+      publishedAt: article.published_at || '',
+      url: article.url || '',
+    }
+    try {
+      const result = await window.api.feed.exportPdf(renderedHtml, article.title, metadata)
+      if (result?.success) {
+        window.api.notification?.show?.({ title: 'PDF 已保存', body: result.filePath || '', urgency: 'normal' })
+      } else {
+        setExporting(false)
+        setExportProgress({ stage: '', percent: 0 })
+      }
+    } catch {
+      setExporting(false)
+      setExportProgress({ stage: '', percent: 0 })
+    }
+  }
 
   return (
     <div className="flex-1 h-full flex flex-col surface-card rounded-xl overflow-hidden">
@@ -350,16 +403,16 @@ export default function ArticleReader() {
             </button>
           )}
           <button
-            onClick={async () => {
-              const result = await window.api.feed.exportPdf(content, article.title)
-              if (result?.success) {
-                window.api.notification?.show?.({ title: 'PDF 已保存', body: result.filePath || '', urgency: 'normal' })
-              }
-            }}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)] transition-colors"
+            onClick={handleExportPdf}
+            disabled={exporting}
+            className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
+              exporting
+                ? 'text-[var(--color-text-tertiary)] cursor-not-allowed'
+                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)]'
+            }`}
           >
             <FileDown className="w-3.5 h-3.5" />
-            导出 PDF
+            {exporting ? '导出中...' : '导出 PDF'}
           </button>
         </div>
       </div>
@@ -367,7 +420,7 @@ export default function ArticleReader() {
       {/* Article content */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {content ? (
-          <div className="github-markdown-body">
+          <div className="github-markdown-body" ref={contentRef}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeHighlight]}
@@ -380,6 +433,83 @@ export default function ArticleReader() {
           <p className="text-sm text-[var(--color-text-tertiary)] italic">暂无内容</p>
         )}
       </div>
+
+      {/* PDF 导出进度条动画覆盖层 */}
+      {exporting && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
+          <div className="rounded-2xl p-8 min-w-[320px] text-center" style={{ background: 'var(--color-surface)', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            {/* 进度圆环 */}
+            <div className="relative w-16 h-16 mx-auto mb-5">
+              <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="28" fill="none" stroke="var(--color-border-subtle)" strokeWidth="4" />
+                <circle
+                  cx="32" cy="32" r="28" fill="none"
+                  stroke="var(--color-accent)" strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 28}`}
+                  strokeDashoffset={`${2 * Math.PI * 28 * (1 - exportProgress.percent / 100)}`}
+                  style={{ transition: 'stroke-dashoffset 0.4s ease-out' }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                {exportProgress.stage === 'done' ? (
+                  <svg className="w-7 h-7" style={{ color: '#22c55e' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" className="export-check-path" />
+                  </svg>
+                ) : (
+                  <span className="text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                    {exportProgress.percent}%
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* 状态文字 */}
+            <p className="text-sm font-medium mb-3" style={{ color: 'var(--color-text)' }}>
+              {exportProgress.stage === 'preparing' && '准备文档...'}
+              {exportProgress.stage === 'rendering' && '渲染页面...'}
+              {exportProgress.stage === 'generating' && '生成 PDF...'}
+              {exportProgress.stage === 'saving' && '保存文件...'}
+              {exportProgress.stage === 'done' && '导出完成 ✓'}
+            </p>
+
+            {/* 进度条 */}
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-inset)' }}>
+              <div
+                className="h-full rounded-full export-progress-bar"
+                style={{
+                  width: `${exportProgress.percent}%`,
+                  background: exportProgress.stage === 'done'
+                    ? '#22c55e'
+                    : 'linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, white))',
+                  transition: 'width 0.4s ease-out',
+                }}
+              />
+            </div>
+
+            {/* 隐藏的动画触发样式 */}
+            <style>{`
+              @keyframes exportCheckDraw {
+                from { stroke-dasharray: 24; stroke-dashoffset: 24; }
+                to { stroke-dasharray: 24; stroke-dashoffset: 0; }
+              }
+              .export-check-path {
+                animation: exportCheckDraw 0.4s ease-out forwards;
+              }
+              @keyframes exportProgressPulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.6; }
+              }
+              .export-progress-bar {
+                animation: exportProgressPulse 1.5s ease-in-out infinite;
+              }
+              [export-progress-done] .export-progress-bar {
+                animation: none;
+              }
+            `}</style>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
