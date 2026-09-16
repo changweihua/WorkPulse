@@ -376,12 +376,7 @@ export function registerFeedIpc(): void {
       printBackground: true,
       pageSize: 'A4',
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
-      headerFooter: {
-        left: `<span style="font-size:9px;color:#999;font-family:sans-serif">${metadata?.feedTitle || 'WorkPulse'}</span>`,
-        center: '',
-        right: `<span style="font-size:9px;color:#999;font-family:sans-serif">${articleDate}</span>`,
-      },
-    })
+    } as any)
 
     sendProgress('saving', 90)
     writeFileSync(filePath, pdfData)

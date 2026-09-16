@@ -5,7 +5,7 @@ import 'dotenv/config'
 import { enableCompileCache } from 'node:module'
 enableCompileCache()
 
-import { app, protocol, session, BrowserWindow, shell, ipcMain, screen, nativeTheme, globalShortcut } from 'electron'
+import { app, protocol, session, BrowserWindow, shell, ipcMain, screen, nativeTheme, globalShortcut, powerMonitor } from 'electron'
 import path, { join } from 'path'
 import { createReadStream } from 'fs'
 import fs from 'fs/promises'
@@ -36,8 +36,8 @@ import { loadDotNet } from './asar-dotnet-loader'
 log.initialize()
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'info'
 log.transports.file.level = 'info'
-log.transports.file.processor = createSanitizingProcessor(log.transports.file.processor)
-log.transports.console.processor = createSanitizingProcessor(log.transports.console.processor)
+;(log.transports.file as any).processor = createSanitizingProcessor((log.transports.file as any).processor)
+;(log.transports.console as any).processor = createSanitizingProcessor((log.transports.console as any).processor)
 
 // ── V8 堆限制 + GPU 缓存重定向 ──
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512')
@@ -176,9 +176,20 @@ function createWindow(): void {
 
   mainWindow.on('minimize', () => { appBus.emit(SHOW_RADIAL, mainWindow) })
 
-  mainWindow.webContents.setWindowOpenHandler(async (details) => {
-    await safeOpenExternal(details.url, shell)
-    return { action: 'deny' }
+  mainWindow.webContents.setWindowOpenHandler((details) => {
+    void safeOpenExternal(details.url, shell)
+    return { action: 'deny' as const }
+  })
+
+  // ── 导航锁：防止页面被劫持跳转到外部 URL ──
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    // 开发模式允许 Vite HMR
+    if (is.dev && url.startsWith(process.env['ELECTRON_RENDERER_URL'] ?? '')) return
+    // file: 协议允许（本地构建产物）
+    if (url.startsWith('file:')) return
+    // 其他一律阻止，在外部浏览器打开
+    event.preventDefault()
+    if (/^https?:/.test(url)) void shell.openExternal(url)
   })
 
   log.info('[Main] 📋 Loading URL...')
@@ -278,6 +289,22 @@ app.whenReady().then(async () => {
   verifyIntegrity()
   registerAttachmentProtocol()
 
+  // ── 权限拦截（P0）：防止恶意脚本申请摄像头/麦克风/位置 ──
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const ALLOWED: Record<string, boolean> = {
+      'notifications': true,
+      'clipboard-read': true,
+      'fullscreen': true,
+      'pointer-lock': true,
+    }
+    if (ALLOWED[permission]) {
+      callback(true)
+    } else {
+      log.warn(`[Security] 🚫 拒绝权限请求: ${permission}`)
+      callback(false)
+    }
+  })
+
   // Phase 2: 核心基础设施
   registerDotnetIpc()
   if (!is.dev) {
@@ -351,6 +378,20 @@ app.whenReady().then(async () => {
   const onQuit = () => { isQuitting = true; app.quit() }
   buildMenu(sendToRenderer)
   createTray(sendToRenderer, onQuit)
+
+  // ── 电源管理（P1）：系统休眠/恢复时暂停/恢复调度器 ──
+  powerMonitor.on('suspend', () => {
+    log.info('[Power] 💤 系统即将休眠，暂停调度器')
+    stopScheduler()
+  })
+
+  powerMonitor.on('resume', () => {
+    log.info('[Power] ⚡ 系统恢复，重启调度器')
+    // 延迟 2 秒后恢复，等待网络和系统服务就绪
+    setTimeout(() => {
+      startScheduler(getMainWindow)
+    }, 2000)
+  })
 
   // Phase 6: 事件驱动 — 主窗口 ↔ 径向菜单互斥显示
   appBus.on(SHOW_MAIN, () => {

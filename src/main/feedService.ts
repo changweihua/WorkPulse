@@ -116,7 +116,7 @@ function domParseItems(parsed: ReturnType<typeof parseFeed>): FeedItem[] {
   const { format, feed } = parsed
   const items: FeedItem[] = []
 
-  for (const item of feed.items ?? []) {
+  for (const item of (feed as any).items ?? []) {
     let guid: string | null = null
     let title = 'Untitled'
     let url: string | null = null
@@ -217,8 +217,8 @@ export async function fetchAndParseFeed(url: string): Promise<{
     const items = domParseItems(parsed)
     return {
       title: (parsed.feed.title as string) ?? new URL(url).hostname,
-      description: (parsed.feed.description as string) ?? null,
-      siteUrl: (parsed.feed.link as string) ?? null,
+      description: (parsed.feed as any).description ?? null,
+      siteUrl: (parsed.feed as any).link ?? null,
       faviconUrl: null,
       items,
     }
