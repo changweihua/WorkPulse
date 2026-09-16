@@ -252,6 +252,9 @@ interface API {
     remove: (uri: string) => Promise<{ ok: boolean }>
     rebuild: () => Promise<{ ok: boolean }>
   }
+  dotnet: {
+    invoke: (method: string, ...args: unknown[]) => Promise<string | number>
+  }
 }
 
 declare global {

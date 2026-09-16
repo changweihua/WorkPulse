@@ -673,6 +673,9 @@ app.whenReady().then(async () => {
   // 模型本地缓存协议：appmodel://models/<modelId>/resolve/main/<file>
   registerAttachmentProtocol()
 
+  // .NET Bridge IPC
+  registerDotnetIpc()
+
   // ===== Content Security Policy (CSP) =====
   // Inject CSP headers on all responses to restrict resource loading in the renderer.
   // Must be set before any BrowserWindow is created so all windows inherit the policy.
@@ -1190,5 +1193,25 @@ export function registerAutoLaunchIpc(): void {
       }
     }
     return { success: true }
+  })
+}
+
+// --- .NET Bridge IPC ---
+function registerDotnetIpc(): void {
+  ipcMain.handle('dotnet:invoke', async (_event, method: string, ...args: unknown[]) => {
+    await ensureDotNet()
+    if (!dotnetLib?.NativeBridge) {
+      throw new Error('.NET Bridge not loaded')
+    }
+    const fn = dotnetLib.NativeBridge[method]
+    if (typeof fn !== 'function') {
+      throw new Error(`Unknown method: ${method}`)
+    }
+    try {
+      return fn(...args)
+    } catch (err: unknown) {
+      log.error(`[Dotnet] ${method} failed:`, err)
+      throw err
+    }
   })
 }
