@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from 'react'
+import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Cpu, HardDrive, Hash, FileCode, X, Loader2 } from 'lucide-react'
 
@@ -16,6 +16,8 @@ const ACTIONS: FabAction[] = [
   { key: 'hash-file', icon: <FileCode className="w-4 h-4" />, label: 'Hash File', color: 'bg-orange-500 hover:bg-orange-600' },
 ]
 
+const DRAG_THRESHOLD = 5 // px，超过此距离视为拖拽
+
 export function DotnetFAB(): ReactNode {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -24,6 +26,13 @@ export function DotnetFAB(): ReactNode {
   const [showHashInput, setShowHashInput] = useState(false)
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  // 拖拽状态
+  const [pos, setPos] = useState<{ x: number; y: number }>({ x: -1, y: -1 }) // -1 = 使用 CSS 默认定位
+  const isDraggingRef = useRef(false)
+  const dragStartRef = useRef<{ x: number; y: number; origX: number; origY: number } | null>(null)
+  const didDragRef = useRef(false)
+  const fabRef = useRef<HTMLDivElement>(null)
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -37,6 +46,51 @@ export function DotnetFAB(): ReactNode {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
+
+  // 拖拽：mousedown
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const origX = pos.x === -1 ? window.innerWidth - 24 - 56 : pos.x // 24px = right-6, 56px = w-14
+    const origY = pos.y === -1 ? window.innerHeight - 24 - 56 : pos.y // 24px = bottom-6, 56px = h-14
+    dragStartRef.current = { x: e.clientX, y: e.clientY, origX, origY }
+    didDragRef.current = false
+
+    const onMouseMove = (me: MouseEvent) => {
+      if (!dragStartRef.current) return
+      const dx = me.clientX - dragStartRef.current.x
+      const dy = me.clientY - dragStartRef.current.y
+      if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+        didDragRef.current = true
+        isDraggingRef.current = true
+        document.body.style.userSelect = 'none'
+      }
+      if (isDraggingRef.current) {
+        const newX = dragStartRef.current.origX + dx
+        const newY = dragStartRef.current.origY + dy
+        setPos({ x: newX, y: newY })
+      }
+    }
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+      document.body.style.userSelect = ''
+      isDraggingRef.current = false
+      dragStartRef.current = null
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [pos])
+
+  // 点击（非拖拽）
+  const handleClick = useCallback(() => {
+    if (didDragRef.current) return
+    setOpen((prev) => {
+      if (prev) setShowHashInput(false)
+      return !prev
+    })
+  }, [])
 
   const handleAction = async (key: string): Promise<void> => {
     if (key === 'hash-text') {
@@ -94,27 +148,44 @@ export function DotnetFAB(): ReactNode {
     }
   }
 
+  // 计算 FAB 定位样式
+  const fabStyle: React.CSSProperties = pos.x !== -1
+    ? { left: pos.x, top: pos.y, position: 'fixed' as const }
+    : { right: 24, bottom: 24, position: 'fixed' as const }
+
+  // 菜单跟随 FAB 定位
+  const menuStyle: React.CSSProperties = pos.x !== -1
+    ? { left: pos.x, bottom: 'auto', top: pos.y - 8 - 200, position: 'fixed' as const }
+    : { right: 24, bottom: 88, position: 'fixed' as const }
+
   return (
     <>
-      {/* FAB 主按钮 */}
-      <motion.button
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setOpen(!open)}
+      {/* FAB 主按钮 — 可拖拽 */}
+      <div
+        ref={fabRef}
+        style={fabStyle}
+        className="z-50"
+        onMouseDown={handleMouseDown}
       >
-        <AnimatePresence mode="wait">
-          {open ? (
-            <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }}>
-              <X className="w-6 h-6" />
-            </motion.div>
-          ) : (
-            <motion.div key="dotnet" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }}>
-              <span className="text-lg font-bold">.N</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.button>
+        <motion.div
+          className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl transition-shadow flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleClick}
+        >
+          <AnimatePresence mode="wait">
+            {open ? (
+              <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }}>
+                <X className="w-6 h-6" />
+              </motion.div>
+            ) : (
+              <motion.div key="dotnet" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }}>
+                <span className="text-lg font-bold">.N</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </div>
 
       {/* 展开菜单 */}
       <AnimatePresence>
@@ -124,7 +195,8 @@ export function DotnetFAB(): ReactNode {
             initial={{ opacity: 0, y: 20, scale: 0.8 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.8 }}
-            className="fixed bottom-22 right-6 z-50 bg-white dark:bg-zinc-800 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 p-2 min-w-[180px]"
+            style={menuStyle}
+            className="z-50 bg-white dark:bg-zinc-800 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 p-2 min-w-[180px]"
           >
             {/* 哈希输入框 */}
             {showHashInput && (
