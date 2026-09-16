@@ -38,20 +38,14 @@
 
 ### ⚠️ Windows 下写 commit message 的正确方式
 
-Shell 工具和 Python `open()` 在 Windows 上默认使用 GBK 编码，emoji 字符会丢失或乱码。**必须**使用以下模式：
+Shell 工具在 Windows 上默认使用 GBK 编码，emoji 字符会丢失或乱码。**必须**使用 pwsh 写入临时文件：
 
-```python
-python -c "
-import sys; sys.stdout.reconfigure(encoding='utf-8')
-msg = '\U0001f433 chore: release v0.2.23'
-with open('C:/Users/CHANGW~1/AppData/Local/Temp/opencode/COMMIT_MSG', 'w', encoding='utf-8') as f:
-    f.write(msg)
-" && git commit -F "C:/Users/CHANGW~1/AppData/Local/Temp/opencode/COMMIT_MSG"
+```powershell
+pwsh -Command "[System.IO.File]::WriteAllText('C:\Users\Changweihua\AppData\Local\Temp\opencode\COMMIT_MSG', '🐳 chore: release v0.3.4', [System.Text.Encoding]::UTF8)" && git commit -F "C:\Users\Changweihua\AppData\Local\Temp\opencode\COMMIT_MSG"
 ```
 
 **关键点：**
-- `open()` 必须加 `encoding='utf-8'`
-- `sys.stdout.reconfigure(encoding='utf-8')` 防止 print 报错
+- 使用 `[System.IO.File]::WriteAllText()` + `[System.Text.Encoding]::UTF8` 确保 UTF-8 编码
 - **禁止** `git commit -m "emoji msg"` — shell 在插值字符串中会破坏 emoji
 - **禁止** 随意使用 `--no-verify` — 仅在 hook 真的 broken 时使用
 
@@ -82,7 +76,7 @@ with open('C:/Users/CHANGW~1/AppData/Local/Temp/opencode/COMMIT_MSG', 'w', encod
 | **1** | `npx bumpp X.Y.Z --no-git-checks` | 升 package.json 版本，自动生成 git tag |
 | **2** | `npx tsx scripts/sync-version.ts` | 同步 .env、splash.html 到新版本（必须在 step 1 之后） |
 | **3** | `git add package.json package-lock.json .env resources/splash.html` | 暂存所有版本相关文件 |
-| **4** | `python -c "..." && git commit -F "..."` | 用 🐳 chore: release vX.Y.Z 提交 |
+| **4** | `pwsh -Command "..." && git commit -F "..."` | 用 🐳 chore: release vX.Y.Z 提交 |
 | **5** | `git push && git push --tags` | 推送 commits + tag |
 
 **⚠️ 常见错误（已犯过，禁止再犯）：**
