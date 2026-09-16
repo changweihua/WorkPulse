@@ -30,7 +30,7 @@ export function translate(
   key: TranslationKey,
   values?: Record<string, string | number>
 ): string {
-  const template = translations[language][key] ?? translations.en[key]
+  const template = translations[language][key] ?? translations.en[key] ?? key
   return interpolate(template, values)
 }
 

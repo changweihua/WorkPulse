@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Link, useLocation, useMatches, useNavigate } from 'react-router-dom';
 import AnimatedOutlet from '../components/AnimatedOutlet';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AnimatePresence, motion } from 'motion/react';
 import { Icon } from '@iconify/react';
 import {
@@ -351,7 +352,9 @@ export default function NavLayout() {
             {/* ===== Main content area ===== */}
             <div ref={scrollRef} className="flex-1 min-w-0 overflow-auto" onScroll={handleScroll}>
                 <div className={fluid ? 'h-full' : 'max-w-5xl mx-auto px-4 py-6'}>
-                    <AnimatedOutlet />
+                    <ErrorBoundary>
+                        <AnimatedOutlet />
+                    </ErrorBoundary>
                 </div>
 
                 {/* Scroll-to-top button */}

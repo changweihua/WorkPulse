@@ -618,6 +618,7 @@ export const translations = {
 export type TranslationKey = keyof typeof translations.zh
 
 export function interpolate(template: string, values: Record<string, string | number> = {}): string {
+  if (typeof template !== 'string') return String(template ?? '')
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => String(values[key] ?? ''))
 }
 
