@@ -188,12 +188,12 @@ export default function NavLayout() {
 
             {/* ===== Sidebar ===== */}
             <motion.aside
-                className="flex flex-col shrink-0 h-full
-                           surface-sidebar select-none z-30"
+                className="flex flex-col shrink-0 h-[calc(100%-24px)] my-3 ml-3
+                           surface-sidebar select-none z-30 rounded-2xl"
                 style={{
                     boxShadow: collapsed
-                        ? '2px 0 12px rgba(0,0,0,0.03)'
-                        : '4px 0 24px rgba(0,0,0,0.06)',
+                        ? '0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)'
+                        : '0 8px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.05)',
                 }}
                 animate={{ width: sidebarWidth }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
