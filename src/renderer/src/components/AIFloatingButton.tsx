@@ -1,12 +1,12 @@
 /**
  * AIFloatingButton — Global floating action button for the AI chat panel.
- * Fixed bottom-right, always visible, toggles the AIChatPanel via aiPanelStore.
- * Shifts left when the panel is open so it remains visible and accessible.
+ * Fixed position, draggable with localStorage persistence.
+ * Toggles the AIChatPanel via aiPanelStore.
  *
  * Liquid Glass Personality: breathing animation, gradient glass surface,
  * blue glow shadows, radial icon aura, glass tooltip.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bot } from 'lucide-react';
 import { useAIPanelStore } from '../stores/aiPanelStore';
@@ -15,35 +15,67 @@ const PANEL_WIDTH = 420;
 const FAB_SIZE = 56;
 const GAP = 20;
 const MOBILE_BREAKPOINT = 768;
+const DRAG_THRESHOLD = 5;
+const STORAGE_KEY = 'ai-fab-position';
 
-/* ─── CSS Keyframes for breathing animation ────────────────────── */
+/* ─── CSS Keyframes ────────────────────────────────────────────── */
 const BREATHING_CSS = `
 @keyframes ai-fab-breathe {
   0%, 100% { transform: scale(1); box-shadow: 0 4px 20px rgba(59,130,246,0.12), 0 0 0 1px rgba(255,255,255,0.1), inset 0 1px 1px rgba(255,255,255,0.15); }
   50% { transform: scale(1.04); box-shadow: 0 6px 28px rgba(59,130,246,0.2), 0 0 12px rgba(59,130,246,0.08), 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 2px rgba(255,255,255,0.2); }
 }
-@keyframes ai-fab-glow-pulse {
-  0%, 100% { opacity: 0.5; transform: scale(0.9); }
-  50% { opacity: 0.9; transform: scale(1.1); }
-}
-@keyframes ai-ring-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+@keyframes ai-fab-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.82); }
+  60% { transform: scale(1.12); }
+  80% { transform: scale(0.97); }
+  100% { transform: scale(1); }
 }
 `;
+
+/** Load saved position from localStorage, clamped to viewport */
+function loadSavedPosition(): { bottom: number; right: number } | null {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const pos = JSON.parse(raw);
+        if (typeof pos.bottom !== 'number' || typeof pos.right !== 'number') return null;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        return {
+            right: Math.max(GAP, Math.min(pos.right, vw - FAB_SIZE - GAP)),
+            bottom: Math.max(GAP, Math.min(pos.bottom, vh - FAB_SIZE - GAP)),
+        };
+    } catch {
+        return null;
+    }
+}
 
 export default function AIFloatingButton() {
     const { open, togglePanel } = useAIPanelStore();
     const [hovered, setHovered] = useState(false);
-    const [mounted, setMounted] = useState(false);
     const [isMobile, setIsMobile] = useState(() =>
         typeof window !== 'undefined' ? window.innerWidth < MOBILE_BREAKPOINT : false
     );
 
+    // ── Drag state ──
+    const [position, setPosition] = useState<{ bottom: number; right: number }>(
+        () => loadSavedPosition() || { bottom: GAP + 80, right: GAP }
+    );
+    const [isDragging, setIsDragging] = useState(false);
+    const dragStartRef = useRef<{ x: number; y: number; posX: number; posY: number } | null>(null);
+    const hasDraggedRef = useRef(false);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+
+    // ── Pop animation key — forces re-mount to trigger entrance animation ──
+    const [popKey, setPopKey] = useState(0);
+    const prevOpenRef = useRef(open);
     useEffect(() => {
-        const timer = requestAnimationFrame(() => setMounted(true));
-        return () => cancelAnimationFrame(timer);
-    }, []);
+        if (prevOpenRef.current !== open) {
+            prevOpenRef.current = open;
+            setPopKey((k) => k + 1);
+        }
+    }, [open]);
 
     useEffect(() => {
         const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
@@ -53,14 +85,66 @@ export default function AIFloatingButton() {
         return () => mq.removeEventListener('change', handler);
     }, []);
 
+    // ── Drag handlers ──
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        if (e.button !== 0) return;
+        dragStartRef.current = {
+            x: e.clientX,
+            y: e.clientY,
+            posX: position.right,
+            posY: position.bottom,
+        };
+        hasDraggedRef.current = false;
+    }, [position]);
+
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (!dragStartRef.current) return;
+        const dx = e.clientX - dragStartRef.current.x;
+        const dy = e.clientY - dragStartRef.current.y;
+        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+            hasDraggedRef.current = true;
+            setIsDragging(true);
+        }
+        if (!hasDraggedRef.current) return;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        setPosition({
+            right: Math.max(GAP, Math.min(dragStartRef.current.posX - dx, vw - FAB_SIZE - GAP)),
+            bottom: Math.max(GAP, Math.min(dragStartRef.current.posY - dy, vh - FAB_SIZE - GAP)),
+        });
+    }, []);
+
+    const handleMouseUp = useCallback(() => {
+        if (!dragStartRef.current) return;
+        const wasDragging = hasDraggedRef.current;
+        dragStartRef.current = null;
+        if (wasDragging) {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(position)); } catch { /* ignore */ }
+            setTimeout(() => setIsDragging(false), 50);
+        }
+    }, [position]);
+
+    useEffect(() => {
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [handleMouseMove, handleMouseUp]);
+
+    const handleClick = useCallback(() => {
+        if (hasDraggedRef.current) return;
+        togglePanel();
+    }, [togglePanel]);
+
     if (isMobile) return null;
 
     const isDark = typeof document !== 'undefined' &&
         document.documentElement.classList.contains('dark');
 
-    const isIdle = !open && !hovered;
+    const isIdle = !open && !hovered && !isDragging;
 
-    /* ─── Dynamic style values ─── */
     const fabBackground = open
         ? isDark
             ? 'linear-gradient(135deg, rgba(40,50,90,0.75) 0%, rgba(25,35,70,0.65) 50%, rgba(50,60,110,0.55) 100%)'
@@ -84,41 +168,34 @@ export default function AIFloatingButton() {
             <style>{BREATHING_CSS}</style>
 
             <motion.button
-                onClick={togglePanel}
+                key={popKey}
+                ref={buttonRef}
+                onClick={handleClick}
+                onMouseDown={handleMouseDown}
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
-                initial={{ opacity: 0, scale: 0.7, right: GAP }}
-                animate={{
-                    opacity: mounted ? 1 : 0,
-                    scale: mounted ? 1 : 0.7,
-                    right: open ? PANEL_WIDTH + GAP : GAP,
-                }}
-                transition={{
-                    right: { type: 'spring', stiffness: 200, damping: 28 },
-                    opacity: { duration: 0.4, delay: 0.15 },
-                    scale: { type: 'spring', stiffness: 300, damping: 22, delay: 0.15 },
-                }}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.92 }}
-                className="fixed bottom-6 z-35
-                           rounded-full
+                initial={{ scale: 0.6, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                whileHover={{ scale: isDragging ? 1 : 1.08 }}
+                whileTap={{ scale: isDragging ? 1 : 0.92 }}
+                className={`fixed z-[35] w-[56px] h-[56px] rounded-full
                            flex items-center justify-center
-                           backdrop-blur-xl
-                           cursor-pointer
-                           outline-none
-                           focus-visible:ring-2 focus-visible:ring-blue-400/70"
+                           backdrop-blur-xl outline-none
+                           focus-visible:ring-2 focus-visible:ring-blue-400/70
+                           ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
                 style={{
-                    width: FAB_SIZE,
-                    height: FAB_SIZE,
+                    bottom: position.bottom,
+                    right: position.right,
                     background: fabBackground,
                     boxShadow: fabShadow,
                     border: fabBorder,
                     animation: isIdle ? 'ai-fab-breathe 3s ease-in-out infinite' : 'none',
-                    transition: 'background 0.4s ease, box-shadow 0.4s ease, border-color 0.3s ease',
+                    transition: 'background 0.4s ease, box-shadow 0.4s ease, border-color 0.3s ease, bottom 0.3s cubic-bezier(0.22,1,0.36,1), right 0.3s cubic-bezier(0.22,1,0.36,1)',
                 }}
                 aria-label="AI 助手"
             >
-                {/* ─── Radial icon aura ─── */}
+                {/* Radial icon aura */}
                 <div
                     className="absolute inset-0 rounded-full pointer-events-none"
                     style={{
@@ -129,7 +206,7 @@ export default function AIFloatingButton() {
                     }}
                 />
 
-                {/* ─── Bot icon with animated swap ─── */}
+                {/* Bot icon with animated swap */}
                 <AnimatePresence mode="wait">
                     {open ? (
                         <motion.div
@@ -164,7 +241,7 @@ export default function AIFloatingButton() {
                     )}
                 </AnimatePresence>
 
-                {/* ─── Active ring — gradient border + glow when panel is open ─── */}
+                {/* Active ring when panel is open */}
                 <AnimatePresence>
                     {open && (
                         <motion.span
@@ -183,9 +260,9 @@ export default function AIFloatingButton() {
                     )}
                 </AnimatePresence>
 
-                {/* ─── Glass tooltip ─── */}
+                {/* Glass tooltip */}
                 <AnimatePresence>
-                    {hovered && !open && (
+                    {hovered && !open && !isDragging && (
                         <motion.div
                             initial={{ opacity: 0, y: 6, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -196,14 +273,10 @@ export default function AIFloatingButton() {
                                        text-xs font-medium whitespace-nowrap
                                        pointer-events-none"
                             style={{
-                                background: isDark
-                                    ? 'rgba(25,28,45,0.82)'
-                                    : 'rgba(255,255,255,0.82)',
+                                background: isDark ? 'rgba(25,28,45,0.82)' : 'rgba(255,255,255,0.82)',
                                 backdropFilter: 'blur(16px) saturate(150%)',
                                 WebkitBackdropFilter: 'blur(16px) saturate(150%)',
-                                border: isDark
-                                    ? '1px solid rgba(255,255,255,0.08)'
-                                    : '1px solid rgba(255,255,255,0.35)',
+                                border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(255,255,255,0.35)',
                                 color: isDark ? 'rgba(220,225,240,0.95)' : 'rgba(30,35,50,0.9)',
                                 boxShadow: isDark
                                     ? '0 4px 24px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05)'
@@ -216,11 +289,7 @@ export default function AIFloatingButton() {
                                            border-l-[5px] border-l-transparent
                                            border-r-[5px] border-r-transparent
                                            border-t-[5px]"
-                                style={{
-                                    borderTopColor: isDark
-                                        ? 'rgba(25,28,45,0.82)'
-                                        : 'rgba(255,255,255,0.82)',
-                                }}
+                                style={{ borderTopColor: isDark ? 'rgba(25,28,45,0.82)' : 'rgba(255,255,255,0.82)' }}
                             />
                         </motion.div>
                     )}

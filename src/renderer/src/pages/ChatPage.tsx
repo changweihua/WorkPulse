@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Message } from '@fauzitech/ai-ui';
 // @ts-ignore
 import '@fauzitech/ai-ui/styles.css';
-import { recoverConversations, recoverConfigs, saveConversation, saveConversationsBatch, saveConfig, canWrite, getCacheStatus, onSyncEvent } from '../lib/chat-storage';
+import { recoverConversations, recoverConfigs, saveConversation, saveConversationsBatch, saveConfig, canWrite, getCacheStatus, onSyncEvent, deleteConversation as deleteConversationFromDB } from '../lib/chat-storage';
 import {
     Bot,
     User,
@@ -1044,8 +1044,8 @@ export default function ChatPage() {
     }, [currentConfigId, isHydrated]);
     useEffect(() => {
         if (!isHydrated) return;
-        // Save conversations to IndexedDB (stable snapshot filtering applied inside)
-        conversations.forEach((conv) => {
+        // Save conversations to IndexedDB (only those with messages)
+        conversations.filter((conv) => conv.messages.length > 0).forEach((conv) => {
             saveConversation(conv).catch(console.error);
         });
     }, [conversations, isHydrated]);
@@ -1184,17 +1184,8 @@ export default function ChatPage() {
 
     // 新建会话
     const newConversation = useCallback(() => {
-        const conv: Conversation = {
-            id: crypto.randomUUID(),
-            title: '新会话',
-            modelId: currentConfigId,
-            messages: [],
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-        };
-        setConversations((prev) => [conv, ...prev]);
-        setCurrentConvId(conv.id);
-    }, [currentConfigId]);
+        setCurrentConvId(crypto.randomUUID());
+    }, []);
 
     // 删除会话
     const deleteConversation = useCallback((id: string) => {
@@ -1202,6 +1193,7 @@ export default function ChatPage() {
         if (currentConvId === id) {
             setCurrentConvId('');
         }
+        deleteConversationFromDB(id).catch(console.error);
     }, [currentConvId]);
 
     // 发送

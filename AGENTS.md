@@ -1,5 +1,11 @@
 # WorkPulse Project Rules
 
+## 语言规范
+
+- **所有对话、注释、提交信息、文档必须使用中文**
+- AI Agent 与用户的交互一律使用中文，包括代码注释和变量命名说明
+- 唯一例外：代码本身（变量名、函数名、类型名等）保持英文
+
 ## Commitlint 规则
 
 使用 `git-commit-emoji` 格式（extend: `git-commit-emoji`）。

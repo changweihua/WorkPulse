@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { Message } from '@fauzitech/ai-ui';
 import { useAIPanelStore } from '../stores/aiPanelStore';
-import { recoverConversations, recoverConfigs, saveConversation, saveConfig, onSyncEvent } from '../lib/chat-storage';
+import { recoverConversations, recoverConfigs, saveConversation, saveConfig, onSyncEvent, deleteConversation as deleteConversationFromDB } from '../lib/chat-storage';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface ModelConfig {
@@ -488,7 +488,7 @@ export default function AIChatPanel() {
     }, [configs, isHydrated]);
     useEffect(() => {
         if (!isHydrated) return;
-        conversations.forEach((conv) => {
+        conversations.filter((conv) => conv.messages.length > 0).forEach((conv) => {
             saveConversation(conv).catch(console.error);
         });
     }, [conversations, isHydrated]);
@@ -645,24 +645,16 @@ export default function AIChatPanel() {
 
     // ── Actions ──
     const newConversation = useCallback(() => {
-        const conv: Conversation = {
-            id: crypto.randomUUID(),
-            title: '新会话',
-            modelId: currentConfigId,
-            messages: [],
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-        };
-        setConversations((prev) => [conv, ...prev]);
-        setCurrentConvId(conv.id);
+        setCurrentConvId(crypto.randomUUID());
         setShowConvList(false);
-    }, [currentConfigId]);
+    }, []);
 
     const deleteConversation = useCallback((id: string) => {
         setConversations((prev) => prev.filter((c) => c.id !== id));
         if (currentConvId === id) {
             setCurrentConvId('');
         }
+        deleteConversationFromDB(id).catch(console.error);
     }, [currentConvId]);
 
     const handleSend = async () => {
@@ -775,63 +767,88 @@ export default function AIChatPanel() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="fixed inset-0 z-40 backdrop-blur-[4px]"
-                        style={{ top: 44, background: isDark ? 'linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.5))' : 'linear-gradient(135deg, rgba(0,0,0,0.15), rgba(0,0,0,0.25))' }}
+                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                        className="fixed inset-0 z-40"
+                        style={{
+                            top: 44,
+                            background: isDark
+                                ? 'linear-gradient(135deg, rgba(0,0,0,0.2), rgba(0,0,0,0.35))'
+                                : 'linear-gradient(135deg, rgba(0,0,0,0.1), rgba(0,0,0,0.18))',
+                            backdropFilter: 'blur(3px)',
+                            WebkitBackdropFilter: 'blur(3px)',
+                        }}
                         onClick={closePanel}
                     />
 
                     {/* Panel */}
                     <motion.div
                         key="ai-panel"
-                        initial={{ x: '100%' }}
-                        animate={{ x: 0 }}
-                        exit={{ x: '100%' }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                        initial={{ x: '100%', opacity: 0, scale: 0.95, filter: 'blur(8px)' }}
+                        animate={{ x: 0, opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                        exit={{ x: '100%', opacity: 0, scale: 0.97, filter: 'blur(4px)' }}
+                        transition={{
+                            type: 'spring',
+                            stiffness: 320,
+                            damping: 30,
+                            opacity: { duration: 0.25 },
+                            scale: { duration: 0.3 },
+                            filter: { duration: 0.3 },
+                        }}
                         className="fixed top-[44px] right-0 bottom-0 z-40 w-[420px]
                                    flex flex-col overflow-hidden"
                         style={{
                             background: isDark
-                                ? 'linear-gradient(180deg, rgba(22,25,38,0.97) 0%, rgba(18,20,32,0.96) 100%)'
-                                : 'linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(248,250,255,0.96) 100%)',
-                            backdropFilter: 'blur(24px) saturate(180%)',
-                            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-                            borderLeft: isDark
-                                ? '1px solid rgba(255,255,255,0.08)'
-                                : '1px solid rgba(0,0,0,0.06)',
+                                ? 'linear-gradient(180deg, rgba(22,25,38,0.95) 0%, rgba(18,20,32,0.93) 100%)'
+                                : 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(245,248,255,0.90) 100%)',
+                            backdropFilter: 'blur(32px) saturate(200%)',
+                            WebkitBackdropFilter: 'blur(32px) saturate(200%)',
+                            borderLeft: 'none',
                             boxShadow: isDark
-                                ? '-12px 0 48px rgba(0,0,0,0.35), -2px 0 16px rgba(0,0,0,0.2), inset 1px 0 0 rgba(255,255,255,0.04)'
-                                : '-12px 0 48px rgba(59,130,246,0.08), -2px 0 16px rgba(0,0,0,0.05), inset 1px 0 0 rgba(255,255,255,0.8)',
+                                ? '-16px 0 60px rgba(0,0,0,0.4), -4px 0 20px rgba(0,0,0,0.25), inset 1px 0 0 rgba(255,255,255,0.05), 0 0 80px rgba(59,130,246,0.03)'
+                                : '-16px 0 60px rgba(0,0,0,0.08), -4px 0 20px rgba(0,0,0,0.04), inset 1px 0 0 rgba(255,255,255,0.9), 0 0 80px rgba(59,130,246,0.04)',
+                            borderRadius: '16px 0 0 16px',
                         }}
                     >
-                        {/* Liquid glass caustic overlay — removed: panel now uses backdrop-filter glass */}
+                        {/* ─── Animated gradient border on left edge ─── */}
+                        <div className="absolute top-0 left-0 bottom-0 w-[2px] pointer-events-none z-[1]"
+                             style={{
+                                 background: 'linear-gradient(180deg, rgba(59,130,246,0.5) 0%, rgba(139,92,246,0.3) 30%, rgba(99,180,255,0.4) 60%, rgba(139,92,246,0.2) 100%)',
+                                 boxShadow: '0 0 12px rgba(59,130,246,0.15), 0 0 24px rgba(139,92,246,0.08)',
+                             }} />
+
+                        {/* ─── Subtle top glow line ─── */}
+                        <div className="absolute top-0 left-0 right-0 h-[1px] pointer-events-none"
+                             style={{
+                                 background: 'linear-gradient(90deg, transparent 0%, rgba(99,130,255,0.4) 20%, rgba(160,120,255,0.3) 50%, rgba(99,130,255,0.4) 80%, transparent 100%)',
+                                 boxShadow: '0 0 16px rgba(59,130,246,0.1)',
+                             }} />
 
                         {/* Header */}
-                        <div className="flex items-center justify-between px-4 py-2.5 shrink-0 relative"
+                        <div className="flex items-center justify-between px-4 py-3 shrink-0 relative z-[2]"
                              style={{
                                  borderBottom: isDark
-                                     ? '1px solid rgba(255,255,255,0.06)'
-                                     : '1px solid rgba(0,0,0,0.06)',
+                                     ? '1px solid rgba(255,255,255,0.05)'
+                                     : '1px solid rgba(0,0,0,0.04)',
                                  background: isDark
-                                     ? 'linear-gradient(135deg, rgba(30,40,70,0.3), rgba(20,25,45,0.2))'
-                                     : 'linear-gradient(135deg, rgba(240,245,255,0.5), rgba(255,255,255,0.3))',
+                                     ? 'linear-gradient(135deg, rgba(30,40,70,0.25), rgba(20,25,45,0.15))'
+                                     : 'linear-gradient(135deg, rgba(240,245,255,0.4), rgba(255,255,255,0.2))',
                              }}>
-                            {/* Gradient accent line at top — more visible */}
-                            <div className="absolute top-0 left-0 right-0 h-[2px]"
-                                 style={{
-                                     background: 'linear-gradient(90deg, transparent 5%, rgba(99,130,255,0.6) 30%, rgba(160,120,255,0.5) 70%, transparent 95%)',
-                                 }} />
-                            <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 relative overflow-hidden"
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 relative overflow-hidden"
                                      style={{
                                          background: 'linear-gradient(135deg, rgba(59,130,246,0.9), rgba(139,92,246,0.9))',
-                                         boxShadow: '0 2px 8px rgba(59,130,246,0.3), inset 0 1px 1px rgba(255,255,255,0.2)',
+                                         boxShadow: '0 3px 12px rgba(59,130,246,0.35), inset 0 1px 1px rgba(255,255,255,0.2)',
                                      }}>
-                                    <Bot size={14} className="text-white relative z-[1]" />
+                                    <Bot size={16} className="text-white relative z-[1] drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]" />
                                 </div>
-                                <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 truncate">
-                                    AI 助手
-                                </h2>
+                                <div>
+                                    <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 leading-tight">
+                                        AI 助手
+                                    </h2>
+                                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 leading-tight mt-0.5">
+                                        {currentConfig?.model || '未配置模型'}
+                                    </p>
+                                </div>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                                 <button
@@ -957,22 +974,28 @@ export default function AIChatPanel() {
                         </AnimatePresence>
 
                         {/* Messages area */}
-                        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+                        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 relative z-[1]">
                             {messages.length === 0 && !showConfigEditor && (
                                 <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                                    {/* Glowing orb avatar */}
+                                    {/* Glowing orb avatar with breathing animation */}
                                     <div className="relative mb-4">
                                         <div className="w-14 h-14 rounded-2xl flex items-center justify-center relative z-[1]"
                                              style={{
                                                  background: 'linear-gradient(135deg, rgba(59,130,246,0.9), rgba(139,92,246,0.9))',
                                                  boxShadow: '0 4px 24px rgba(59,130,246,0.3), 0 0 40px rgba(139,92,246,0.15), inset 0 1px 2px rgba(255,255,255,0.2)',
+                                                 animation: 'ai-fab-breathe 3s ease-in-out infinite',
                                              }}>
                                             <Bot size={24} className="text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" />
                                         </div>
                                         {/* Ambient glow ring */}
-                                        <div className="absolute inset-[-8px] rounded-3xl pointer-events-none"
+                                        <div className="absolute inset-[-12px] rounded-3xl pointer-events-none"
                                              style={{
-                                                 background: 'radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)',
+                                                 background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)',
+                                             }} />
+                                        {/* Outer glow */}
+                                        <div className="absolute inset-[-24px] rounded-full pointer-events-none"
+                                             style={{
+                                                 background: 'radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)',
                                              }} />
                                     </div>
                                     <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -1079,12 +1102,12 @@ export default function AIChatPanel() {
                         </div>
 
                         {/* Input area */}
-                        <div className="shrink-0 px-3 py-2.5 relative"
+                        <div className="shrink-0 px-3 py-2.5 relative z-[2]"
                              style={{
-                                 borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
+                                 borderTop: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.04)',
                                  background: isDark
-                                     ? 'linear-gradient(180deg, rgba(20,25,40,0.3), rgba(15,18,30,0.4))'
-                                     : 'linear-gradient(180deg, rgba(248,250,255,0.5), rgba(255,255,255,0.6))',
+                                     ? 'linear-gradient(180deg, rgba(20,25,40,0.25), rgba(15,18,30,0.35))'
+                                     : 'linear-gradient(180deg, rgba(248,250,255,0.4), rgba(255,255,255,0.5))',
                              }}>
                             <div className="flex items-end gap-2">
                                 <textarea
