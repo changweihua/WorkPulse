@@ -7,7 +7,6 @@ import { Fade } from '../components/Motion'
 import { useWorkLogStore } from '../stores/worklogStore'
 import { formatDate, formatTime, groupLogsByDate } from '../lib/dateUtils'
 import { useI18n } from '../stores/languageStore'
-import { DotnetFAB } from '../components/DotnetFAB'
 import type { TranslationKey } from '../lib/i18n'
 
 type Attachment = Awaited<ReturnType<typeof window.api.attachment.list>>[number]
@@ -676,9 +675,6 @@ function WorkLogPage(): ReactNode {
           </button>
         </div>
       )}
-
-      {/* .NET Bridge FAB */}
-      <DotnetFAB />
     </div>
   )
 }
