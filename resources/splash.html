@@ -82,16 +82,16 @@
         .brand-icon {
             width: 72px;
             height: 72px;
-            border-radius: 20px;
+            border-radius: 18px;
             background: linear-gradient(135deg, #6366f1, #818cf8);
             display: flex;
             align-items: center;
             justify-content: center;
             margin-bottom: 16px;
             box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
-            animation: iconFloat 3.5s ease-in-out infinite;
             position: relative;
             z-index: 1;
+            animation: iconBreathe 2.8s ease-in-out infinite;
         }
 
         .brand-icon svg {
@@ -104,9 +104,9 @@
             stroke-linejoin: round;
         }
 
-        @keyframes iconFloat {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
+        @keyframes iconBreathe {
+            0%, 100% { transform: scale(0.96); box-shadow: 0 6px 24px rgba(99, 102, 241, 0.2); }
+            50% { transform: scale(1.04); box-shadow: 0 12px 44px rgba(99, 102, 241, 0.5); }
         }
 
         .brand-name {
@@ -141,40 +141,6 @@
             margin-bottom: 32px;
             position: relative;
             z-index: 1;
-        }
-
-        .loader {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 6px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #6366f1;
-            animation: dotWave 1.4s ease-in-out infinite;
-        }
-
-        .dot:nth-child(1) { animation-delay: 0s; }
-        .dot:nth-child(2) { animation-delay: 0.2s; }
-        .dot:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes dotWave {
-            0%, 60%, 100% {
-                transform: translateY(0) scale(0.8);
-                opacity: 0.4;
-            }
-            30% {
-                transform: translateY(-12px) scale(1.2);
-                opacity: 1;
-                background: #6366f1;
-            }
         }
 
         .status-text {
@@ -223,7 +189,10 @@
         }
 
         @media (max-width: 480px) {
-            .brand-icon { width: 56px; height: 56px; border-radius: 16px; }
+            .brand-icon-area { width: 90px; height: 90px; }
+            .brand-icon-ring { width: 86px; height: 86px; }
+            .brand-icon-ring::after { width: 96px; height: 96px; top: -8px; left: -8px; }
+            .brand-icon { width: 58px; height: 58px; border-radius: 14px; }
             .brand-icon svg { width: 28px; height: 28px; }
             .brand-name { font-size: 30px; }
             .brand-sub { font-size: 12px; margin-bottom: 24px; }
@@ -243,11 +212,6 @@
         <div class="brand-name">WorkPulse</div>
         <div class="brand-version" id="version"></div>
         <div class="brand-sub">工作脉搏 · 高效协同</div>
-        <div class="loader">
-            <div class="dot"></div>
-            <div class="dot"></div>
-            <div class="dot"></div>
-        </div>
         <div class="status-text" id="status">正在唤醒工作空间…</div>
     </div>
 
