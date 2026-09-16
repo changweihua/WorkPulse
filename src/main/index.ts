@@ -683,7 +683,7 @@ app.whenReady().then(async () => {
         responseHeaders: {
           ...details.responseHeaders,
           'Content-Security-Policy': [
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http://localhost:* https://* ws://localhost:*; worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'"
+            "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http://localhost:* https://* ws://localhost:*; worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'"
           ]
         }
       })

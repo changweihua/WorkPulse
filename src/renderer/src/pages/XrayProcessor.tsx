@@ -1,4 +1,5 @@
 import React, { Suspense, use, useRef, useState, useEffect, useCallback } from 'react';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import init, { apply_light_advanced, apply_dark_advanced } from '../pkg/xray_processor.js';
 
 const wasmPromise = init();
@@ -695,8 +696,10 @@ function ProcessorCore() {
 
 export default function XrayProcessor() {
     return (
-        <Suspense fallback={<div className="p-10 text-center text-gray-600 dark:text-zinc-300">⏳ 加载 WASM 模块...</div>}>
-            <ProcessorCore />
-        </Suspense>
+        <ErrorBoundary>
+            <Suspense fallback={<div className="p-10 text-center text-gray-600 dark:text-zinc-300">⏳ 加载 WASM 模块...</div>}>
+                <ProcessorCore />
+            </Suspense>
+        </ErrorBoundary>
     );
 }
