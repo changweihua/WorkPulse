@@ -203,6 +203,10 @@ const api = {
     exportPdf: (html: string, title: string) =>
       ipcRenderer.invoke('feed:exportPdf', html, title),
   },
+  dotnet: {
+    invoke: (method: string, ...args: unknown[]) =>
+      ipcRenderer.invoke('dotnet:invoke', method, ...args) as Promise<string | number>,
+  },
   vector: {
     initialize: () => ipcRenderer.invoke('vector:initialize'),
     indexWorklog: (id: number, content: string, category: string, date: string) =>
