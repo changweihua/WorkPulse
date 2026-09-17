@@ -515,6 +515,56 @@ export function getCacheStatus(): {
   };
 }
 
+// ─── Global Model Config IndexedDB Backup ─────────────────────────────────
+
+/**
+ * Save entire model config (chat + embedding) to IndexedDB as backup.
+ * Tokens are stripped for security.
+ */
+export async function saveGlobalModelConfig(config: {
+  chatConfigs: any[];
+  activeChatConfigId: string;
+  embeddingConfigs: any[];
+  activeEmbeddingConfigId: string;
+}): Promise<void> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SNAPSHOTS, 'readwrite');
+    const store = tx.objectStore(STORE_SNAPSHOTS);
+    const stripped = {
+      ...config,
+      chatConfigs: config.chatConfigs.map((c: any) => ({ ...c, token: '' })),
+      embeddingConfigs: config.embeddingConfigs.map((e: any) => ({ ...e, token: '' })),
+    };
+    const request = store.put({ id: '__global_model_config', type: 'global-config' as any, data: stripped, updatedAt: Date.now(), version: 1 });
+    request.onsuccess = () => resolve();
+    request.onerror = (event) => reject((event.target as IDBRequest).error);
+  });
+}
+
+/**
+ * Load global model config from IndexedDB backup (tokens empty, need restore from encrypted storage).
+ */
+export async function loadGlobalModelConfigFromIDB(): Promise<{
+  chatConfigs: any[];
+  activeChatConfigId: string;
+  embeddingConfigs: any[];
+  activeEmbeddingConfigId: string;
+} | null> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SNAPSHOTS, 'readonly');
+    const store = tx.objectStore(STORE_SNAPSHOTS);
+    const request = store.get('__global_model_config');
+    request.onsuccess = () => {
+      const result = request.result;
+      if (result?.data) resolve(result.data);
+      else resolve(null);
+    };
+    request.onerror = (event) => reject((event.target as IDBRequest).error);
+  });
+}
+
 // ─── Migration Helpers ─────────────────────────────────────────────────────
 
 /**

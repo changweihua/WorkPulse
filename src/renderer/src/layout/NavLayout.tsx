@@ -162,6 +162,7 @@ export default function NavLayout() {
                 { path: 'pp', icon: <SiPaddlepaddle className="w-[18px] h-[18px]" />, label: t('nav.pp') },
                 { path: 'xray', icon: <Zap className="w-[18px] h-[18px]" />, label: t('nav.xray') },
                 { path: 'onnx', icon: <SiOnnx className="w-[18px] h-[18px]" />, label: t('nav.onnx') },
+                { path: 'model-config', icon: <Icon icon="line-md:robot" width={18} height={18} />, label: 'AI 模型' },
                 { path: 'fluid-glass', icon: <Icon icon="mdi:glass-water" className="w-[18px] h-[18px]" />, label: t('nav.fluidGlass') },
                 { path: 'dotnet', icon: <Icon icon="mdi:dot-net" className="w-[18px] h-[18px]" />, label: t('nav.dotnet') },
             ],

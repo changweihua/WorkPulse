@@ -190,6 +190,43 @@ interface API {
     onProgress: (
       cb: (p: { modelId: string; file: string; loaded: number; total: number; percent: number }) => void
     ) => () => void
+    /** 获取全局模型配置（chat / embedding）— 向后兼容 */
+    getConfig: (type?: 'chat' | 'embedding') => Promise<{
+      type: 'chat' | 'embedding'
+      provider: string
+      baseUrl: string
+      model: string
+      hasApiKey: boolean
+      dimension?: number
+    }>
+    /** 获取完整全局模型配置（不含明文 token） */
+    getGlobalConfig: () => Promise<{
+      chatConfigs: Array<{
+        id: string; name: string; baseURL: string; model: string;
+        token: string; headers: string; temperature: number; max_tokens: number; top_p: number
+      }>
+      activeChatConfigId: string
+      embedding: {
+        provider: string; baseURL: string; model: string; dimension: number; token: string
+      }
+    }>
+    /** 保存完整全局模型配置 */
+    setGlobalConfig: (config: any) => Promise<{ ok: boolean }>
+    /** 获取当前活跃 Chat 配置 */
+    getActiveChat: () => Promise<{
+      id: string; name: string; baseURL: string; model: string;
+      token: string; headers: string; temperature: number; max_tokens: number; top_p: number
+    } | null>
+    /** 设置活跃 Chat 配置 */
+    setActiveChat: (configId: string) => Promise<{ ok: boolean }>
+    /** 添加 Chat 配置 */
+    addChatConfig: (config: any) => Promise<{ ok: boolean }>
+    /** 更新 Chat 配置 */
+    updateChatConfig: (config: any) => Promise<{ ok: boolean }>
+    /** 删除 Chat 配置 */
+    deleteChatConfig: (configId: string) => Promise<{ ok: boolean }>
+    /** 更新 Embedding 配置列表 */
+    updateEmbedding: (params: { embeddingConfigs: any[]; activeEmbeddingConfigId: string }) => Promise<{ ok: boolean }>
   }
   settings: {
     get: (key: string) => Promise<string | null>

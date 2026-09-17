@@ -18,7 +18,8 @@ import {
   Power,
   FolderOpen,
   Plus,
-  Loader2
+  Loader2,
+  Settings
 } from 'lucide-react'
 import { useToast } from '../components/Toast'
 import { useThemeStore, ACCENTS, type Theme } from '../stores/themeStore'
@@ -159,9 +160,6 @@ function SettingsPage(): ReactNode {
   const [hasKey, setHasKey] = useState(false)
   const [showKey, setShowKey] = useState(false)
   const [editing, setEditing] = useState(false)
-  const [provider, setProvider] = useState('openai')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [model, setModel] = useState('')
   const [reportLanguage, setReportLanguage] = useState(resolvedLanguage === 'zh' ? '中文' : 'English')
   const [style, setStyle] = useState(t('settings.styleConcise'))
   const [systemPrompt, setSystemPrompt] = useState(getDefaultSystemPrompt(resolvedLanguage))
@@ -298,12 +296,7 @@ function SettingsPage(): ReactNode {
       setApiKey(key)
       setHasKey(true)
     }
-    const p = await window.api.settings.get('ai_provider')
-    if (p) setProvider(p)
-    const b = await window.api.settings.get('ai_base_url')
-    if (b) setBaseUrl(b)
-    const m = await window.api.settings.get('ai_model')
-    if (m) setModel(m)
+    // 报告偏好
     const l = await window.api.settings.get('report_language')
     if (l) {
       setReportLanguage(l)
@@ -382,6 +375,21 @@ function SettingsPage(): ReactNode {
     await saveSetting('ai_model', model)
   }
 
+  // Embedding 配置处理器
+  const handleEmbeddingProviderChange = async (value: string): Promise<void> => {
+    setEmbeddingProvider(value)
+    await window.api.settings.set('ai_embedding_provider', value)
+  }
+
+  const handleEmbeddingBaseUrlBlur = async (): Promise<void> => {
+    await saveSetting('ai_embedding_baseUrl', embeddingBaseUrl)
+  }
+
+  const handleEmbeddingModelBlur = async (): Promise<void> => {
+    await saveSetting('ai_embedding_model', embeddingModel)
+  }
+
+  // 全局模型配置
   const handleLanguageChange = async (value: string): Promise<void> => {
     setReportLanguage(value)
     await window.api.settings.set('report_language', value)
@@ -598,114 +606,16 @@ function SettingsPage(): ReactNode {
     <div className="flex flex-col bg-transparent">
       <main className="flex-1">
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
-          {/* AI Configuration */}
+          {/* AI 模型管理入口 */}
           <section className="surface-card p-5">
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.aiConfig')}</h2>
-            <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
-
-            {/* API Key */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">API Key</label>
-              <p className="text-xs text-zinc-400 mb-2">{t('settings.apiKeyHelp')}</p>
-              {hasKey && !editing ? (
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 px-3 py-2 surface-inset rounded-md text-sm text-zinc-600 dark:text-zinc-400 font-mono">
-                    {showKey ? apiKey : maskKey(apiKey)}
-                  </code>
-                  <button
-                    onClick={() => setShowKey(!showKey)}
-                    className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                    aria-label={showKey ? t('settings.hide') : t('settings.show')}
-                  >
-                    {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => setEditing(true)}
-                    className="px-3 py-1.5 text-sm text-zinc-600 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                  >
-                    {t('settings.modify')}
-                  </button>
-                  <button
-                    onClick={handleDeleteKey}
-                    className="p-2 text-zinc-400 hover:text-red-500"
-                    aria-label={t('settings.deleteApiKey')}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder={t('settings.apiKeyPlaceholder')}
-                    className="flex-1 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100"
-                  />
-                  <button
-                    onClick={handleSaveKey}
-                    className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-                  >
-                    {t('common.save')}
-                  </button>
-                  {editing && (
-                    <button
-                      onClick={() => {
-                        setEditing(false)
-                        loadSettings()
-                      }}
-                      className="px-3 py-2 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                    >
-                      {t('common.cancel')}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* AI Provider */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('settings.aiProvider')}</label>
-              <select
-                value={provider}
-                onChange={(e) => handleProviderChange(e.target.value)}
-                className="px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100"
-              >
-                <option value="openai">OpenAI</option>
-                <option value="anthropic">Anthropic (Claude)</option>
-                <option value="deepseek">DeepSeek</option>
-              </select>
-            </div>
-
-            {/* Base URL */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('settings.baseUrl')}</label>
-              <p className="text-xs text-zinc-400 mb-2">
-                {t('settings.baseUrlHelp')}
-              </p>
-              <input
-                type="text"
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                onBlur={handleBaseUrlBlur}
-                placeholder={provider === 'openai' ? 'https://api.openai.com' : provider === 'deepseek' ? 'https://api.deepseek.com' : 'https://api.anthropic.com'}
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100 font-mono"
-              />
-            </div>
-            {/* Model */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">{t('settings.modelName')}</label>
-              <p className="text-xs text-zinc-400 mb-2">
-                {t('settings.modelHelp')}
-              </p>
-              <input
-                type="text"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                onBlur={handleModelBlur}
-                placeholder={provider === 'openai' ? 'gpt-4o-mini' : provider === 'deepseek' ? 'deepseek-chat' : 'claude-sonnet-4-20250514'}
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100 font-mono"
-              />
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">AI 模型配置</h2>
+                <p className="text-xs text-zinc-400 mt-1">管理 Chat 和 Embedding 模型，设置默认模型</p>
+              </div>
+              <a href="#/model-config" className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-md transition">
+                前往配置
+              </a>
             </div>
           </section>
 

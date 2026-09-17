@@ -273,7 +273,7 @@ if (!gotTheLock) {
           if (win) { if (win.isMinimized()) win.restore(); win.focus(); win.show() }
         }
       })
-      import('./notification').then(({ handleProtocolArgv }) => handleProtocolArgv())
+      handleProtocolArgv()
     }
     const win = getMainWindow()
     if (win) { if (win.isMinimized()) win.restore(); win.focus(); win.show() }

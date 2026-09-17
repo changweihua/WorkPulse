@@ -12,12 +12,18 @@ import { validate, SettingsSetSchema, SettingsGetSchema } from '../ipc-schemas'
 import { getStoredApiKey, setStoredApiKey, deleteStoredApiKey, saveLLMToken, getLLMToken, deleteLLMToken } from '../secureSettings'
 import { showNotification } from '../notification'
 import { tMain } from '../i18n'
+import {
+  getGlobalConfig, setGlobalConfig,
+  getActiveChatConfig, setActiveChatConfig,
+  type ChatModelConfig, type EmbeddingModelConfig
+} from '../modelConfig'
 
 // 渲染进程允许访问的 settings 键白名单
 const ALLOWED_SETTINGS_KEYS = new Set([
   'api_key', 'reminder_enabled', 'reminder_lead',
   'radial_enabled', 'radial_items',
   'ai_provider', 'ai_base_url', 'ai_model',
+  'ai_embedding_provider', 'ai_embedding_baseUrl', 'ai_embedding_model',
   'report_language', 'report_style', 'system_prompt', 'report_template',
   'shortcut_quick_log', 'shortcut_quick_task',
   'app_language', 'theme', 'ui_accent',
@@ -64,6 +70,21 @@ export function registerSettingsIpc(): void {
   ipcMain.handle('llm-tokens:delete', async (_event, modelId: string) => {
     deleteLLMToken(modelId)
     return true
+  })
+
+  // --- 全局模型配置 ---
+  ipcMain.handle('model:get-global-config', () => {
+    return getGlobalConfig()
+  })
+
+  ipcMain.handle('model:set-global-config', (_event, config: any) => {
+    setGlobalConfig(config)
+    return { ok: true }
+  })
+
+  ipcMain.handle('model:set-active-chat', (_event, configId: string) => {
+    setActiveChatConfig(configId)
+    return { ok: true }
   })
 
   // --- Report ---

@@ -135,7 +135,53 @@ const api = {
         cb(p)
       ipcRenderer.on('model-download-progress', handler)
       return () => ipcRenderer.removeListener('model-download-progress', handler)
-    }
+    },
+    /** 获取全局模型配置（chat / embedding）— 向后兼容 */
+    getConfig: (type?: 'chat' | 'embedding') =>
+      ipcRenderer.invoke('model:get-config', type || 'chat') as Promise<{
+        type: 'chat' | 'embedding'
+        provider: string
+        baseUrl: string
+        model: string
+        hasApiKey: boolean
+        dimension?: number
+      }>,
+    /** 获取完整全局模型配置（不含明文 token） */
+    getGlobalConfig: () =>
+      ipcRenderer.invoke('model:get-global-config') as Promise<{
+        chatConfigs: Array<{
+          id: string; name: string; baseURL: string; model: string;
+          token: string; headers: string; temperature: number; max_tokens: number; top_p: number
+        }>
+        activeChatConfigId: string
+        embedding: {
+          provider: string; baseURL: string; model: string; dimension: number; token: string
+        }
+      }>,
+    /** 保存完整全局模型配置 */
+    setGlobalConfig: (config: any) =>
+      ipcRenderer.invoke('model:set-global-config', config) as Promise<{ ok: boolean }>,
+    /** 获取当前活跃 Chat 配置 */
+    getActiveChat: () =>
+      ipcRenderer.invoke('model:get-active-chat') as Promise<{
+        id: string; name: string; baseURL: string; model: string;
+        token: string; headers: string; temperature: number; max_tokens: number; top_p: number
+      } | null>,
+    /** 设置活跃 Chat 配置 */
+    setActiveChat: (configId: string) =>
+      ipcRenderer.invoke('model:set-active-chat', configId) as Promise<{ ok: boolean }>,
+    /** 添加 Chat 配置 */
+    addChatConfig: (config: any) =>
+      ipcRenderer.invoke('model:add-chat-config', config) as Promise<{ ok: boolean }>,
+    /** 更新 Chat 配置 */
+    updateChatConfig: (config: any) =>
+      ipcRenderer.invoke('model:update-chat-config', config) as Promise<{ ok: boolean }>,
+    /** 删除 Chat 配置 */
+    deleteChatConfig: (configId: string) =>
+      ipcRenderer.invoke('model:delete-chat-config', configId) as Promise<{ ok: boolean }>,
+    /** 更新 Embedding 配置列表 */
+    updateEmbedding: (params: { embeddingConfigs: any[]; activeEmbeddingConfigId: string }) =>
+      ipcRenderer.invoke('model:update-embedding', params) as Promise<{ ok: boolean }>,
   },
   settings: {
     get: (key: string) => ipcRenderer.invoke('settings:get', key),

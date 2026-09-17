@@ -2,6 +2,8 @@ import { net } from 'electron'
 import { getSetting } from './db'
 import { getStoredApiKey } from './secureSettings'
 import { getResolvedLanguage, tMain } from './i18n'
+import { getActiveChatConfig, getActiveProviderInfo } from './modelConfig'
+import type { ChatModelConfig } from './modelConfig'
 
 interface Message {
   role: 'system' | 'user' | 'assistant'
@@ -66,15 +68,12 @@ export async function generateReport(
   dateTo: string,
   tasks: ReportTaskContext[] = []
 ): Promise<string> {
-  const apiKey = getStoredApiKey()
-  if (!apiKey) {
+  const info = getActiveProviderInfo()
+  if (!info.token) {
     throw new Error(tMain('apiKeyMissing'))
   }
 
   const resolvedLanguage = getResolvedLanguage()
-  const provider = getSetting('ai_provider') || 'openai'
-  const baseUrl = getSetting('ai_base_url') || ''
-  const model = getSetting('ai_model') || ''
   const language = getSetting('report_language') || (resolvedLanguage === 'zh' ? '中文' : 'English')
   const style = getSetting('report_style') || (resolvedLanguage === 'zh' ? '简洁专业' : 'Concise professional')
   const customPrompt = getSetting('system_prompt') || (resolvedLanguage === 'zh' ? DEFAULT_SYSTEM_PROMPT : DEFAULT_SYSTEM_PROMPT_EN)
@@ -101,13 +100,76 @@ export async function generateReport(
     { role: 'user', content: userMessage }
   ]
 
-  if (provider === 'anthropic') {
-    return callAnthropic(apiKey, baseUrl, model, messages)
+  return callProvider(info, messages)
+}
+
+/** 统一的 Provider 调用入口 */
+async function callProvider(
+  info: { baseURL: string; model: string; token: string; headers: Record<string, string>; temperature: number; max_tokens: number; top_p: number },
+  messages: Message[]
+): Promise<string> {
+  if (!info.token) {
+    throw new Error(tMain('apiKeyMissing'))
   }
-  if (provider === 'deepseek') {
-    return callDeepSeek(apiKey, baseUrl, model, messages)
+
+  // 检测是否是 Anthropic（通过 baseURL 或特殊 headers）
+  const isAnthropic = info.baseURL.includes('anthropic') || ('anthropic-version' in info.headers)
+
+  if (isAnthropic) {
+    const url = info.baseURL.replace(/\/+$/, '') + '/v1/messages'
+    const systemMsg = messages.find((m) => m.role === 'system')
+    const userMsg = messages.find((m) => m.role === 'user')
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': info.token,
+        'anthropic-version': '2023-06-01',
+        ...info.headers,
+      },
+      body: JSON.stringify({
+        model: info.model || 'claude-sonnet-4-20250514',
+        max_tokens: info.max_tokens || 2000,
+        system: systemMsg?.content || '',
+        messages: [{ role: 'user', content: userMsg?.content || '' }]
+      })
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`${tMain('anthropicError')}: ${response.status} - ${error}`)
+    }
+
+    const data = await response.json()
+    return data.content[0]?.text || tMain('noGeneratedContent')
   }
-  return callOpenAI(apiKey, baseUrl, model, messages)
+
+  // OpenAI / DeepSeek / Custom（统一 OpenAI 兼容格式）
+  const url = info.baseURL.replace(/\/+$/, '') + '/chat/completions'
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${info.token}`,
+      ...info.headers,
+    },
+    body: JSON.stringify({
+      model: info.model || 'gpt-4o-mini',
+      messages,
+      temperature: info.temperature || 0.7,
+      max_tokens: info.max_tokens || 2000,
+    })
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`${tMain('openAiError')}: ${response.status} - ${error}`)
+  }
+
+  const data = await response.json()
+  return data.choices[0]?.message?.content || tMain('noGeneratedContent')
 }
 
 function replaceVars(template: string, vars: Record<string, string>): string {
@@ -139,108 +201,7 @@ function formatTaskContext(tasks: ReportTaskContext[]): string {
     .join('\n')
 }
 
-async function callOpenAI(
-  apiKey: string,
-  baseUrl: string,
-  model: string,
-  messages: Message[]
-): Promise<string> {
-  const url = baseUrl
-    ? `${baseUrl.replace(/\/+$/, '')}/chat/completions`
-    : 'https://api.openai.com/v1/chat/completions'
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: model || 'gpt-4o-mini',
-      messages,
-      temperature: 0.7,
-      max_tokens: 2000
-    })
-  })
-
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`${tMain('openAiError')}: ${response.status} - ${error}`)
-  }
-
-  const data = await response.json()
-  return data.choices[0]?.message?.content || tMain('noGeneratedContent')
-}
-
-async function callAnthropic(
-  apiKey: string,
-  baseUrl: string,
-  model: string,
-  messages: Message[]
-): Promise<string> {
-  const systemMsg = messages.find((m) => m.role === 'system')
-  const userMsg = messages.find((m) => m.role === 'user')
-
-  const url = baseUrl
-    ? `${baseUrl.replace(/\/+$/, '')}/v1/messages`
-    : 'https://api.anthropic.com/v1/messages'
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: model || 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      system: systemMsg?.content || '',
-      messages: [{ role: 'user', content: userMsg?.content || '' }]
-    })
-  })
-
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`${tMain('anthropicError')}: ${response.status} - ${error}`)
-  }
-
-  const data = await response.json()
-  return data.content[0]?.text || tMain('noGeneratedContent')
-}
-
-async function callDeepSeek(
-  apiKey: string,
-  baseUrl: string,
-  model: string,
-  messages: Message[]
-): Promise<string> {
-  const url = baseUrl
-    ? `${baseUrl.replace(/\/+$/, '')}/chat/completions`
-    : 'https://api.deepseek.com/chat/completions'
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: model || 'deepseek-chat',
-      messages,
-      temperature: 0.7,
-      max_tokens: 2000
-    })
-  })
-
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`DeepSeek API error: ${response.status} - ${error}`)
-  }
-
-  const data = await response.json()
-  return data.choices[0]?.message?.content || 'Generation failed: empty response'
-}
+// callOpenAI / callAnthropic / callDeepSeek 已合并到 callProvider
 
 // --- Streaming API ---
 
@@ -258,34 +219,6 @@ function parseSSEChunk(line: string): string | null {
   }
 }
 
-function getApiUrl(provider: string, baseUrl: string): string {
-  const base = baseUrl?.replace(/\/+$/, '') || ''
-  if (provider === 'anthropic') return `${base || 'https://api.anthropic.com'}/v1/messages`
-  if (provider === 'deepseek') return `${base || 'https://api.deepseek.com'}/chat/completions`
-  return `${base || 'https://api.openai.com'}/v1/chat/completions`
-}
-
-function getHeaders(provider: string, apiKey: string): Record<string, string> {
-  if (provider === 'anthropic') {
-    return {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
-    }
-  }
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${apiKey}`
-  }
-}
-
-function getDefaultModel(provider: string, model: string): string {
-  if (model) return model
-  if (provider === 'anthropic') return 'claude-sonnet-4-20250514'
-  if (provider === 'deepseek') return 'deepseek-chat'
-  return 'gpt-4o-mini'
-}
-
 export async function streamChat(
   prompt: string,
   onChunk: (text: string) => void,
@@ -293,15 +226,12 @@ export async function streamChat(
   onError: (error: string) => void,
   signal?: AbortSignal
 ): Promise<void> {
-  const apiKey = getStoredApiKey()
-  if (!apiKey) {
+  const info = getActiveProviderInfo()
+  if (!info.token) {
     onError(tMain('apiKeyMissing'))
     return
   }
 
-  const provider = getSetting('ai_provider') || 'openai'
-  const baseUrl = getSetting('ai_base_url') || ''
-  const model = getSetting('ai_model') || ''
   const resolvedLanguage = getResolvedLanguage()
   const language = getSetting('report_language') || (resolvedLanguage === 'zh' ? '中文' : 'English')
   const style = getSetting('report_style') || (resolvedLanguage === 'zh' ? '简洁专业' : 'Concise professional')
@@ -318,17 +248,32 @@ export async function streamChat(
   const maxRetries = 3
   const baseDelay = 1000
 
+  // 检测是否是 Anthropic
+  const isAnthropic = info.baseURL.includes('anthropic') || ('anthropic-version' in info.headers)
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const url = getApiUrl(provider, baseUrl)
-      const headers = getHeaders(provider, apiKey)
+      const url = isAnthropic
+        ? info.baseURL.replace(/\/+$/, '') + '/v1/messages'
+        : info.baseURL.replace(/\/+$/, '') + '/chat/completions'
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...info.headers,
+      }
+      if (isAnthropic) {
+        headers['x-api-key'] = info.token
+        headers['anthropic-version'] = '2023-06-01'
+      } else {
+        headers['Authorization'] = `Bearer ${info.token}`
+      }
 
       const body: Record<string, unknown> = {
-        model: getDefaultModel(provider, model),
+        model: info.model,
         messages,
         stream: true,
-        temperature: 0.7,
-        max_tokens: 2000
+        temperature: info.temperature || 0.7,
+        max_tokens: info.max_tokens || 2000,
       }
 
       const response = await net.fetch(url, {

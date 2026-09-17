@@ -17,14 +17,10 @@ import {
     MessageSquare,
     Send,
     Loader2,
-    Settings,
-    ChevronLeft,
-    RotateCw,
-    Minus,
 } from 'lucide-react';
 import { Message } from '@fauzitech/ai-ui';
 import { useAIPanelStore } from '../stores/aiPanelStore';
-import { recoverConversations, recoverConfigs, saveConversation, saveConfig, onSyncEvent, deleteConversation as deleteConversationFromDB } from '../lib/chat-storage';
+import { recoverConversations, saveConversation, onSyncEvent, deleteConversation as deleteConversationFromDB } from '../lib/chat-storage';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface ModelConfig {
@@ -57,61 +53,7 @@ interface Conversation {
     updatedAt: number;
 }
 
-interface ProviderPreset {
-    id: string;
-    name: string;
-    baseURL: string;
-    models: string[];
-}
-
 // ─── Constants ────────────────────────────────────────────────────────────
-const PROVIDER_PRESETS: ProviderPreset[] = [
-    { id: 'deepseek', name: 'DeepSeek', baseURL: 'https://api.deepseek.com', models: ['deepseek-chat', 'deepseek-reasoner'] },
-    { id: 'openai', name: 'OpenAI', baseURL: 'https://api.openai.com/v1', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'] },
-    { id: 'anthropic', name: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', models: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022'] },
-    { id: 'zhipu', name: '智谱AI', baseURL: 'https://open.bigmodel.cn/api/paas/v4', models: ['glm-4-plus', 'glm-4-flash', 'glm-4-long'] },
-    { id: 'moonshot', name: 'Moonshot', baseURL: 'https://api.moonshot.cn/v1', models: ['moonshot-v1-128k', 'moonshot-v1-32k', 'moonshot-v1-8k'] },
-    { id: 'qwen', name: '通义千问', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', models: ['qwen-max', 'qwen-plus', 'qwen-turbo'] },
-    { id: 'gitee', name: 'Gitee AI', baseURL: 'https://ai.gitee.com/v1', models: ['Qwen/Qwen2.5-32B-Instruct', 'deepseek-ai/DeepSeek-V3'] },
-    { id: 'ollama', name: 'Ollama', baseURL: 'http://localhost:11434/v1', models: ['qwen2.5:latest', 'llama3.1:latest'] },
-    { id: 'custom', name: '自定义', baseURL: '', models: [] },
-];
-
-const DEFAULT_CONFIGS: ModelConfig[] = [
-    {
-        id: 'deepseek-default',
-        name: 'DeepSeek Chat',
-        baseURL: 'https://api.deepseek.com',
-        model: 'deepseek-chat',
-        token: '',
-        headers: '',
-        temperature: 0.7,
-        max_tokens: 4096,
-        top_p: 0.9,
-    },
-    {
-        id: 'gitee-default',
-        name: 'Gitee AI Qwen',
-        baseURL: 'https://ai.gitee.com/v1',
-        model: 'Qwen/Qwen2.5-32B-Instruct',
-        token: '',
-        headers: '',
-        temperature: 0.7,
-        max_tokens: 4096,
-        top_p: 0.9,
-    },
-    {
-        id: 'zhipu-default',
-        name: '智谱 GLM-4',
-        baseURL: 'https://open.bigmodel.cn/api/paas/v4',
-        model: 'glm-4-plus',
-        token: '',
-        headers: '',
-        temperature: 0.7,
-        max_tokens: 4096,
-        top_p: 0.9,
-    },
-];
 
 function estimateTokens(text: string): number {
     if (!text) return 0;
@@ -142,277 +84,19 @@ function LoadingDots() {
     );
 }
 
-/** Number input field with increment/decrement buttons */
-function NumberField({
-    label,
-    value,
-    onChange,
-    min,
-    max,
-    step,
-}: {
-    label: string;
-    value: number;
-    onChange: (v: number) => void;
-    min?: number;
-    max?: number;
-    step?: number;
-}) {
-    return (
-        <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                {label}
-            </label>
-            <div className="flex items-center gap-1">
-                <button
-                    type="button"
-                    onClick={() => onChange(Math.max(min ?? 0, value - (step ?? 0.1)))}
-                    className="w-7 h-7 flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition text-xs"
-                >
-                    <Minus size={12} />
-                </button>
-                <input
-                    type="number"
-                    value={value}
-                    onChange={(e) => onChange(Number(e.target.value))}
-                    min={min}
-                    max={max}
-                    step={step}
-                    className="flex-1 text-center px-2 py-1.5 text-xs font-mono border border-zinc-200 dark:border-zinc-700 rounded-md bg-white/50 dark:bg-zinc-900/50 text-zinc-800 dark:text-zinc-200 outline-none focus:border-blue-400"
-                />
-                <button
-                    type="button"
-                    onClick={() => onChange(Math.min(max ?? 100, value + (step ?? 0.1)))}
-                    className="w-7 h-7 flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition text-xs"
-                >
-                    <RotateCw size={12} />
-                </button>
-            </div>
-        </div>
-    );
-}
-
-/** Model config editor (shown as overlay within the panel) */
-function ConfigEditor({
-    configs,
-    currentConfigId,
-    onSave,
-    onDelete,
-    onClose,
-}: {
-    configs: ModelConfig[];
-    currentConfigId: string;
-    onSave: (config: ModelConfig, isNew: boolean) => void;
-    onDelete: (id: string) => void;
-    onClose: () => void;
-}) {
-    const [selectedId, setSelectedId] = useState(currentConfigId);
-    const [form, setForm] = useState<ModelConfig>(() => {
-        const found = configs.find((c) => c.id === currentConfigId);
-        return found ? { ...found } : { ...DEFAULT_CONFIGS[0], id: crypto.randomUUID() };
-    });
-    const [isNew, setIsNew] = useState(false);
-
-    const handlePreset = (preset: ProviderPreset) => {
-        if (preset.id === 'custom') {
-            setForm({
-                id: crypto.randomUUID(),
-                name: '自定义',
-                baseURL: '',
-                model: '',
-                token: '',
-                headers: '',
-                temperature: 0.7,
-                max_tokens: 4096,
-                top_p: 0.9,
-            });
-            setIsNew(true);
-            return;
-        }
-        setForm({
-            id: crypto.randomUUID(),
-            name: preset.name + ' ' + (preset.models[0] || ''),
-            baseURL: preset.baseURL,
-            model: preset.models[0] || '',
-            token: '',
-            headers: '',
-            temperature: 0.7,
-            max_tokens: 4096,
-            top_p: 0.9,
-        });
-        setIsNew(true);
-    };
-
-    const handleSelectExisting = (id: string) => {
-        const found = configs.find((c) => c.id === id);
-        if (found) {
-            setForm({ ...found });
-            setSelectedId(id);
-            setIsNew(false);
-        }
-    };
-
-    const handleSave = () => {
-        onSave(form, isNew);
-        onClose();
-    };
-
-    return (
-        <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-            className="absolute inset-0 z-10 flex flex-col backdrop-blur-xl"
-            style={{
-                background: 'var(--color-surface, rgba(255,255,255,0.95))',
-            }}
-        >
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/40 dark:border-zinc-700/40 shrink-0">
-                <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition">
-                    <ChevronLeft size={16} />
-                </button>
-                <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">模型配置</span>
-                <div className="w-8" />
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
-                {/* Existing configs */}
-                {configs.length > 0 && (
-                    <div className="space-y-1.5">
-                        <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                            已有配置
-                        </label>
-                        {configs.map((c) => (
-                            <div
-                                key={c.id}
-                                onClick={() => handleSelectExisting(c.id)}
-                                className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs cursor-pointer transition border ${
-                                    form.id === c.id && !isNew
-                                        ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-zinc-800 dark:text-zinc-200'
-                                        : 'border-zinc-200/40 dark:border-zinc-700/40 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 text-zinc-600 dark:text-zinc-400'
-                                }`}
-                            >
-                                <div className="min-w-0">
-                                    <div className="font-medium truncate">{c.name}</div>
-                                    <div className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">{c.model}</div>
-                                </div>
-                                {configs.length > 1 && form.id === c.id && !isNew && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
-                                        className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-zinc-400 hover:text-red-500 transition"
-                                    >
-                                        <Trash2 size={12} />
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Provider presets */}
-                <div className="space-y-1.5">
-                    <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                        供应商预设
-                    </label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                        {PROVIDER_PRESETS.map((p) => (
-                            <button
-                                key={p.id}
-                                onClick={() => handlePreset(p)}
-                                className="px-2 py-1.5 rounded-lg text-[11px] font-medium border border-zinc-200/40 dark:border-zinc-700/40 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 text-zinc-600 dark:text-zinc-400 transition"
-                            >
-                                {p.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Form fields */}
-                <div className="space-y-3">
-                    <div className="flex flex-col gap-1">
-                        <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">名称</label>
-                        <input
-                            value={form.name}
-                            onChange={(e) => setForm({ ...form, name: e.target.value })}
-                            className="px-3 py-1.5 text-xs border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white/50 dark:bg-zinc-900/50 text-zinc-800 dark:text-zinc-200 outline-none focus:border-blue-400"
-                        />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Base URL</label>
-                        <input
-                            value={form.baseURL}
-                            onChange={(e) => setForm({ ...form, baseURL: e.target.value })}
-                            placeholder="https://api.example.com/v1"
-                            className="px-3 py-1.5 text-xs font-mono border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white/50 dark:bg-zinc-900/50 text-zinc-800 dark:text-zinc-200 outline-none focus:border-blue-400 placeholder:text-zinc-300 dark:placeholder:text-zinc-600"
-                        />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">模型</label>
-                        <input
-                            value={form.model}
-                            onChange={(e) => setForm({ ...form, model: e.target.value })}
-                            placeholder="model-name"
-                            className="px-3 py-1.5 text-xs font-mono border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white/50 dark:bg-zinc-900/50 text-zinc-800 dark:text-zinc-200 outline-none focus:border-blue-400 placeholder:text-zinc-300 dark:placeholder:text-zinc-600"
-                        />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">API Key</label>
-                        <input
-                            type="password"
-                            value={form.token}
-                            onChange={(e) => setForm({ ...form, token: e.target.value })}
-                            placeholder="sk-..."
-                            className="px-3 py-1.5 text-xs font-mono border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white/50 dark:bg-zinc-900/50 text-zinc-800 dark:text-zinc-200 outline-none focus:border-blue-400 placeholder:text-zinc-300 dark:placeholder:text-zinc-600"
-                        />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">自定义 Headers (JSON)</label>
-                        <textarea
-                            value={form.headers}
-                            onChange={(e) => setForm({ ...form, headers: e.target.value })}
-                            placeholder='{"X-Custom": "value"}'
-                            rows={2}
-                            className="px-3 py-1.5 text-xs font-mono border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white/50 dark:bg-zinc-900/50 text-zinc-800 dark:text-zinc-200 outline-none focus:border-blue-400 resize-none placeholder:text-zinc-300 dark:placeholder:text-zinc-600"
-                        />
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                        <NumberField label="Temperature" value={form.temperature} onChange={(v) => setForm({ ...form, temperature: v })} min={0} max={2} step={0.1} />
-                        <NumberField label="Max Tokens" value={form.max_tokens} onChange={(v) => setForm({ ...form, max_tokens: v })} min={1} max={128000} step={256} />
-                        <NumberField label="Top P" value={form.top_p} onChange={(v) => setForm({ ...form, top_p: v })} min={0} max={1} step={0.05} />
-                    </div>
-                </div>
-            </div>
-
-            {/* Save button */}
-            <div className="shrink-0 px-4 py-3 border-t border-zinc-200/40 dark:border-zinc-700/40">
-                <button
-                    onClick={handleSave}
-                    disabled={!form.name || !form.baseURL || !form.model}
-                    className="w-full py-2 rounded-xl text-sm font-medium bg-blue-500 hover:bg-blue-600 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 text-white transition shadow-sm"
-                >
-                    保存配置
-                </button>
-            </div>
-        </motion.div>
-    );
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────
 
 export default function AIChatPanel() {
     const { open, closePanel } = useAIPanelStore();
 
     // ── State ──
-    const [configs, setConfigs] = useState<ModelConfig[]>(DEFAULT_CONFIGS);
+    const [configs, setConfigs] = useState<ModelConfig[]>([]);
     const [currentConfigId, setCurrentConfigId] = useState<string>('');
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [currentConvId, setCurrentConvId] = useState<string>('');
     const [isHydrated, setIsHydrated] = useState(false);
     const [input, setInput] = useState('');
     const [isStreaming, setIsStreaming] = useState(false);
-    const [showConfigEditor, setShowConfigEditor] = useState(false);
     const [showConvList, setShowConvList] = useState(false);
     const currentRequestIdRef = useRef<string>('');
     const [retryInfo, setRetryInfo] = useState<{ attempt: number; maxRetries: number; waitMs: number } | null>(null);
@@ -433,37 +117,74 @@ export default function AIChatPanel() {
         return () => classObs.disconnect();
     }, []);
 
-    // Hydrate from IndexedDB on mount (local-first recovery)
+    // Hydrate: 全局配置 → IndexedDB 兜底 → 自动迁移
     useEffect(() => {
         (async () => {
             try {
-                const [savedConfigs, savedConversations] = await Promise.all([
-                    recoverConfigs('chatPanel'),
-                    recoverConversations('chatPanel'),
-                ]);
-                if (savedConfigs.length > 0) {
-                    // Load tokens from encrypted storage
+                let loadedConfigs: ModelConfig[] = [];
+                let loadedConfigId = '';
+
+                // 1. 优先从全局配置加载
+                const globalConfig = await window.api?.models?.getGlobalConfig?.();
+                if (globalConfig && globalConfig.chatConfigs.length > 0) {
+                    loadedConfigs = globalConfig.chatConfigs;
+                    loadedConfigId = globalConfig.activeChatConfigId || globalConfig.chatConfigs[0]?.id || '';
+                } else {
+                    // 2. 全局配置为空，从 IndexedDB 恢复旧配置
+                    const { recoverConfigs } = await import('../lib/chat-storage');
+                    const savedConfigs = await recoverConfigs('chatPanel');
+                    if (savedConfigs.length > 0) {
+                        // 从加密存储恢复 token
+                        const withTokens = await Promise.all(
+                            savedConfigs.map(async (config: any) => {
+                                try {
+                                    const token = await window.ai?.getLLMToken?.(config.id);
+                                    return { ...config, token: token || '' };
+                                } catch {
+                                    return { ...config, token: '' };
+                                }
+                            })
+                        );
+                        loadedConfigs = withTokens;
+                        loadedConfigId = withTokens[0].id;
+                        // 自动迁移到全局配置（带完整 token）
+                        const migrationPayload = {
+                            chatConfigs: withTokens,
+                            activeChatConfigId: loadedConfigId,
+                            embeddingConfigs: [{ id: 'openai-embedding', name: 'OpenAI Embedding', baseURL: 'https://api.openai.com/v1', model: 'text-embedding-3-small', dimension: 1536, headers: '', token: '' }],
+                            activeEmbeddingConfigId: 'openai-embedding',
+                        };
+                        await window.api?.models?.setGlobalConfig?.(migrationPayload);
+                        console.log(`[AIChatPanel] 迁移了 ${withTokens.length} 个旧配置到全局配置`);
+                    }
+                }
+
+                // 3. 加载 token 到每个配置
+                if (loadedConfigs.length > 0) {
                     const withTokens = await Promise.all(
-                        savedConfigs.map(async (config) => {
+                        loadedConfigs.map(async (config: any) => {
                             try {
                                 const token = await window.ai?.getLLMToken?.(config.id);
                                 return { ...config, token: token || '' };
                             } catch {
-                                return config;
+                                return { ...config, token: '' };
                             }
                         })
                     );
                     setConfigs(withTokens);
+                    setCurrentConfigId(loadedConfigId || withTokens[0].id);
                 }
+
+                // 4. 恢复会话列表
+                const { recoverConversations } = await import('../lib/chat-storage');
+                const savedConversations = await recoverConversations('chatPanel');
                 if (savedConversations.length > 0) {
                     setConversations(savedConversations);
                 }
-                const savedConfigId = localStorage.getItem('chatPanelCurrentConfigId') || savedConfigs[0]?.id || '';
                 const savedConvId = localStorage.getItem('chatPanelCurrentConvId') || '';
-                setCurrentConfigId(savedConfigId);
                 setCurrentConvId(savedConvId);
             } catch (err) {
-                console.warn('IndexedDB hydration failed:', err);
+                console.warn('Config hydration failed:', err);
             } finally {
                 setIsHydrated(true);
             }
@@ -475,7 +196,7 @@ export default function AIChatPanel() {
     const currentConv = conversations.find((c) => c.id === currentConvId);
     const messages = currentConv?.messages || [];
 
-    // ── Persistence — IndexedDB for configs/conversations, localStorage for lightweight IDs ──
+    // ── Persistence — conversations only via IndexedDB ──
     useEffect(() => {
         if (!isHydrated) return;
         // Save tokens to encrypted storage via IPC
@@ -483,7 +204,6 @@ export default function AIChatPanel() {
             if (config.token && window.ai?.saveLLMToken) {
                 window.ai.saveLLMToken(config.id, config.token);
             }
-            saveConfig(config).catch(console.error);
         });
     }, [configs, isHydrated]);
     useEffect(() => {
@@ -492,10 +212,6 @@ export default function AIChatPanel() {
             saveConversation(conv).catch(console.error);
         });
     }, [conversations, isHydrated]);
-    useEffect(() => {
-        if (!isHydrated) return;
-        localStorage.setItem('chatPanelCurrentConfigId', currentConfigId);
-    }, [currentConfigId, isHydrated]);
     useEffect(() => {
         if (!isHydrated) return;
         localStorage.setItem('chatPanelCurrentConvId', currentConvId);
@@ -730,23 +446,10 @@ export default function AIChatPanel() {
         });
     };
 
-    const handleSaveConfig = (config: ModelConfig, isNew: boolean) => {
-        if (isNew) {
-            setConfigs((prev) => [...prev, config]);
-            setCurrentConfigId(config.id);
-        } else {
-            setConfigs((prev) => prev.map((c) => (c.id === config.id ? config : c)));
-        }
-    };
-
-    const handleDeleteConfig = (id: string) => {
-        if (configs.length <= 1) return;
-        // Clean up encrypted token
-        if (window.ai?.deleteLLMToken) {
-            window.ai.deleteLLMToken(id);
-        }
-        setConfigs((prev) => prev.filter((c) => c.id !== id));
-        if (currentConfigId === id) setCurrentConfigId(configs[0]?.id || '');
+    const handleConfigChange = (newConfigId: string) => {
+        setCurrentConfigId(newConfigId);
+        // 通知主进程更新活跃配置
+        window.api?.models?.setActiveChat?.(newConfigId);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -852,13 +555,6 @@ export default function AIChatPanel() {
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                                 <button
-                                    onClick={() => setShowConfigEditor(!showConfigEditor)}
-                                    className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition"
-                                    title="模型配置"
-                                >
-                                    <Settings size={14} />
-                                </button>
-                                <button
                                     onClick={closePanel}
                                     className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition"
                                     title="关闭面板"
@@ -907,7 +603,7 @@ export default function AIChatPanel() {
                             {currentConfig && (
                                 <select
                                     value={currentConfigId}
-                                    onChange={(e) => setCurrentConfigId(e.target.value)}
+                                    onChange={(e) => handleConfigChange(e.target.value)}
                                     className="flex-1 min-w-0 px-2 py-1 text-[11px] rounded-md outline-none cursor-pointer truncate"
                                     style={{
                                         border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
@@ -916,7 +612,7 @@ export default function AIChatPanel() {
                                     }}
                                 >
                                     {configs.map((c) => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                        <option key={c.id} value={c.id}>{c.name} ({c.model})</option>
                                     ))}
                                 </select>
                             )}
@@ -975,7 +671,7 @@ export default function AIChatPanel() {
 
                         {/* Messages area */}
                         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 relative z-[1]">
-                            {messages.length === 0 && !showConfigEditor && (
+                            {messages.length === 0 && (
                                 <div className="flex flex-col items-center justify-center h-full text-center px-4">
                                     {/* Glowing orb avatar with breathing animation */}
                                     <div className="relative mb-4">
@@ -1186,19 +882,6 @@ export default function AIChatPanel() {
                                 )}
                             </div>
                         </div>
-
-                        {/* Config editor overlay */}
-                        <AnimatePresence>
-                            {showConfigEditor && (
-                                <ConfigEditor
-                                    configs={configs}
-                                    currentConfigId={currentConfigId}
-                                    onSave={handleSaveConfig}
-                                    onDelete={handleDeleteConfig}
-                                    onClose={() => setShowConfigEditor(false)}
-                                />
-                            )}
-                        </AnimatePresence>
                     </motion.div>
                 </>
             )}
