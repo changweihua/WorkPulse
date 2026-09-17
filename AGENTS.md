@@ -28,6 +28,25 @@
 
 **格式：** `emoji type: subject`（subject 必须小写开头，不能 sentence-case/start-case/pascal-case/upper-case）
 
+**header 最长 72 字符**（含 emoji 和空格），超出会被 commitlint 拒绝。
+
+**emoji ↔ type 对照表（必须严格匹配，不可用其他 emoji 代替）：**
+
+| emoji | type | 用途 |
+|-------|------|------|
+| 🎉 | init | 项目初始化 |
+| ✨ | feat | 新功能 |
+| 🐞 | fix | Bug 修复 |
+| 📃 | docs | 文档 |
+| 🌈 | style | 样式调整（不影响逻辑） |
+| 🦄 | refactor | 重构 |
+| 🎈 | perf | 性能优化 |
+| 🧪 | test | 测试 |
+| 🔧 | build | 构建/依赖 |
+| 🐎 | ci | CI/CD |
+| 🐳 | chore | 其他杂项（发布、版本号等） |
+| ↩ | revert | 回滚 |
+
 **示例：**
 - `✨ feat: add radial menu navigation`
 - `🐞 fix: screenshot overlay transparency`
