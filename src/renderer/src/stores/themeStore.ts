@@ -22,10 +22,16 @@ interface ThemeStore {
   init: () => Promise<void>
 }
 
-function applyTheme(theme: Theme): void {
+function applyTheme(theme: Theme, animate = false): void {
   const isDark =
     theme === 'dark' ||
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+  // 添加临时过渡类，使主题切换有 300ms 平滑动画
+  if (animate) {
+    document.documentElement.classList.add('theme-transition')
+    setTimeout(() => document.documentElement.classList.remove('theme-transition'), 350)
+  }
 
   document.documentElement.classList.toggle('dark', isDark)
 }
@@ -43,7 +49,7 @@ export const useThemeStore = create<ThemeStore>((set) => ({
   accent: 'blue',
 
   setTheme: async (theme: Theme) => {
-    applyTheme(theme)
+    applyTheme(theme, true)
     set({ theme })
     await window.api.settings.set('theme', theme)
   },
@@ -68,7 +74,7 @@ export const useThemeStore = create<ThemeStore>((set) => ({
     // Listen for OS theme changes when using 'system'
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
       const current = useThemeStore.getState().theme
-      if (current === 'system') applyTheme('system')
+      if (current === 'system') applyTheme('system', true)
     })
   }
 }))

@@ -30,7 +30,7 @@ export function StreamedMarkdown({ content, isStreaming = false, className }: St
   }, [])
 
   return (
-    <div className={className || 'prose prose-zinc dark:prose-invert prose-sm max-w-none'} role="article">
+    <div className={className || 'prose prose-zinc prose-sm max-w-none'} role="article">
       {think && (
         <div className="mb-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 overflow-hidden">
           <button

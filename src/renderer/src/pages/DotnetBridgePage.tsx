@@ -108,7 +108,7 @@ function DotnetBridgePage(): ReactNode {
                 onClick={() => setHashMode('text')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
                   hashMode === 'text'
-                    ? 'bg-white dark:bg-zinc-600 text-zinc-800 dark:text-zinc-100 shadow-sm'
+                    ? 'bg-zinc-50 dark:bg-zinc-600 text-zinc-800 dark:text-zinc-100 shadow-sm'
                     : 'text-zinc-500 dark:text-zinc-400'
                 }`}
               >
@@ -119,7 +119,7 @@ function DotnetBridgePage(): ReactNode {
                 onClick={() => setHashMode('file')}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
                   hashMode === 'file'
-                    ? 'bg-white dark:bg-zinc-600 text-zinc-800 dark:text-zinc-100 shadow-sm'
+                    ? 'bg-zinc-50 dark:bg-zinc-600 text-zinc-800 dark:text-zinc-100 shadow-sm'
                     : 'text-zinc-500 dark:text-zinc-400'
                 }`}
               >

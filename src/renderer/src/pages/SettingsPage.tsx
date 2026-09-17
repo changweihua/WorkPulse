@@ -739,7 +739,7 @@ function SettingsPage(): ReactNode {
                   ['Esc', t('settings.closeShortcut')]
                 ].map(([key, desc]) => (
                   <div key={key} className="flex items-center justify-between">
-                    <code className="text-xs bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 px-1.5 py-0.5 rounded text-zinc-600 dark:text-zinc-400">
+                    <code className="text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 px-1.5 py-0.5 rounded text-zinc-600 dark:text-zinc-400">
                       {key}
                     </code>
                     <span className="text-xs text-zinc-400">{desc}</span>

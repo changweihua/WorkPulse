@@ -239,11 +239,6 @@ export default function ModelConfigPage(): ReactNode {
       chatConfigs: chats, activeChatConfigId: chatActive,
       embeddingConfigs: embeds, activeEmbeddingConfigId: embedActive,
     })
-    // 同步写入 IndexedDB 备份
-    try {
-      const { saveGlobalModelConfig } = await import('../lib/chat-storage')
-      await saveGlobalModelConfig({ chatConfigs: chats, activeChatConfigId: chatActive, embeddingConfigs: embeds, activeEmbeddingConfigId: embedActive })
-    } catch { /* ignore */ }
   }
 
   // ── Chat CRUD ──
@@ -299,7 +294,7 @@ export default function ModelConfigPage(): ReactNode {
             <div className="flex gap-1 mb-5 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg w-fit">
               {(['chat', 'embedding'] as const).map(t => (
                 <button key={t} onClick={() => setTab(t)}
-                  className={`px-5 py-1.5 text-xs font-medium rounded-md transition ${tab === t ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700'}`}>
+                  className={`px-5 py-1.5 text-xs font-medium rounded-md transition ${tab === t ? 'bg-zinc-50 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700'}`}>
                   {t === 'chat' ? 'Chat 模型' : 'Embedding 模型'}
                 </button>
               ))}

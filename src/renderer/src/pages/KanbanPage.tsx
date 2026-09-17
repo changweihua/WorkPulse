@@ -262,7 +262,7 @@ function SortableTaskCard({
             {editDesc && (
               <div className="mt-1.5 p-2 border border-zinc-200 dark:border-zinc-700 rounded surface-inset">
                 <p className="text-[10px] text-zinc-400 mb-0.5">预览：</p>
-                <div className="text-xs prose prose-sm max-w-none dark:prose-invert">
+                <div className="text-xs prose prose-sm max-w-none">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {editDesc}
                   </ReactMarkdown>
@@ -297,7 +297,7 @@ function SortableTaskCard({
               {task.title}
             </p>
             {task.description && (
-              <div className="text-xs text-zinc-400 mt-1 prose prose-sm max-w-none dark:prose-invert">
+              <div className="text-xs text-zinc-400 mt-1 prose prose-sm max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {task.description}
                 </ReactMarkdown>

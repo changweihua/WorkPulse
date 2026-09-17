@@ -263,7 +263,7 @@ const FullscreenEditor: React.FC<FullscreenEditorProps> = ({
     return (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-95 flex flex-col">
             {/* 标题栏 */}
-            <div className="flex justify-between items-center p-4 bg-gray-900 text-white">
+            <div className="flex justify-between items-center p-4 bg-zinc-900 text-white">
                 <h2 className="text-xl font-bold">✏️ 全屏编辑</h2>
                 <div className="flex gap-3">
                     <button
@@ -282,7 +282,7 @@ const FullscreenEditor: React.FC<FullscreenEditorProps> = ({
             </div>
 
             {/* 工具栏 */}
-            <div className="flex flex-wrap items-center gap-2 p-2 bg-gray-800 text-white">
+            <div className="flex flex-wrap items-center gap-2 p-2 bg-zinc-800 text-white">
                 <input
                     type="file"
                     accept="image/*"
@@ -299,18 +299,18 @@ const FullscreenEditor: React.FC<FullscreenEditorProps> = ({
                 <label htmlFor="materialInputFullscreen" className="px-3 py-1 bg-blue-600 rounded cursor-pointer hover:bg-blue-700">
                     + 添加素材
                 </label>
-                <button onClick={zoomIn} className="px-3 py-1 bg-gray-600 rounded hover:bg-gray-700">🔍+</button>
-                <button onClick={zoomOut} className="px-3 py-1 bg-gray-600 rounded hover:bg-gray-700">🔍-</button>
-                <button onClick={fitToScreen} className="px-3 py-1 bg-gray-600 rounded hover:bg-gray-700">适应</button>
-                <span className="text-sm text-gray-400 dark:text-zinc-500 ml-4">滚轮缩放 · 拖拽素材</span>
+                <button onClick={zoomIn} className="px-3 py-1 bg-zinc-600 rounded hover:bg-zinc-700">🔍+</button>
+                <button onClick={zoomOut} className="px-3 py-1 bg-zinc-600 rounded hover:bg-zinc-700">🔍-</button>
+                <button onClick={fitToScreen} className="px-3 py-1 bg-zinc-600 rounded hover:bg-zinc-700">适应</button>
+                <span className="text-sm text-zinc-400 dark:text-zinc-500 ml-4">滚轮缩放 · 拖拽素材</span>
             </div>
 
             {/* 素材缩略图列表 */}
-            <div className="flex gap-2 p-2 bg-gray-800 border-t border-gray-700 overflow-x-auto">
+            <div className="flex gap-2 p-2 bg-zinc-800 border-t border-zinc-700 overflow-x-auto">
                 {materials.map(mat => (
                     <div
                         key={mat.id}
-                        className={`relative border-2 p-1 cursor-pointer ${selectedId === mat.id ? 'border-green-500' : 'border-gray-600'}`}
+                        className={`relative border-2 p-1 cursor-pointer ${selectedId === mat.id ? 'border-green-500' : 'border-zinc-600'}`}
                         onClick={() => setSelectedId(mat.id)}
                     >
                         <img src={mat.image.src} alt="素材" className="w-16 h-16 object-contain" />
@@ -322,14 +322,14 @@ const FullscreenEditor: React.FC<FullscreenEditorProps> = ({
                         </button>
                     </div>
                 ))}
-                {materials.length === 0 && <span className="text-gray-400 dark:text-zinc-500 text-sm">暂无素材</span>}
+                {materials.length === 0 && <span className="text-zinc-400 dark:text-zinc-500 text-sm">暂无素材</span>}
             </div>
 
             {/* 主画布 */}
             <div className="flex-1 flex items-center justify-center p-4 bg-black">
                 <canvas
                     ref={canvasRef}
-                    className="max-w-full max-h-full border border-gray-600"
+                    className="max-w-full max-h-full border border-zinc-600"
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
@@ -524,24 +524,24 @@ function ProcessorCore() {
 
     // ---- 渲染 ----
     return (
-        <div className="flex flex-col lg:flex-row gap-8 p-6 h-full bg-gray-50 dark:bg-zinc-900/40 overflow-hidden">
+        <div className="flex flex-col lg:flex-row gap-8 p-6 h-full bg-zinc-50 dark:bg-zinc-900/40 overflow-hidden">
             {/* 左侧：原图预览 + 控制 */}
             <div className="flex-1 flex flex-col surface-card p-4 rounded-xl shadow-md min-h-0 min-w-0 overflow-hidden">
                 <div className="flex justify-between items-center mb-3 shrink-0">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-zinc-100">📷 原图</h3>
+                    <h3 className="text-lg font-bold text-zinc-800 dark:text-zinc-100">📷 原图</h3>
                     <button
                         onClick={() => setIsEditorOpen(true)}
                         disabled={!imageLoaded}
                         className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded
                                 ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                                : 'bg-gray-300 text-gray-500 dark:text-zinc-400 dark:bg-zinc-700 cursor-not-allowed'
+                                : 'bg-zinc-200 text-zinc-400 dark:text-zinc-500 dark:bg-zinc-700 cursor-not-allowed'
                             }`}
                     >
                         ✏️ 编辑
                     </button>
                 </div>
 
-                <div className="flex-1 min-h-0 border border-gray-300 dark:border-zinc-600/70 rounded-lg overflow-hidden bg-black flex items-center justify-center">
+                <div className="flex-1 min-h-0 border border-zinc-200 dark:border-zinc-600/70 rounded-lg overflow-hidden bg-black flex items-center justify-center">
                     <canvas
                         ref={previewCanvasRef}
                         className="max-w-full max-h-full block"
@@ -565,7 +565,7 @@ function ProcessorCore() {
                         disabled={!imageLoaded || isPreviewing}
                         className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded && !isPreviewing
                                 ? 'bg-green-600 hover:bg-green-700 text-white'
-                                : 'bg-gray-300 text-gray-500 dark:text-zinc-400 dark:bg-zinc-700 cursor-not-allowed'
+                                : 'bg-zinc-200 text-zinc-400 dark:text-zinc-500 dark:bg-zinc-700 cursor-not-allowed'
                             }`}
                     >
                         {isPreviewing ? '⏳ 处理中...' : '👁️ 预览'}
@@ -575,7 +575,7 @@ function ProcessorCore() {
                         disabled={!imageLoaded}
                         className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded
                                 ? 'bg-red-600 hover:bg-red-700 text-white'
-                                : 'bg-gray-300 text-gray-500 dark:text-zinc-400 dark:bg-zinc-700 cursor-not-allowed'
+                                : 'bg-zinc-200 text-zinc-400 dark:text-zinc-500 dark:bg-zinc-700 cursor-not-allowed'
                             }`}
                     >
                         🔄 重置
@@ -585,7 +585,7 @@ function ProcessorCore() {
                         disabled={!imageLoaded}
                         className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded
                                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                : 'bg-gray-300 text-gray-500 dark:text-zinc-400 dark:bg-zinc-700 cursor-not-allowed'
+                                : 'bg-zinc-200 text-zinc-400 dark:text-zinc-500 dark:bg-zinc-700 cursor-not-allowed'
                             }`}
                     >
                         ⬇️ 合成
@@ -595,7 +595,7 @@ function ProcessorCore() {
                         disabled={!imageLoaded}
                         className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded
                                 ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                                : 'bg-gray-300 text-gray-500 dark:text-zinc-400 dark:bg-zinc-700 cursor-not-allowed'
+                                : 'bg-zinc-200 text-zinc-400 dark:text-zinc-500 dark:bg-zinc-700 cursor-not-allowed'
                             }`}
                     >
                         ⬇️ 加亮
@@ -605,7 +605,7 @@ function ProcessorCore() {
                         disabled={!imageLoaded}
                         className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${imageLoaded
                                 ? 'bg-cyan-600 hover:bg-cyan-700 text-white'
-                                : 'bg-gray-300 text-gray-500 dark:text-zinc-400 dark:bg-zinc-700 cursor-not-allowed'
+                                : 'bg-zinc-200 text-zinc-400 dark:text-zinc-500 dark:bg-zinc-700 cursor-not-allowed'
                             }`}
                     >
                         ⬇️ 加暗
@@ -613,13 +613,13 @@ function ProcessorCore() {
                 </div>
 
                 {/* 全局参数 - 紧凑行布局 */}
-                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-zinc-700/70 flex gap-4 shrink-0">
+                <div className="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-700/70 flex gap-4 shrink-0">
                     <label className="flex-1 text-xs">
-                        <span className="flex justify-between text-gray-600 dark:text-zinc-300">饱和度 <span className="font-mono">{Math.round(saturationBoost * 100)}%</span></span>
+                        <span className="flex justify-between text-zinc-500 dark:text-zinc-300">饱和度 <span className="font-mono">{Math.round(saturationBoost * 100)}%</span></span>
                         <input type="range" min="0" max="0.5" step="0.01" value={saturationBoost} onChange={(e) => setSaturationBoost(parseFloat(e.target.value))} className="w-full mt-0.5" />
                     </label>
                     <label className="flex-1 text-xs">
-                        <span className="flex justify-between text-gray-600 dark:text-zinc-300">细节 <span className="font-mono">{Math.round(detailBoost * 100)}%</span></span>
+                        <span className="flex justify-between text-zinc-500 dark:text-zinc-300">细节 <span className="font-mono">{Math.round(detailBoost * 100)}%</span></span>
                         <input type="range" min="0" max="1.5" step="0.01" value={detailBoost} onChange={(e) => setDetailBoost(parseFloat(e.target.value))} className="w-full mt-0.5" />
                     </label>
                 </div>
@@ -629,9 +629,9 @@ function ProcessorCore() {
             <div className="flex-1 flex flex-col surface-card p-4 rounded-xl shadow-md min-w-0 min-h-0 overflow-hidden">
                 <div className="flex-1 flex flex-col items-center min-h-0 overflow-y-auto">
                     <div className="flex flex-col items-center mb-4 w-full">
-                        <h4 className="text-sm font-semibold text-gray-700 dark:text-zinc-200 mb-1">☀️ 加亮</h4>
+                        <h4 className="text-sm font-semibold text-zinc-600 dark:text-zinc-200 mb-1">☀️ 加亮</h4>
                         <div
-                            className="w-full max-w-md border border-gray-300 dark:border-zinc-600/70 rounded-lg overflow-hidden bg-black cursor-pointer relative"
+                            className="w-full max-w-md border border-zinc-200 dark:border-zinc-600/70 rounded-lg overflow-hidden bg-black cursor-pointer relative"
                             onClick={() => {
                                 const canvas = brightPreviewRef.current;
                                 if (canvas) setFullscreenPreview(canvas.toDataURL('image/png'));
@@ -642,16 +642,16 @@ function ProcessorCore() {
                         </div>
                         <div className="w-full max-w-md mt-1.5">
                             <label className="block text-xs">
-                                <span className="flex justify-between text-gray-600 dark:text-zinc-300">加亮强度 <span className="font-mono">{Math.round(brightStrength * 100)}%</span></span>
+                                <span className="flex justify-between text-zinc-500 dark:text-zinc-300">加亮强度 <span className="font-mono">{Math.round(brightStrength * 100)}%</span></span>
                                 <input type="range" min="0" max="1" step="0.01" value={brightStrength} onChange={(e) => setBrightStrength(parseFloat(e.target.value))} className="w-full mt-0.5" />
                             </label>
                         </div>
                     </div>
 
                     <div className="flex flex-col items-center w-full">
-                        <h4 className="text-sm font-semibold text-gray-700 dark:text-zinc-200 mb-1">🌙 加暗</h4>
+                        <h4 className="text-sm font-semibold text-zinc-600 dark:text-zinc-200 mb-1">🌙 加暗</h4>
                         <div
-                            className="w-full max-w-md border border-gray-300 dark:border-zinc-600/70 rounded-lg overflow-hidden bg-black cursor-pointer relative"
+                            className="w-full max-w-md border border-zinc-200 dark:border-zinc-600/70 rounded-lg overflow-hidden bg-black cursor-pointer relative"
                             onClick={() => {
                                 const canvas = darkPreviewRef.current;
                                 if (canvas) setFullscreenPreview(canvas.toDataURL('image/png'));
@@ -662,13 +662,13 @@ function ProcessorCore() {
                         </div>
                         <div className="w-full max-w-md mt-1.5">
                             <label className="block text-xs">
-                                <span className="flex justify-between text-gray-600 dark:text-zinc-300">加暗强度 <span className="font-mono">{Math.round(darkStrength * 100)}%</span></span>
+                                <span className="flex justify-between text-zinc-500 dark:text-zinc-300">加暗强度 <span className="font-mono">{Math.round(darkStrength * 100)}%</span></span>
                                 <input type="range" min="0" max="1" step="0.01" value={darkStrength} onChange={(e) => setDarkStrength(parseFloat(e.target.value))} className="w-full mt-0.5" />
                             </label>
                         </div>
                     </div>
 
-                    <div className="mt-2 text-center text-xs text-gray-400 dark:text-zinc-500 border-t border-gray-100 pt-2 w-full">
+                    <div className="mt-2 text-center text-xs text-zinc-400 dark:text-zinc-500 border-t border-zinc-200 dark:border-zinc-700/70 pt-2 w-full">
                         点击预览图全屏查看 · 点击「预览」更新效果
                     </div>
                 </div>
@@ -697,7 +697,7 @@ function ProcessorCore() {
 export default function XrayProcessor() {
     return (
         <ErrorBoundary>
-            <Suspense fallback={<div className="p-10 text-center text-gray-600 dark:text-zinc-300">⏳ 加载 WASM 模块...</div>}>
+            <Suspense fallback={<div className="p-10 text-center text-zinc-500 dark:text-zinc-300">⏳ 加载 WASM 模块...</div>}>
                 <ProcessorCore />
             </Suspense>
         </ErrorBoundary>
