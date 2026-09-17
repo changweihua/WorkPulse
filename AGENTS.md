@@ -38,14 +38,15 @@
 
 ### ⚠️ Windows 下写 commit message 的正确方式
 
-Shell 工具在 Windows 上默认使用 GBK 编码，emoji 字符会丢失或乱码。**必须**使用 pwsh 写入临时文件：
+Shell 工具在 Windows 上默认使用 GBK 编码，emoji 字符会丢失或乱码。**必须**使用 Node.js 写入临时文件（无 BOM）：
 
-```powershell
-pwsh -Command "[System.IO.File]::WriteAllText('C:\Users\Changweihua\AppData\Local\Temp\opencode\COMMIT_MSG', '🐳 chore: release v0.3.4', [System.Text.Encoding]::UTF8)" && git commit -F "C:\Users\Changweihua\AppData\Local\Temp\opencode\COMMIT_MSG"
+```bash
+node -e "require('fs').writeFileSync('C:\\Users\\Changweihua\\AppData\\Local\\Temp\\opencode\\COMMIT_MSG','\u{1F41B} fix: resolve camera permission crash','utf8')" && git commit -F "C:\Users\Changweihua\AppData\Local\Temp\opencode\COMMIT_MSG"
 ```
 
 **关键点：**
-- 使用 `[System.IO.File]::WriteAllText()` + `[System.Text.Encoding]::UTF8` 确保 UTF-8 编码
+- 使用 Node.js `fs.writeFileSync(..., 'utf8')` 写入 —— **UTF-8 无 BOM**
+- **禁止** `pwsh -Command "[System.IO.File]::WriteAllText(..., [System.Text.Encoding]::UTF8)"` —— 会写入 BOM (`\uFEFF`)，导致 commitlint 报 `type must be one of [...]` 错误
 - **禁止** `git commit -m "emoji msg"` — shell 在插值字符串中会破坏 emoji
 - **禁止** 随意使用 `--no-verify` — 仅在 hook 真的 broken 时使用
 
