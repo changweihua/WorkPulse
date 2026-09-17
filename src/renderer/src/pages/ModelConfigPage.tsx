@@ -3,8 +3,10 @@
  * Chat 模型和 Embedding 模型分别管理，支持 CRUD + 默认选择
  */
 import React, { useState, useEffect, ReactNode } from 'react'
-import { Plus, Trash2, Settings } from 'lucide-react'
+import { Plus, Trash2, Settings, Pencil } from 'lucide-react'
+import { Icon } from '@iconify/react'
 import { useToast } from '../components/Toast'
+import { useThemeStore } from '../stores/themeStore'
 
 interface ChatModel {
   id: string; name: string; baseURL: string; model: string; token: string;
@@ -24,20 +26,20 @@ const EMPTY_CHAT: ChatModel = { id: '', name: '', baseURL: '', model: '', token:
 const EMPTY_EMBED: EmbeddingModel = { id: '', name: '', baseURL: 'https://api.openai.com/v1', model: '', dimension: 1536, headers: '', token: '' }
 
 const CHAT_PRESETS = [
-  { name: 'DeepSeek', baseURL: 'https://api.deepseek.com', model: 'deepseek-chat' },
-  { name: 'OpenAI', baseURL: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
-  { name: 'Anthropic', baseURL: 'https://api.anthropic.com', model: 'claude-sonnet-4-20250514' },
-  { name: '智谱AI', baseURL: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },
-  { name: '通义千问', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
-  { name: 'Gitee AI', baseURL: 'https://ai.gitee.com/v1', model: 'Qwen3-8B' },
-  { name: 'Ollama', baseURL: 'http://localhost:11434/v1', model: '' },
-  { name: '自定义', baseURL: '', model: '' },
+  { name: 'DeepSeek', baseURL: 'https://api.deepseek.com', model: 'deepseek-chat', iconLight: 'thesvg-color:deepseek', iconDark: 'thesvg-color:deepseek' },
+  { name: 'OpenAI', baseURL: 'https://api.openai.com/v1', model: 'gpt-4o-mini', iconLight: 'thesvg-color:openai-light', iconDark: 'thesvg-color:openai-dark' },
+  { name: 'Anthropic', baseURL: 'https://api.anthropic.com', model: 'claude-sonnet-4-20250514', iconLight: 'thesvg-color:anthropic-light', iconDark: 'thesvg-color:anthropic-dark' },
+  { name: '智谱AI', baseURL: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash', iconLight: 'thesvg-color:zhipu', iconDark: 'thesvg-color:zhipu' },
+  { name: '通义千问', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', iconLight: 'thesvg-color:qwen-light', iconDark: 'thesvg-color:qwen-dark' },
+  { name: 'Gitee AI', baseURL: 'https://ai.gitee.com/v1', model: 'Qwen3-8B', iconLight: 'thesvg-color:giteeai', iconDark: 'thesvg-color:giteeai' },
+  { name: 'Ollama', baseURL: 'http://localhost:11434/v1', model: '', iconLight: 'thesvg-color:ollama-light', iconDark: 'thesvg-color:ollama-dark' },
+  { name: '自定义', baseURL: '', model: '', iconLight: 'mdi:pencil', iconDark: 'mdi:pencil' },
 ]
 const EMBED_PRESETS = [
-  { name: 'OpenAI Small', baseURL: 'https://api.openai.com/v1', model: 'text-embedding-3-small', dimension: 1536 },
-  { name: 'OpenAI Large', baseURL: 'https://api.openai.com/v1', model: 'text-embedding-3-large', dimension: 3072 },
-  { name: 'Ollama (本地)', baseURL: 'http://localhost:11434/v1', model: 'nomic-embed-text', dimension: 768 },
-  { name: '自定义', baseURL: '', model: '', dimension: 1536 },
+  { name: 'OpenAI Small', baseURL: 'https://api.openai.com/v1', model: 'text-embedding-3-small', dimension: 1536, iconLight: 'thesvg-color:openai-light', iconDark: 'thesvg-color:openai-dark' },
+  { name: 'OpenAI Large', baseURL: 'https://api.openai.com/v1', model: 'text-embedding-3-large', dimension: 3072, iconLight: 'thesvg-color:openai-light', iconDark: 'thesvg-color:openai-dark' },
+  { name: 'Ollama (本地)', baseURL: 'http://localhost:11434/v1', model: 'nomic-embed-text', dimension: 768, iconLight: 'thesvg-color:ollama-light', iconDark: 'thesvg-color:ollama-dark' },
+  { name: '自定义', baseURL: '', model: '', dimension: 1536, iconLight: 'mdi:pencil', iconDark: 'mdi:pencil' },
 ]
 
 function ChatEditForm({ editing, isNew, onChange, onSave, onCancel, inputCls, monoCls }: {
@@ -134,6 +136,7 @@ function EmbedEditForm({ editing, isNew, onChange, onSave, onCancel, inputCls, m
 
 export default function ModelConfigPage(): ReactNode {
   const toast = useToast()
+  const isDark = useThemeStore(s => s.theme === 'dark' || (s.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches))
   const [tab, setTab] = useState<'chat' | 'embedding'>('chat')
   const [chatConfigs, setChatConfigs] = useState<ChatModel[]>([])
   const [activeChatId, setActiveChatId] = useState('')
@@ -315,7 +318,8 @@ export default function ModelConfigPage(): ReactNode {
               <div className="grid grid-cols-4 gap-2 mb-4">
                 {CHAT_PRESETS.map(p => (
                   <button key={p.name} onClick={() => { setEditingChat({ ...EMPTY_CHAT, id: '', name: p.name, baseURL: p.baseURL, model: p.model }); setChatIsNew(true) }}
-                    className="px-2 py-2 text-xs font-medium border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition text-zinc-700 dark:text-zinc-300">
+                    className="flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition text-zinc-700 dark:text-zinc-300">
+                    <Icon icon={isDark ? p.iconDark : p.iconLight} className="w-4 h-4 shrink-0" />
                     {p.name}
                   </button>
                 ))}
@@ -361,7 +365,8 @@ export default function ModelConfigPage(): ReactNode {
               <div className="grid grid-cols-4 gap-2 mb-4">
                 {EMBED_PRESETS.map(p => (
                   <button key={p.name} onClick={() => { setEditingEmbed({ ...EMPTY_EMBED, id: '', name: p.name, baseURL: p.baseURL, model: p.model, dimension: p.dimension }); setEmbedIsNew(true) }}
-                    className="px-2 py-2 text-xs font-medium border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition text-zinc-700 dark:text-zinc-300">
+                    className="flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition text-zinc-700 dark:text-zinc-300">
+                    <Icon icon={isDark ? p.iconDark : p.iconLight} className="w-4 h-4 shrink-0" />
                     {p.name}
                   </button>
                 ))}

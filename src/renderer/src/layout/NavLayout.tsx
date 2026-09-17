@@ -162,7 +162,7 @@ export default function NavLayout() {
                 { path: 'pp', icon: <SiPaddlepaddle className="w-[18px] h-[18px]" />, label: t('nav.pp') },
                 { path: 'xray', icon: <Zap className="w-[18px] h-[18px]" />, label: t('nav.xray') },
                 { path: 'onnx', icon: <SiOnnx className="w-[18px] h-[18px]" />, label: t('nav.onnx') },
-                { path: 'model-config', icon: <Icon icon="line-md:robot" width={18} height={18} />, label: 'AI 模型' },
+                { path: 'model-config', icon: <Icon icon="mdi:robot" className="w-[18px] h-[18px]" />, label: 'AI 模型' },
                 { path: 'fluid-glass', icon: <Icon icon="mdi:glass-water" className="w-[18px] h-[18px]" />, label: t('nav.fluidGlass') },
                 { path: 'dotnet', icon: <Icon icon="mdi:dot-net" className="w-[18px] h-[18px]" />, label: t('nav.dotnet') },
             ],
@@ -236,7 +236,7 @@ export default function NavLayout() {
                 </div>
 
                 {/* -- Scrollable nav body -- */}
-                <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-2">
+                <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-3">
                     {sections.map((section, sIdx) => (
                         <div key={section.id} className={sIdx > 0 ? 'mt-2' : ''}>
                             {/* Section divider — thin line when collapsed, label when expanded */}
@@ -270,9 +270,6 @@ export default function NavLayout() {
                                         onMouseEnter={(e) => handleItemEnter(e, item.path)}
                                         onMouseLeave={handleItemLeave}
                                     >
-                                        {active && (
-                                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-blue-500" />
-                                        )}
                                         <span key={`${item.path}-${collapsed}`} className="flex items-center justify-center shrink-0">
                                             {item.icon}
                                         </span>
@@ -289,11 +286,11 @@ export default function NavLayout() {
                 </nav>
 
                 {/* -- Footer: settings -- */}
-                <div className="shrink-0 border-t border-zinc-200/40 dark:border-zinc-700/40 pt-1">
+                <div className="shrink-0 border-t border-zinc-200/40 dark:border-zinc-700/40 pt-2 pb-3">
                     <Link
                         to="/settings"
                         className={`
-                            relative flex items-center gap-3 mx-2 rounded-lg text-sm
+                            relative flex items-center gap-3 mx-2 rounded-lg rounded-b-2xl text-sm
                             transition-all duration-150 outline-none cursor-pointer
                             focus-visible:ring-2 focus-visible:ring-sky-500/70
                             ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}
@@ -306,9 +303,6 @@ export default function NavLayout() {
                         onMouseEnter={(e) => handleItemEnter(e, 'settings')}
                         onMouseLeave={handleItemLeave}
                     >
-                        {isActive('settings') && (
-                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-blue-500" />
-                        )}
                         <span className="flex items-center justify-center shrink-0">
                             <Icon icon="line-md:cog" width={18} height={18} />
                         </span>

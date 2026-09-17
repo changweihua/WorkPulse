@@ -1460,3 +1460,49 @@ body,
   line-height: inherit;
   color: inherit;
 }
+
+/* ===================================================================
+   全局按钮：毛玻璃效果 + 圆角统一
+   =================================================================== */
+
+/* 所有 button 元素统一圆角 */
+button:not([class*="rounded"]),
+input[type="button"],
+input[type="submit"] {
+  border-radius: var(--radius-md);
+}
+
+/* 表单提交/取消按钮统一圆角 */
+button[class*="rounded-md"] {
+  border-radius: var(--radius-md) !important;
+}
+
+button[class*="rounded-lg"] {
+  border-radius: var(--radius-md) !important;
+}
+
+/* 胶囊按钮保持圆角 */
+button[class*="rounded-full"] {
+  border-radius: var(--radius-pill) !important;
+}
+
+/* 全局按钮毛玻璃效果 — 悬停时轻微模糊 */
+.surface-card button:not(.surface-card):not([class*="bg-blue"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-violet"]):not([class*="bg-zinc"]) {
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+}
+
+/* 全局下拉 select 统一圆角 */
+select {
+  border-radius: var(--radius-md);
+}
+
+/* 全局输入框统一圆角 */
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="email"],
+input[type="url"],
+textarea {
+  border-radius: var(--radius-md);
+}

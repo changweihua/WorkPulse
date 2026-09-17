@@ -143,7 +143,7 @@ function Grid({
               background: isDark ? 'rgba(20,20,30,0.95)' : 'rgba(255,255,255,0.95)',
               color: isDark ? '#e5e7eb' : '#111827',
               padding: '6px 10px',
-              borderRadius: 8,
+              borderRadius: 'var(--radius-md)',
               fontSize: 12,
               whiteSpace: 'nowrap',
               boxShadow: '0 4px 12px rgba(0,0,0,0.25)',

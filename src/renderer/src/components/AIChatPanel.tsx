@@ -509,7 +509,7 @@ export default function AIChatPanel() {
                             boxShadow: isDark
                                 ? '-16px 0 60px rgba(0,0,0,0.4), -4px 0 20px rgba(0,0,0,0.25), inset 1px 0 0 rgba(255,255,255,0.05), 0 0 80px rgba(59,130,246,0.03)'
                                 : '-16px 0 60px rgba(0,0,0,0.08), -4px 0 20px rgba(0,0,0,0.04), inset 1px 0 0 rgba(255,255,255,0.9), 0 0 80px rgba(59,130,246,0.04)',
-                            borderRadius: '16px 0 0 16px',
+                            borderRadius: 'var(--radius-lg) 0 0 var(--radius-lg)',
                         }}
                     >
                         {/* ─── Animated gradient border on left edge ─── */}
@@ -652,7 +652,7 @@ export default function AIChatPanel() {
                                                     borderLeft: conv.id === currentConvId
                                                         ? '2px solid rgba(59,130,246,0.7)'
                                                         : '2px solid transparent',
-                                                    borderRadius: '6px',
+                                                    borderRadius: 'var(--radius-sm)',
                                                 }}
                                             >
                                                 <span className="truncate min-w-0">{conv.title}</span>
@@ -744,14 +744,14 @@ export default function AIChatPanel() {
                                                 style={isUser ? {
                                                     background: 'linear-gradient(135deg, rgba(59,130,246,0.9), rgba(79,110,246,0.85))',
                                                     color: 'white',
-                                                    borderRadius: '16px 16px 4px 16px',
+                                                    borderRadius: 'var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg)',
                                                     boxShadow: '0 2px 12px rgba(59,130,246,0.2), inset 0 1px 1px rgba(255,255,255,0.15)',
                                                 } : {
                                                     background: isDark
                                                         ? 'linear-gradient(135deg, rgba(35,40,60,0.7), rgba(25,30,50,0.6))'
                                                         : 'linear-gradient(135deg, rgba(255,255,255,0.8), rgba(245,248,255,0.7))',
                                                     color: isDark ? 'rgba(220,225,240,0.95)' : 'rgba(30,35,50,0.9)',
-                                                    borderRadius: '16px 16px 16px 4px',
+                                                    borderRadius: 'var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm)',
                                                     border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
                                                     boxShadow: isDark
                                                         ? '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.03)'

@@ -366,7 +366,7 @@ function ScreenshotOverlay(): React.ReactNode {
               transition={{ duration: 0.12 }}
               style={{
                 position: 'absolute', left: labelX, top: labelY,
-                padding: '3px 8px', borderRadius: 6,
+                padding: '3px 8px', borderRadius: 'var(--radius-sm)',
                 background: 'rgba(20,20,22,0.78)', color: '#fff',
                 fontSize: 12, fontFamily: 'system-ui, sans-serif',
                 letterSpacing: 0.4, pointerEvents: 'none',
@@ -412,7 +412,7 @@ function ScreenshotOverlay(): React.ReactNode {
               position: 'fixed', left: 0, top: 0,
               zIndex: 20, pointerEvents: 'auto',
               display: 'flex', alignItems: 'center', gap: 4,
-              padding: '8px 10px', borderRadius: 14,
+              padding: '8px 10px', borderRadius: 'var(--radius-lg)',
               background: 'rgba(30,30,32,0.92)',
               backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
               border: '1px solid rgba(255,255,255,0.12)',
@@ -442,7 +442,7 @@ function ScreenshotOverlay(): React.ReactNode {
             style={{
               position: 'fixed', bottom: 56, left: '50%',
               display: 'flex', alignItems: 'center', gap: 8,
-              padding: '10px 18px', borderRadius: 999,
+              padding: '10px 18px', borderRadius: 'var(--radius-pill)',
               background: 'rgba(20,20,22,0.82)',
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
@@ -479,7 +479,7 @@ function ToolButton({ def }: { def: ToolDef }): React.ReactNode {
       onMouseUp={() => setActive(false)}
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 4, width: 60, padding: '8px 4px', borderRadius: 10,
+        gap: 4, width: 60, padding: '8px 4px', borderRadius: 'var(--radius-md)',
         background: active ? 'rgba(255,255,255,0.16)' : hover ? 'rgba(255,255,255,0.10)' : 'transparent',
         border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.92)',
         transform: active ? 'scale(0.96)' : 'scale(1)',

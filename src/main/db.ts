@@ -317,7 +317,11 @@ export function addWorkLog(
 
 export function getWorkLogs(limit = 200, offset = 0): WorkLog[] {
   const stmt = db.prepare(
-    'SELECT * FROM work_logs ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    `SELECT wl.*, t.due_date AS task_due_date
+     FROM work_logs wl
+     LEFT JOIN tasks t ON wl.task_id = t.id
+     ORDER BY COALESCE(t.due_date, wl.created_at) DESC
+     LIMIT ? OFFSET ?`
   )
   return stmt.all(limit, offset) as WorkLog[]
 }
@@ -331,7 +335,12 @@ export function getWorkLogsByDateRange(from: string, to: string): WorkLog[] {
 
 export function searchWorkLogs(keyword: string, limit = 200): WorkLog[] {
   const stmt = db.prepare(
-    'SELECT * FROM work_logs WHERE content LIKE ? ORDER BY created_at DESC LIMIT ?'
+    `SELECT wl.*, t.due_date AS task_due_date
+     FROM work_logs wl
+     LEFT JOIN tasks t ON wl.task_id = t.id
+     WHERE wl.content LIKE ?
+     ORDER BY COALESCE(t.due_date, wl.created_at) DESC
+     LIMIT ?`
   )
   return stmt.all(`%${keyword}%`, limit) as WorkLog[]
 }
@@ -683,7 +692,13 @@ export function generateWeeklyReport(startDate: string, endDate: string): Weekly
 }
 
 export function getAllWorkLogs(): WorkLog[] {
-  return db.prepare('SELECT * FROM work_logs ORDER BY created_at DESC LIMIT 50000').all() as WorkLog[]
+  return db.prepare(
+    `SELECT wl.*, t.due_date AS task_due_date
+     FROM work_logs wl
+     LEFT JOIN tasks t ON wl.task_id = t.id
+     ORDER BY COALESCE(t.due_date, wl.created_at) DESC
+     LIMIT 50000`
+  ).all() as WorkLog[]
 }
 
 export function getCategories(): string[] {
