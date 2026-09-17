@@ -102,22 +102,23 @@ const api = {
   },
   ai: {
     streamChat: (prompt: string) => {
-      ipcRenderer.invoke('ai:stream-chat', prompt)
+      // 从全局配置获取活跃模型配置（异步获取，传给 handler）
+      ipcRenderer.invoke('ai-chat-stream', { userMessage: prompt, history: [] })
       return {
         onChunk: (cb: (text: string) => void) => {
           const handler = (_e: any, text: string) => cb(text)
-          ipcRenderer.on('ai:stream-chunk', handler)
-          return () => ipcRenderer.removeListener('ai:stream-chunk', handler)
+          ipcRenderer.on('ai-stream-chunk', handler)
+          return () => ipcRenderer.removeListener('ai-stream-chunk', handler)
         },
         onDone: (cb: () => void) => {
           const handler = () => cb()
-          ipcRenderer.on('ai:stream-done', handler)
-          return () => ipcRenderer.removeListener('ai:stream-done', handler)
+          ipcRenderer.on('ai-stream-done', handler)
+          return () => ipcRenderer.removeListener('ai-stream-done', handler)
         },
         onError: (cb: (err: string) => void) => {
           const handler = (_e: any, err: string) => cb(err)
-          ipcRenderer.on('ai:stream-error', handler)
-          return () => ipcRenderer.removeListener('ai:stream-error', handler)
+          ipcRenderer.on('ai-stream-error', handler)
+          return () => ipcRenderer.removeListener('ai-stream-error', handler)
         }
       }
     }

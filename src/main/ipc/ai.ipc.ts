@@ -59,14 +59,33 @@ export function registerAiIpc(): void {
     }
 
     const validated = validate(AiChatStreamSchema, params)
-    const { userMessage, history, config } = validated
+    let { userMessage, history, config } = validated
 
-    let apiKey = config.token || process.env.API_KEY
+    // 始终从全局配置获取模型信息，config 中的值作为覆盖
+    const { getActiveChatConfig } = require('../modelConfig')
+    const active = getActiveChatConfig()
+    if (!active) {
+      event.sender.send('ai-stream-error', '未配置模型，请先在 AI 模型页面添加配置')
+      stopPowerBlock()
+      return
+    }
+    const finalConfig = {
+      id: active.id,
+      baseURL: active.baseURL,
+      model: active.model,
+      token: config?.token || active.token || '',
+      headers: config?.headers || active.headers || '',
+      temperature: config?.temperature ?? active.temperature ?? 0.7,
+      max_tokens: config?.max_tokens ?? active.max_tokens ?? 4096,
+      top_p: config?.top_p ?? active.top_p ?? 0.9,
+    }
+
+    let apiKey = finalConfig.token || process.env.API_KEY
 
     // ── 推理开始，启用防休眠 ──
     startPowerBlock()
-    if (!apiKey && config.id) {
-      apiKey = getLLMToken(config.id)
+    if (!apiKey && finalConfig.id) {
+      apiKey = getLLMToken(finalConfig.id)
     }
     if (!apiKey) {
       event.sender.send('ai-stream-error', '未提供 API Key')
@@ -75,8 +94,8 @@ export function registerAiIpc(): void {
     }
 
     let defaultHeaders: Record<string, string> = {}
-    if (config.headers) {
-      try { defaultHeaders = JSON.parse(config.headers) } catch { log.warn('解析 headers 失败') }
+    if (finalConfig.headers) {
+      try { defaultHeaders = JSON.parse(finalConfig.headers) } catch { log.warn('解析 headers 失败') }
     }
 
     const MAX_RETRIES = 3
@@ -91,19 +110,19 @@ export function registerAiIpc(): void {
 
       try {
         const client = new OpenAI({
-          baseURL: config.baseURL,
+          baseURL: finalConfig.baseURL,
           apiKey,
           defaultHeaders,
         })
 
         const stream = (await client.chat.completions.create(
           {
-            model: config.model,
+            model: finalConfig.model,
             messages: [...history, { role: 'user', content: userMessage }],
             stream: true,
-            temperature: config.temperature ?? 0.7,
-            max_tokens: config.max_tokens ?? 2048,
-            top_p: config.top_p ?? 0.9,
+            temperature: finalConfig.temperature ?? 0.7,
+            max_tokens: finalConfig.max_tokens ?? 2048,
+            top_p: finalConfig.top_p ?? 0.9,
           },
           { signal: controller.signal }
         )) as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>

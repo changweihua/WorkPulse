@@ -45,15 +45,15 @@ export const AiChatStreamSchema = z.object({
     )
     .max(200),
   config: z.object({
-    id: z.string(),
-    baseURL: z.string(),
-    model: z.string().min(1),
+    id: z.string().optional(),
+    baseURL: z.string().optional(),
+    model: z.string().min(1).optional(),
     token: z.string().optional(),
     headers: z.string().optional(),
     temperature: z.number().min(0).max(2).optional(),
     max_tokens: z.number().min(1).max(128000).optional(),
     top_p: z.number().min(0).max(1).optional(),
-  }),
+  }).optional(),
 });
 
 export const AiStreamChatSchema = z.object({

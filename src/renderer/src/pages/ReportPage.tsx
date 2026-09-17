@@ -237,7 +237,7 @@ function ReportPage(): ReactNode {
   return (
     <div className="h-full overflow-hidden px-6 py-6">
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5" style={{ height: '100%' }}>
-        <div className="lg:col-span-3 min-w-0 flex flex-col gap-3 overflow-hidden">
+        <div className="lg:col-span-3 min-w-0 flex flex-col gap-3 overflow-hidden" style={{ height: '100%' }}>
           {isViewingHistory && (
             <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 surface-card rounded-xl shrink-0">
               <button onClick={handleBackToNew} className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
@@ -336,7 +336,7 @@ function ReportPage(): ReactNode {
           )}
 
           {(status === 'success' || status === 'streaming' || status === 'generating') && (
-            <div className="flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
               <div className="flex items-center justify-between mb-2 gap-3 flex-wrap shrink-0">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
@@ -363,7 +363,7 @@ function ReportPage(): ReactNode {
                 <textarea value={reportContent} onChange={(e) => setReportContent(e.target.value)}
                   className="flex-1 min-h-0 w-full px-4 py-3 border border-zinc-200 dark:border-zinc-700 rounded-xl surface-input dark:text-zinc-100 text-sm font-mono leading-relaxed outline-none focus:border-zinc-400 resize-none" />
               ) : (
-                <div className={`flex-1 min-h-0 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 surface-card ${isStreaming ? 'streaming-border' : ''}`}>
+                <div className={`flex-1 min-h-0 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 surface-card ${isStreaming ? 'streaming-border' : ''}`} style={{ overflow: 'auto' }}>
                   <StreamedMarkdown content={reportContent} isStreaming={isStreaming} />
                 </div>
               )}
