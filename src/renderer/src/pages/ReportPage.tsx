@@ -364,7 +364,7 @@ function ReportPage(): ReactNode {
                   className="flex-1 min-h-0 w-full px-4 py-3 border border-zinc-200 dark:border-zinc-700 rounded-xl surface-input dark:text-zinc-100 text-sm font-mono leading-relaxed outline-none focus:border-zinc-400 resize-none" />
               ) : (
                 <div className={`flex-1 min-h-0 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 surface-card ${isStreaming ? 'streaming-border' : ''}`} style={{ overflow: 'auto' }}>
-                  <StreamedMarkdown content={reportContent} isStreaming={isStreaming} />
+                  <StreamedMarkdown content={reportContent} isStreaming={isStreaming} className="obsidian-markdown" />
                 </div>
               )}
 

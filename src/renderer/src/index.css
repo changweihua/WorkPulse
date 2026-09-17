@@ -23,6 +23,12 @@
   --color-surface-input: rgb(255 255 255 / 0.50);
   --color-surface-inset: rgb(0 0 0 / 4%);
 
+  /* Design tokens: Radius (以毛玻璃 surface-card 12px 为基准) */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
   /* Design tokens: Glass (frosted surface treatment) */
   --glass-border: rgb(255 255 255 / 0.45);
   --glass-shadow: 0 4px 30px rgb(0 0 0 / 0.10);
@@ -509,7 +515,7 @@ body,
 /* ── Code Blocks (GitHub style) ── */
 .github-code-block {
   margin: 1em 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: #f6f8fa;
   border: 1px solid var(--color-border);
@@ -542,7 +548,7 @@ body,
   align-items: center;
   justify-content: center;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text-secondary);
@@ -579,7 +585,7 @@ body,
   font-size: 85%;
   font-family: var(--font-mono);
   background: rgba(175, 184, 193, 0.2);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--color-text);
 }
 .dark .github-inline-code {
@@ -590,7 +596,7 @@ body,
 .github-table-wrapper {
   overflow-x: auto;
   margin: 1em 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
 }
 .github-table {
@@ -639,7 +645,7 @@ body,
   border-left: 4px solid #d0d7de;
   background: #f6f8fa;
   color: var(--color-text-secondary);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .dark .github-blockquote {
   border-left-color: #3b434b;
@@ -677,7 +683,7 @@ body,
 .github-image {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin: 0.5em 0;
 }
@@ -701,7 +707,7 @@ body,
   padding: 16px;
   text-align: center;
   background: var(--color-surface-inset);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   overflow-x: auto;
 }
@@ -834,7 +840,7 @@ body,
   backdrop-filter: blur(24px) saturate(200%);
   -webkit-backdrop-filter: blur(24px) saturate(200%);
   border: 1px solid var(--glass-border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   box-shadow:
     inset 0 1px 2px rgba(255,255,255,0.25),
     inset 0 -1px 0 rgba(255,255,255,0.08),
@@ -935,7 +941,7 @@ body,
 .surface-elevated {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   box-shadow: 0 4px 12px rgb(0 0 0 / 8%), 0 12px 24px rgb(0 0 0 / 6%);
 }
 
@@ -949,7 +955,7 @@ body,
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   box-shadow:
     inset 0 1px 2px rgba(255,255,255,0.20),
     0 1px 3px rgb(0 0 0 / 0.06);
@@ -1014,7 +1020,7 @@ body,
 /* Inset: recessed areas like code blocks, result panels */
 .surface-inset {
   background: var(--color-surface-inset);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
 /* Mica: persistent frosted panels (legacy support) */
@@ -1212,4 +1218,245 @@ body,
 /* Fallback for browsers without @property support */
 @supports not (animation-timeline: scroll()) {
   .scroll-progress { display: none; }
+}
+
+/* ===================================================================
+   Obsidian-style Markdown（用于 AI 报告、RSS 阅读器等阅读场景）
+   =================================================================== */
+
+.obsidian-markdown {
+  --obs-font: var(--font-sans);
+  --obs-mono: var(--font-mono);
+  --obs-text: var(--color-text);
+  --obs-text-muted: var(--color-text-secondary);
+  --obs-text-faint: var(--color-text-tertiary);
+  --obs-accent: #7f6df2;
+  --obs-accent-bg: rgba(127, 109, 242, 0.08);
+  --obs-border: var(--color-border);
+  --obs-code-bg: var(--color-surface-inset);
+  --obs-heading-color: var(--color-text);
+
+  font-family: var(--obs-font);
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--obs-text);
+  word-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 段落 ── */
+.obsidian-markdown p {
+  margin: 0.8em 0;
+}
+
+/* ── 标题（Obsidian 风格：无下划线，靠间距区分层级） ── */
+.obsidian-markdown h1,
+.obsidian-markdown h2,
+.obsidian-markdown h3,
+.obsidian-markdown h4,
+.obsidian-markdown h5,
+.obsidian-markdown h6 {
+  color: var(--obs-heading-color);
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.obsidian-markdown h1 { font-size: 1.8em; }
+.obsidian-markdown h2 { font-size: 1.5em; }
+.obsidian-markdown h3 { font-size: 1.25em; }
+.obsidian-markdown h4 { font-size: 1.1em; }
+.obsidian-markdown h5 { font-size: 1em; }
+.obsidian-markdown h6 { font-size: 0.9em; color: var(--obs-text-muted); }
+
+/* ── 引用块（Obsidian 风格：左侧紫线 + 浅色背景） ── */
+.obsidian-markdown blockquote {
+  border-left: 4px solid var(--obs-accent);
+  background: var(--obs-accent-bg);
+  padding: 0.5em 1em;
+  margin: 1em 0;
+  border-radius: 0 6px 6px 0;
+  color: var(--obs-text-muted);
+}
+.obsidian-markdown blockquote p {
+  margin: 0.4em 0;
+}
+.obsidian-markdown blockquote blockquote {
+  margin: 0.5em 0;
+}
+
+/* ── 行内代码 ── */
+.obsidian-markdown code {
+  font-family: var(--obs-mono);
+  font-size: 0.88em;
+  background: var(--obs-code-bg);
+  color: var(--obs-text);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  word-break: break-word;
+}
+
+/* ── 代码块 ── */
+.obsidian-markdown pre {
+  background: var(--obs-code-bg);
+  border-radius: 8px;
+  padding: 1em 1.2em;
+  margin: 1em 0;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+.obsidian-markdown pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.85em;
+}
+
+/* ── 链接 ── */
+.obsidian-markdown a {
+  color: var(--obs-accent);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+.obsidian-markdown a:hover {
+  border-bottom-color: var(--obs-accent);
+}
+
+/* ── 列表 ── */
+.obsidian-markdown ul,
+.obsidian-markdown ol {
+  padding-left: 1.5em;
+  margin: 0.6em 0;
+}
+.obsidian-markdown li {
+  margin: 0.3em 0;
+}
+.obsidian-markdown li > p {
+  margin: 0.3em 0;
+}
+
+/* ── 任务列表（圆形 checkbox） ── */
+.obsidian-markdown ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.5em;
+}
+.obsidian-markdown .task-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+.obsidian-markdown .task-list-item input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--obs-border);
+  border-radius: 50%;
+  margin-top: 0.35em;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+.obsidian-markdown .task-list-item input[type="checkbox"]:checked {
+  background: var(--obs-accent);
+  border-color: var(--obs-accent);
+}
+.obsidian-markdown .task-list-item input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 4px;
+  height: 7px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.obsidian-markdown .task-list-item input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── 表格 ── */
+.obsidian-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.92em;
+}
+.obsidian-markdown th,
+.obsidian-markdown td {
+  border: 1px solid var(--obs-border);
+  padding: 0.5em 0.8em;
+  text-align: left;
+}
+.obsidian-markdown th {
+  font-weight: 600;
+  background: var(--obs-code-bg);
+}
+
+/* ── 水平线 ── */
+.obsidian-markdown hr {
+  border: none;
+  border-top: 1px solid var(--obs-border);
+  margin: 1.5em 0;
+}
+
+/* ── 高亮 ==text== ── */
+.obsidian-markdown mark {
+  background: rgba(255, 200, 0, 0.25);
+  color: inherit;
+  padding: 0.1em 0.2em;
+  border-radius: 3px;
+}
+
+/* ── 删除线 ── */
+.obsidian-markdown del {
+  color: var(--obs-text-faint);
+}
+
+/* ── 图片 ── */
+.obsidian-markdown img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin: 0.8em 0;
+}
+
+/* ── 键盘标签 ── */
+.obsidian-markdown kbd {
+  background: var(--obs-code-bg);
+  border: 1px solid var(--obs-border);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+  font-family: var(--obs-mono);
+  font-size: 0.85em;
+  box-shadow: inset 0 -1px 0 var(--obs-border);
+}
+
+/* ── 注脚 ── */
+.obsidian-markdown .footnotes {
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid var(--obs-border);
+  font-size: 0.9em;
+  color: var(--obs-text-muted);
+}
+
+/* ── Dark mode 调整 ── */
+.dark .obsidian-markdown {
+  --obs-accent: #a882ff;
+  --obs-accent-bg: rgba(168, 130, 255, 0.08);
+  --obs-code-bg: #1e1e2e;
+}
+
+/* ── Streamdown 兼容（AI 报告页的流式渲染） ── */
+.obsidian-markdown .streamdown-container {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
 }

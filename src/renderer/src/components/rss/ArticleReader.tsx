@@ -420,7 +420,7 @@ export default function ArticleReader() {
       {/* Article content */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {content ? (
-          <div className="github-markdown-body" ref={contentRef}>
+          <div className="obsidian-markdown" ref={contentRef}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeHighlight]}
