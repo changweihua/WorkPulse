@@ -381,7 +381,7 @@ export default function ChatPage() {
     const [showStats, setShowStats] = useState(true);
     const [showSidebar, setShowSidebar] = useState(true);
 
-    // Hydrate: 全局配置 → IndexedDB 兜底 → 自动迁移
+    // Hydrate: 全局配置 → 旧 localStorage 兜底 → 自动迁移
     useEffect(() => {
         (async () => {
             try {
@@ -394,7 +394,7 @@ export default function ChatPage() {
                     loadedConfigs = globalConfig.chatConfigs;
                     loadedConfigId = globalConfig.activeChatConfigId || globalConfig.chatConfigs[0]?.id || '';
                 } else {
-                    // 2. 全局配置为空，从 IndexedDB 恢复旧配置
+                    // 2. 全局配置为空，从旧 localStorage 恢复配置
                     const savedConfigs = await recoverConfigs('chat');
                     if (savedConfigs.length > 0) {
                         // 从加密存储恢复 token
@@ -476,7 +476,7 @@ export default function ChatPage() {
         };
     }, [messages]);
 
-    // 持久化 — IndexedDB + encrypted token storage
+    // 持久化 — tokens 通过 IPC 加密存储，配置通过 setGlobalConfig 存入 SQLite
     useEffect(() => {
         if (!isHydrated) return;
         // Save tokens to encrypted storage via IPC
@@ -484,10 +484,6 @@ export default function ChatPage() {
             if (config.token && window.ai?.saveLLMToken) {
                 window.ai.saveLLMToken(config.id, config.token);
             }
-        });
-        // Save configs to IndexedDB (tokens stripped automatically)
-        configs.forEach((config) => {
-            saveConversation(config as any).catch(console.error);
         });
     }, [configs, isHydrated]);
     useEffect(() => {

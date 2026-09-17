@@ -162,38 +162,12 @@ export default function ModelConfigPage(): ReactNode {
       }
     } catch { /* ignore */ }
 
-    // 全局配置为空时，从 IndexedDB 恢复
+    // 全局配置为空时，尝试从旧 localStorage 迁移
     if (chatConfigs.length === 0) {
       try {
-        const { recoverConfigs, loadGlobalModelConfigFromIDB } = await import('../lib/chat-storage')
+        const { recoverConfigs } = await import('../lib/chat-storage')
 
-        // 先尝试从 IndexedDB 备份恢复完整配置
-        const backup = await loadGlobalModelConfigFromIDB()
-        if (backup?.chatConfigs?.length) {
-          const withTokens = await Promise.all(
-            backup.chatConfigs.map(async (c: any) => {
-              try { const token = await (window as any).ai?.getLLMToken?.(c.id); return { ...c, token: token || '' } }
-              catch { return { ...c, token: '' } }
-            })
-          )
-          const embWithTokens = await Promise.all(
-            (backup.embeddingConfigs || []).map(async (e: any) => {
-              try {
-                const token = await (window as any).ai?.getLLMToken?.(`emb_${e.id}`)
-                return { ...e, token: token || '' }
-              } catch {
-                return { ...e, token: '' }
-              }
-            })
-          )
-          setChatConfigs(withTokens)
-          setActiveChatId(backup.activeChatConfigId || withTokens[0].id)
-          setEmbedConfigs(embWithTokens.length > 0 ? embWithTokens : [{ id: 'openai-embedding', name: 'OpenAI Embedding', provider: 'openai', baseURL: 'https://api.openai.com/v1', model: 'text-embedding-3-small', dimension: 1536, token: '' }])
-          setActiveEmbedId(backup.activeEmbeddingConfigId || embWithTokens[0]?.id || 'openai-embedding')
-          return
-        }
-
-        // 再尝试从旧的 IndexedDB configs 恢复 Chat
+        // 尝试从旧的 localStorage configs 恢复 Chat
         const savedChat = await recoverConfigs('chat')
         const savedPanel = await recoverConfigs('chatPanel')
         const allSaved = [...savedChat]

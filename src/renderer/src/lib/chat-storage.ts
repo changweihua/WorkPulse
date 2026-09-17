@@ -107,7 +107,6 @@ export function onSyncEvent(listener: (event: SyncEvent) => void): () => void {
 const DB_NAME = 'workpulse-chat';
 const DB_VERSION = 1;
 const STORE_SNAPSHOTS = 'snapshots';
-const STORE_CONFIGS = 'configs';
 const STORE_CONVERSATIONS = 'conversations';
 
 let dbInstance: IDBDatabase | null = null;
@@ -133,12 +132,6 @@ function openDatabase(): Promise<IDBDatabase> {
         const snapshotStore = db.createObjectStore(STORE_SNAPSHOTS, { keyPath: 'id' });
         snapshotStore.createIndex('type', 'type', { unique: false });
         snapshotStore.createIndex('updatedAt', 'updatedAt', { unique: false });
-      }
-
-      // Configs store - for model configurations (tokens stripped)
-      if (!db.objectStoreNames.contains(STORE_CONFIGS)) {
-        const configStore = db.createObjectStore(STORE_CONFIGS, { keyPath: 'id' });
-        configStore.createIndex('name', 'name', { unique: false });
       }
 
       // Conversations store - for full conversation data
@@ -334,72 +327,6 @@ export async function saveConversationsBatch(conversations: Conversation[]): Pro
   });
 }
 
-// ─── Config CRUD ───────────────────────────────────────────────────────────
-
-/**
- * Save a model config to IndexedDB.
- * Tokens are stripped for security (stored separately via IPC).
- */
-export async function saveConfig(config: ModelConfig): Promise<void> {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_CONFIGS, 'readwrite');
-    const store = tx.objectStore(STORE_CONFIGS);
-
-    // Strip token for local storage (security)
-    const stripped = { ...config, token: '' };
-    const request = store.put(stripped);
-
-    request.onsuccess = () => resolve();
-    request.onerror = (event) => reject((event.target as IDBRequest).error);
-  });
-}
-
-/**
- * Get a config from IndexedDB (token is empty string).
- */
-export async function getConfig(id: string): Promise<ModelConfig | null> {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_CONFIGS, 'readonly');
-    const store = tx.objectStore(STORE_CONFIGS);
-    const request = store.get(id);
-
-    request.onsuccess = () => resolve(request.result || null);
-    request.onerror = (event) => reject((event.target as IDBRequest).error);
-  });
-}
-
-/**
- * Get all configs from IndexedDB (tokens are empty strings).
- */
-export async function getAllConfigs(): Promise<ModelConfig[]> {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_CONFIGS, 'readonly');
-    const store = tx.objectStore(STORE_CONFIGS);
-    const request = store.getAll();
-
-    request.onsuccess = () => resolve(request.result || []);
-    request.onerror = (event) => reject((event.target as IDBRequest).error);
-  });
-}
-
-/**
- * Delete a config from IndexedDB.
- */
-export async function deleteConfig(id: string): Promise<void> {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_CONFIGS, 'readwrite');
-    const store = tx.objectStore(STORE_CONFIGS);
-    const request = store.delete(id);
-
-    request.onsuccess = () => resolve();
-    request.onerror = (event) => reject((event.target as IDBRequest).error);
-  });
-}
-
 // ─── Local-First Recovery ──────────────────────────────────────────────────
 
 /**
@@ -438,17 +365,10 @@ export async function recoverConversations(prefix: string = 'chat'): Promise<Con
 
 /**
  * Recover model configs using local-first strategy.
- * Note: Tokens are not stored in IndexedDB (security).
+ * Tokens are not stored locally (security).
  */
 export async function recoverConfigs(prefix: string = 'chat'): Promise<ModelConfig[]> {
-  // Step 1: Try IndexedDB first
-  const indexedDBConfigs = await getAllConfigs();
-
-  if (indexedDBConfigs.length > 0) {
-    return indexedDBConfigs;
-  }
-
-  // Step 2: Migrate from localStorage if IndexedDB is empty
+  // 从 localStorage 恢复旧配置
   try {
     const localStorageKey = prefix === 'chatPanel' ? 'chatPanelModelConfigs' : 'chatModelConfigs';
     const saved = localStorage.getItem(localStorageKey);
@@ -456,15 +376,11 @@ export async function recoverConfigs(prefix: string = 'chat'): Promise<ModelConf
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Migrate to IndexedDB
-        for (const config of parsed) {
-          await saveConfig(config);
-        }
         return parsed;
       }
     }
   } catch (error) {
-    console.warn('localStorage migration failed:', error);
+    console.warn('recoverConfigs failed:', error);
   }
 
   return [];
@@ -515,56 +431,6 @@ export function getCacheStatus(): {
   };
 }
 
-// ─── Global Model Config IndexedDB Backup ─────────────────────────────────
-
-/**
- * Save entire model config (chat + embedding) to IndexedDB as backup.
- * Tokens are stripped for security.
- */
-export async function saveGlobalModelConfig(config: {
-  chatConfigs: any[];
-  activeChatConfigId: string;
-  embeddingConfigs: any[];
-  activeEmbeddingConfigId: string;
-}): Promise<void> {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_SNAPSHOTS, 'readwrite');
-    const store = tx.objectStore(STORE_SNAPSHOTS);
-    const stripped = {
-      ...config,
-      chatConfigs: config.chatConfigs.map((c: any) => ({ ...c, token: '' })),
-      embeddingConfigs: config.embeddingConfigs.map((e: any) => ({ ...e, token: '' })),
-    };
-    const request = store.put({ id: '__global_model_config', type: 'global-config' as any, data: stripped, updatedAt: Date.now(), version: 1 });
-    request.onsuccess = () => resolve();
-    request.onerror = (event) => reject((event.target as IDBRequest).error);
-  });
-}
-
-/**
- * Load global model config from IndexedDB backup (tokens empty, need restore from encrypted storage).
- */
-export async function loadGlobalModelConfigFromIDB(): Promise<{
-  chatConfigs: any[];
-  activeChatConfigId: string;
-  embeddingConfigs: any[];
-  activeEmbeddingConfigId: string;
-} | null> {
-  const db = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_SNAPSHOTS, 'readonly');
-    const store = tx.objectStore(STORE_SNAPSHOTS);
-    const request = store.get('__global_model_config');
-    request.onsuccess = () => {
-      const result = request.result;
-      if (result?.data) resolve(result.data);
-      else resolve(null);
-    };
-    request.onerror = (event) => reject((event.target as IDBRequest).error);
-  });
-}
-
 // ─── Migration Helpers ─────────────────────────────────────────────────────
 
 /**
@@ -573,9 +439,8 @@ export async function loadGlobalModelConfigFromIDB(): Promise<{
 export async function clearAll(): Promise<void> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORE_SNAPSHOTS, STORE_CONFIGS, STORE_CONVERSATIONS], 'readwrite');
+    const tx = db.transaction([STORE_SNAPSHOTS, STORE_CONVERSATIONS], 'readwrite');
     tx.objectStore(STORE_SNAPSHOTS).clear();
-    tx.objectStore(STORE_CONFIGS).clear();
     tx.objectStore(STORE_CONVERSATIONS).clear();
 
     tx.oncomplete = () => resolve();
@@ -588,17 +453,14 @@ export async function clearAll(): Promise<void> {
  */
 export async function getStorageStats(): Promise<{
   conversations: number;
-  configs: number;
   estimatedSize: string;
 }> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORE_CONVERSATIONS, STORE_CONFIGS], 'readonly');
+    const tx = db.transaction([STORE_CONVERSATIONS], 'readonly');
     const convStore = tx.objectStore(STORE_CONVERSATIONS);
-    const configStore = tx.objectStore(STORE_CONFIGS);
 
     const convCount = convStore.count();
-    const configCount = configStore.count();
 
     let totalSize = 0;
 
@@ -608,19 +470,10 @@ export async function getStorageStats(): Promise<{
         totalSize += JSON.stringify(cursor.value).length;
         cursor.continue();
       } else {
-        configStore.openCursor().onsuccess = (event) => {
-          const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-          if (cursor) {
-            totalSize += JSON.stringify(cursor.value).length;
-            cursor.continue();
-          } else {
-            resolve({
-              conversations: convCount.result,
-              configs: configCount.result,
-              estimatedSize: `${(totalSize / 1024).toFixed(1)} KB`,
-            });
-          }
-        };
+        resolve({
+          conversations: convCount.result,
+          estimatedSize: `${(totalSize / 1024).toFixed(1)} KB`,
+        });
       }
     };
 

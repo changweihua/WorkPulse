@@ -117,7 +117,7 @@ export default function AIChatPanel() {
         return () => classObs.disconnect();
     }, []);
 
-    // Hydrate: 全局配置 → IndexedDB 兜底 → 自动迁移
+    // Hydrate: 全局配置 → 旧 localStorage 兜底 → 自动迁移
     useEffect(() => {
         (async () => {
             try {
@@ -130,7 +130,7 @@ export default function AIChatPanel() {
                     loadedConfigs = globalConfig.chatConfigs;
                     loadedConfigId = globalConfig.activeChatConfigId || globalConfig.chatConfigs[0]?.id || '';
                 } else {
-                    // 2. 全局配置为空，从 IndexedDB 恢复旧配置
+                    // 2. 全局配置为空，从旧 localStorage 恢复配置
                     const { recoverConfigs } = await import('../lib/chat-storage');
                     const savedConfigs = await recoverConfigs('chatPanel');
                     if (savedConfigs.length > 0) {
