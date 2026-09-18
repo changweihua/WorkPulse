@@ -190,6 +190,9 @@ function SettingsPage(): ReactNode {
   const [reminderEnabled, setReminderEnabled] = useState(true)
   const [reminderLead, setReminderLead] = useState('10')
 
+  // 每日摘要设置
+  const [dailySummaryEnabled, setDailySummaryEnabled] = useState(true)
+
   // 径向菜单设置
   const [radialEnabled, setRadialEnabled] = useState(true)
   interface RadialMenuItem {
@@ -236,6 +239,11 @@ function SettingsPage(): ReactNode {
     })
     void window.api.settings.get('reminder_lead').then((v) => {
       if (v !== null) setReminderLead(v)
+    })
+
+    // 加载每日摘要设置
+    void window.api.settings.get('daily_summary_enabled').then((v) => {
+      if (v !== null) setDailySummaryEnabled(v === '1')
     })
 
     // 加载径向菜单设置
@@ -537,6 +545,19 @@ function SettingsPage(): ReactNode {
       await window.api.settings.set('reminder_lead', value)
     } catch (error) {
       setReminderLead(prev)
+      toast.error('❌ 操作失败，请重试')
+    }
+  }
+
+  // 切换每日摘要弹窗
+  const handleToggleDailySummary = async (): Promise<void> => {
+    const next = !dailySummaryEnabled
+    setDailySummaryEnabled(next)
+    try {
+      await window.api.settings.set('daily_summary_enabled', next ? '1' : '0')
+      toast.success(next ? '✅ 每日摘要已开启' : '✅ 每日摘要已关闭')
+    } catch (error) {
+      setDailySummaryEnabled(!next)
       toast.error('❌ 操作失败，请重试')
     }
   }
@@ -918,6 +939,24 @@ function SettingsPage(): ReactNode {
                   />
                 </button>
               </div>
+            </div>
+
+            {/* 每日摘要弹窗 */}
+            <div className="flex items-center justify-between mt-4">
+              <div>
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">每日工作摘要</p>
+                <p className="text-xs text-zinc-400">每天启动时弹窗展示当日工作统计</p>
+              </div>
+              <button
+                onClick={() => void handleToggleDailySummary()}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${dailySummaryEnabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'
+                  }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${dailySummaryEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                />
+              </button>
             </div>
           </section>
 

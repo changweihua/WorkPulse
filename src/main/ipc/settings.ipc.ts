@@ -27,6 +27,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'report_language', 'report_style', 'system_prompt', 'report_template',
   'shortcut_quick_log', 'shortcut_quick_task',
   'app_language', 'theme', 'ui_accent',
+  'daily_summary_enabled', 'daily_summary_last_shown',
 ])
 
 export function registerSettingsIpc(): void {

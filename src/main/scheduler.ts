@@ -1,6 +1,7 @@
 import type { BrowserWindow } from 'electron'
 import { getSetting, getDueMeetings, markEventNotified } from './db'
 import { sendNotification } from './notifier'
+import { showDailySummary } from './daily-summary'
 import log from 'electron-log/main'
 
 let timer: ReturnType<typeof setInterval> | null = null
@@ -8,7 +9,10 @@ let timer: ReturnType<typeof setInterval> | null = null
 /** 启动定时任务轮询（每 30 秒检查一次即将开始的会议） */
 export function startScheduler(getMainWindow: () => BrowserWindow | null): void {
   if (timer) return
-  setTimeout(() => checkMeetings(getMainWindow), 5_000)
+  setTimeout(() => {
+    checkMeetings(getMainWindow)
+    checkDailySummary(getMainWindow)
+  }, 5_000)
   timer = setInterval(() => checkMeetings(getMainWindow), 30_000)
 }
 
@@ -16,6 +20,15 @@ export function stopScheduler(): void {
   if (timer) {
     clearInterval(timer)
     timer = null
+  }
+}
+
+/** 启动时检查并显示每日摘要弹窗 */
+function checkDailySummary(getMainWindow: () => BrowserWindow | null): void {
+  try {
+    showDailySummary(getMainWindow)
+  } catch (err) {
+    log.error('[scheduler] checkDailySummary failed:', err)
   }
 }
 

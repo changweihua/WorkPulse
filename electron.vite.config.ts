@@ -60,6 +60,7 @@ export default defineConfig(({ mode }) => {
             splash: resolve(__dirname, 'src/preload/splash.ts'),
             radial: resolve(__dirname, 'src/preload/radial.ts'),
             screenshotOverlay: resolve(__dirname, 'src/preload/screenshot-overlay.ts'),
+            dailySummary: resolve(__dirname, 'src/preload/daily-summary.ts'),
           }
         }
       }
@@ -99,6 +100,7 @@ export default defineConfig(({ mode }) => {
             index: resolve(__dirname, 'src/renderer/index.html'),
             radial: resolve(__dirname, 'src/renderer/radial.html'), // 径向菜单独立入口
             screenshotOverlay: resolve(__dirname, 'src/renderer/screenshot-overlay.html'), // 区域截图覆盖层
+            dailySummary: resolve(__dirname, 'src/renderer/daily-summary.html'), // 每日摘要弹窗
           }
         }
       },

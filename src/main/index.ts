@@ -29,6 +29,7 @@ import { registerScreenshotIpc, startScreenshotCapture } from './screenshot'
 import { buildMenu, setupContextMenu, getShortcuts } from './menu'
 import { createTray, rebuildTrayMenu } from './tray'
 import { createSplashWindow, closeSplashWindow } from './splash'
+import { showDailySummary, registerDailySummaryIpc } from './daily-summary'
 import { registerAutoLaunchIpc, setAutoLaunchDeps } from './autoLaunch'
 import { loadDotNet } from './asar-dotnet-loader'
 
@@ -360,6 +361,7 @@ app.whenReady().then(async () => {
   registerUpdateIpc()
   registerNotificationIpc()
   registerScreenshotIpc()
+  registerDailySummaryIpc(getMainWindow)
 
   // Phase 4: WCO 深色模式适配
   nativeTheme.on('updated', () => {
