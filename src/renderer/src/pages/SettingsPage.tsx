@@ -635,19 +635,6 @@ function SettingsPage(): ReactNode {
     <div className="flex flex-col bg-transparent">
       <main className="flex-1">
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
-          {/* AI 模型管理入口 */}
-          <section className="surface-card p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">AI 模型配置</h2>
-                <p className="text-xs text-zinc-400 mt-1">管理 Chat 和 Embedding 模型，设置默认模型</p>
-              </div>
-              <a href="#/model-config" className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-md transition">
-                前往配置
-              </a>
-            </div>
-          </section>
-
           {/* Report Preferences */}
           <section className="surface-card p-5">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('settings.reportPrefs')}</h2>
@@ -784,43 +771,20 @@ function SettingsPage(): ReactNode {
               {resolvedLanguage === 'zh' ? '搜索模式' : 'Search Mode'}
             </h2>
             <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
-            <p className="text-xs text-zinc-400 mb-4">
-              {resolvedLanguage === 'zh'
-                ? '选择日志搜索的方式：向量搜索支持语义匹配，文本搜索使用精确关键词匹配。'
-                : 'Choose the search method: Vector search supports semantic matching, text search uses keyword matching.'}
-            </p>
-            <div className="flex gap-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                  {resolvedLanguage === 'zh' ? '向量语义搜索' : 'Vector Semantic Search'}
+                </p>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {resolvedLanguage === 'zh' ? '关闭时使用文本精确匹配' : 'Off: use text matching'}
+                </p>
+              </div>
               <button
-                onClick={() => handleSearchModeChange('vector')}
-                className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg border transition ${
-                  searchMode === 'vector'
-                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600'
-                }`}
+                onClick={() => handleSearchModeChange(searchMode === 'vector' ? 'like' : 'vector')}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${searchMode === 'vector' ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
               >
-                <div className="text-center">
-                  <div className="mb-1">🧠</div>
-                  <div>{resolvedLanguage === 'zh' ? '向量搜索' : 'Vector Search'}</div>
-                  <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
-                    {resolvedLanguage === 'zh' ? '语义匹配' : 'Semantic'}
-                  </div>
-                </div>
-              </button>
-              <button
-                onClick={() => handleSearchModeChange('like')}
-                className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg border transition ${
-                  searchMode === 'like'
-                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600'
-                }`}
-              >
-                <div className="text-center">
-                  <div className="mb-1">🔤</div>
-                  <div>{resolvedLanguage === 'zh' ? '文本搜索' : 'Text Search'}</div>
-                  <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
-                    {resolvedLanguage === 'zh' ? '精确匹配' : 'LIKE'}
-                  </div>
-                </div>
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${searchMode === 'vector' ? 'translate-x-[18px]' : 'translate-x-[2px]'}`} />
               </button>
             </div>
           </section>
