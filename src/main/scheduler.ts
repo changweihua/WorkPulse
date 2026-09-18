@@ -5,10 +5,12 @@ import log from 'electron-log/main'
 
 let timer: ReturnType<typeof setInterval> | null = null
 
-/** 鍚姩瀹氭椂浠诲姟杞锛堟瘡 30 绉掓鏌ヤ竴娆″嵆灏嗗紑濮嬬殑浼氳锛?*/
+/** 启动定时任务轮询（每 30 秒检查一次即将开始的会议） */
 export function startScheduler(getMainWindow: () => BrowserWindow | null): void {
   if (timer) return
-  setTimeout(() => checkMeetings(getMainWindow), 5_000)
+  setTimeout(() => {
+    checkMeetings(getMainWindow)
+  }, 5_000)
   timer = setInterval(() => checkMeetings(getMainWindow), 30_000)
 }
 
@@ -31,11 +33,11 @@ function checkMeetings(getMainWindow: () => BrowserWindow | null): void {
 
       const startMs = new Date(`${ev.event_date}T${ev.start_time}`).getTime()
       const mins = Math.round((startMs - now) / 60_000)
-      const body = mins > 0 ? `${mins} 鍒嗛挓鍚庡紑濮嬶紙${ev.start_time}锛塦 : '宸插埌寮€濮嬫椂闂?
+      const body = mins > 0 ? `${mins} 分钟后开始（${ev.start_time}）` : '已到开始时间'
 
       sendNotification({
-        title: '浼氳鎻愰啋',
-        body: `${ev.title} 路 ${body}`,
+        title: '会议提醒',
+        body: `${ev.title} · ${body}`,
         onClick: () => {
           const win = getMainWindow()
           if (win) {

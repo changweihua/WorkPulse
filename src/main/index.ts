@@ -1,7 +1,7 @@
-// 蹇呴』鏈€鍏堝姞杞斤細璁╀富杩涚▼璇诲彇椤圭洰鏍圭洰褰?.env锛圔ARK_KEY 绛夛級
+// 必须最先加载：让主进程读取项目根目录 .env（BARK_KEY 等）
 import 'dotenv/config'
 
-// V8 鍘熺敓缂栬瘧缂撳瓨锛氱儹鍚姩 JS 鍔犺浇鎻愰€?30-50%
+// V8 原生编译缓存：热启动 JS 加载提速 30-50%
 import { enableCompileCache } from 'node:module'
 enableCompileCache()
 
@@ -32,14 +32,14 @@ import { createSplashWindow, closeSplashWindow } from './splash'
 import { registerAutoLaunchIpc, setAutoLaunchDeps } from './autoLaunch'
 import { loadDotNet } from './asar-dotnet-loader'
 
-// 鈹€鈹€ 鏃ュ織鍒濆鍖?鈹€鈹€
+// ── 日志初始化 ──
 log.initialize()
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'info'
 log.transports.file.level = 'info'
 ;(log.transports.file as any).processor = createSanitizingProcessor((log.transports.file as any).processor)
 ;(log.transports.console as any).processor = createSanitizingProcessor((log.transports.console as any).processor)
 
-// 鈹€鈹€ V8 鍫嗛檺鍒?+ GPU 缂撳瓨閲嶅畾鍚?鈹€鈹€
+// ── V8 堆限制 + GPU 缓存重定向 ──
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512')
 if (process.platform === 'win32') {
   const gpuCacheDir = join(app.getPath('userData'), 'gpu-cache')
@@ -47,7 +47,7 @@ if (process.platform === 'win32') {
 }
 
 const appTitle = process.env.VITE_APP_TITLE || 'WorkPulse'
-log.info('[Main] 馃煝 涓昏繘绋嬪凡鍚姩锛?)
+log.info('[Main] 🟢 主进程已启动！')
 
 let isQuitting = false
 
@@ -55,7 +55,7 @@ const APP_ICON_PATH = is.dev
   ? join(__dirname, '../../resources/icon.ico')
   : join(process.resourcesPath, 'icon.ico')
 
-// 鈹€鈹€ 鏍稿績 Helper 鈹€鈹€
+// ── 核心 Helper ──
 
 function getMainWindow(): BrowserWindow | null {
   const wins = BrowserWindow.getAllWindows()
@@ -71,7 +71,7 @@ function sendToRenderer(channel: string): void {
   }
 }
 
-// 鈹€鈹€ 鍏ㄥ眬蹇嵎閿?鈹€鈹€
+// ── 全局快捷键 ──
 
 function registerShortcut(accelerator: string, channel: string): boolean {
   try {
@@ -96,7 +96,7 @@ export function reregisterGlobalShortcuts(
   }
 }
 
-// 鈹€鈹€ 蹇嵎閿?/ 璇█ IPC 鈹€鈹€
+// ── 快捷键 / 语言 IPC ──
 
 function registerShortcutIpc(): void {
   ipcMain.handle('shortcut:update', (_event, key: 'shortcut_quick_log' | 'shortcut_quick_task', value: string) => {
@@ -117,7 +117,7 @@ function registerShortcutIpc(): void {
   })
 }
 
-// 鈹€鈹€ 涓荤獥鍙?鈹€鈹€
+// ── 主窗口 ──
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -181,18 +181,18 @@ function createWindow(): void {
     return { action: 'deny' as const }
   })
 
-  // 鈹€鈹€ 瀵艰埅閿侊細闃叉椤甸潰琚姭鎸佽烦杞埌澶栭儴 URL 鈹€鈹€
+  // ── 导航锁：防止页面被劫持跳转到外部 URL ──
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    // 寮€鍙戞ā寮忓厑璁?Vite HMR
+    // 开发模式允许 Vite HMR
     if (is.dev && url.startsWith(process.env['ELECTRON_RENDERER_URL'] ?? '')) return
-    // file: 鍗忚鍏佽锛堟湰鍦版瀯寤轰骇鐗╋級
+    // file: 协议允许（本地构建产物）
     if (url.startsWith('file:')) return
-    // 鍏朵粬涓€寰嬮樆姝紝鍦ㄥ閮ㄦ祻瑙堝櫒鎵撳紑
+    // 其他一律阻止，在外部浏览器打开
     event.preventDefault()
     if (/^https?:/.test(url)) void shell.openExternal(url)
   })
 
-  log.info('[Main] 馃搵 Loading URL...')
+  log.info('[Main] 📋 Loading URL...')
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -200,15 +200,15 @@ function createWindow(): void {
   }
 }
 
-// 鈹€鈹€ .NET Bridge 鈹€鈹€
+// ── .NET Bridge ──
 
 let dotnetLib: any = null
 let dotnetLoaded = false
 
 async function ensureDotNet(): Promise<void> {
   if (!dotnetLoaded) {
-    try { dotnetLib = await loadDotNet(); log.info('鉁?.NET 宸插姞杞?) }
-    catch (err) { log.error('鈿狅笍 .NET 鍔犺浇澶辫触', err) }
+    try { dotnetLib = await loadDotNet(); log.info('✅ .NET 已加载') }
+    catch (err) { log.error('⚠️ .NET 加载失败', err) }
     dotnetLoaded = true
   }
 }
@@ -224,7 +224,7 @@ function registerDotnetIpc(): void {
   })
 }
 
-// 鈹€鈹€ 閫氱煡 IPC 鈹€鈹€
+// ── 通知 IPC ──
 
 function registerNotificationIpc(): void {
   ipcMain.handle('notification:show', (_event, options: {
@@ -236,7 +236,7 @@ function registerNotificationIpc(): void {
   })
 }
 
-// 鈹€鈹€ 妯″瀷鏂囦欢璇诲彇 IPC 鈹€鈹€
+// ── 模型文件读取 IPC ──
 
 function registerModelFileIpc(): void {
   ipcMain.handle('read-model-file', async (_event, fileName: string) => {
@@ -248,16 +248,16 @@ function registerModelFileIpc(): void {
       const buffer = await fs.readFile(filePath)
       return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
     } catch (error) {
-      log.error(`璇诲彇妯″瀷鏂囦欢澶辫触: ${filePath}`, error)
+      log.error(`读取模型文件失败: ${filePath}`, error)
       throw error
     }
   })
 }
 
-// 鈹€鈹€ 鍗忚娉ㄥ唽锛堝繀椤诲湪 app.ready 涔嬪墠锛?鈹€鈹€
+// ── 协议注册（必须在 app.ready 之前） ──
 initNotifications()
 
-// 鈹€鈹€ 鍗曞疄渚嬮攣 鈹€鈹€
+// ── 单实例锁 ──
 const gotTheLock = app.requestSingleInstanceLock()
 
 if (!gotTheLock) {
@@ -280,16 +280,16 @@ if (!gotTheLock) {
   })
 }
 
-// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
-//  Bootstrap 鈥?娓愯繘寮忔祦姘寸嚎
-// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
+// ══════════════════════════════════════════
+//  Bootstrap — 渐进式流水线
+// ══════════════════════════════════════════
 
 app.whenReady().then(async () => {
-  // Phase 1: 瀹屾暣鎬ф牎楠?+ 瀹夊叏
+  // Phase 1: 完整性校验 + 安全
   verifyIntegrity()
   registerAttachmentProtocol()
 
-  // 鈹€鈹€ 鏉冮檺鎷︽埅锛圥0锛夛細闃叉鎭舵剰鑴氭湰鐢宠鎽勫儚澶?楹﹀厠椋?浣嶇疆 鈹€鈹€
+  // ── 权限拦截（P0）：防止恶意脚本申请摄像头/麦克风/位置 ──
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     const ALLOWED: Record<string, boolean> = {
       'notifications': true,
@@ -300,12 +300,12 @@ app.whenReady().then(async () => {
     if (ALLOWED[permission]) {
       callback(true)
     } else {
-      log.warn(`[Security] 馃毇 鎷掔粷鏉冮檺璇锋眰: ${permission}`)
+      log.warn(`[Security] 🚫 拒绝权限请求: ${permission}`)
       callback(false)
     }
   })
 
-  // Phase 2: 鏍稿績鍩虹璁炬柦
+  // Phase 2: 核心基础设施
   registerDotnetIpc()
   if (!is.dev) {
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -320,7 +320,7 @@ app.whenReady().then(async () => {
     })
   }
 
-  // 妯″瀷鏈湴缂撳瓨鍗忚
+  // 模型本地缓存协议
   protocol.handle('appmodel', async (request) => {
     try {
       const u = new URL(request.url)
@@ -339,7 +339,7 @@ app.whenReady().then(async () => {
 
   registerModelFileIpc()
 
-  // Phase 3: 鏁版嵁搴?+ 璋冨害 + IPC
+  // Phase 3: 数据库 + 调度 + IPC
   initDatabase()
   startScheduler(getMainWindow)
   registerAutoLaunchIpc()
@@ -361,7 +361,7 @@ app.whenReady().then(async () => {
   registerNotificationIpc()
   registerScreenshotIpc()
 
-  // Phase 4: WCO 娣辫壊妯″紡閫傞厤
+  // Phase 4: WCO 深色模式适配
   nativeTheme.on('updated', () => {
     const main = getMainWindow()
     if (main && !main.isDestroyed() && process.platform === 'win32') {
@@ -374,25 +374,26 @@ app.whenReady().then(async () => {
     }
   })
 
-  // Phase 5: UI 灞?  const onQuit = () => { isQuitting = true; app.quit() }
+  // Phase 5: UI 层
+  const onQuit = () => { isQuitting = true; app.quit() }
   buildMenu(sendToRenderer)
   createTray(sendToRenderer, onQuit)
 
-  // 鈹€鈹€ 鐢垫簮绠＄悊锛圥1锛夛細绯荤粺浼戠湢/鎭㈠鏃舵殏鍋?鎭㈠璋冨害鍣?鈹€鈹€
+  // ── 电源管理（P1）：系统休眠/恢复时暂停/恢复调度器 ──
   powerMonitor.on('suspend', () => {
-    log.info('[Power] 馃挙 绯荤粺鍗冲皢浼戠湢锛屾殏鍋滆皟搴﹀櫒')
+    log.info('[Power] 💤 系统即将休眠，暂停调度器')
     stopScheduler()
   })
 
   powerMonitor.on('resume', () => {
-    log.info('[Power] 鈿?绯荤粺鎭㈠锛岄噸鍚皟搴﹀櫒')
-    // 寤惰繜 2 绉掑悗鎭㈠锛岀瓑寰呯綉缁滃拰绯荤粺鏈嶅姟灏辩华
+    log.info('[Power] ⚡ 系统恢复，重启调度器')
+    // 延迟 2 秒后恢复，等待网络和系统服务就绪
     setTimeout(() => {
       startScheduler(getMainWindow)
     }, 2000)
   })
 
-  // Phase 6: 浜嬩欢椹卞姩 鈥?涓荤獥鍙?鈫?寰勫悜鑿滃崟浜掓枼鏄剧ず
+  // Phase 6: 事件驱动 — 主窗口 ↔ 径向菜单互斥显示
   appBus.on(SHOW_MAIN, () => {
     hideRadialWindow()
     const main = getMainWindow()
@@ -409,7 +410,8 @@ app.whenReady().then(async () => {
 
   appBus.on(RADIAL_SCREENSHOT, () => { startScreenshotCapture() })
 
-  // Phase 7: 绐楀彛鍒涘缓 + 鍚姩妫€鏌?  createSplashWindow()
+  // Phase 7: 窗口创建 + 启动检查
+  createSplashWindow()
   createWindow()
   startUpdateCheck()
 

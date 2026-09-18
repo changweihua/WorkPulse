@@ -117,7 +117,8 @@ function WorkLogPage(): ReactNode {
     // 检查今天是否已展示过每日摘要（开发模式每次都弹）
     const today = new Date().toISOString().slice(0, 10)
     const lastShown = localStorage.getItem('daily_summary_last_shown')
-    if (lastShown !== today) {
+    const isDev = import.meta.env.DEV
+    if (isDev || lastShown !== today) {
       // 延迟弹出，等页面加载完成
       const timer = setTimeout(() => setShowDailySummary(true), 800)
       return () => clearTimeout(timer)

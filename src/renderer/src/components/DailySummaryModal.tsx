@@ -177,7 +177,7 @@ export function DailySummaryModal({ onClose }: Props): ReactNode {
           exit={{ opacity: 0, scale: 0.95, y: 12 }}
           transition={{ duration: 0.3, ease: MOTION_EASE }}
           onClick={(e) => e.stopPropagation()}
-          className="surface-card w-[380px] max-h-[90vh] overflow-y-auto rounded-3xl p-8 pb-7 shadow-fluent-xl relative"
+          className="surface-card w-[480px] max-h-[90vh] overflow-y-auto rounded-3xl p-8 pb-7 shadow-fluent-xl relative"
         >
           {/* 关闭按钮 */}
           <button
