@@ -5,24 +5,82 @@
 ## [未发布]
 
 ### 新增
-- Zod IPC 契约层：引入 `guardedHandle` / `guardedQuery` 声明式 handler 注册器，自动包裹 sender 校验 + schema 校验 + try/catch
-- 统一 `IpcResult<T>` 返回类型（`ok(data)` / `fail(code, message)`），所有 handler 永不 reject
-- `src/shared/ipc-result.ts`：Result 类型定义 + `ok()`/`fail()` 构造器 + 渲染端 `invoke()` helper
-- IPC Schema 覆盖从 12 个扩展至 65+ 个，覆盖全部 62 个 IPC channel
-- `packArgs()` 自动将 preload 多参数调用按 schema key 合并为单对象，实现零 preload 改动兼容
-- 结构化错误码：`SENDER_INVALID`、`VALIDATION_FAILED`、`NOT_FOUND`、`PERMISSION_DENIED`、`BUSINESS_ERROR`、`UNKNOWN`
+- `4c40e5e` ✨ feat: add electron security hardening and fix type errors
+- `db8e0da` ✨ feat: 统一 AI 模型配置管理，新增独立 ModelConfigPage 页面
+- `2825f89` ✨ feat: theme switching with smooth transitions and zinc palette
+- `1f9d314` ✨ feat: add daily work summary popup with QQ Music report style
+- `b287d49` ✨ feat: daily summary as in-app modal on WorkLog page
+- `efe07af` ✨ feat: add auto vectorization for worklog search
+- `da52277` ✨ feat: add configurable search mode (vector vs text)
+- `141dae4` ✨ feat: add per-model daily API call limit
+- `7bebe98` ✨ feat: add quotaGroup for shared API rate limits
+- `7a0a47e` ✨ feat: fix double loading indicator and streaming text jitter
 
 ### 变更
-- 全部 14 个 IPC 模块迁移至 `guardedHandle` / `guardedQuery` 模式（62 个 handler）
-- `ipc-guard.ts` 从仅 sender 校验升级为三层防御：sender → schema → try/catch
-- `ipc-schemas.ts` 新增 Event/Task/Report/Export/LLM Token/Model Config/Vector/Feed/Attachment/AutoLaunch/Window/DailySummary/Notification/Radial/Shortcut/Screenshot 等领域 schema
-- `attachments.ts` 的 `attachment:add` 参数从双参数 `(workLogId, data)` 改为单对象 `{ workLogId, ...data }`
-- `dotnet:invoke` preload 调用从 `...args` 改为 `method, args` 适配新 schema
-- `tsconfig.node.json` include 新增 `src/shared/**/*.ts`
+- `af630b0` 🦄 refactor: zod ipc contract layer with unified IpcResult
+- `d7e8677` 🦄 refactor: replace model config json blob with model_configs table
+- `de7b880` 🦄 refactor: remove BrowserWindow daily summary — keep only in-app modal
+- `f935fd8` 🦄 refactor: remove renderer ai config backup, use main process sqlite
+
+### 样式
+- `5c8df12` 🌈 style: sidebar floating effect with gap and rounded corners
+- `c9a24bb` 🌈 style: unify border-radius tokens and enhance ai model menu
+- `33b433c` 🌈 style: add obsidian-style markdown for report and rss reader
+- `513bba3` 🌈 style: daily summary modal — blend with app theme
 
 ### 修复
-- AI 流式 handler 补充 sender 校验和 schema 校验
-- 部分 channel 缺少入参校验（feed、vector、attachment、autoLaunch、daily-summary 等）
+- `e437a49` 🐞 fix: packArgs single-arg schema packing for settings:get
+- `f42acf1` 🐞 fix: remove AI config entry from settings and add search mode toggle
+- `11c1b50` 🐞 fix: resolve stale model config from incorrect migration
+- `b33bb93` 🐞 fix: modal visible in dev, widen to 480px, remove stale api_key refs
+- `bf16729` 🐞 fix: daily summary — load via vite dev server in dev mode
+- `bfb1928` 🐞 fix: daily summary popup always show in dev mode
+- `9103d7f` 🐞 fix: daily summary stale marker cleared only once
+- `2ff09b1` 🐞 fix: daily summary popup — mark on dismiss, clear stale marker
+- `84ba565` 🐞 fix: daily summary popup blank screen — always render UI shell
+- `0d00351` 🐞 fix: AI 聊天和报告使用全局模型配置，修复滚动问题
+
+## [0.3.4] - 2026-09-16
+
+### 新增
+- `5852077` ✨ feat: enhance pdf export with print css, progress bar and watermark
+- `cb989fc` ✨ feat: 优化AI助手空会话不保存为历史记录
+- `846a211` ✨ feat: make dotnet FAB draggable
+- `85536df` ✨ feat: add dotnet bridge IPC and FAB on worklog
+
+### 变更
+- `a5d47f3` 🦄 refactor: modularize main process and adopt wco titlebar
+- `820db7f` 🔧 build: bump dependency versions
+
+### 修复
+- `ae05895` 🐞 fix: remove dotnet FAB from worklog page
+- `f2fe1b6` 🐞 fix: guard missing i18n keys and isolate page errors in navlayout
+- `468275e` 🐞 fix: remove duplicate dotnet nav entry
+- `435d502` 🐞 fix: add wasm-unsafe-eval csp and errorboundary to xrayprocessor
+- `37acd94` 🐞 fix: guard screenshot overlay against HMR duplicate root
+
+### 样式
+- `938a06d` 🌈 style: optimize loading animation with logo breathing pulse
+- `c01afca` 🌈 style: widen content area to max-w-5xl for liquid glass pages
+- `5b715ec` 🌈 style: apply liquid glass surface to worklog and settings pages
+
+## [0.3.3] - 2026-09-15
+
+### 新增
+- `0b2ef7b` ✨ feat: add mermaid diagram rendering to markdown
+- `bf85b38` ✨ feat: add system notifications for user operations
+- `749b0d0` ✨ feat: add webgl fluid, spring animations, cursor ring and cancel
+- `fc68a41` ✨ feat: disable cursorring, keep code for future
+- `b988def` ✨ feat: add indexeddb offline memory and vectra vector search
+- `9d8210b` ✨ feat: add mouse reactive title component
+- `934a907` ✨ feat: ipc 校验、流式重连、持久化增强、现代 css 优化
+
+### 变更
+- `180a32c` 🔧 build: update dependencies and add sse retry with backoff
+
+### 修复
+- `c6ce2af` 🐞 fix: radial menu icon offset caused by motion transform conflict
+
 ## [0.3.2] - 2026-09-09
 
 ### 新增

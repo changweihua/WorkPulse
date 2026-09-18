@@ -54,17 +54,33 @@ export function assertValidSender(event: IpcMainInvokeEvent, channel: string): b
  * 当 schema 不是 object（如 z.string）时，直接传递第一个参数
  */
 function packArgs<T>(schema: z.ZodType<T>, args: unknown[]): unknown {
-  // 如果 schema 是 z.object 且参数是多值，尝试按 key 打包
-  if (schema instanceof z.ZodObject && args.length > 1) {
+  // 如果 schema 是 z.object，按属性名拆分传入的参数列表
+  if (schema instanceof z.ZodObject) {
     const shape = schema.shape
     const keys = Object.keys(shape)
-    const packed: Record<string, unknown> = {}
-    for (let i = 0; i < args.length && i < keys.length; i++) {
-      packed[keys[i]] = args[i]
+
+    // 多参数：按 key 顺序打包
+    if (args.length > 1) {
+      const packed: Record<string, unknown> = {}
+      for (let i = 0; i < args.length && i < keys.length; i++) {
+        packed[keys[i]] = args[i]
+      }
+      return packed
     }
-    return packed
+
+    // 单参数且 schema 有明确 key：如果参数不是对象，包装为 { key: value }
+    if (args.length === 1 && keys.length >= 1) {
+      const first = args[0]
+      if (first !== null && typeof first === 'object' && !Array.isArray(first)) {
+        // 已经是对象，直接传
+        return first
+      }
+      // 原始值（string/number/boolean），包装为 { 第一个key: value }
+      return { [keys[0]]: first }
+    }
   }
-  // 单参数或非 object schema：直接传第一个
+
+  // 非 object schema 或无参数：直接传第一个
   return args[0]
 }
 
