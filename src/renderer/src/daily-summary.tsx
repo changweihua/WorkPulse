@@ -194,19 +194,33 @@ function getEncouragement(streak: number, todayLogs: number, todayTasks: number)
   return '📝 还没有今天的记录，开始记录你的工作吧！'
 }
 
+// ── 默认空数据 ──
+
+const EMPTY_DATA: SummaryData = {
+  todayLogs: 0,
+  todayTasks: 0,
+  streak: 0,
+  totalLogs: 0,
+  totalTasksDone: 0,
+  activeTasks: 0,
+  weekData: [],
+  date: '',
+}
+
 // ── 主组件 ──
 
 function DailySummary(): React.ReactNode {
-  const [data, setData] = useState<SummaryData | null>(null)
+  const [data, setData] = useState<SummaryData>(EMPTY_DATA)
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
+    // 立即显示 UI（即使数据还没到）
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setVisible(true))
+    })
+
     const unsub = window.dailySummaryApi.onData((d) => {
       setData(d)
-      // 延迟显示，让 React 先渲染
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setVisible(true))
-      })
     })
     return unsub
   }, [])
@@ -224,8 +238,6 @@ function DailySummary(): React.ReactNode {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [handleClose])
-
-  if (!data) return null
 
   const encouragement = getEncouragement(data.streak, data.todayLogs, data.todayTasks)
 

@@ -97,10 +97,16 @@ export function showDailySummary(getMainWindow: () => BrowserWindow | null): voi
   const htmlPath = getSummaryHTMLPath()
   summaryWindow.loadFile(htmlPath).then(() => {
     log.info('[DailySummary] ✅ HTML loaded')
-    // 延迟发送数据，确保 React 渲染完成
-    setTimeout(() => {
-      summaryWindow?.webContents.send('daily-summary:data', summaryData)
-    }, 200)
+    // 多次尝试发送数据，确保 preload 监听器就绪
+    const trySend = (attempt: number) => {
+      if (summaryWindow && !summaryWindow.isDestroyed()) {
+        summaryWindow.webContents.send('daily-summary:data', summaryData)
+        log.info(`[DailySummary] 📤 数据已发送 (attempt ${attempt})`)
+      }
+    }
+    setTimeout(() => trySend(1), 300)
+    setTimeout(() => trySend(2), 800)
+    setTimeout(() => trySend(3), 1500)
   }).catch(err => {
     log.error('[DailySummary] ❌ HTML load failed:', err)
     closeDailySummary()
