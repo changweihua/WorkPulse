@@ -76,6 +76,14 @@ node -e "require('fs').writeFileSync('C:\\Users\\Changweihua\\AppData\\Local\\Te
 3. **首字母大写**：`fix: Add radial menu` ← 错误（应为 `add`）
 4. **尾部句号**：`fix: add radial menu.` ← 错误
 
+## 提交前必须更新 CHANGELOG.md
+
+- **每次改动提交前，必须先在 `CHANGELOG.md` 的 `[未发布]` 区块记录变更**
+- 记录完成后再执行 `git commit`
+- CHANGELOG 条目使用中文，格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)
+- 分类：`### 新增` / `### 变更` / `### 修复` / `### 移除`
+- 条目简洁明了，描述**做了什么**而非怎么做的
+
 ## 严禁私自 Push
 
 - **只 commit，不 push**，除非用户明确说"推送"

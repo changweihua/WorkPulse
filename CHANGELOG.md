@@ -19,6 +19,7 @@
 ### 变更
 - `af630b0` 🦄 refactor: zod ipc contract layer with unified IpcResult
 - preload 新增 `invoke()` helper，解包 IpcResult，渲染端零改动兼容
+- AGENTS.md 新增「提交前必须更新 CHANGELOG.md」规则
 - `d7e8677` 🦄 refactor: replace model config json blob with model_configs table
 - `de7b880` 🦄 refactor: remove BrowserWindow daily summary — keep only in-app modal
 - `f935fd8` 🦄 refactor: remove renderer ai config backup, use main process sqlite
