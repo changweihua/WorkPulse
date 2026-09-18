@@ -4,6 +4,9 @@
 
 ## [未发布]
 
+### 变更
+- `fe16d01` 🦄 refactor: 优化 AGENTS.md，补充提交范围规范和 AI Agent commit 格式要求
+
 ### 新增
 - `4c40e5e` ✨ feat: add electron security hardening and fix type errors
 - `db8e0da` ✨ feat: 统一 AI 模型配置管理，新增独立 ModelConfigPage 页面

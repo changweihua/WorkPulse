@@ -1,16 +1,25 @@
-# WorkPulse Project Rules
+# WorkPulse 项目规范
 
 ## 语言规范
 
 - **所有对话、注释、提交信息、文档必须使用中文**
 - AI Agent 与用户的交互一律使用中文，包括代码注释和变量命名说明
 - 唯一例外：代码本身（变量名、函数名、类型名等）保持英文
+- **记录规范**：所有变更记录、日志、文档必须使用中文撰写，确保团队成员可读性
 
 ## Commitlint 规则
 
 使用 `git-commit-emoji` 格式（extend: `git-commit-emoji`）。
 
-**必须 emoji 前缀，格式：`emoji type: subject`**
+### AI Agent 必须遵循的格式
+
+**格式：** `emoji type: subject`
+
+- **emoji**：必须使用下方对照表中的 emoji，不可替换
+- **type**：必须使用对照表中的类型，不可自创
+- **subject**：小写开头，简洁描述变更内容，不加句号
+- **header**：最长 72 字符（含 emoji 和空格），超出会被拒绝
+- **body**：每行最长 200 字符（可选）
 
 **允许的 type：**
 - `🎉 init` — 项目初始化
@@ -26,11 +35,7 @@
 - `🐳 chore` — 其他杂项（发布、版本号等）
 - `↩ revert` — 回滚
 
-**格式：** `emoji type: subject`（subject 必须小写开头，不能 sentence-case/start-case/pascal-case/upper-case）
-
-**header 最长 72 字符**（含 emoji 和空格），超出会被 commitlint 拒绝。
-
-**emoji ↔ type 对照表（必须严格匹配，不可用其他 emoji 代替）：**
+**emoji ↔ type 对照表（必须严格匹配）：**
 
 | emoji | type | 用途 |
 |-------|------|------|
@@ -47,13 +52,18 @@
 | 🐳 | chore | 其他杂项（发布、版本号等） |
 | ↩ | revert | 回滚 |
 
-**示例：**
+**正确示例：**
 - `✨ feat: add radial menu navigation`
 - `🐞 fix: screenshot overlay transparency`
 - `🎈 perf: onnx/ocr webworker thread separation`
 - `🐳 chore: release v0.2.22`
+- `📃 docs: update README installation steps`
 
-**body 限制：** 每行最长 200 字符
+**错误示例（禁止）：**
+- `chore: release v0.2.23` ← 缺少 emoji
+- `🐠 chore: xxx` ← emoji 错误（热带鱼不是鲸鱼）
+- `fix: Add radial menu` ← 首字母大写
+- `fix: add radial menu.` ← 尾部句号
 
 ### ⚠️ Windows 下写 commit message 的正确方式
 
@@ -83,6 +93,14 @@ node -e "require('fs').writeFileSync('C:\\Users\\Changweihua\\AppData\\Local\\Te
 - CHANGELOG 条目使用中文，格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)
 - 分类：`### 新增` / `### 变更` / `### 修复` / `### 移除`
 - 条目简洁明了，描述**做了什么**而非怎么做的
+
+## 提交范围规范
+
+- **每次提交只提交自己修改的文件**，禁止提交未修改的文件
+- 提交前使用 `git status` 确认变更范围，仅 `git add` 自己修改的文件
+- 禁止使用 `git add .` 或 `git add -A`（除非确认所有变更都是自己做的）
+- 合并分支时除外：合并产生的冲突解决可以包含多方修改
+
 
 ## 严禁私自 Push
 
