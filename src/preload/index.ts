@@ -20,6 +20,22 @@ interface AppUpdateState {
   canInstall?: boolean
 }
 
+// ─── IpcResult 解包 ──────────────────────────────────────────────────────────
+// 主进程 handler 统一返回 { ok, data } 或 { ok, error }
+// invoke() 解包成功结果，失败时抛出错误（保持渲染端 try/catch 兼容）
+
+interface IpcOk<T> { ok: true; data: T }
+interface IpcFail { ok: false; error: { code: string; message: string; issues?: unknown[] } }
+type IpcResult<T = unknown> = IpcOk<T> | IpcFail
+
+async function invoke<T>(promise: Promise<IpcResult<T>>): Promise<T> {
+  const result = await promise
+  if (result.ok) return result.data
+  const err = new Error(result.error.message)
+  ;(err as Error & { code: string }).code = result.error.code
+  throw err
+}
+
 const api = {
   // 新增：发送 IPC 消息到主进程
   send: (channel: string, ...args: any[]) => {
@@ -29,80 +45,76 @@ const api = {
     }
   },
   app: {
-    // 获取开机启动状态
-    getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch'),
-    // 设置开机启动
-    setAutoLaunch: (enable: boolean) => ipcRenderer.invoke('set-auto-launch', enable),
-    // 获取关闭行为设置
-    getCloseAction: () => ipcRenderer.invoke('get-close-action') as Promise<string>,
-    // 设置关闭行为
-    setCloseAction: (action: string) => ipcRenderer.invoke('set-close-action', action),
-    setLanguage: (language: AppLanguage) => ipcRenderer.invoke('app:language:update', language),
-    getVersion: () => ipcRenderer.invoke('app:get-version') as Promise<string>,
-    getUpdateState: () => ipcRenderer.invoke('app:updates:get-state') as Promise<AppUpdateState>,
-    checkForUpdates: () => ipcRenderer.invoke('app:updates:check') as Promise<AppUpdateState>,
-    installUpdate: () => ipcRenderer.invoke('app:updates:install') as Promise<boolean>,
-    openBackupDir: () => ipcRenderer.invoke('app:open-backup-dir') as Promise<string>
+    getAutoLaunch: () => invoke(ipcRenderer.invoke('get-auto-launch')),
+    setAutoLaunch: (enable: boolean) => invoke(ipcRenderer.invoke('set-auto-launch', enable)),
+    getCloseAction: () => invoke(ipcRenderer.invoke('get-close-action')) as Promise<string>,
+    setCloseAction: (action: string) => invoke(ipcRenderer.invoke('set-close-action', action)),
+    setLanguage: (language: AppLanguage) => invoke(ipcRenderer.invoke('app:language:update', language)),
+    getVersion: () => invoke(ipcRenderer.invoke('app:get-version')) as Promise<string>,
+    getUpdateState: () => invoke(ipcRenderer.invoke('app:updates:get-state')) as Promise<AppUpdateState>,
+    checkForUpdates: () => invoke(ipcRenderer.invoke('app:updates:check')) as Promise<AppUpdateState>,
+    installUpdate: () => invoke(ipcRenderer.invoke('app:updates:install')) as Promise<boolean>,
+    openBackupDir: () => invoke(ipcRenderer.invoke('app:open-backup-dir')) as Promise<string>
   },
   worklog: {
     add: (content: string, category?: string) =>
-      ipcRenderer.invoke('worklog:add', content, category),
+      invoke(ipcRenderer.invoke('worklog:add', content, category)),
     list: (limit?: number, offset?: number) =>
-      ipcRenderer.invoke('worklog:list', limit, offset),
+      invoke(ipcRenderer.invoke('worklog:list', limit, offset)),
     byDateRange: (from: string, to: string) =>
-      ipcRenderer.invoke('worklog:byDateRange', from, to),
-    search: (keyword: string) => ipcRenderer.invoke('worklog:search', keyword),
-    categories: () => ipcRenderer.invoke('worklog:categories') as Promise<string[]>,
+      invoke(ipcRenderer.invoke('worklog:byDateRange', from, to)),
+    search: (keyword: string) => invoke(ipcRenderer.invoke('worklog:search', keyword)),
+    categories: () => invoke(ipcRenderer.invoke('worklog:categories')) as Promise<string[]>,
     setCategory: (id: number, category: string) =>
-      ipcRenderer.invoke('worklog:setCategory', id, category),
+      invoke(ipcRenderer.invoke('worklog:setCategory', id, category)),
     update: (id: number, content: string, category: string, created_at?: string) =>
-      ipcRenderer.invoke('worklog:update', id, content, category, created_at),
-    delete: (id: number) => ipcRenderer.invoke('worklog:delete', id),
+      invoke(ipcRenderer.invoke('worklog:update', id, content, category, created_at)),
+    delete: (id: number) => invoke(ipcRenderer.invoke('worklog:delete', id)),
     restore: (log: { content: string; category: string; created_at: string; task_id: number | null }) =>
-      ipcRenderer.invoke('worklog:restore', log)
+      invoke(ipcRenderer.invoke('worklog:restore', log))
   },
   task: {
     add: (title: string, description?: string, status?: 'todo' | 'draft', createdAt?: string) =>
-      ipcRenderer.invoke('task:add', title, description, status, createdAt),
-    list: () => ipcRenderer.invoke('task:list'),
+      invoke(ipcRenderer.invoke('task:add', title, description, status, createdAt)),
+    list: () => invoke(ipcRenderer.invoke('task:list')),
     update: (id: number, updates: Record<string, unknown>) =>
-      ipcRenderer.invoke('task:update', id, updates),
-    delete: (id: number) => ipcRenderer.invoke('task:delete', id),
+      invoke(ipcRenderer.invoke('task:update', id, updates)),
+    delete: (id: number) => invoke(ipcRenderer.invoke('task:delete', id)),
     reorder: (taskIds: number[], status: string) =>
-      ipcRenderer.invoke('task:reorder', taskIds, status),
+      invoke(ipcRenderer.invoke('task:reorder', taskIds, status)),
     complete: (id: number, logContent: string) =>
-      ipcRenderer.invoke('task:complete', id, logContent),
+      invoke(ipcRenderer.invoke('task:complete', id, logContent)),
     completeOnly: (id: number) =>
-      ipcRenderer.invoke('task:completeOnly', id) as Promise<any>,
+      invoke(ipcRenderer.invoke('task:completeOnly', id)) as Promise<any>,
   },
   stats: {
-    get: (days?: number) => ipcRenderer.invoke('stats:get', days)
+    get: (days?: number) => invoke(ipcRenderer.invoke('stats:get', days))
   },
   event: {
-    add: (input: Record<string, unknown>) => ipcRenderer.invoke('event:add', input),
-    byDate: (date: string) => ipcRenderer.invoke('event:byDate', date),
-    byRange: (from: string, to: string) => ipcRenderer.invoke('event:byRange', from, to),
+    add: (input: Record<string, unknown>) => invoke(ipcRenderer.invoke('event:add', input)),
+    byDate: (date: string) => invoke(ipcRenderer.invoke('event:byDate', date)),
+    byRange: (from: string, to: string) => invoke(ipcRenderer.invoke('event:byRange', from, to)),
     update: (id: number, updates: Record<string, unknown>) =>
-      ipcRenderer.invoke('event:update', id, updates),
-    delete: (id: number) => ipcRenderer.invoke('event:delete', id),
+      invoke(ipcRenderer.invoke('event:update', id, updates)),
+    delete: (id: number) => invoke(ipcRenderer.invoke('event:delete', id)),
   },
   import: {
-    logs: () => ipcRenderer.invoke('import:logs') as Promise<{ imported: number; skipped: number; filePath: string } | null>,
+    logs: () => invoke(ipcRenderer.invoke('import:logs')) as Promise<{ imported: number; skipped: number; filePath: string } | null>,
   },
   report: {
     generate: (dateFrom: string, dateTo: string) =>
-      ipcRenderer.invoke('report:generate', dateFrom, dateTo),
+      invoke(ipcRenderer.invoke('report:generate', dateFrom, dateTo)),
     weekly: (start: string, end: string) =>
-      ipcRenderer.invoke('report:weekly', start, end),
+      invoke(ipcRenderer.invoke('report:weekly', start, end)),
     create: (type: string, dateFrom: string, dateTo: string, content: string) =>
-      ipcRenderer.invoke('report:create', type, dateFrom, dateTo, content),
-    list: (limit?: number) => ipcRenderer.invoke('report:list', limit),
+      invoke(ipcRenderer.invoke('report:create', type, dateFrom, dateTo, content)),
+    list: (limit?: number) => invoke(ipcRenderer.invoke('report:list', limit)),
     update: (id: number, content: string) =>
-      ipcRenderer.invoke('report:update', id, content)
+      invoke(ipcRenderer.invoke('report:update', id, content))
   },
   ai: {
     streamChat: (prompt: string) => {
-      // 从全局配置获取活跃模型配置（异步获取，传给 handler）
+      // 流式聊天：invoke 返回 void，通过事件监听接收数据
       ipcRenderer.invoke('ai-chat-stream', { userMessage: prompt, history: [] })
       return {
         onChunk: (cb: (text: string) => void) => {
@@ -125,7 +137,7 @@ const api = {
   },
   models: {
     ensure: (modelId: string, required: string[], optional: string[]) =>
-      ipcRenderer.invoke('model:ensure', modelId, required, optional) as Promise<{
+      invoke(ipcRenderer.invoke('model:ensure', modelId, required, optional)) as Promise<{
         ok: boolean
         missing: string[]
       }>,
@@ -137,9 +149,8 @@ const api = {
       ipcRenderer.on('model-download-progress', handler)
       return () => ipcRenderer.removeListener('model-download-progress', handler)
     },
-    /** 获取全局模型配置（chat / embedding）— 向后兼容 */
     getConfig: (type?: 'chat' | 'embedding') =>
-      ipcRenderer.invoke('model:get-config', type || 'chat') as Promise<{
+      invoke(ipcRenderer.invoke('model:get-config', type || 'chat')) as Promise<{
         type: 'chat' | 'embedding'
         provider: string
         baseUrl: string
@@ -147,9 +158,8 @@ const api = {
         hasApiKey: boolean
         dimension?: number
       }>,
-    /** 获取完整全局模型配置（不含明文 token） */
     getGlobalConfig: () =>
-      ipcRenderer.invoke('model:get-global-config') as Promise<{
+      invoke(ipcRenderer.invoke('model:get-global-config')) as Promise<{
         chatConfigs: Array<{
           id: string; name: string; baseURL: string; model: string;
           token: string; headers: string; temperature: number; max_tokens: number; top_p: number
@@ -159,43 +169,36 @@ const api = {
           provider: string; baseURL: string; model: string; dimension: number; token: string
         }
       }>,
-    /** 保存完整全局模型配置 */
     setGlobalConfig: (config: any) =>
-      ipcRenderer.invoke('model:set-global-config', config) as Promise<{ ok: boolean }>,
-    /** 获取当前活跃 Chat 配置 */
+      invoke(ipcRenderer.invoke('model:set-global-config', 'global', JSON.stringify(config))) as Promise<{ ok: boolean }>,
     getActiveChat: () =>
-      ipcRenderer.invoke('model:get-active-chat') as Promise<{
+      invoke(ipcRenderer.invoke('model:get-active-chat')) as Promise<{
         id: string; name: string; baseURL: string; model: string;
         token: string; headers: string; temperature: number; max_tokens: number; top_p: number
       } | null>,
-    /** 设置活跃 Chat 配置 */
     setActiveChat: (configId: string) =>
-      ipcRenderer.invoke('model:set-active-chat', configId) as Promise<{ ok: boolean }>,
-    /** 添加 Chat 配置 */
+      invoke(ipcRenderer.invoke('model:set-active-chat', configId)) as Promise<{ ok: boolean }>,
     addChatConfig: (config: any) =>
-      ipcRenderer.invoke('model:add-chat-config', config) as Promise<{ ok: boolean }>,
-    /** 更新 Chat 配置 */
+      invoke(ipcRenderer.invoke('model:add-chat-config', config)) as Promise<{ ok: boolean }>,
     updateChatConfig: (config: any) =>
-      ipcRenderer.invoke('model:update-chat-config', config) as Promise<{ ok: boolean }>,
-    /** 删除 Chat 配置 */
+      invoke(ipcRenderer.invoke('model:update-chat-config', config)) as Promise<{ ok: boolean }>,
     deleteChatConfig: (configId: string) =>
-      ipcRenderer.invoke('model:delete-chat-config', configId) as Promise<{ ok: boolean }>,
-    /** 更新 Embedding 配置列表 */
+      invoke(ipcRenderer.invoke('model:delete-chat-config', configId)) as Promise<{ ok: boolean }>,
     updateEmbedding: (params: { embeddingConfigs: any[]; activeEmbeddingConfigId: string }) =>
-      ipcRenderer.invoke('model:update-embedding', params) as Promise<{ ok: boolean }>,
+      invoke(ipcRenderer.invoke('model:update-embedding', params)) as Promise<{ ok: boolean }>,
   },
   settings: {
-    get: (key: string) => ipcRenderer.invoke('settings:get', key),
-    set: (key: string, value: string) => ipcRenderer.invoke('settings:set', key, value),
-    delete: (key: string) => ipcRenderer.invoke('settings:delete', key)
+    get: (key: string) => invoke(ipcRenderer.invoke('settings:get', key)),
+    set: (key: string, value: string) => invoke(ipcRenderer.invoke('settings:set', key, value)),
+    delete: (key: string) => invoke(ipcRenderer.invoke('settings:delete', key))
   },
   radial: {
-    setEnabled: (enabled: boolean) => ipcRenderer.invoke('radial:set-enabled', enabled),
-    setConfig: (items: unknown) => ipcRenderer.invoke('radial:set-config', items),
-    getConfig: () => ipcRenderer.invoke('radial:get-config'),
-    pickProgram: () => ipcRenderer.invoke('radial:pick-program'),
-    getFileIcon: (filePath: string) => ipcRenderer.invoke('radial:get-file-icon', filePath),
-    launchProgram: (programPath: string) => ipcRenderer.invoke('radial:launch-program', programPath),
+    setEnabled: (enabled: boolean) => invoke(ipcRenderer.invoke('radial:set-enabled', enabled)),
+    setConfig: (items: unknown) => invoke(ipcRenderer.invoke('radial:set-config', items)),
+    getConfig: () => invoke(ipcRenderer.invoke('radial:get-config')),
+    pickProgram: () => invoke(ipcRenderer.invoke('radial:pick-program')),
+    getFileIcon: (filePath: string) => invoke(ipcRenderer.invoke('radial:get-file-icon', filePath)),
+    launchProgram: (programPath: string) => invoke(ipcRenderer.invoke('radial:launch-program', programPath)),
   },
   notification: {
     show: (options: {
@@ -205,49 +208,49 @@ const api = {
       tag?: string
       urgency?: 'normal' | 'low' | 'critical'
       silent?: boolean
-    }) => ipcRenderer.invoke('notification:show', options)
+    }) => invoke(ipcRenderer.invoke('notification:show', options))
   },
   shortcut: {
-    update: (key: string, value: string) => ipcRenderer.invoke('shortcut:update', key, value)
+    update: (key: string, value: string) => invoke(ipcRenderer.invoke('shortcut:update', key, value))
   },
   export: {
-    logs: (format: 'csv' | 'markdown') => ipcRenderer.invoke('export:logs', format),
+    logs: (format: 'csv' | 'markdown') => invoke(ipcRenderer.invoke('export:logs', format)),
     report: (content: string, dateRange: string) =>
-      ipcRenderer.invoke('export:report', content, dateRange)
+      invoke(ipcRenderer.invoke('export:report', content, dateRange))
   },
   attachment: {
-    add: (workLogId: number, data: any) => ipcRenderer.invoke('attachment:add', { workLogId, ...data }),
-    list: (workLogId: number) => ipcRenderer.invoke('attachment:list', workLogId),
-    delete: (id: number) => ipcRenderer.invoke('attachment:delete', id),
-    pickFile: () => ipcRenderer.invoke('attachment:pickFile'),
+    add: (workLogId: number, data: any) => invoke(ipcRenderer.invoke('attachment:add', { workLogId, ...data })),
+    list: (workLogId: number) => invoke(ipcRenderer.invoke('attachment:list', workLogId)),
+    delete: (id: number) => invoke(ipcRenderer.invoke('attachment:delete', id)),
+    pickFile: () => invoke(ipcRenderer.invoke('attachment:pickFile')),
   },
   feed: {
     add: (url: string, categoryId?: number | null) =>
-      ipcRenderer.invoke('feed:add', url, categoryId),
-    list: () => ipcRenderer.invoke('feed:list'),
+      invoke(ipcRenderer.invoke('feed:add', url, categoryId)),
+    list: () => invoke(ipcRenderer.invoke('feed:list')),
     update: (id: number, updates: Record<string, unknown>) =>
-      ipcRenderer.invoke('feed:update', id, updates),
-    delete: (id: number) => ipcRenderer.invoke('feed:delete', id),
-    refresh: (id: number) => ipcRenderer.invoke('feed:refresh', id),
-    refreshAll: () => ipcRenderer.invoke('feed:refreshAll'),
-    importOpml: (xml: string) => ipcRenderer.invoke('feed:importOpml', xml),
-    exportOpml: () => ipcRenderer.invoke('feed:exportOpml'),
+      invoke(ipcRenderer.invoke('feed:update', id, updates)),
+    delete: (id: number) => invoke(ipcRenderer.invoke('feed:delete', id)),
+    refresh: (id: number) => invoke(ipcRenderer.invoke('feed:refresh', id)),
+    refreshAll: () => invoke(ipcRenderer.invoke('feed:refreshAll')),
+    importOpml: (xml: string) => invoke(ipcRenderer.invoke('feed:importOpml', xml)),
+    exportOpml: () => invoke(ipcRenderer.invoke('feed:exportOpml')),
     categories: {
-      list: () => ipcRenderer.invoke('feed:categories:list'),
-      add: (name: string) => ipcRenderer.invoke('feed:categories:add', name),
-      update: (id: number, name: string) => ipcRenderer.invoke('feed:categories:update', id, name),
-      delete: (id: number) => ipcRenderer.invoke('feed:categories:delete', id),
+      list: () => invoke(ipcRenderer.invoke('feed:categories:list')),
+      add: (name: string) => invoke(ipcRenderer.invoke('feed:categories:add', name)),
+      update: (id: number, name: string) => invoke(ipcRenderer.invoke('feed:categories:update', id, name)),
+      delete: (id: number) => invoke(ipcRenderer.invoke('feed:categories:delete', id)),
     },
     articles: {
       list: (feedId?: number, filter?: string, limit?: number, offset?: number) =>
-        ipcRenderer.invoke('feed:articles:list', feedId, filter, limit, offset),
-      read: (id: number) => ipcRenderer.invoke('feed:articles:read', id),
-      unread: (id: number) => ipcRenderer.invoke('feed:articles:unread', id),
-      star: (id: number) => ipcRenderer.invoke('feed:articles:star', id),
-      readAll: (feedId?: number) => ipcRenderer.invoke('feed:articles:readAll', feedId),
+        invoke(ipcRenderer.invoke('feed:articles:list', feedId, filter, limit, offset)),
+      read: (id: number) => invoke(ipcRenderer.invoke('feed:articles:read', id)),
+      unread: (id: number) => invoke(ipcRenderer.invoke('feed:articles:unread', id)),
+      star: (id: number) => invoke(ipcRenderer.invoke('feed:articles:star', id)),
+      readAll: (feedId?: number) => invoke(ipcRenderer.invoke('feed:articles:readAll', feedId)),
     },
     exportPdf: (html: string, title: string, metadata?: { feedTitle?: string; author?: string; publishedAt?: string; url?: string }) =>
-      ipcRenderer.invoke('feed:exportPdf', html, title, metadata),
+      invoke(ipcRenderer.invoke('feed:exportPdf', html, title, metadata)),
     onExportPdfProgress: (cb: (data: { stage: string; percent: number }) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: { stage: string; percent: number }) => cb(data)
       ipcRenderer.on('feed:exportPdf-progress', handler)
@@ -256,24 +259,23 @@ const api = {
   },
   dotnet: {
     invoke: (method: string, ...args: unknown[]) =>
-      ipcRenderer.invoke('dotnet:invoke', method, args) as Promise<string | number>,
+      invoke(ipcRenderer.invoke('dotnet:invoke', method, args)) as Promise<string | number>,
   },
   vector: {
-    initialize: () => ipcRenderer.invoke('vector:initialize'),
+    initialize: () => invoke(ipcRenderer.invoke('vector:initialize')),
     indexWorklog: (id: number, content: string) =>
-      ipcRenderer.invoke('vector:index-worklog', id, content),
+      invoke(ipcRenderer.invoke('vector:index-worklog', id, content)),
     search: (query: string, options?: { type?: string; topK?: number }) =>
-      ipcRenderer.invoke('vector:search', query, options),
-    stats: () => ipcRenderer.invoke('vector:stats'),
-    remove: (uri: string) => ipcRenderer.invoke('vector:remove', uri),
-    rebuild: () => ipcRenderer.invoke('vector:rebuild'),
-    autoIndex: () => ipcRenderer.invoke('vector:auto-index'),
+      invoke(ipcRenderer.invoke('vector:search', query, options)),
+    stats: () => invoke(ipcRenderer.invoke('vector:stats')),
+    remove: (uri: string) => invoke(ipcRenderer.invoke('vector:remove', uri)),
+    rebuild: () => invoke(ipcRenderer.invoke('vector:rebuild')),
+    autoIndex: () => invoke(ipcRenderer.invoke('vector:auto-index')),
   },
-  // 窗口控制（WCO 原生按钮接管 minimize/maximize/close，仅保留材质切换）
   window: {
-    getMaterial: (): Promise<string> => ipcRenderer.invoke('get-window-material'),
+    getMaterial: (): Promise<string> => invoke(ipcRenderer.invoke('get-window-material')),
     setMaterial: (material: string): Promise<{ success: boolean }> =>
-      ipcRenderer.invoke('set-window-material', material),
+      invoke(ipcRenderer.invoke('set-window-material', material)),
   },
   on: {
     quickCreate: (cb: (type: QuickCreateType) => void) => {
@@ -314,12 +316,12 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
 
-    // 暴露给渲染进程的 API，封装在 `ai` 命名空间下
+    // 暴露给渲染进程的 AI API，封装在 `ai` 命名空间下
     contextBridge.exposeInMainWorld('ai', {
       invoke: (channel: string, ...args: any[]) => {
         const validChannels = ['ai-chat-stream', 'ai-chat-cancel'];
         if (validChannels.includes(channel)) {
-          return ipcRenderer.invoke(channel, ...args);
+          return invoke(ipcRenderer.invoke(channel, ...args));
         }
         throw new Error(`Invalid channel: ${channel}`);
       },
@@ -335,22 +337,21 @@ if (process.contextIsolated) {
           ipcRenderer.removeAllListeners(channel);
         }
       },
-      cancel: (requestId: string) => ipcRenderer.invoke('ai-chat-cancel', requestId),
-      saveLLMToken: (modelId: string, token: string) => ipcRenderer.invoke('llm-tokens:save', { modelId, token }),
-      getLLMToken: (modelId: string) => ipcRenderer.invoke('llm-tokens:get', modelId),
-      deleteLLMToken: (modelId: string) => ipcRenderer.invoke('llm-tokens:delete', modelId),
+      cancel: (requestId: string) => invoke(ipcRenderer.invoke('ai-chat-cancel', requestId)),
+      saveLLMToken: (modelId: string, token: string) => invoke(ipcRenderer.invoke('llm-tokens:save', { modelId, token })),
+      getLLMToken: (modelId: string) => invoke(ipcRenderer.invoke('llm-tokens:get', modelId)),
+      deleteLLMToken: (modelId: string) => invoke(ipcRenderer.invoke('llm-tokens:delete', modelId)),
     });
 
     // 暴露安全的 API 给渲染进程
     contextBridge.exposeInMainWorld('pp', {
       ipcRenderer: {
         invoke: (channel: string, ...args: any[]) => {
-          // 只允许特定通道
           const validChannels = ['read-model-file'];
           if (!validChannels.includes(channel)) {
             throw new Error(`不允许的 IPC 通道: ${channel}`);
           }
-          return ipcRenderer.invoke(channel, ...args);
+          return invoke(ipcRenderer.invoke(channel, ...args));
         },
       },
     });
