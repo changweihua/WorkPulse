@@ -5,6 +5,7 @@
 import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import log from 'electron-log/main'
+import { is } from '@electron-toolkit/utils'
 import { getSetting, setSetting, getStats } from './db'
 
 let summaryWindow: BrowserWindow | null = null
@@ -93,10 +94,29 @@ export function showDailySummary(getMainWindow: () => BrowserWindow | null): voi
     },
   })
 
-  // 加载 HTML
-  const htmlPath = getSummaryHTMLPath()
-  summaryWindow.loadFile(htmlPath).then(() => {
-    log.info('[DailySummary] ✅ HTML loaded')
+  // 加载：开发模式通过 Vite dev server，生产模式加载文件
+  const loadPage = (): void => {
+    if (!summaryWindow) return
+    const devUrl = process.env['ELECTRON_RENDERER_URL']
+    if (is.dev && devUrl) {
+      // 开发模式：通过 Vite dev server 加载
+      summaryWindow.loadURL(`${devUrl}/daily-summary.html`).catch(err => {
+        log.error('[DailySummary] ❌ URL load failed:', err)
+        closeDailySummary()
+      })
+    } else {
+      // 生产模式：加载打包后的文件
+      summaryWindow.loadFile(getSummaryHTMLPath()).catch(err => {
+        log.error('[DailySummary] ❌ File load failed:', err)
+        closeDailySummary()
+      })
+    }
+  }
+
+  loadPage()
+
+  summaryWindow.webContents.once('did-finish-load', () => {
+    log.info('[DailySummary] ✅ 页面加载完成')
     // 多次尝试发送数据，确保 preload 监听器就绪
     const trySend = (attempt: number) => {
       if (summaryWindow && !summaryWindow.isDestroyed()) {
@@ -107,9 +127,6 @@ export function showDailySummary(getMainWindow: () => BrowserWindow | null): voi
     setTimeout(() => trySend(1), 300)
     setTimeout(() => trySend(2), 800)
     setTimeout(() => trySend(3), 1500)
-  }).catch(err => {
-    log.error('[DailySummary] ❌ HTML load failed:', err)
-    closeDailySummary()
   })
 
   summaryWindow.on('closed', () => {
