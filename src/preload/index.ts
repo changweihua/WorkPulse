@@ -21,7 +21,7 @@ interface AppUpdateState {
 }
 
 const api = {
-  // 鏂板锛氬彂閫?IPC 娑堟伅鍒颁富杩涚▼
+  // 新增：发送 IPC 消息到主进程
   send: (channel: string, ...args: any[]) => {
     const ALLOWED_SEND_CHANNELS = ['screenshot:ready', 'screenshot:cancel', 'screenshot:crop'] as const;
     if ((ALLOWED_SEND_CHANNELS as readonly string[]).includes(channel)) {
@@ -29,11 +29,13 @@ const api = {
     }
   },
   app: {
-    // 鑾峰彇寮€鏈哄惎鍔ㄧ姸鎬?    getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch'),
-    // 璁剧疆寮€鏈哄惎鍔?    setAutoLaunch: (enable: boolean) => ipcRenderer.invoke('set-auto-launch', enable),
-    // 鑾峰彇鍏抽棴琛屼负璁剧疆
+    // 获取开机启动状态
+    getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch'),
+    // 设置开机启动
+    setAutoLaunch: (enable: boolean) => ipcRenderer.invoke('set-auto-launch', enable),
+    // 获取关闭行为设置
     getCloseAction: () => ipcRenderer.invoke('get-close-action') as Promise<string>,
-    // 璁剧疆鍏抽棴琛屼负
+    // 设置关闭行为
     setCloseAction: (action: string) => ipcRenderer.invoke('set-close-action', action),
     setLanguage: (language: AppLanguage) => ipcRenderer.invoke('app:language:update', language),
     getVersion: () => ipcRenderer.invoke('app:get-version') as Promise<string>,
@@ -100,7 +102,8 @@ const api = {
   },
   ai: {
     streamChat: (prompt: string) => {
-      // 浠庡叏灞€閰嶇疆鑾峰彇娲昏穬妯″瀷閰嶇疆锛堝紓姝ヨ幏鍙栵紝浼犵粰 handler锛?      ipcRenderer.invoke('ai-chat-stream', { userMessage: prompt, history: [] })
+      // 从全局配置获取活跃模型配置（异步获取，传给 handler）
+      ipcRenderer.invoke('ai-chat-stream', { userMessage: prompt, history: [] })
       return {
         onChunk: (cb: (text: string) => void) => {
           const handler = (_e: any, text: string) => cb(text)
@@ -134,7 +137,7 @@ const api = {
       ipcRenderer.on('model-download-progress', handler)
       return () => ipcRenderer.removeListener('model-download-progress', handler)
     },
-    /** 鑾峰彇鍏ㄥ眬妯″瀷閰嶇疆锛坈hat / embedding锛夆€?鍚戝悗鍏煎 */
+    /** 获取全局模型配置（chat / embedding）— 向后兼容 */
     getConfig: (type?: 'chat' | 'embedding') =>
       ipcRenderer.invoke('model:get-config', type || 'chat') as Promise<{
         type: 'chat' | 'embedding'
@@ -144,7 +147,7 @@ const api = {
         hasApiKey: boolean
         dimension?: number
       }>,
-    /** 鑾峰彇瀹屾暣鍏ㄥ眬妯″瀷閰嶇疆锛堜笉鍚槑鏂?token锛?*/
+    /** 获取完整全局模型配置（不含明文 token） */
     getGlobalConfig: () =>
       ipcRenderer.invoke('model:get-global-config') as Promise<{
         chatConfigs: Array<{
@@ -156,28 +159,28 @@ const api = {
           provider: string; baseURL: string; model: string; dimension: number; token: string
         }
       }>,
-    /** 淇濆瓨瀹屾暣鍏ㄥ眬妯″瀷閰嶇疆 */
+    /** 保存完整全局模型配置 */
     setGlobalConfig: (config: any) =>
       ipcRenderer.invoke('model:set-global-config', config) as Promise<{ ok: boolean }>,
-    /** 鑾峰彇褰撳墠娲昏穬 Chat 閰嶇疆 */
+    /** 获取当前活跃 Chat 配置 */
     getActiveChat: () =>
       ipcRenderer.invoke('model:get-active-chat') as Promise<{
         id: string; name: string; baseURL: string; model: string;
         token: string; headers: string; temperature: number; max_tokens: number; top_p: number
       } | null>,
-    /** 璁剧疆娲昏穬 Chat 閰嶇疆 */
+    /** 设置活跃 Chat 配置 */
     setActiveChat: (configId: string) =>
       ipcRenderer.invoke('model:set-active-chat', configId) as Promise<{ ok: boolean }>,
-    /** 娣诲姞 Chat 閰嶇疆 */
+    /** 添加 Chat 配置 */
     addChatConfig: (config: any) =>
       ipcRenderer.invoke('model:add-chat-config', config) as Promise<{ ok: boolean }>,
-    /** 鏇存柊 Chat 閰嶇疆 */
+    /** 更新 Chat 配置 */
     updateChatConfig: (config: any) =>
       ipcRenderer.invoke('model:update-chat-config', config) as Promise<{ ok: boolean }>,
-    /** 鍒犻櫎 Chat 閰嶇疆 */
+    /** 删除 Chat 配置 */
     deleteChatConfig: (configId: string) =>
       ipcRenderer.invoke('model:delete-chat-config', configId) as Promise<{ ok: boolean }>,
-    /** 鏇存柊 Embedding 閰嶇疆鍒楄〃 */
+    /** 更新 Embedding 配置列表 */
     updateEmbedding: (params: { embeddingConfigs: any[]; activeEmbeddingConfigId: string }) =>
       ipcRenderer.invoke('model:update-embedding', params) as Promise<{ ok: boolean }>,
   },
@@ -267,7 +270,8 @@ const api = {
     remove: (uri: string) => ipcRenderer.invoke('vector:remove', uri),
     rebuild: () => ipcRenderer.invoke('vector:rebuild'),
   },
-  // 绐楀彛鎺у埗锛圵CO 鍘熺敓鎸夐挳鎺ョ minimize/maximize/close锛屼粎淇濈暀鏉愯川鍒囨崲锛?  window: {
+  // 窗口控制（WCO 原生按钮接管 minimize/maximize/close，仅保留材质切换）
+  window: {
     getMaterial: (): Promise<string> => ipcRenderer.invoke('get-window-material'),
     setMaterial: (material: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('set-window-material', material),
@@ -311,7 +315,8 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
 
-    // 鏆撮湶缁欐覆鏌撹繘绋嬬殑 API锛屽皝瑁呭湪 `ai` 鍛藉悕绌洪棿涓?    contextBridge.exposeInMainWorld('ai', {
+    // 暴露给渲染进程的 API，封装在 `ai` 命名空间下
+    contextBridge.exposeInMainWorld('ai', {
       invoke: (channel: string, ...args: any[]) => {
         const validChannels = ['ai-chat-stream', 'ai-chat-cancel'];
         if (validChannels.includes(channel)) {
@@ -337,13 +342,14 @@ if (process.contextIsolated) {
       deleteLLMToken: (modelId: string) => ipcRenderer.invoke('llm-tokens:delete', modelId),
     });
 
-    // 鏆撮湶瀹夊叏鐨?API 缁欐覆鏌撹繘绋?    contextBridge.exposeInMainWorld('pp', {
+    // 暴露安全的 API 给渲染进程
+    contextBridge.exposeInMainWorld('pp', {
       ipcRenderer: {
         invoke: (channel: string, ...args: any[]) => {
-          // 鍙厑璁哥壒瀹氶€氶亾
+          // 只允许特定通道
           const validChannels = ['read-model-file'];
           if (!validChannels.includes(channel)) {
-            throw new Error(`涓嶅厑璁哥殑 IPC 閫氶亾: ${channel}`);
+            throw new Error(`不允许的 IPC 通道: ${channel}`);
           }
           return ipcRenderer.invoke(channel, ...args);
         },
