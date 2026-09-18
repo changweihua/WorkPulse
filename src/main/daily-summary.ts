@@ -44,8 +44,8 @@ export function showDailySummary(getMainWindow: () => BrowserWindow | null): voi
   const enabled = getSetting('daily_summary_enabled')
   if (enabled === '0') return
 
-  // 检查今日是否已展示
-  if (hasShownToday()) return
+  // 生产环境下检查今日是否已展示，开发环境每次弹出
+  if (app.isPackaged && hasShownToday()) return
 
   // 获取统计数据（7天用于周活动图）
   const stats = getStats(7)
