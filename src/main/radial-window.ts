@@ -332,6 +332,14 @@ ipcMain.on('radial:drag-end', () => {
   }
 })
 
+import { guardedHandle, guardedQuery } from './ipc-guard'
+import { ok } from '../shared/ipc-result'
+import {
+  RadialSetConfigSchema, RadialSetEnabledSchema,
+  RadialGetFileIconSchema, RadialLaunchProgramSchema,
+  RadialNavigateToSchema,
+} from './ipc-schemas'
+
 // ─── 配置 IPC ───
 
 const DEFAULT_RADIAL_ITEMS = [
@@ -341,36 +349,34 @@ const DEFAULT_RADIAL_ITEMS = [
   { id: 'ai', label: 'AI Chat', route: '/chat' },
 ]
 
-ipcMain.handle('radial:get-config', () => {
+guardedQuery('radial:get-config', () => {
   const saved = getSetting('radial_items')
-  if (saved === null) return DEFAULT_RADIAL_ITEMS
-  try { return JSON.parse(saved) } catch { return DEFAULT_RADIAL_ITEMS }
+  if (saved === null) return ok(DEFAULT_RADIAL_ITEMS)
+  try { return ok(JSON.parse(saved)) } catch { return ok(DEFAULT_RADIAL_ITEMS) }
 })
 
-ipcMain.handle('radial:set-config', (_event, items: unknown) => {
-  setSetting('radial_items', JSON.stringify(items))
-  // 通知 radial 窗口配置已变更，携带最新配置数据（避免 radial 重新 fetch 的竞态）
+guardedHandle('radial:set-config', RadialSetConfigSchema, (data) => {
+  setSetting('radial_items', JSON.stringify(data.items))
   const win = radialWindow
   if (win && !win.isDestroyed()) {
-    win.webContents.send('radial:config-changed', items)
+    win.webContents.send('radial:config-changed', data.items)
   }
-  return true
+  return ok(true)
 })
 
-ipcMain.handle('radial:navigate-to', (_event, page: string) => {
+guardedHandle('radial:navigate-to', RadialNavigateToSchema, (data) => {
   appBus.emit(SHOW_MAIN)
   const win = getMainWindow()
-  if (win) win.webContents.send(`navigate:${page}`)
+  if (win) win.webContents.send(`navigate:${data.page}`)
   collapseRadial()
-  return true
+  return ok(true)
 })
 
 // ─── 悬浮窗开关（设置页实时切换） ───
 
-ipcMain.handle('radial:set-enabled', (_event, enabled: boolean) => {
-  setSetting('radial_enabled', enabled ? '1' : '0')
-  if (enabled) {
-    // 开启：如果窗口不存在则创建，否则显示
+guardedHandle('radial:set-enabled', RadialSetEnabledSchema, (data) => {
+  setSetting('radial_enabled', data.enabled ? '1' : '0')
+  if (data.enabled) {
     if (!radialWindow || radialWindow.isDestroyed()) {
       const main = getMainWindow()
       if (main) createRadialWindow(main)
@@ -378,18 +384,17 @@ ipcMain.handle('radial:set-enabled', (_event, enabled: boolean) => {
       showRadialWindow()
     }
   } else {
-    // 关闭：收起并隐藏
     if (radialWindow && !radialWindow.isDestroyed()) {
       if (expanded) collapseRadial()
       hideRadialWindow()
     }
   }
-  return true
+  return ok(true)
 })
 
-ipcMain.handle('radial:close', () => {
+guardedQuery('radial:close', () => {
   hideRadialWindow()
-  return true
+  return ok(true)
 })
 
 // ─── 程序配置 IPC ───
@@ -467,7 +472,7 @@ async function getFileIconBase64(filePath: string): Promise<string | null> {
   }
 }
 
-ipcMain.handle('radial:pick-program', async () => {
+guardedQuery('radial:pick-program', async () => {
   const { dialog } = require('electron')
   const result = await dialog.showOpenDialog({
     title: '选择程序',
@@ -477,28 +482,22 @@ ipcMain.handle('radial:pick-program', async () => {
     ],
     properties: ['openFile']
   })
-  if (result.canceled || !result.filePaths.length) return null
+  if (result.canceled || !result.filePaths.length) return ok(null)
   const filePath = result.filePaths[0]
   const name = filePath.replace(/\\/g, '/').split('/').pop()?.replace(/\.[^.]+$/, '') ?? ''
-  return { path: filePath, name }
+  return ok({ path: filePath, name })
 })
 
-ipcMain.handle('radial:get-file-icon', async (_event, filePath: string) => {
-  return getFileIconBase64(filePath)
+guardedHandle('radial:get-file-icon', RadialGetFileIconSchema, async (data) => {
+  return ok(await getFileIconBase64(data.filePath))
 })
 
-ipcMain.handle('radial:launch-program', async (_event, programPath: string) => {
-  try {
-    // .lnk 快捷方式：解析目标路径后启动
-    let launchPath = programPath
-    if (programPath.toLowerCase().endsWith('.lnk')) {
-      const target = await resolveLnkTargetPath(programPath)
-      if (target) launchPath = target
-    }
-    await shell.openPath(launchPath)
-    return true
-  } catch (err) {
-    log.error('Failed to launch program:', err)
-    return false
+guardedHandle('radial:launch-program', RadialLaunchProgramSchema, async (data) => {
+  let launchPath = data.programPath
+  if (data.programPath.toLowerCase().endsWith('.lnk')) {
+    const target = await resolveLnkTargetPath(data.programPath)
+    if (target) launchPath = target
   }
+  await shell.openPath(launchPath)
+  return ok(true)
 })

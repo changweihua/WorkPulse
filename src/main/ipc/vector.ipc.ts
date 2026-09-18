@@ -1,33 +1,38 @@
 /**
  * IPC 领域：向量搜索
+ * 迁移至 guardedHandle 模式
  */
-import { ipcMain } from 'electron'
+import { guardedHandle, guardedQuery } from '../ipc-guard'
+import { ok } from '../../shared/ipc-result'
 import { vectorSearch } from '../vector-search'
+import {
+  VectorSearchSchema, VectorIndexWorklogSchema, VectorRemoveSchema,
+} from '../ipc-schemas'
 
 export function registerVectorIpc(): void {
-  ipcMain.handle('vector:initialize', () => {
+  guardedQuery('vector:initialize', () => {
     vectorSearch.initialize()
-    return { ok: true }
+    return ok({ ok: true })
   })
 
-  ipcMain.handle('vector:search', async (_event, query: string, options?: { type?: string; topK?: number }) => {
-    return vectorSearch.search(query, options)
+  guardedHandle('vector:search', VectorSearchSchema, async (data) => {
+    return ok(await vectorSearch.search(data.query, data.options))
   })
 
-  ipcMain.handle('vector:stats', async () => {
-    return vectorSearch.getStats()
+  guardedQuery('vector:stats', async () => {
+    return ok(await vectorSearch.getStats())
   })
 
-  ipcMain.handle('vector:rebuild', async () => {
+  guardedQuery('vector:rebuild', () => {
     vectorSearch.rebuildIndex()
-    return { ok: true }
+    return ok({ ok: true })
   })
 
-  ipcMain.handle('vector:auto-index', async () => {
-    return vectorSearch.autoIndexAll()
+  guardedQuery('vector:auto-index', async () => {
+    return ok(await vectorSearch.autoIndexAll())
   })
 
-  ipcMain.handle('vector:index-worklog', async (_event, id: number, content: string) => {
-    return vectorSearch.indexSingleWorklog(id, content)
+  guardedHandle('vector:index-worklog', VectorIndexWorklogSchema, async (data) => {
+    return ok(await vectorSearch.indexSingleWorklog(data.id, data.content))
   })
 }

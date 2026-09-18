@@ -1,9 +1,12 @@
-import { app, protocol, ipcMain, dialog, BrowserWindow } from 'electron'
+import { app, protocol, dialog, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, copyFileSync, unlinkSync, readFileSync, writeFileSync } from 'fs'
 import { randomUUID } from 'crypto'
 import type Database from 'better-sqlite3'
 import { showNotification } from './notification'
+import { guardedHandle, guardedQuery } from './ipc-guard'
+import { ok } from '../shared/ipc-result'
+import { AttachmentAddSchema, AttachmentListSchema, AttachmentDeleteSchema } from './ipc-schemas'
 
 const ATTACHMENTS_DIR = join(app.getPath('userData'), 'attachments')
 
@@ -116,80 +119,71 @@ export function registerAttachmentProtocol(): void {
 
 // Register IPC handlers (call from main init)
 export function registerAttachmentIPC(db: Database.Database): void {
-  ipcMain.handle('attachment:add', async (_event, workLogId: number, attachmentData: {
-    type: 'file' | 'screenshot' | 'link'
-    originalName: string
-    filePath?: string  // for file type: original path to copy from
-    base64Data?: string  // for screenshot type: base64 encoded image
-    mimeType?: string
-    url?: string  // for link type
-  }) => {
+  guardedHandle('attachment:add', AttachmentAddSchema, async (data) => {
     let storedPath: string | undefined
     let fileSize: number | undefined
 
-    if (attachmentData.type === 'file' && attachmentData.filePath) {
-      // Copy file to attachments directory
-      const ext = attachmentData.originalName.split('.').pop() || 'bin'
+    if (data.type === 'file' && data.filePath) {
+      const ext = data.originalName.split('.').pop() || 'bin'
       const uuid = randomUUID()
-      const relativePath = `${workLogId}/${uuid}.${ext}`
-      const dirPath = join(ATTACHMENTS_DIR, String(workLogId))
+      const relativePath = `${data.workLogId}/${uuid}.${ext}`
+      const dirPath = join(ATTACHMENTS_DIR, String(data.workLogId))
       if (!existsSync(dirPath)) mkdirSync(dirPath, { recursive: true })
-      copyFileSync(attachmentData.filePath, join(ATTACHMENTS_DIR, relativePath))
+      copyFileSync(data.filePath, join(ATTACHMENTS_DIR, relativePath))
       storedPath = relativePath
       try {
         fileSize = readFileSync(join(ATTACHMENTS_DIR, relativePath)).length
       } catch {
         fileSize = undefined
       }
-    } else if (attachmentData.type === 'screenshot' && attachmentData.base64Data) {
-      // Save base64 image
-      const ext = attachmentData.mimeType?.split('/')[1] || 'png'
+    } else if (data.type === 'screenshot' && data.base64Data) {
+      const ext = data.mimeType?.split('/')[1] || 'png'
       const uuid = randomUUID()
-      const relativePath = `${workLogId}/${uuid}.${ext}`
-      const dirPath = join(ATTACHMENTS_DIR, String(workLogId))
+      const relativePath = `${data.workLogId}/${uuid}.${ext}`
+      const dirPath = join(ATTACHMENTS_DIR, String(data.workLogId))
       if (!existsSync(dirPath)) mkdirSync(dirPath, { recursive: true })
-      const buffer = Buffer.from(attachmentData.base64Data, 'base64')
+      const buffer = Buffer.from(data.base64Data, 'base64')
       writeFileSync(join(ATTACHMENTS_DIR, relativePath), buffer)
       storedPath = relativePath
       fileSize = buffer.length
     }
 
     const result = addAttachment(db, {
-      workLogId,
-      type: attachmentData.type,
-      originalName: attachmentData.originalName,
+      workLogId: data.workLogId,
+      type: data.type,
+      originalName: data.originalName,
       storedPath,
-      mimeType: attachmentData.mimeType,
-      url: attachmentData.url,
+      mimeType: data.mimeType,
+      url: data.url,
       fileSize,
     })
     showNotification({
       title: '附件已添加',
-      body: attachmentData.originalName,
+      body: data.originalName,
       tag: 'attachment-add',
       group: 'workpulse',
     })
-    return result
+    return ok(result)
   })
 
-  ipcMain.handle('attachment:list', (_event, workLogId: number) => {
-    return getAttachmentsByLogId(db, workLogId)
+  guardedHandle('attachment:list', AttachmentListSchema, (data) => {
+    return ok(getAttachmentsByLogId(db, data.workLogId))
   })
 
-  ipcMain.handle('attachment:delete', (_event, id: number) => {
-    return deleteAttachment(db, id)
+  guardedHandle('attachment:delete', AttachmentDeleteSchema, (data) => {
+    return ok(deleteAttachment(db, data.id))
   })
 
-  ipcMain.handle('attachment:pickFile', async () => {
+  guardedQuery('attachment:pickFile', async () => {
     const win = BrowserWindow.getFocusedWindow()
     const result = await dialog.showOpenDialog(win!, {
       title: '选择附件',
       properties: ['openFile', 'multiSelections'],
     })
-    if (result.canceled) return null
-    return result.filePaths.map(fp => ({
+    if (result.canceled) return ok(null)
+    return ok(result.filePaths.map(fp => ({
       path: fp,
       name: fp.split(/[/\\]/).pop() || 'unknown',
-    }))
+    })))
   })
 }

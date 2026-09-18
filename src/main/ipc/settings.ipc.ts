@@ -1,21 +1,29 @@
 /**
  * IPC 领域：设置 + LLM Token + 导入导出 + 报告
+ * 迁移至 guardedHandle 模式
  */
-import { ipcMain, dialog } from 'electron'
+import { dialog } from 'electron'
 import { readFileSync, writeFileSync } from 'fs'
 import {
   getAllWorkLogs, getSetting, setSetting, deleteSetting,
   saveReport, getReports, updateReportContent, generateWeeklyReport,
   addWorkLog, workLogExists
 } from '../db'
-import { validate, SettingsSetSchema, SettingsGetSchema } from '../ipc-schemas'
+import { guardedHandle, guardedQuery } from '../ipc-guard'
+import { ok } from '../../shared/ipc-result'
+import {
+  SettingsSetSchema, SettingsGetSchema, SettingsDeleteSchema,
+  ReportListSchema, ReportCreateSchema, ReportUpdateSchema, ReportWeeklySchema,
+  ExportLogsSchema, ExportReportSchema,
+  LlmTokenSaveSchema, LlmTokenSchema,
+  ModelSetActiveChatSchema,
+} from '../ipc-schemas'
 import { saveLLMToken, getLLMToken, deleteLLMToken } from '../secureSettings'
 import { showNotification } from '../notification'
 import { tMain } from '../i18n'
 import {
   getGlobalConfig, setGlobalConfig,
   getActiveChatConfig, setActiveChatConfig,
-  type ChatModelConfig, type EmbeddingModelConfig
 } from '../modelConfig'
 
 // 渲染进程允许访问的 settings 键白名单
@@ -34,96 +42,128 @@ const ALLOWED_SETTINGS_KEYS = new Set([
 
 export function registerSettingsIpc(): void {
   // --- Settings ---
-  ipcMain.handle('settings:get', (_event, key: string) => {
-    const v = validate(SettingsGetSchema, { key })
-    if (!ALLOWED_SETTINGS_KEYS.has(v.key)) {
-      throw new Error(`拒绝访问未授权的 settings 键: ${v.key}`)
+  guardedHandle('settings:get', SettingsGetSchema, (data) => {
+    if (!ALLOWED_SETTINGS_KEYS.has(data.key)) {
+      return { ok: false, error: { code: 'PERMISSION_DENIED' as const, message: `拒绝访问未授权的 settings 键: ${data.key}` } }
     }
-    return getSetting(v.key)
+    return ok(getSetting(data.key))
   })
 
-  ipcMain.handle('settings:set', (_event, key: string, value: string) => {
-    const v = validate(SettingsSetSchema, { key, value })
-    if (!ALLOWED_SETTINGS_KEYS.has(v.key)) {
-      throw new Error(`拒绝写入未授权的 settings 键: ${v.key}`)
+  guardedHandle('settings:set', SettingsSetSchema, (data) => {
+    if (!ALLOWED_SETTINGS_KEYS.has(data.key)) {
+      return { ok: false, error: { code: 'PERMISSION_DENIED' as const, message: `拒绝写入未授权的 settings 键: ${data.key}` } }
     }
-    setSetting(v.key, v.value)
+    setSetting(data.key, data.value)
+    return ok(undefined)
   })
 
-  ipcMain.handle('settings:delete', (_event, key: string) => {
-    if (!ALLOWED_SETTINGS_KEYS.has(key)) {
-      throw new Error(`拒绝删除未授权的 settings 键: ${key}`)
+  guardedHandle('settings:delete', SettingsDeleteSchema, (data) => {
+    if (!ALLOWED_SETTINGS_KEYS.has(data.key)) {
+      return { ok: false, error: { code: 'PERMISSION_DENIED' as const, message: `拒绝删除未授权的 settings 键: ${data.key}` } }
     }
-    deleteSetting(key)
+    deleteSetting(data.key)
+    return ok(undefined)
   })
 
   // --- LLM Token ---
-  ipcMain.handle('llm-tokens:save', async (_event, params: { modelId: string; token: string }) => {
-    saveLLMToken(params.modelId, params.token)
-    return true
+  guardedHandle('llm-tokens:save', LlmTokenSaveSchema, (data) => {
+    saveLLMToken(data.modelId, data.token)
+    return ok(true)
   })
 
-  ipcMain.handle('llm-tokens:get', async (_event, modelId: string) => {
-    return getLLMToken(modelId)
+  guardedHandle('llm-tokens:get', LlmTokenSchema, (data) => {
+    return ok(getLLMToken(data.modelId))
   })
 
-  ipcMain.handle('llm-tokens:delete', async (_event, modelId: string) => {
-    deleteLLMToken(modelId)
-    return true
+  guardedHandle('llm-tokens:delete', LlmTokenSchema, (data) => {
+    deleteLLMToken(data.modelId)
+    return ok(true)
   })
 
   // --- 全局模型配置 ---
-  ipcMain.handle('model:get-global-config', () => {
-    return getGlobalConfig()
+  guardedQuery('model:get-global-config', () => {
+    return ok(getGlobalConfig())
   })
 
-  ipcMain.handle('model:set-global-config', (_event, config: any) => {
-    setGlobalConfig(config)
-    return { ok: true }
+  guardedHandle('model:set-global-config', SettingsSetSchema, (data) => {
+    try {
+      const config = JSON.parse(data.value)
+      setGlobalConfig(config)
+      return ok(true)
+    } catch {
+      return { ok: false, error: { code: 'VALIDATION_FAILED' as const, message: '无效的 JSON 配置', issues: [] } }
+    }
   })
 
-  ipcMain.handle('model:set-active-chat', (_event, configId: string) => {
-    setActiveChatConfig(configId)
-    return { ok: true }
+  guardedQuery('model:get-config', (event) => {
+    // 保留向后兼容：返回 chat 配置
+    const active = getActiveChatConfig()
+    if (!active) {
+      return ok({
+        type: 'chat' as const,
+        provider: '',
+        baseUrl: '',
+        model: '',
+        hasApiKey: false,
+      })
+    }
+    return ok({
+      type: 'chat' as const,
+      provider: '',
+      baseUrl: active.baseURL,
+      model: active.model,
+      hasApiKey: !!(active.token || getLLMToken(active.id)),
+    })
+  })
+
+  guardedQuery('model:get-active-chat', () => {
+    return ok(getActiveChatConfig())
+  })
+
+  guardedHandle('model:set-active-chat', ModelSetActiveChatSchema, (data) => {
+    setActiveChatConfig(data.configId)
+    return ok(true)
   })
 
   // --- Report ---
-  ipcMain.handle('report:list', (_event, limit?: number) => {
-    return getReports(limit)
+  guardedHandle('report:list', ReportListSchema, (data) => {
+    return ok(getReports(data.limit))
   })
 
-  ipcMain.handle('report:create', (_event, type: string, dateFrom: string, dateTo: string, content: string) => {
-    return saveReport(type, dateFrom, dateTo, content)
+  guardedHandle('report:create', ReportCreateSchema, (data) => {
+    return ok(saveReport(data.type, data.dateFrom, data.dateTo, data.content))
   })
 
-  ipcMain.handle('report:update', (_event, id: number, content: string) => {
-    return updateReportContent(id, content)
+  guardedHandle('report:update', ReportUpdateSchema, (data) => {
+    return ok(updateReportContent(data.id, data.content))
   })
 
-  ipcMain.handle('report:weekly', (_event, startDate: string, endDate: string) => {
-    return generateWeeklyReport(startDate, endDate)
+  guardedHandle('report:weekly', ReportWeeklySchema, async (data) => {
+    return ok(await generateWeeklyReport(data.start, data.end))
   })
 
   // --- Export ---
-  ipcMain.handle('export:logs', async (_event, format: 'csv' | 'markdown') => {
+  guardedHandle('export:logs', ExportLogsSchema, async (data) => {
     const logs = getAllWorkLogs()
-    if (logs.length === 0) throw new Error(tMain('noLogsToExport'))
+    if (logs.length === 0) {
+      return { ok: false, error: { code: 'BUSINESS_ERROR' as const, message: tMain('noLogsToExport') } }
+    }
 
-    const ext = format === 'csv' ? 'csv' : 'md'
+    const ext = data.format === 'csv' ? 'csv' : 'md'
     const result = await dialog.showSaveDialog({
       title: tMain('exportLogsTitle'),
       defaultPath: `workpulse-logs.${ext}`,
       filters: [
-        format === 'csv'
+        data.format === 'csv'
           ? { name: 'CSV', extensions: ['csv'] }
           : { name: 'Markdown', extensions: ['md'] }
       ]
     })
 
-    if (result.canceled || !result.filePath) return null
+    if (result.canceled || !result.filePath) return ok(null)
 
     let content: string
-    if (format === 'csv') {
+    if (data.format === 'csv') {
       const escapeCsvCell = (value: string): string => `"${value.replace(/"/g, '""')}"`
       const header = tMain('csvHeader')
       const rows = logs
@@ -155,18 +195,18 @@ export function registerSettingsIpc(): void {
       tag: 'export-logs',
       group: 'workpulse',
     })
-    return result.filePath
+    return ok(result.filePath)
   })
 
   // --- Import ---
-  ipcMain.handle('import:logs', async (_event) => {
+  guardedQuery('import:logs', async () => {
     const result = await dialog.showOpenDialog({
       title: '导入工作日志',
       filters: [{ name: 'CSV / Markdown', extensions: ['csv', 'md'] }],
       properties: ['openFile']
     })
 
-    if (result.canceled || result.filePaths.length === 0) return null
+    if (result.canceled || result.filePaths.length === 0) return ok(null)
 
     const filePath = result.filePaths[0]
     const content = readFileSync(filePath, 'utf-8')
@@ -220,29 +260,31 @@ export function registerSettingsIpc(): void {
         group: 'workpulse',
       })
     }
-    return { imported, skipped, filePath }
+    return ok({ imported, skipped, filePath })
   })
 
-  ipcMain.handle('export:report', async (_event, reportContent: string, dateRange: string) => {
+  guardedHandle('export:report', ExportReportSchema, async (data) => {
     const result = await dialog.showSaveDialog({
       title: tMain('exportReportTitle'),
-      defaultPath: `workpulse-report-${dateRange}.md`,
+      defaultPath: `workpulse-report-${data.dateRange}.md`,
       filters: [{ name: 'Markdown', extensions: ['md'] }]
     })
-    if (result.canceled || !result.filePath) return null
-    writeFileSync(result.filePath, reportContent, 'utf-8')
+    if (result.canceled || !result.filePath) return ok(null)
+    writeFileSync(result.filePath, data.content, 'utf-8')
     showNotification({
       title: '报告已导出',
       body: result.filePath,
       tag: 'export-report',
       group: 'workpulse',
     })
-    return result.filePath
+    return ok(result.filePath)
   })
 
   // --- Navigate ---
-  ipcMain.on('navigate', (event, page: string) => {
-    const win = require('electron').BrowserWindow.fromWebContents(event.sender)
+  // 注意：navigate 用 ipcMain.on（非 invoke），保留原样
+  const { ipcMain, BrowserWindow } = require('electron')
+  ipcMain.on('navigate', (event: Electron.IpcMainEvent, page: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
     if (win) win.webContents.send('navigate', page)
   })
 }

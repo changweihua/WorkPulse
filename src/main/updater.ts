@@ -1,7 +1,9 @@
 import { execSync } from 'node:child_process'
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater'
+import { guardedQuery } from './ipc-guard'
+import { ok } from '../shared/ipc-result'
 
 // 构建版本号：取当前 git 短哈希（应用启动时计算一次）。
 // 生产打包环境通常没有 git，失败时回退为不带构建信息的纯版本号。
@@ -243,13 +245,22 @@ export async function checkForUpdates(): Promise<AppUpdateState> {
 }
 
 export function registerUpdateIpc(): void {
-  ipcMain.handle('app:get-version', () => getFullAppVersion())
-  ipcMain.handle('app:updates:get-state', () => updateState)
-  ipcMain.handle('app:updates:check', () => checkForUpdates())
-  ipcMain.handle('app:updates:install', () => {
-    if (updateState.status !== 'downloaded') return false
+  guardedQuery('app:get-version', () => {
+    return ok(getFullAppVersion())
+  })
+
+  guardedQuery('app:updates:get-state', () => {
+    return ok(updateState)
+  })
+
+  guardedQuery('app:updates:check', async () => {
+    return ok(await checkForUpdates())
+  })
+
+  guardedQuery('app:updates:install', () => {
+    if (updateState.status !== 'downloaded') return ok(false)
     autoUpdater.quitAndInstall(false, true)
-    return true
+    return ok(true)
   })
 }
 

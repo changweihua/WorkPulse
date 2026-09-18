@@ -1,41 +1,46 @@
 /**
  * IPC 领域：工作日志 CRUD + 统计 + 分类
+ * 迁移至 guardedHandle 模式：sender 校验 + schema 校验 + IpcResult
  */
-import { ipcMain } from 'electron'
+import { guardedHandle, guardedQuery } from '../ipc-guard'
+import { ok } from '../../shared/ipc-result'
 import {
   addWorkLog, getWorkLogs, getWorkLogsByDateRange, searchWorkLogs,
   getCategories, updateWorkLogCategory, deleteWorkLog, restoreWorkLog,
-  getStats, updateWorkLog, workLogExists, getDatabase
+  getStats, updateWorkLog, getDatabase
 } from '../db'
-import { validate, WorklogAddSchema, WorklogUpdateSchema, WorklogDeleteSchema } from '../ipc-schemas'
+import {
+  WorklogAddSchema, WorklogUpdateSchema, WorklogDeleteSchema,
+  WorklogListSchema, WorklogByDateRangeSchema, WorklogSearchSchema,
+  WorklogSetCategorySchema, WorklogRestoreSchema, StatsGetSchema,
+} from '../ipc-schemas'
 import { vectorSearch } from '../vector-search'
-import log from 'electron-log/main'
 
 export function registerWorklogIpc(): void {
-  ipcMain.handle('worklog:add', async (_event, content: string, category?: string) => {
-    const v = validate(WorklogAddSchema, { content, category })
-    const log = addWorkLog(v.content, v.category)
+  guardedHandle('worklog:add', WorklogAddSchema, (data) => {
+    const log = addWorkLog(data.content, data.category)
     // 即时向量化（异步，不阻塞返回）
     vectorSearch.indexSingleWorklog(log.id, log.content).catch(() => {})
-    return log
+    return ok(log)
   })
 
-  ipcMain.handle('worklog:list', (_event, limit?: number, offset?: number) => {
-    return getWorkLogs(limit, offset)
+  guardedHandle('worklog:list', WorklogListSchema, (data) => {
+    return ok(getWorkLogs(data.limit, data.offset))
   })
 
-  ipcMain.handle('worklog:byDateRange', (_event, from: string, to: string) => {
-    return getWorkLogsByDateRange(from, to)
+  guardedHandle('worklog:byDateRange', WorklogByDateRangeSchema, (data) => {
+    return ok(getWorkLogsByDateRange(data.from, data.to))
   })
 
-  ipcMain.handle('worklog:search', async (_event, keyword: string) => {
+  guardedHandle('worklog:search', WorklogSearchSchema, async (data) => {
+    const { getSetting } = await import('../db')
     const mode = getSetting('search_mode') || 'vector'
     if (mode === 'like') {
-      return searchWorkLogs(keyword)
+      return ok(searchWorkLogs(data.keyword))
     }
     // 向量语义搜索，失败时回退到 LIKE
     try {
-      const results = await vectorSearch.search(keyword, { type: 'worklog', topK: 20 })
+      const results = await vectorSearch.search(data.keyword, { type: 'worklog', topK: 20 })
       if (results.length > 0) {
         const ids = results
           .map(r => {
@@ -54,46 +59,42 @@ export function registerWorklogIpc(): void {
              WHERE wl.id IN (${placeholders})
              ORDER BY COALESCE(t.due_date, wl.created_at) DESC`
           ).all(...ids)
-          return rows
+          return ok(rows)
         }
       }
-    } catch (e) {
-      log.warn('[WorklogIPC] 向量搜索失败，回退到 LIKE:', e)
+    } catch {
+      // 向量搜索失败，回退到 LIKE
     }
-    return searchWorkLogs(keyword)
+    return ok(searchWorkLogs(data.keyword))
   })
 
-  ipcMain.handle('worklog:categories', () => {
-    return getCategories()
+  guardedQuery('worklog:categories', () => {
+    return ok(getCategories())
   })
 
-  ipcMain.handle('worklog:setCategory', (_event, id: number, category: string) => {
-    updateWorkLogCategory(id, category)
+  guardedHandle('worklog:setCategory', WorklogSetCategorySchema, (data) => {
+    updateWorkLogCategory(data.id, data.category)
+    return ok(undefined)
   })
 
-  ipcMain.handle('worklog:update', async (_event, id: number, content: string, category: string, created_at?: string) => {
-    const v = validate(WorklogUpdateSchema, { id, content, category, created_at })
-    const updated = updateWorkLog(v.id, v.content, v.category, v.created_at)
+  guardedHandle('worklog:update', WorklogUpdateSchema, (data) => {
+    const updated = updateWorkLog(data.id, data.content, data.category, data.created_at)
     // 更新后重新向量化
     if (updated) {
       vectorSearch.indexSingleWorklog(updated.id, updated.content).catch(() => {})
     }
-    return updated
+    return ok(updated)
   })
 
-  ipcMain.handle('worklog:delete', (_event, id: number) => {
-    const v = validate(WorklogDeleteSchema, { id })
-    return deleteWorkLog(v.id)
+  guardedHandle('worklog:delete', WorklogDeleteSchema, (data) => {
+    return ok(deleteWorkLog(data.id))
   })
 
-  ipcMain.handle(
-    'worklog:restore',
-    (_event, log_: { content: string; category: string; created_at: string; task_id: number | null }) => {
-      return restoreWorkLog(log_)
-    }
-  )
+  guardedHandle('worklog:restore', WorklogRestoreSchema, (data) => {
+    return ok(restoreWorkLog(data))
+  })
 
-  ipcMain.handle('stats:get', (_event, days?: number) => {
-    return getStats(days)
+  guardedHandle('stats:get', StatsGetSchema, (data) => {
+    return ok(getStats(data.days))
   })
 }

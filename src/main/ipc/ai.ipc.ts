@@ -1,13 +1,18 @@
 /**
  * IPC 领域：AI 聊天流式传输 + 模型管理 + 理由链
+ * 迁移至 guardedHandle 模式（流式 handler 保留 event.sender.send 模式）
  */
-import { ipcMain, BrowserWindow, powerSaveBlocker } from 'electron'
+import { BrowserWindow, powerSaveBlocker } from 'electron'
 import OpenAI from 'openai'
 import log from 'electron-log/main'
-import { validate, AiChatStreamSchema } from '../ipc-schemas'
+import { guardedHandle, guardedQuery, assertValidSender } from '../ipc-guard'
+import { ok } from '../../shared/ipc-result'
 import { ensureModelFiles, setModelProgressSender } from '../model-files'
 import { getLLMToken } from '../secureSettings'
-import { assertValidSender } from '../ipc-guard'
+import {
+  AiChatStreamSchema, AiChatCancelSchema, ModelEnsureSchema,
+} from '../ipc-schemas'
+import { getActiveChatConfig } from '../modelConfig'
 
 export function registerAiIpc(): void {
   // 模型下载进度广播
@@ -17,11 +22,9 @@ export function registerAiIpc(): void {
     }
   })
 
-  ipcMain.handle(
-    'model:ensure',
-    (_event, modelId: string, required: string[], optional: string[]) =>
-      ensureModelFiles(modelId, required || [], optional || [])
-  )
+  guardedHandle('model:ensure', ModelEnsureSchema, async (data) => {
+    return ok(await ensureModelFiles(data.modelId, data.required || [], data.optional || []))
+  })
 
   // --- 流式聊天（带重试 + 取消） ---
   const activeStreams = new Map<string, AbortController>()
@@ -42,27 +45,36 @@ export function registerAiIpc(): void {
     log.info('[AI] 💤 防休眠已关闭')
   }
 
-  ipcMain.handle('ai-chat-cancel', (_event, requestId: string) => {
-    const controller = activeStreams.get(requestId)
+  guardedHandle('ai-chat-cancel', AiChatCancelSchema, (data) => {
+    const controller = activeStreams.get(data.requestId)
     if (controller) {
       controller.abort()
-      activeStreams.delete(requestId)
+      activeStreams.delete(data.requestId)
       stopPowerBlock()
     }
+    return ok(undefined)
   })
 
-  ipcMain.handle('ai-chat-stream', async (event, params) => {
-    // ── IPC 发送者校验：防止注入脚本调用敏感通道 ──
+  // 流式聊天：使用原始 ipcMain.handle 但加上 sender 校验
+  // （因为流式 handler 通过 event.sender.send 推送数据，不适合用 guardedHandle 包裹）
+  const { ipcMain } = require('electron')
+  ipcMain.handle('ai-chat-stream', async (event: Electron.IpcMainInvokeEvent, params: unknown) => {
+    // ── IPC 发送者校验 ──
     if (!assertValidSender(event, 'ai-chat-stream')) {
       event.sender.send('ai-stream-error', '非法调用方')
       return
     }
 
-    const validated = validate(AiChatStreamSchema, params)
-    let { userMessage, history, config } = validated
+    // ── 入参 schema 校验 ──
+    const validated = AiChatStreamSchema.safeParse(params)
+    if (!validated.success) {
+      event.sender.send('ai-stream-error', `参数校验失败: ${validated.error.issues.map(i => i.message).join(', ')}`)
+      return
+    }
+
+    let { userMessage, history, config } = validated.data
 
     // 始终从全局配置获取模型信息，config 中的值作为覆盖
-    const { getActiveChatConfig } = require('../modelConfig')
     const active = getActiveChatConfig()
     if (!active) {
       event.sender.send('ai-stream-error', '未配置模型，请先在 AI 模型页面添加配置')
@@ -85,7 +97,7 @@ export function registerAiIpc(): void {
     // ── 推理开始，启用防休眠 ──
     startPowerBlock()
     if (!apiKey && finalConfig.id) {
-      apiKey = getLLMToken(finalConfig.id)
+      apiKey = getLLMToken(finalConfig.id) ?? undefined
     }
     if (!apiKey) {
       event.sender.send('ai-stream-error', '未提供 API Key')

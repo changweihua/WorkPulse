@@ -242,6 +242,7 @@
     "streamdown": "^2.6.0",
     "three": "^0.186.0",
     "vectra": "^0.15.0",
+    "zod": "^4.6.5",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

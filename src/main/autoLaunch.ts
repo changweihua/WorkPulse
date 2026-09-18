@@ -1,9 +1,13 @@
 /**
  * 开机启动 + 关闭行为 + 窗口材质 IPC
+ * 迁移至 guardedHandle 模式
  */
-import { app, ipcMain, BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { getSetting, setSetting } from './db'
 import log from 'electron-log/main'
+import { guardedHandle, guardedQuery } from './ipc-guard'
+import { ok } from '../shared/ipc-result'
+import { AutoLaunchSchema, CloseActionSchema, WindowMaterialSchema } from './ipc-schemas'
 
 let mainWinGetter: () => BrowserWindow | null = () => null
 let appIconPath = ''
@@ -31,13 +35,13 @@ export function getAutoLaunch(): boolean {
 }
 
 export function registerAutoLaunchIpc(): void {
-  ipcMain.handle('set-auto-launch', (_event, enable: boolean) => {
-    setAutoLaunch(enable)
-    return { success: true }
+  guardedHandle('set-auto-launch', AutoLaunchSchema, (data) => {
+    setAutoLaunch(data.enable)
+    return ok(undefined)
   })
 
-  ipcMain.handle('get-auto-launch', () => {
-    return getAutoLaunch()
+  guardedQuery('get-auto-launch', () => {
+    return ok(getAutoLaunch())
   })
 
   // 启动时恢复系统登录项设置
@@ -52,33 +56,30 @@ export function registerAutoLaunchIpc(): void {
     }
   }
 
-  // 关闭行为设置
-  ipcMain.handle('get-close-action', () => {
-    return getSetting('close_action') || 'minimize'
+  guardedQuery('get-close-action', () => {
+    return ok(getSetting('close_action') || 'minimize')
   })
 
-  ipcMain.handle('set-close-action', (_event, action: string) => {
-    setSetting('close_action', action)
-    return { success: true }
+  guardedHandle('set-close-action', CloseActionSchema, (data) => {
+    setSetting('close_action', data.action)
+    return ok(undefined)
   })
 
-  // 窗口材质
-  ipcMain.handle('get-window-material', () => {
-    return getSetting('window_material') || 'tabbed'
+  guardedQuery('get-window-material', () => {
+    return ok(getSetting('window_material') || 'tabbed')
   })
 
-  ipcMain.handle('set-window-material', (_event, material: string) => {
-    setSetting('window_material', material)
+  guardedHandle('set-window-material', WindowMaterialSchema, (data) => {
+    setSetting('window_material', data.material)
     const win = mainWinGetter()
     if (win && process.platform === 'win32') {
       try {
-        win.setBackgroundMaterial(material as 'mica' | 'tabbed' | 'acrylic')
+        win.setBackgroundMaterial(data.material as 'mica' | 'tabbed' | 'acrylic')
         win.setIcon(appIconPath)
       } catch (err) {
         log.error('[Main] setBackgroundMaterial failed:', err)
-        return { success: false }
       }
     }
-    return { success: true }
+    return ok(undefined)
   })
 }

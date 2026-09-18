@@ -5,17 +5,24 @@
 ## [未发布]
 
 ### 新增
-- disable cursorring, keep code for future
-- add webgl fluid, spring animations, cursor ring and cancel
-- add system notifications for user operations
-- Markdown 渲染支持 Mermaid 图表
+- Zod IPC 契约层：引入 `guardedHandle` / `guardedQuery` 声明式 handler 注册器，自动包裹 sender 校验 + schema 校验 + try/catch
+- 统一 `IpcResult<T>` 返回类型（`ok(data)` / `fail(code, message)`），所有 handler 永不 reject
+- `src/shared/ipc-result.ts`：Result 类型定义 + `ok()`/`fail()` 构造器 + 渲染端 `invoke()` helper
+- IPC Schema 覆盖从 12 个扩展至 65+ 个，覆盖全部 62 个 IPC channel
+- `packArgs()` 自动将 preload 多参数调用按 schema key 合并为单对象，实现零 preload 改动兼容
+- 结构化错误码：`SENDER_INVALID`、`VALIDATION_FAILED`、`NOT_FOUND`、`PERMISSION_DENIED`、`BUSINESS_ERROR`、`UNKNOWN`
 
 ### 变更
-- fix changelog to include pending commit and dedup entries
-- 变更日志生成器支持中文翻译映射
-- 修正变更日志语言与表格宽度自适应
-- 修正 v0.3.2 变更日志
-- 更新 v0.3.2 变更日志
+- 全部 14 个 IPC 模块迁移至 `guardedHandle` / `guardedQuery` 模式（62 个 handler）
+- `ipc-guard.ts` 从仅 sender 校验升级为三层防御：sender → schema → try/catch
+- `ipc-schemas.ts` 新增 Event/Task/Report/Export/LLM Token/Model Config/Vector/Feed/Attachment/AutoLaunch/Window/DailySummary/Notification/Radial/Shortcut/Screenshot 等领域 schema
+- `attachments.ts` 的 `attachment:add` 参数从双参数 `(workLogId, data)` 改为单对象 `{ workLogId, ...data }`
+- `dotnet:invoke` preload 调用从 `...args` 改为 `method, args` 适配新 schema
+- `tsconfig.node.json` include 新增 `src/shared/**/*.ts`
+
+### 修复
+- AI 流式 handler 补充 sender 校验和 schema 校验
+- 部分 channel 缺少入参校验（feed、vector、attachment、autoLaunch、daily-summary 等）
 ## [0.3.2] - 2026-09-09
 
 ### 新增

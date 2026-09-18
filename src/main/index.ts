@@ -32,6 +32,12 @@ import { createSplashWindow, closeSplashWindow } from './splash'
 import { registerAutoLaunchIpc, setAutoLaunchDeps } from './autoLaunch'
 import { loadDotNet } from './asar-dotnet-loader'
 import { vectorSearch } from './vector-search'
+import { guardedHandle } from './ipc-guard'
+import { ok, fail } from '../shared/ipc-result'
+import {
+  ShortcutUpdateSchema, AppLanguageUpdateSchema,
+  DotnetInvokeSchema, NotificationShowSchema, ReadModelFileSchema,
+} from './ipc-schemas'
 
 // ── 日志初始化 ──
 log.initialize()
@@ -100,21 +106,21 @@ export function reregisterGlobalShortcuts(
 // ── 快捷键 / 语言 IPC ──
 
 function registerShortcutIpc(): void {
-  ipcMain.handle('shortcut:update', (_event, key: 'shortcut_quick_log' | 'shortcut_quick_task', value: string) => {
-    const overrides = key === 'shortcut_quick_log' ? { log: value } : { task: value }
+  guardedHandle('shortcut:update', ShortcutUpdateSchema, (data) => {
+    const overrides = data.key === 'shortcut_quick_log' ? { log: data.value } : { task: data.value }
     const results = reregisterGlobalShortcuts(overrides)
-    if (!results.log || !results.task) { reregisterGlobalShortcuts(); return false }
-    setSetting(key, value)
+    if (!results.log || !results.task) { reregisterGlobalShortcuts(); return ok(false) }
+    setSetting(data.key, data.value)
     buildMenu(sendToRenderer)
     rebuildTrayMenu(sendToRenderer, () => { isQuitting = true; app.quit() })
-    return true
+    return ok(true)
   })
 
-  ipcMain.handle('app:language:update', (_event, language: AppLanguage) => {
-    if (!['system', 'zh', 'en'].includes(language)) return
-    setSetting('app_language', language)
+  guardedHandle('app:language:update', AppLanguageUpdateSchema, (data) => {
+    setSetting('app_language', data.language)
     buildMenu(sendToRenderer)
     rebuildTrayMenu(sendToRenderer, () => { isQuitting = true; app.quit() })
+    return ok(undefined)
   })
 }
 
@@ -215,43 +221,34 @@ async function ensureDotNet(): Promise<void> {
 }
 
 function registerDotnetIpc(): void {
-  ipcMain.handle('dotnet:invoke', async (_event, method: string, ...args: unknown[]) => {
+  guardedHandle('dotnet:invoke', DotnetInvokeSchema, async (data) => {
     await ensureDotNet()
-    if (!dotnetLib?.NativeBridge) throw new Error('.NET Bridge not loaded')
-    const fn = dotnetLib.NativeBridge[method]
-    if (typeof fn !== 'function') throw new Error(`Unknown method: ${method}`)
-    try { return fn(...args) }
-    catch (err: unknown) { log.error(`[Dotnet] ${method} failed:`, err); throw err }
+    if (!dotnetLib?.NativeBridge) return fail('BUSINESS_ERROR', '.NET Bridge not loaded')
+    const fn = dotnetLib.NativeBridge[data.method]
+    if (typeof fn !== 'function') return fail('NOT_FOUND', `Unknown method: ${data.method}`)
+    return ok(fn(...(data.args || [])))
   })
 }
 
 // ── 通知 IPC ──
 
 function registerNotificationIpc(): void {
-  ipcMain.handle('notification:show', (_event, options: {
-    title: string; body: string; group?: string; tag?: string;
-    urgency?: 'normal' | 'low' | 'critical'; silent?: boolean
-  }) => {
-    try { showNotification(options); return { ok: true } }
-    catch (err) { log.error('[Notification] IPC show failed:', err); return { ok: false, error: String(err) } }
+  guardedHandle('notification:show', NotificationShowSchema, (data) => {
+    showNotification(data)
+    return ok(undefined)
   })
 }
 
 // ── 模型文件读取 IPC ──
 
 function registerModelFileIpc(): void {
-  ipcMain.handle('read-model-file', async (_event, fileName: string) => {
+  guardedHandle('read-model-file', ReadModelFileSchema, async (data) => {
     const basePath = app.isPackaged
       ? path.join(process.resourcesPath, 'models')
       : path.join(app.getAppPath(), 'resources', 'models')
-    const filePath = path.join(basePath, fileName)
-    try {
-      const buffer = await fs.readFile(filePath)
-      return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-    } catch (error) {
-      log.error(`读取模型文件失败: ${filePath}`, error)
-      throw error
-    }
+    const filePath = path.join(basePath, data.fileName)
+    const buffer = await fs.readFile(filePath)
+    return ok(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength))
   })
 }
 

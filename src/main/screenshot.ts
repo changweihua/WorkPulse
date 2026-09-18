@@ -2,7 +2,7 @@
  * 截图模块：区域截图覆盖窗口 + 裁剪 + 剪贴板/文件保存
  * 从 index.ts 提取，遵循渐进式流水线模式
  */
-import { BrowserWindow, screen, desktopCapturer, clipboard, ClipboardItem, ipcMain } from 'electron'
+import { BrowserWindow, screen, desktopCapturer, clipboard, ClipboardItem } from 'electron'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
 import fs from 'fs/promises'
@@ -11,6 +11,9 @@ import { is } from '@electron-toolkit/utils'
 import log from 'electron-log/main'
 import { hideRadialWindow, getRadialWindow, isRadialEnabled } from './radial-window'
 import { showNotification } from './notification'
+import { guardedHandle, guardedQuery } from './ipc-guard'
+import { ok } from '../shared/ipc-result'
+import { ScreenshotCropSchema } from './ipc-schemas'
 
 let screenshotOverlayWindow: BrowserWindow | null = null
 let screenshotOverlayOrigin = { x: 0, y: 0 }
@@ -241,13 +244,18 @@ function cancelScreenshot(): void {
 // ── 公开 API ──
 
 export function registerScreenshotIpc(): void {
-  ipcMain.handle('screenshot:start', () => startScreenshotCapture())
-  ipcMain.handle('screenshot:crop', async (_event, rect, action = 'both', full = false) => {
-    return cropScreenshot(rect, action, full)
+  guardedQuery('screenshot:start', () => {
+    startScreenshotCapture()
+    return ok(undefined)
   })
-  ipcMain.handle('screenshot:cancel', async () => {
+
+  guardedHandle('screenshot:crop', ScreenshotCropSchema, async (data) => {
+    return ok(await cropScreenshot(data.rect, data.action ?? 'both', data.full ?? false))
+  })
+
+  guardedQuery('screenshot:cancel', async () => {
     cancelScreenshot()
-    return true
+    return ok(true)
   })
 }
 

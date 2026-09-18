@@ -216,7 +216,7 @@ const api = {
       ipcRenderer.invoke('export:report', content, dateRange)
   },
   attachment: {
-    add: (workLogId: number, data: any) => ipcRenderer.invoke('attachment:add', workLogId, data),
+    add: (workLogId: number, data: any) => ipcRenderer.invoke('attachment:add', { workLogId, ...data }),
     list: (workLogId: number) => ipcRenderer.invoke('attachment:list', workLogId),
     delete: (id: number) => ipcRenderer.invoke('attachment:delete', id),
     pickFile: () => ipcRenderer.invoke('attachment:pickFile'),
@@ -256,7 +256,7 @@ const api = {
   },
   dotnet: {
     invoke: (method: string, ...args: unknown[]) =>
-      ipcRenderer.invoke('dotnet:invoke', method, ...args) as Promise<string | number>,
+      ipcRenderer.invoke('dotnet:invoke', method, args) as Promise<string | number>,
   },
   vector: {
     initialize: () => ipcRenderer.invoke('vector:initialize'),
