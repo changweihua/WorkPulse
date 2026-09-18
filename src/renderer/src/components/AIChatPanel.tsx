@@ -6,7 +6,7 @@
  * Liquid Glass Personality: layered glass surfaces, gradient borders,
  * glowing input focus, glass message bubbles, premium header strip.
  */
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
     Bot,
@@ -21,6 +21,7 @@ import {
 import { Message } from '@fauzitech/ai-ui';
 import { useAIPanelStore } from '../stores/aiPanelStore';
 import { recoverConversations, saveConversation, onSyncEvent, deleteConversation as deleteConversationFromDB } from '../lib/chat-storage';
+import { useStreamingReveal } from '../hooks/useStreamingReveal';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface ModelConfig {
@@ -83,6 +84,59 @@ function LoadingDots() {
         </div>
     );
 }
+
+// ─── 流式消息渲染（独立组件，避免 IIFE 导致的 diff 抖动） ──────────────
+interface PanelStreamingMessageProps {
+    content: string;
+    reasoning?: string;
+    tokenUsage?: { input: number; output: number; total: number };
+    isDark: boolean;
+}
+
+const PanelStreamingMessage = memo(function PanelStreamingMessage({ content, reasoning, tokenUsage, isDark }: PanelStreamingMessageProps) {
+    const revealed = useStreamingReveal(content, true);
+    return (
+        <div className="flex items-start gap-2.5" style={{ contain: 'layout style' } as React.CSSProperties}>
+            <div className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-white shadow-sm"
+                 style={{
+                     background: 'linear-gradient(135deg, rgba(90,100,130,0.9), rgba(60,70,100,0.9))',
+                     boxShadow: '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.1)',
+                 }}>
+                <Bot size={13} />
+            </div>
+            <div className="max-w-[80%] space-y-1 items-start">
+                {reasoning && (
+                    <div className="mb-1 border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                        <div className="px-3 py-1.5 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                            <span className="text-sm">🧠</span>
+                            <span>思考中...</span>
+                            <span className="text-zinc-400 dark:text-zinc-500">({reasoning.length} 字符)</span>
+                        </div>
+                    </div>
+                )}
+                <div className="rounded-2xl rounded-bl-md px-3 py-2 text-[13px] leading-relaxed"
+                     style={{
+                         background: isDark
+                             ? 'linear-gradient(135deg, rgba(35,40,60,0.7), rgba(25,30,50,0.6))'
+                             : 'linear-gradient(135deg, rgba(255,255,255,0.8), rgba(245,248,255,0.7))',
+                         color: isDark ? 'rgba(220,225,240,0.95)' : 'rgba(30,35,50,0.9)',
+                         border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
+                         boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.04)',
+                         backdropFilter: 'blur(8px)',
+                     }}>
+                    {revealed
+                        ? <Message role="assistant" content={revealed} />
+                        : <LoadingDots />}
+                </div>
+                {tokenUsage && (
+                    <div className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                        {tokenUsage.total} tokens
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+});
 
 // ─── Main Component ───────────────────────────────────────────────────────
 
@@ -217,9 +271,15 @@ export default function AIChatPanel() {
         localStorage.setItem('chatPanelCurrentConvId', currentConvId);
     }, [currentConvId, isHydrated]);
 
-    // ── Auto-scroll ──
+    // ── Auto-scroll — 仅在用户已接近底部时平滑滚动，避免流式输出时的抖动 ──
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+        if (isNearBottom) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
     }, [messages]);
 
     // ── Close on Escape ──
@@ -670,7 +730,7 @@ export default function AIChatPanel() {
                         </AnimatePresence>
 
                         {/* Messages area */}
-                        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 relative z-[1]">
+                        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3 relative z-[1]">
                             {messages.length === 0 && (
                                 <div className="flex flex-col items-center justify-center h-full text-center px-4">
                                     {/* Glowing orb avatar with breathing animation */}
@@ -721,7 +781,7 @@ export default function AIChatPanel() {
                                 </div>
                             )}
 
-                            {messages.map((msg) => {
+                            {messages.filter(msg => msg.id !== 'streaming').map((msg) => {
                                 const isUser = msg.role === 'user';
                                 return (
                                     <div key={msg.id} className={`flex items-start gap-2.5 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -771,27 +831,14 @@ export default function AIChatPanel() {
                                 );
                             })}
 
-                            {/* Streaming indicator */}
+                            {/* Streaming indicator — 独立组件，避免 IIFE diff 抖动 */}
                             {isStreaming && messages[messages.length - 1]?.id === 'streaming' && (
-                                <div className="flex items-start gap-2.5">
-                                    <div className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-white shadow-sm"
-                                         style={{
-                                             background: 'linear-gradient(135deg, rgba(90,100,130,0.9), rgba(60,70,100,0.9))',
-                                             boxShadow: '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.1)',
-                                         }}>
-                                        <Bot size={13} />
-                                    </div>
-                                    <div className="rounded-2xl rounded-bl-md px-3 py-2"
-                                         style={{
-                                             background: isDark
-                                                 ? 'linear-gradient(135deg, rgba(35,40,60,0.7), rgba(25,30,50,0.6))'
-                                                 : 'linear-gradient(135deg, rgba(255,255,255,0.8), rgba(245,248,255,0.7))',
-                                             border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)',
-                                             boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.04)',
-                                         }}>
-                                        <LoadingDots />
-                                    </div>
-                                </div>
+                                <PanelStreamingMessage
+                                    content={messages[messages.length - 1].content}
+                                    reasoning={messages[messages.length - 1].reasoning}
+                                    tokenUsage={messages[messages.length - 1].tokenUsage}
+                                    isDark={isDark}
+                                />
                             )}
 
                             <div ref={messagesEndRef} />

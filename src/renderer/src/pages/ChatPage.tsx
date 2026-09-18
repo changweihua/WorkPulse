@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { Message } from '@fauzitech/ai-ui';
 // @ts-ignore
 import '@fauzitech/ai-ui/styles.css';
 import { recoverConversations, recoverConfigs, saveConversation, saveConversationsBatch, onSyncEvent, deleteConversation as deleteConversationFromDB } from '../lib/chat-storage';
+import { useStreamingReveal } from '../hooks/useStreamingReveal';
 import {
     Bot,
     User,
@@ -110,6 +111,37 @@ function LoadingDots() {
         </span>
     );
 }
+
+// ---------- 流式消息渲染（独立组件，避免 IIFE 导致的 diff 抖动） ----------
+interface StreamingMessageProps {
+    content: string;
+    reasoning?: string;
+    tokenUsage?: { input: number; output: number; total: number };
+}
+
+const StreamingMessage = memo(function StreamingMessage({ content, reasoning, tokenUsage }: StreamingMessageProps) {
+    const revealed = useStreamingReveal(content, true);
+    return (
+        <div className="flex items-start gap-3" style={{ contain: 'layout style' } as React.CSSProperties}>
+            <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-700 dark:from-zinc-500 dark:to-zinc-600 flex items-center justify-center text-white shadow-sm">
+                <Bot size={15} />
+            </div>
+            <div className="max-w-[75%] space-y-2 items-start">
+                {reasoning && <ThinkingPanel reasoning={reasoning} />}
+                <div className="surface-card rounded-2xl rounded-bl-md px-4 py-3 text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
+                    {revealed
+                        ? <Message role="assistant" content={revealed} />
+                        : <LoadingDots />}
+                </div>
+                {tokenUsage && (
+                    <div className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                        {tokenUsage.total} tokens
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+});
 
 // ---------- 思考面板 ----------
 function ThinkingPanel({ reasoning }: { reasoning: string }) {
@@ -512,9 +544,16 @@ export default function ChatPage() {
         return unsubscribe;
     }, []);
 
-    // 自动滚动
+    // 自动滚动 — 仅在用户已接近底部时平滑滚动，避免流式输出时的抖动
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        // 距底部 120px 以内才自动滚动（留出 buffer 区域）
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+        if (isNearBottom) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
     }, [messages]);
 
     // 监听流式事件
@@ -776,7 +815,7 @@ export default function ChatPage() {
                 </div>
 
                 {/* 消息列表 */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
                     {messages.length === 0 && (
                         <div className="flex flex-col items-center justify-center h-full text-center">
                             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mb-4 shadow-lg">
@@ -789,7 +828,7 @@ export default function ChatPage() {
                         </div>
                     )}
 
-                    {messages.map((msg) => {
+                    {messages.filter(msg => msg.id !== 'streaming').map((msg) => {
                         const isUser = msg.role === 'user';
                         return (
                             <div key={msg.id} className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -820,15 +859,13 @@ export default function ChatPage() {
                         );
                     })}
 
+                    {/* Streaming indicator — 独立组件，避免 IIFE diff 抖动 */}
                     {isStreaming && messages[messages.length - 1]?.id === 'streaming' && (
-                        <div className="flex items-start gap-3">
-                            <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-700 dark:from-zinc-500 dark:to-zinc-600 flex items-center justify-center text-white shadow-sm">
-                                <Bot size={15} />
-                            </div>
-                            <div className="surface-card rounded-2xl rounded-bl-md px-4 py-3">
-                                <LoadingDots />
-                            </div>
-                        </div>
+                        <StreamingMessage
+                            content={messages[messages.length - 1].content}
+                            reasoning={messages[messages.length - 1].reasoning}
+                            tokenUsage={messages[messages.length - 1].tokenUsage}
+                        />
                     )}
 
                     <div ref={messagesEndRef} />
