@@ -166,6 +166,7 @@ function SettingsPage(): ReactNode {
   const [reportTemplate, setReportTemplate] = useState(getDefaultReportTemplate(resolvedLanguage))
   const [shortcutLog, setShortcutLog] = useState('CmdOrCtrl+Shift+L')
   const [shortcutTask, setShortcutTask] = useState('CmdOrCtrl+Shift+T')
+  const [searchMode, setSearchMode] = useState<'vector' | 'like'>('vector')
   const [appVersion, setAppVersion] = useState('')
   const [updateState, setUpdateState] = useState<AppUpdateState>({
     status: 'idle',
@@ -325,6 +326,8 @@ function SettingsPage(): ReactNode {
     if (sl) setShortcutLog(sl)
     const st = await window.api.settings.get('shortcut_quick_task')
     if (st) setShortcutTask(st)
+    const sm = await window.api.settings.get('search_mode')
+    if (sm === 'vector' || sm === 'like') setSearchMode(sm)
   }
 
   const handleShortcutChange = async (
@@ -339,6 +342,11 @@ function SettingsPage(): ReactNode {
     }
     setter(value)
     toast.success(t('settings.shortcutSaved'))
+  }
+
+  const handleSearchModeChange = async (mode: 'vector' | 'like') => {
+    setSearchMode(mode)
+    await window.api.settings.set('search_mode', mode)
   }
 
   const maskKey = (key: string): string => {
@@ -767,6 +775,53 @@ function SettingsPage(): ReactNode {
                   </div>
                 ))}
               </div>
+            </div>
+          </section>
+
+          {/* Search Mode */}
+          <section className="surface-card p-5">
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
+              {resolvedLanguage === 'zh' ? '搜索模式' : 'Search Mode'}
+            </h2>
+            <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
+            <p className="text-xs text-zinc-400 mb-4">
+              {resolvedLanguage === 'zh'
+                ? '选择日志搜索的方式：向量搜索支持语义匹配，文本搜索使用精确关键词匹配。'
+                : 'Choose the search method: Vector search supports semantic matching, text search uses keyword matching.'}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleSearchModeChange('vector')}
+                className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg border transition ${
+                  searchMode === 'vector'
+                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600'
+                }`}
+              >
+                <div className="text-center">
+                  <div className="mb-1">🧠</div>
+                  <div>{resolvedLanguage === 'zh' ? '向量搜索' : 'Vector Search'}</div>
+                  <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                    {resolvedLanguage === 'zh' ? '语义匹配' : 'Semantic'}
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => handleSearchModeChange('like')}
+                className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-lg border transition ${
+                  searchMode === 'like'
+                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600'
+                }`}
+              >
+                <div className="text-center">
+                  <div className="mb-1">🔤</div>
+                  <div>{resolvedLanguage === 'zh' ? '文本搜索' : 'Text Search'}</div>
+                  <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                    {resolvedLanguage === 'zh' ? '精确匹配' : 'LIKE'}
+                  </div>
+                </div>
+              </button>
             </div>
           </section>
 

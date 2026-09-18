@@ -29,6 +29,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'app_language', 'theme', 'ui_accent',
   'daily_summary_enabled', 'daily_summary_last_shown',
   'api_key',
+  'search_mode',
 ])
 
 export function registerSettingsIpc(): void {

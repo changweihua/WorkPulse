@@ -29,7 +29,11 @@ export function registerWorklogIpc(): void {
   })
 
   ipcMain.handle('worklog:search', async (_event, keyword: string) => {
-    // 优先使用向量语义搜索，失败时回退到 LIKE
+    const mode = getSetting('search_mode') || 'vector'
+    if (mode === 'like') {
+      return searchWorkLogs(keyword)
+    }
+    // 向量语义搜索，失败时回退到 LIKE
     try {
       const results = await vectorSearch.search(keyword, { type: 'worklog', topK: 20 })
       if (results.length > 0) {
