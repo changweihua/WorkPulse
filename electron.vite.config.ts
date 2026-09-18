@@ -5,26 +5,25 @@ import tailwindcss from '@tailwindcss/vite'
 import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator'
 
 export default defineConfig(({ mode }) => {
-  // 加载 .env 文件
+  // 鍔犺浇 .env 鏂囦欢
   const env = loadEnv(mode, process.cwd(), '')
 
-  // 动态构建 define 对象，只注入 VITE_ 开头的变量
-  // 显式声明 define 为 Record<string, string>
+  // 鍔ㄦ€佹瀯寤?define 瀵硅薄锛屽彧娉ㄥ叆 VITE_ 寮€澶寸殑鍙橀噺
+  // 鏄惧紡澹版槑 define 涓?Record<string, string>
   const define: Record<string, string> = {}
   for (const key in env) {
     if (key.startsWith('VITE_')) {
       define[`import.meta.env.${key}`] = JSON.stringify(env[key])
-      // ✅ 也注入到 process.env，使主进程和预加载能访问
+      // 鉁?涔熸敞鍏ュ埌 process.env锛屼娇涓昏繘绋嬪拰棰勫姞杞借兘璁块棶
       define[`process.env.${key}`] = JSON.stringify(env[key])
     }
   }
 
   return {
     main: {
-      define,  // ✅ 主进程可以读取 process.env.VITE_XXX
+      define,  // 鉁?涓昏繘绋嬪彲浠ヨ鍙?process.env.VITE_XXX
       plugins: [
-        // 🛡️ 仅在 production 模式下混淆主进程代码，防止 asar 反编译
-        ...(mode === 'production'
+        // 馃洝锔?浠呭湪 production 妯″紡涓嬫贩娣嗕富杩涚▼浠ｇ爜锛岄槻姝?asar 鍙嶇紪璇?        ...(mode === 'production'
           ? [
               obfuscatorPlugin({
                 apply: 'build',
@@ -46,42 +45,36 @@ export default defineConfig(({ mode }) => {
         rolldownOptions: {
           input: {
             index: resolve(__dirname, 'src/main/index.ts'),
-            splash: resolve(__dirname, 'src/preload/splash.ts'), // 编译 preload
+            splash: resolve(__dirname, 'src/preload/splash.ts'), // 缂栬瘧 preload
           }
         }
       }
     },
     preload: {
-      define,  // ✅ 预加载进程也能读取
-      build: {
+      define,  // 鉁?棰勫姞杞借繘绋嬩篃鑳借鍙?      build: {
         rolldownOptions: {
           input: {
             index: resolve(__dirname, 'src/preload/index.ts'),
             splash: resolve(__dirname, 'src/preload/splash.ts'),
             radial: resolve(__dirname, 'src/preload/radial.ts'),
             screenshotOverlay: resolve(__dirname, 'src/preload/screenshot-overlay.ts'),
-            dailySummary: resolve(__dirname, 'src/preload/daily-summary.ts'),
           }
         }
       }
     },
     renderer: {
-      // 可选项：配置环境文件目录（默认根目录）
-      envDir: './',  // 默认就是根目录
-      publicDir: resolve(__dirname, 'public'),  // GLB 等静态资源在项目根 public/ 下
-      define,  // ✅ 渲染进程通过 import.meta.env 读取
+      // 鍙€夐」锛氶厤缃幆澧冩枃浠剁洰褰曪紙榛樿鏍圭洰褰曪級
+      envDir: './',  // 榛樿灏辨槸鏍圭洰褰?      publicDir: resolve(__dirname, 'public'),  // GLB 绛夐潤鎬佽祫婧愬湪椤圭洰鏍?public/ 涓?      define,  // 鉁?娓叉煋杩涚▼閫氳繃 import.meta.env 璇诲彇
       // define: {
       //   'import.meta.env.VITE_APP_TITLE': JSON.stringify('WorkPulseX')
       // },
-      // 可选项：修改环境变量前缀（默认 VITE_）
-      envPrefix: 'VITE_',
+      // 鍙€夐」锛氫慨鏀圭幆澧冨彉閲忓墠缂€锛堥粯璁?VITE_锛?      envPrefix: 'VITE_',
       // build: {
-      //   // ✅ 关键：Vite 8 实际认这个
-      //   rolldownOptions: {
+      //   // 鉁?鍏抽敭锛歏ite 8 瀹為檯璁よ繖涓?      //   rolldownOptions: {
       //     input: 'src/renderer/index.html'
       //   }
       // },
-      // 确保开发服务器能正确处理 .wasm 文件
+      // 纭繚寮€鍙戞湇鍔″櫒鑳芥纭鐞?.wasm 鏂囦欢
       server: {
         port: 5252,
         headers: {
@@ -98,10 +91,8 @@ export default defineConfig(({ mode }) => {
         rolldownOptions: {
           input: {
             index: resolve(__dirname, 'src/renderer/index.html'),
-            radial: resolve(__dirname, 'src/renderer/radial.html'), // 径向菜单独立入口
-            screenshotOverlay: resolve(__dirname, 'src/renderer/screenshot-overlay.html'), // 区域截图覆盖层
-            dailySummary: resolve(__dirname, 'src/renderer/daily-summary.html'), // 每日摘要弹窗
-          }
+            radial: resolve(__dirname, 'src/renderer/radial.html'), // 寰勫悜鑿滃崟鐙珛鍏ュ彛
+            screenshotOverlay: resolve(__dirname, 'src/renderer/screenshot-overlay.html'), // 鍖哄煙鎴浘瑕嗙洊灞?          }
         }
       },
       plugins: [react(), tailwindcss()]

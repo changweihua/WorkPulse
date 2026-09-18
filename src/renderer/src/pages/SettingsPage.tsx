@@ -98,27 +98,22 @@ interface AppUpdateState {
   canInstall?: boolean
 }
 
-const DEFAULT_SYSTEM_PROMPT = `你是一个专业的工作报告助手。请根据用户提供的工作日志，生成一份结构化的工作总结报告。
+const DEFAULT_SYSTEM_PROMPT = `浣犳槸涓€涓笓涓氱殑宸ヤ綔鎶ュ憡鍔╂墜銆傝鏍规嵁鐢ㄦ埛鎻愪緵鐨勫伐浣滄棩蹇楋紝鐢熸垚涓€浠界粨鏋勫寲鐨勫伐浣滄€荤粨鎶ュ憡銆?
+瑕佹眰锛?- 璇█锛歿{language}}
+- 椋庢牸锛歿{style}}
+- 鏃堕棿鑼冨洿锛歿{dateFrom}} 鑷?{{dateTo}}
+- 杈撳嚭鏍煎紡锛歁arkdown
+- 鎸変富棰?椤圭洰鍒嗙被褰掔撼
+- 绐佸嚭鍏抽敭鎴愭灉鍜屼骇鍑?- 绠€娲佹湁鍔涳紝閬垮厤娴佹按璐
 
-要求：
-- 语言：{{language}}
-- 风格：{{style}}
-- 时间范围：{{dateFrom}} 至 {{dateTo}}
-- 输出格式：Markdown
-- 按主题/项目分类归纳
-- 突出关键成果和产出
-- 简洁有力，避免流水账`
+const DEFAULT_REPORT_TEMPLATE = `## 宸ヤ綔鎬荤粨 ({{dateFrom}} - {{dateTo}})
 
-const DEFAULT_REPORT_TEMPLATE = `## 工作总结 ({{dateFrom}} - {{dateTo}})
-
-### 主要产出
-（按项目/主题分类列出关键成果）
-
-### 进行中的工作
-（尚未完成但有进展的事项）
-
-### 下周计划
-（基于当前工作的合理推断）`
+### 涓昏浜у嚭
+锛堟寜椤圭洰/涓婚鍒嗙被鍒楀嚭鍏抽敭鎴愭灉锛?
+### 杩涜涓殑宸ヤ綔
+锛堝皻鏈畬鎴愪絾鏈夎繘灞曠殑浜嬮」锛?
+### 涓嬪懆璁″垝
+锛堝熀浜庡綋鍓嶅伐浣滅殑鍚堢悊鎺ㄦ柇锛塦
 
 const DEFAULT_SYSTEM_PROMPT_EN = `You are a professional work report assistant. Generate a structured work summary from the user's work logs.
 
@@ -160,7 +155,7 @@ function SettingsPage(): ReactNode {
   const [hasKey, setHasKey] = useState(false)
   const [showKey, setShowKey] = useState(false)
   const [editing, setEditing] = useState(false)
-  const [reportLanguage, setReportLanguage] = useState(resolvedLanguage === 'zh' ? '中文' : 'English')
+  const [reportLanguage, setReportLanguage] = useState(resolvedLanguage === 'zh' ? '涓枃' : 'English')
   const [style, setStyle] = useState(t('settings.styleConcise'))
   const [systemPrompt, setSystemPrompt] = useState(getDefaultSystemPrompt(resolvedLanguage))
   const [reportTemplate, setReportTemplate] = useState(getDefaultReportTemplate(resolvedLanguage))
@@ -179,21 +174,17 @@ function SettingsPage(): ReactNode {
     t('settings.styleCasual')
   ]
 
-  // 开机启动状态
-  const [autoLaunch, setAutoLaunch] = useState(false)
+  // 寮€鏈哄惎鍔ㄧ姸鎬?  const [autoLaunch, setAutoLaunch] = useState(false)
   const [loadingAutoLaunch, setLoadingAutoLaunch] = useState(true)
 
-  // 关闭行为设置
+  // 鍏抽棴琛屼负璁剧疆
   const [closeAction, setCloseAction] = useState('minimize')
 
-  // 会议提醒设置
+  // 浼氳鎻愰啋璁剧疆
   const [reminderEnabled, setReminderEnabled] = useState(true)
   const [reminderLead, setReminderLead] = useState('10')
 
-  // 每日摘要设置
-  const [dailySummaryEnabled, setDailySummaryEnabled] = useState(true)
-
-  // 径向菜单设置
+  // 寰勫悜鑿滃崟璁剧疆
   const [radialEnabled, setRadialEnabled] = useState(true)
   interface RadialMenuItem {
     key: string
@@ -205,11 +196,11 @@ function SettingsPage(): ReactNode {
     programPath?: string
   }
   const [radialItems, setRadialItems] = useState<RadialMenuItem[]>([
-    { key: 'log', label: '工作日志', emoji: '📝', enabled: true, type: 'builtin' },
-    { key: 'task', label: '任务管理', emoji: '📋', enabled: true, type: 'builtin' },
-    { key: 'meeting', label: '会议记录', emoji: '📅', enabled: true, type: 'builtin' },
-    { key: 'ai', label: 'AI 生成', emoji: '🤖', enabled: true, type: 'builtin' },
-    { key: 'screenshot', label: '截图标注', emoji: '📸', enabled: true, type: 'builtin' },
+    { key: 'log', label: '宸ヤ綔鏃ュ織', emoji: '馃摑', enabled: true, type: 'builtin' },
+    { key: 'task', label: '浠诲姟绠＄悊', emoji: '馃搵', enabled: true, type: 'builtin' },
+    { key: 'meeting', label: '浼氳璁板綍', emoji: '馃搮', enabled: true, type: 'builtin' },
+    { key: 'ai', label: 'AI 鐢熸垚', emoji: '馃', enabled: true, type: 'builtin' },
+    { key: 'screenshot', label: '鎴浘鏍囨敞', emoji: '馃摳', enabled: true, type: 'builtin' },
   ])
   const [addingProgram, setAddingProgram] = useState(false)
 
@@ -220,20 +211,19 @@ function SettingsPage(): ReactNode {
     void window.api.app.getUpdateState().then(setUpdateState)
     const unsubscribeUpdateStatus = window.api.on.updateStatus(setUpdateState)
 
-    // 加载开机启动状态
-    void window.api.app.getAutoLaunch()
+    // 鍔犺浇寮€鏈哄惎鍔ㄧ姸鎬?    void window.api.app.getAutoLaunch()
       .then((enabled: boolean) => {
         setAutoLaunch(enabled)
         setLoadingAutoLaunch(false)
       })
       .catch(() => setLoadingAutoLaunch(false))
 
-    // 加载关闭行为设置
+    // 鍔犺浇鍏抽棴琛屼负璁剧疆
     void window.api.app.getCloseAction()
       .then((action: string) => setCloseAction(action))
       .catch(() => {})
 
-    // 加载会议提醒设置
+    // 鍔犺浇浼氳鎻愰啋璁剧疆
     void window.api.settings.get('reminder_enabled').then((v) => {
       if (v !== null) setReminderEnabled(v === '1')
     })
@@ -241,12 +231,7 @@ function SettingsPage(): ReactNode {
       if (v !== null) setReminderLead(v)
     })
 
-    // 加载每日摘要设置
-    void window.api.settings.get('daily_summary_enabled').then((v) => {
-      if (v !== null) setDailySummaryEnabled(v === '1')
-    })
-
-    // 加载径向菜单设置
+    // 鍔犺浇寰勫悜鑿滃崟璁剧疆
     void window.api.settings.get('radial_enabled').then((v) => {
       if (v !== null) setRadialEnabled(v === '1')
     })
@@ -256,11 +241,11 @@ function SettingsPage(): ReactNode {
           const saved: RadialMenuItem[] = JSON.parse(v)
           // Merge: keep saved items, prepend any new builtins not in saved
           const builtinDefaults: RadialMenuItem[] = [
-            { key: 'log', label: '工作日志', emoji: '📝', enabled: true, type: 'builtin' },
-            { key: 'task', label: '任务管理', emoji: '📋', enabled: true, type: 'builtin' },
-            { key: 'meeting', label: '会议记录', emoji: '📅', enabled: true, type: 'builtin' },
-            { key: 'ai', label: 'AI 生成', emoji: '🤖', enabled: true, type: 'builtin' },
-            { key: 'screenshot', label: '截图标注', emoji: '📸', enabled: true, type: 'builtin' },
+            { key: 'log', label: '宸ヤ綔鏃ュ織', emoji: '馃摑', enabled: true, type: 'builtin' },
+            { key: 'task', label: '浠诲姟绠＄悊', emoji: '馃搵', enabled: true, type: 'builtin' },
+            { key: 'meeting', label: '浼氳璁板綍', emoji: '馃搮', enabled: true, type: 'builtin' },
+            { key: 'ai', label: 'AI 鐢熸垚', emoji: '馃', enabled: true, type: 'builtin' },
+            { key: 'screenshot', label: '鎴浘鏍囨敞', emoji: '馃摳', enabled: true, type: 'builtin' },
           ]
           const savedKeys = new Set(saved.map(i => i.key))
           const newBuiltins = builtinDefaults.filter(d => !savedKeys.has(d.key))
@@ -279,11 +264,11 @@ function SettingsPage(): ReactNode {
     if (previousLanguage === resolvedLanguage) return
 
     setReportLanguage((current) => {
-      const previousDefault = previousLanguage === 'zh' ? '中文' : 'English'
-      return current === previousDefault ? (resolvedLanguage === 'zh' ? '中文' : 'English') : current
+      const previousDefault = previousLanguage === 'zh' ? '涓枃' : 'English'
+      return current === previousDefault ? (resolvedLanguage === 'zh' ? '涓枃' : 'English') : current
     })
     setStyle((current) => {
-      const previousDefault = previousLanguage === 'zh' ? '简洁专业' : 'Concise professional'
+      const previousDefault = previousLanguage === 'zh' ? '绠€娲佷笓涓? : 'Concise professional'
       return current === previousDefault ? t('settings.styleConcise') : current
     })
     setSystemPrompt((current) => {
@@ -304,12 +289,12 @@ function SettingsPage(): ReactNode {
       setApiKey(key)
       setHasKey(true)
     }
-    // 报告偏好
+    // 鎶ュ憡鍋忓ソ
     const l = await window.api.settings.get('report_language')
     if (l) {
       setReportLanguage(l)
     } else {
-      setReportLanguage(resolvedLanguage === 'zh' ? '中文' : 'English')
+      setReportLanguage(resolvedLanguage === 'zh' ? '涓枃' : 'English')
     }
     const s = await window.api.settings.get('report_style')
     if (s) {
@@ -383,8 +368,7 @@ function SettingsPage(): ReactNode {
     await saveSetting('ai_model', model)
   }
 
-  // Embedding 配置处理器
-  const handleEmbeddingProviderChange = async (value: string): Promise<void> => {
+  // Embedding 閰嶇疆澶勭悊鍣?  const handleEmbeddingProviderChange = async (value: string): Promise<void> => {
     setEmbeddingProvider(value)
     await window.api.settings.set('ai_embedding_provider', value)
   }
@@ -397,7 +381,7 @@ function SettingsPage(): ReactNode {
     await saveSetting('ai_embedding_model', embeddingModel)
   }
 
-  // 全局模型配置
+  // 鍏ㄥ眬妯″瀷閰嶇疆
   const handleLanguageChange = async (value: string): Promise<void> => {
     setReportLanguage(value)
     await window.api.settings.set('report_language', value)
@@ -417,7 +401,7 @@ function SettingsPage(): ReactNode {
     toast.success(t('settings.themeChanged'))
   }
 
-  // ---------- 窗口材质（Mica / Tabbed / Acrylic） ----------
+  // ---------- 绐楀彛鏉愯川锛圡ica / Tabbed / Acrylic锛?----------
   const [material, setMaterial] = useState<string>('tabbed')
 
   useEffect(() => {
@@ -497,84 +481,66 @@ function SettingsPage(): ReactNode {
     }
   }
 
-  // 切换开机启动
-  const handleToggleAutoLaunch = async (): Promise<void> => {
+  // 鍒囨崲寮€鏈哄惎鍔?  const handleToggleAutoLaunch = async (): Promise<void> => {
     const newState = !autoLaunch
-    setAutoLaunch(newState) // 乐观更新
+    setAutoLaunch(newState) // 涔愯鏇存柊
     try {
       await window.api.app.setAutoLaunch(newState)
-      toast.success(newState ? '✅ 开机启动已启用' : '✅ 开机启动已禁用')
+      toast.success(newState ? '鉁?寮€鏈哄惎鍔ㄥ凡鍚敤' : '鉁?寮€鏈哄惎鍔ㄥ凡绂佺敤')
     } catch (error) {
-      setAutoLaunch(!newState) // 回滚
-      toast.error('❌ 操作失败，请重试')
+      setAutoLaunch(!newState) // 鍥炴粴
+      toast.error('鉂?鎿嶄綔澶辫触锛岃閲嶈瘯')
       console.error('Toggle auto-launch error:', error)
     }
   }
 
-  // 切换关闭行为
+  // 鍒囨崲鍏抽棴琛屼负
   const handleCloseActionChange = async (action: string): Promise<void> => {
     const prev = closeAction
     setCloseAction(action)
     try {
       await window.api.app.setCloseAction(action)
-      toast.success(action === 'quit' ? '✅ 关闭时将退出程序' : '✅ 关闭时将最小化到托盘')
+      toast.success(action === 'quit' ? '鉁?鍏抽棴鏃跺皢閫€鍑虹▼搴? : '鉁?鍏抽棴鏃跺皢鏈€灏忓寲鍒版墭鐩?)
     } catch (error) {
       setCloseAction(prev)
-      toast.error('❌ 操作失败，请重试')
+      toast.error('鉂?鎿嶄綔澶辫触锛岃閲嶈瘯')
     }
   }
 
-  // 切换会议提醒
+  // 鍒囨崲浼氳鎻愰啋
   const handleToggleReminder = async (): Promise<void> => {
     const next = !reminderEnabled
     setReminderEnabled(next)
     try {
       await window.api.settings.set('reminder_enabled', next ? '1' : '0')
-      toast.success(next ? '✅ 会议提醒已开启' : '✅ 会议提醒已关闭')
+      toast.success(next ? '鉁?浼氳鎻愰啋宸插紑鍚? : '鉁?浼氳鎻愰啋宸插叧闂?)
     } catch (error) {
       setReminderEnabled(!next)
-      toast.error('❌ 操作失败，请重试')
+      toast.error('鉂?鎿嶄綔澶辫触锛岃閲嶈瘯')
     }
   }
 
-  // 修改提醒提前量
-  const handleReminderLeadChange = async (value: string): Promise<void> => {
+  // 淇敼鎻愰啋鎻愬墠閲?  const handleReminderLeadChange = async (value: string): Promise<void> => {
     const prev = reminderLead
     setReminderLead(value)
     try {
       await window.api.settings.set('reminder_lead', value)
     } catch (error) {
       setReminderLead(prev)
-      toast.error('❌ 操作失败，请重试')
+      toast.error('鉂?鎿嶄綔澶辫触锛岃閲嶈瘯')
     }
   }
 
-  // 切换每日摘要弹窗
-  const handleToggleDailySummary = async (): Promise<void> => {
-    const next = !dailySummaryEnabled
-    setDailySummaryEnabled(next)
-    try {
-      await window.api.settings.set('daily_summary_enabled', next ? '1' : '0')
-      toast.success(next ? '✅ 每日摘要已开启' : '✅ 每日摘要已关闭')
-    } catch (error) {
-      setDailySummaryEnabled(!next)
-      toast.error('❌ 操作失败，请重试')
-    }
-  }
-
-  // 切换径向菜单开关
-  const handleSaveRadialEnabled = async (enabled: boolean): Promise<void> => {
+  // 鍒囨崲寰勫悜鑿滃崟寮€鍏?  const handleSaveRadialEnabled = async (enabled: boolean): Promise<void> => {
     setRadialEnabled(enabled)
     try {
-      // 通知主进程实时显示/隐藏悬浮窗（radial:set-enabled 已持久化设置）
-      await window.api.radial?.setEnabled?.(enabled)
+      // 閫氱煡涓昏繘绋嬪疄鏃舵樉绀?闅愯棌鎮诞绐楋紙radial:set-enabled 宸叉寔涔呭寲璁剧疆锛?      await window.api.radial?.setEnabled?.(enabled)
     } catch {
       setRadialEnabled(!enabled)
     }
   }
 
-  // 保存径向菜单项配置
-  const handleSaveRadialItems = async (items: RadialMenuItem[]): Promise<void> => {
+  // 淇濆瓨寰勫悜鑿滃崟椤归厤缃?  const handleSaveRadialItems = async (items: RadialMenuItem[]): Promise<void> => {
     try {
       await window.api.settings.set('radial_items', JSON.stringify(items))
       setRadialItems(items)
@@ -584,16 +550,14 @@ function SettingsPage(): ReactNode {
     }
   }
 
-  // 添加自定义程序
-  const handleAddProgram = async (): Promise<void> => {
+  // 娣诲姞鑷畾涔夌▼搴?  const handleAddProgram = async (): Promise<void> => {
     if (!window.api.radial?.pickProgram) return
     setAddingProgram(true)
     try {
       const result = await window.api.radial.pickProgram()
       if (!result) return
 
-      // 单独提取图标（和之前一样走 getFileIcon）
-      let icon: string | undefined
+      // 鍗曠嫭鎻愬彇鍥炬爣锛堝拰涔嬪墠涓€鏍疯蛋 getFileIcon锛?      let icon: string | undefined
       if (window.api.radial?.getFileIcon) {
         icon = (await window.api.radial.getFileIcon(result.path)) ?? undefined
       }
@@ -614,8 +578,7 @@ function SettingsPage(): ReactNode {
     }
   }
 
-  // 移除自定义程序
-  const handleRemoveProgram = (key: string): void => {
+  // 绉婚櫎鑷畾涔夌▼搴?  const handleRemoveProgram = (key: string): void => {
     const next = radialItems.filter((item) => item.key !== key)
     void handleSaveRadialItems(next)
   }
@@ -627,15 +590,15 @@ function SettingsPage(): ReactNode {
     <div className="flex flex-col bg-transparent">
       <main className="flex-1">
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
-          {/* AI 模型管理入口 */}
+          {/* AI 妯″瀷绠＄悊鍏ュ彛 */}
           <section className="surface-card p-5">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">AI 模型配置</h2>
-                <p className="text-xs text-zinc-400 mt-1">管理 Chat 和 Embedding 模型，设置默认模型</p>
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">AI 妯″瀷閰嶇疆</h2>
+                <p className="text-xs text-zinc-400 mt-1">绠＄悊 Chat 鍜?Embedding 妯″瀷锛岃缃粯璁ゆā鍨?/p>
               </div>
               <a href="#/model-config" className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-md transition">
-                前往配置
+                鍓嶅線閰嶇疆
               </a>
             </div>
           </section>
@@ -653,7 +616,7 @@ function SettingsPage(): ReactNode {
                   onChange={(e) => handleLanguageChange(e.target.value)}
                   className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100"
                 >
-                  <option value="中文">中文</option>
+                  <option value="涓枃">涓枃</option>
                   <option value="English">English</option>
                 </select>
               </div>
@@ -855,14 +818,14 @@ function SettingsPage(): ReactNode {
             </div>
           </section>
 
-          {/* 开机启动 */}
+          {/* 寮€鏈哄惎鍔?*/}
           <section className="surface-card p-5">
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">开机启动</h2>
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">寮€鏈哄惎鍔?/h2>
             <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-zinc-600 dark:text-zinc-300">登录时自动启动 WorkPulse</p>
-                <p className="text-xs text-zinc-400">在系统启动后自动运行应用</p>
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">鐧诲綍鏃惰嚜鍔ㄥ惎鍔?WorkPulse</p>
+                <p className="text-xs text-zinc-400">鍦ㄧ郴缁熷惎鍔ㄥ悗鑷姩杩愯搴旂敤</p>
               </div>
               {loadingAutoLaunch ? (
                 <div className="w-12 h-6 bg-zinc-200 dark:bg-zinc-700 rounded-full animate-pulse" />
@@ -880,11 +843,11 @@ function SettingsPage(): ReactNode {
               )}
             </div>
 
-            {/* 关闭行为 */}
+            {/* 鍏抽棴琛屼负 */}
             <div className="flex items-center justify-between mt-4">
               <div>
-                <p className="text-sm text-zinc-600 dark:text-zinc-300">关闭窗口时</p>
-                <p className="text-xs text-zinc-400">选择点击关闭按钮时的行为</p>
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">鍏抽棴绐楀彛鏃?/p>
+                <p className="text-xs text-zinc-400">閫夋嫨鐐瑰嚮鍏抽棴鎸夐挳鏃剁殑琛屼负</p>
               </div>
               <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
                 <button
@@ -895,8 +858,7 @@ function SettingsPage(): ReactNode {
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
                   }`}
                 >
-                  最小化到托盘
-                </button>
+                  鏈€灏忓寲鍒版墭鐩?                </button>
                 <button
                   onClick={() => handleCloseActionChange('quit')}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
@@ -905,16 +867,15 @@ function SettingsPage(): ReactNode {
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
                   }`}
                 >
-                  退出程序
-                </button>
+                  閫€鍑虹▼搴?                </button>
               </div>
             </div>
 
-            {/* 会议提醒 */}
+            {/* 浼氳鎻愰啋 */}
             <div className="flex items-center justify-between mt-4">
               <div>
-                <p className="text-sm text-zinc-600 dark:text-zinc-300">会议开始提醒</p>
-                <p className="text-xs text-zinc-400">会议开始前推送系统通知</p>
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">浼氳寮€濮嬫彁閱?/p>
+                <p className="text-xs text-zinc-400">浼氳寮€濮嬪墠鎺ㄩ€佺郴缁熼€氱煡</p>
               </div>
               <div className="flex items-center gap-3">
                 <select
@@ -923,10 +884,10 @@ function SettingsPage(): ReactNode {
                   disabled={!reminderEnabled}
                   className="px-2 py-1.5 text-xs rounded-md border border-zinc-200 dark:border-zinc-700 surface-input text-zinc-700 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 disabled:opacity-50"
                 >
-                  <option value="5">提前 5 分钟</option>
-                  <option value="10">提前 10 分钟</option>
-                  <option value="15">提前 15 分钟</option>
-                  <option value="30">提前 30 分钟</option>
+                  <option value="5">鎻愬墠 5 鍒嗛挓</option>
+                  <option value="10">鎻愬墠 10 鍒嗛挓</option>
+                  <option value="15">鎻愬墠 15 鍒嗛挓</option>
+                  <option value="30">鎻愬墠 30 鍒嗛挓</option>
                 </select>
                 <button
                   onClick={() => void handleToggleReminder()}
@@ -940,34 +901,16 @@ function SettingsPage(): ReactNode {
                 </button>
               </div>
             </div>
-
-            {/* 每日摘要弹窗 */}
-            <div className="flex items-center justify-between mt-4">
-              <div>
-                <p className="text-sm text-zinc-600 dark:text-zinc-300">每日工作摘要</p>
-                <p className="text-xs text-zinc-400">每天启动时弹窗展示当日工作统计</p>
-              </div>
-              <button
-                onClick={() => void handleToggleDailySummary()}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${dailySummaryEnabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'
-                  }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${dailySummaryEnabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                />
-              </button>
-            </div>
           </section>
 
-          {/* 径向菜单 */}
+          {/* 寰勫悜鑿滃崟 */}
           <section className="surface-card p-5">
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">径向菜单</h2>
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">寰勫悜鑿滃崟</h2>
             <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-zinc-600 dark:text-zinc-300">启用径向菜单</p>
-                <p className="text-xs text-zinc-400">在快速操作入口显示径向菜单</p>
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">鍚敤寰勫悜鑿滃崟</p>
+                <p className="text-xs text-zinc-400">鍦ㄥ揩閫熸搷浣滃叆鍙ｆ樉绀哄緞鍚戣彍鍗?/p>
               </div>
               <button
                 onClick={() => void handleSaveRadialEnabled(!radialEnabled)}
@@ -983,7 +926,7 @@ function SettingsPage(): ReactNode {
 
             {radialEnabled && (
               <div className="mt-4 space-y-2">
-                <p className="text-xs text-zinc-400 mb-2">菜单项（顺序即显示顺序，可单独开关）</p>
+                <p className="text-xs text-zinc-400 mb-2">鑿滃崟椤癸紙椤哄簭鍗虫樉绀洪『搴忥紝鍙崟鐙紑鍏筹級</p>
                 {radialItems.filter(item => item.type !== 'program').map((item, index) => (
                   <div
                     key={item.key}
@@ -1016,11 +959,11 @@ function SettingsPage(): ReactNode {
                   </div>
                 ))}
 
-                {/* 自定义程序 */}
+                {/* 鑷畾涔夌▼搴?*/}
                 {radialItems.some(item => item.type === 'program') && (
                   <>
                     <div className="h-px bg-zinc-200 dark:bg-zinc-700 my-3" />
-                    <p className="text-xs text-zinc-400 mb-2">自定义程序</p>
+                    <p className="text-xs text-zinc-400 mb-2">鑷畾涔夌▼搴?/p>
                     {radialItems.filter(item => item.type === 'program').map((item, index) => (
                       <div
                         key={item.key}
@@ -1030,7 +973,7 @@ function SettingsPage(): ReactNode {
                           {item.icon ? (
                             <img src={item.icon} alt="" className="w-5 h-5 rounded" />
                           ) : (
-                            <span className="text-base leading-none">📦</span>
+                            <span className="text-base leading-none">馃摝</span>
                           )}
                           <span className="text-sm text-zinc-700 dark:text-zinc-300">{item.label}</span>
                           <span className="text-xs text-zinc-400">#{radialItems.filter(i => i.type !== 'program').length + index + 1}</span>
@@ -1039,7 +982,7 @@ function SettingsPage(): ReactNode {
                           <button
                             onClick={() => handleRemoveProgram(item.key)}
                             className="p-1 text-zinc-400 hover:text-red-500 transition-colors"
-                            title="移除"
+                            title="绉婚櫎"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1064,7 +1007,7 @@ function SettingsPage(): ReactNode {
                   </>
                 )}
 
-                {/* 添加程序按钮 */}
+                {/* 娣诲姞绋嬪簭鎸夐挳 */}
                 <button
                   onClick={handleAddProgram}
                   disabled={addingProgram}
@@ -1075,7 +1018,7 @@ function SettingsPage(): ReactNode {
                   ) : (
                     <Plus className="w-4 h-4" />
                   )}
-                  <span className="text-sm">{addingProgram ? '正在添加...' : '添加程序'}</span>
+                  <span className="text-sm">{addingProgram ? '姝ｅ湪娣诲姞...' : '娣诲姞绋嬪簭'}</span>
                 </button>
               </div>
             )}

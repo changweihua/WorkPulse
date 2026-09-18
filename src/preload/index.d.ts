@@ -97,8 +97,8 @@ interface AppUpdateState {
 interface API {
   send: (channel: string, ...args: any[]) => void;
   app: {
-    getAutoLaunch: () => Promise<boolean>;   // 新增
-    setAutoLaunch: (enable: boolean) => Promise<void>; // 新增
+    getAutoLaunch: () => Promise<boolean>;   // 鏂板
+    setAutoLaunch: (enable: boolean) => Promise<void>; // 鏂板
     getCloseAction: () => Promise<string>;
     setCloseAction: (action: string) => Promise<void>;
     setLanguage: (language: AppLanguage) => Promise<void>
@@ -190,7 +190,7 @@ interface API {
     onProgress: (
       cb: (p: { modelId: string; file: string; loaded: number; total: number; percent: number }) => void
     ) => () => void
-    /** 获取全局模型配置（chat / embedding）— 向后兼容 */
+    /** 鑾峰彇鍏ㄥ眬妯″瀷閰嶇疆锛坈hat / embedding锛夆€?鍚戝悗鍏煎 */
     getConfig: (type?: 'chat' | 'embedding') => Promise<{
       type: 'chat' | 'embedding'
       provider: string
@@ -199,7 +199,7 @@ interface API {
       hasApiKey: boolean
       dimension?: number
     }>
-    /** 获取完整全局模型配置（不含明文 token） */
+    /** 鑾峰彇瀹屾暣鍏ㄥ眬妯″瀷閰嶇疆锛堜笉鍚槑鏂?token锛?*/
     getGlobalConfig: () => Promise<{
       chatConfigs: Array<{
         id: string; name: string; baseURL: string; model: string;
@@ -210,22 +210,22 @@ interface API {
         provider: string; baseURL: string; model: string; dimension: number; token: string
       }
     }>
-    /** 保存完整全局模型配置 */
+    /** 淇濆瓨瀹屾暣鍏ㄥ眬妯″瀷閰嶇疆 */
     setGlobalConfig: (config: any) => Promise<{ ok: boolean }>
-    /** 获取当前活跃 Chat 配置 */
+    /** 鑾峰彇褰撳墠娲昏穬 Chat 閰嶇疆 */
     getActiveChat: () => Promise<{
       id: string; name: string; baseURL: string; model: string;
       token: string; headers: string; temperature: number; max_tokens: number; top_p: number
     } | null>
-    /** 设置活跃 Chat 配置 */
+    /** 璁剧疆娲昏穬 Chat 閰嶇疆 */
     setActiveChat: (configId: string) => Promise<{ ok: boolean }>
-    /** 添加 Chat 配置 */
+    /** 娣诲姞 Chat 閰嶇疆 */
     addChatConfig: (config: any) => Promise<{ ok: boolean }>
-    /** 更新 Chat 配置 */
+    /** 鏇存柊 Chat 閰嶇疆 */
     updateChatConfig: (config: any) => Promise<{ ok: boolean }>
-    /** 删除 Chat 配置 */
+    /** 鍒犻櫎 Chat 閰嶇疆 */
     deleteChatConfig: (configId: string) => Promise<{ ok: boolean }>
-    /** 更新 Embedding 配置列表 */
+    /** 鏇存柊 Embedding 閰嶇疆鍒楄〃 */
     updateEmbedding: (params: { embeddingConfigs: any[]; activeEmbeddingConfigId: string }) => Promise<{ ok: boolean }>
   }
   settings: {
@@ -363,7 +363,7 @@ declare global {
   }
 }
 
-// CSS 模块声明，让 TS 识别所有 .css 导入
+// CSS 妯″潡澹版槑锛岃 TS 璇嗗埆鎵€鏈?.css 瀵煎叆
 declare module '*.css' {
   const content: string;
   export default content;

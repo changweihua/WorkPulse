@@ -1,5 +1,5 @@
 /**
- * IPC 领域：设置 + LLM Token + 导入导出 + 报告
+ * IPC 棰嗗煙锛氳缃?+ LLM Token + 瀵煎叆瀵煎嚭 + 鎶ュ憡
  */
 import { ipcMain, dialog } from 'electron'
 import { readFileSync, writeFileSync } from 'fs'
@@ -9,7 +9,7 @@ import {
   addWorkLog, workLogExists
 } from '../db'
 import { validate, SettingsSetSchema, SettingsGetSchema } from '../ipc-schemas'
-import { getStoredApiKey, setStoredApiKey, deleteStoredApiKey, saveLLMToken, getLLMToken, deleteLLMToken } from '../secureSettings'
+import { saveLLMToken, getLLMToken, deleteLLMToken } from '../secureSettings'
 import { showNotification } from '../notification'
 import { tMain } from '../i18n'
 import {
@@ -18,7 +18,7 @@ import {
   type ChatModelConfig, type EmbeddingModelConfig
 } from '../modelConfig'
 
-// 渲染进程允许访问的 settings 键白名单
+// 娓叉煋杩涚▼鍏佽璁块棶鐨?settings 閿櫧鍚嶅崟
 const ALLOWED_SETTINGS_KEYS = new Set([
   'api_key', 'reminder_enabled', 'reminder_lead',
   'radial_enabled', 'radial_items',
@@ -27,7 +27,6 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'report_language', 'report_style', 'system_prompt', 'report_template',
   'shortcut_quick_log', 'shortcut_quick_task',
   'app_language', 'theme', 'ui_accent',
-  'daily_summary_enabled', 'daily_summary_last_shown',
 ])
 
 export function registerSettingsIpc(): void {
@@ -35,7 +34,7 @@ export function registerSettingsIpc(): void {
   ipcMain.handle('settings:get', (_event, key: string) => {
     const v = validate(SettingsGetSchema, { key })
     if (!ALLOWED_SETTINGS_KEYS.has(v.key)) {
-      throw new Error(`拒绝访问未授权的 settings 键: ${v.key}`)
+      throw new Error(`鎷掔粷璁块棶鏈巿鏉冪殑 settings 閿? ${v.key}`)
     }
     if (v.key === 'api_key') return getStoredApiKey()
     return getSetting(v.key)
@@ -44,7 +43,7 @@ export function registerSettingsIpc(): void {
   ipcMain.handle('settings:set', (_event, key: string, value: string) => {
     const v = validate(SettingsSetSchema, { key, value })
     if (!ALLOWED_SETTINGS_KEYS.has(v.key)) {
-      throw new Error(`拒绝写入未授权的 settings 键: ${v.key}`)
+      throw new Error(`鎷掔粷鍐欏叆鏈巿鏉冪殑 settings 閿? ${v.key}`)
     }
     if (v.key === 'api_key') { setStoredApiKey(v.value); return }
     setSetting(v.key, v.value)
@@ -52,7 +51,7 @@ export function registerSettingsIpc(): void {
 
   ipcMain.handle('settings:delete', (_event, key: string) => {
     if (!ALLOWED_SETTINGS_KEYS.has(key)) {
-      throw new Error(`拒绝删除未授权的 settings 键: ${key}`)
+      throw new Error(`鎷掔粷鍒犻櫎鏈巿鏉冪殑 settings 閿? ${key}`)
     }
     if (key === 'api_key') { deleteStoredApiKey(); return }
     deleteSetting(key)
@@ -73,7 +72,7 @@ export function registerSettingsIpc(): void {
     return true
   })
 
-  // --- 全局模型配置 ---
+  // --- 鍏ㄥ眬妯″瀷閰嶇疆 ---
   ipcMain.handle('model:get-global-config', () => {
     return getGlobalConfig()
   })
@@ -151,7 +150,7 @@ export function registerSettingsIpc(): void {
 
     writeFileSync(result.filePath, content, 'utf-8')
     showNotification({
-      title: '工作日志已导出',
+      title: '宸ヤ綔鏃ュ織宸插鍑?,
       body: result.filePath,
       tag: 'export-logs',
       group: 'workpulse',
@@ -162,7 +161,7 @@ export function registerSettingsIpc(): void {
   // --- Import ---
   ipcMain.handle('import:logs', async (_event) => {
     const result = await dialog.showOpenDialog({
-      title: '导入工作日志',
+      title: '瀵煎叆宸ヤ綔鏃ュ織',
       filters: [{ name: 'CSV / Markdown', extensions: ['csv', 'md'] }],
       properties: ['openFile']
     })
@@ -215,8 +214,8 @@ export function registerSettingsIpc(): void {
 
     if (imported > 0) {
       showNotification({
-        title: '工作日志已导入',
-        body: `成功导入 ${imported} 条${skipped > 0 ? `，跳过 ${skipped} 条` : ''}`,
+        title: '宸ヤ綔鏃ュ織宸插鍏?,
+        body: `鎴愬姛瀵煎叆 ${imported} 鏉?{skipped > 0 ? `锛岃烦杩?${skipped} 鏉 : ''}`,
         tag: 'import-logs',
         group: 'workpulse',
       })
@@ -233,7 +232,7 @@ export function registerSettingsIpc(): void {
     if (result.canceled || !result.filePath) return null
     writeFileSync(result.filePath, reportContent, 'utf-8')
     showNotification({
-      title: '报告已导出',
+      title: '鎶ュ憡宸插鍑?,
       body: result.filePath,
       tag: 'export-report',
       group: 'workpulse',
