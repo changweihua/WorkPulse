@@ -31,6 +31,7 @@ import { createTray, rebuildTrayMenu } from './tray'
 import { createSplashWindow, closeSplashWindow } from './splash'
 import { registerAutoLaunchIpc, setAutoLaunchDeps } from './autoLaunch'
 import { loadDotNet } from './asar-dotnet-loader'
+import { vectorSearch } from './vector-search'
 
 // ── 日志初始化 ──
 log.initialize()
@@ -344,6 +345,9 @@ app.whenReady().then(async () => {
   startScheduler(getMainWindow)
   registerAutoLaunchIpc()
   setAutoLaunchDeps(getMainWindow, APP_ICON_PATH)
+
+  // 启动后异步增量向量化所有未索引的日志（不阻塞启动）
+  vectorSearch.autoIndexAll().catch(() => {})
 
   if (process.platform === 'win32') {
     electronApp.setAppUserModelId('cmono.workpulse.app')

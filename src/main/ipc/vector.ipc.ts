@@ -26,4 +26,8 @@ export function registerVectorIpc(): void {
   ipcMain.handle('vector:auto-index', async () => {
     return vectorSearch.autoIndexAll()
   })
+
+  ipcMain.handle('vector:index-worklog', async (_event, id: number, content: string) => {
+    return vectorSearch.indexSingleWorklog(id, content)
+  })
 }

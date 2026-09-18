@@ -351,7 +351,8 @@ class VectorSearchService {
 
     if (rows.length === 0) return []
 
-    // 计算相似度并排序
+    // 计算相似度并排序，过滤低于阈值的结果
+    const MIN_SCORE = 0.3
     const scored = rows
       .map(row => {
         const vec = JSON.parse(row.embedding) as number[]
@@ -360,6 +361,7 @@ class VectorSearchService {
           score: cosineSimilarity(queryEmbedding, vec),
         }
       })
+      .filter(s => s.score >= MIN_SCORE)
       .sort((a, b) => b.score - a.score)
       .slice(0, options?.topK ?? 10)
 
@@ -410,6 +412,53 @@ class VectorSearchService {
       version: 1,
       items: count.cnt,
       metadataConfig: { dailyApiUsed: dailyUsed, dailyApiLimit: DAILY_API_LIMIT },
+    }
+  }
+
+  /**
+   * 单条 worklog 增量向量化（新增/更新时即时调用）
+   */
+  async indexSingleWorklog(id: number, content: string): Promise<boolean> {
+    this.initialize()
+
+    if (isOverDailyLimit()) {
+      log.debug(`[VectorSearch] 每日限制已满，跳过 worklog #${id} 向量化`)
+      return false
+    }
+
+    const config = getActiveEmbeddingConfig()
+    if (!config) {
+      log.debug('[VectorSearch] 未配置 Embedding 模型，跳过向量化')
+      return false
+    }
+
+    const db = getDatabase()
+    const hash = contentHash(content)
+
+    // 检查是否已有相同内容的向量
+    const existing = db.prepare('SELECT content_hash FROM worklog_vectors WHERE worklog_id = ?').get(id) as
+      | { content_hash: string }
+      | undefined
+    if (existing && existing.content_hash === hash) {
+      return true // 内容未变，跳过
+    }
+
+    try {
+      const embedding = await getEmbedding(content)
+      incrementDailyCallCount()
+
+      db.prepare(
+        'INSERT OR REPLACE INTO worklog_vectors (worklog_id, embedding, content_hash) VALUES (?, ?, ?)'
+      ).run(id, JSON.stringify(embedding), hash)
+
+      // 标记已向量化
+      db.prepare("UPDATE work_logs SET vector_synced_at = datetime('now', 'localtime') WHERE id = ?").run(id)
+
+      log.info(`[VectorSearch] worklog #${id} 向量化完成`)
+      return true
+    } catch (e) {
+      log.warn(`[VectorSearch] worklog #${id} 向量化失败:`, e)
+      return false
     }
   }
 

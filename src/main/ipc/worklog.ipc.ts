@@ -12,9 +12,12 @@ import { vectorSearch } from '../vector-search'
 import log from 'electron-log/main'
 
 export function registerWorklogIpc(): void {
-  ipcMain.handle('worklog:add', (_event, content: string, category?: string) => {
+  ipcMain.handle('worklog:add', async (_event, content: string, category?: string) => {
     const v = validate(WorklogAddSchema, { content, category })
-    return addWorkLog(v.content, v.category)
+    const log = addWorkLog(v.content, v.category)
+    // 即时向量化（异步，不阻塞返回）
+    vectorSearch.indexSingleWorklog(log.id, log.content).catch(() => {})
+    return log
   })
 
   ipcMain.handle('worklog:list', (_event, limit?: number, offset?: number) => {
@@ -28,7 +31,7 @@ export function registerWorklogIpc(): void {
   ipcMain.handle('worklog:search', async (_event, keyword: string) => {
     // 优先使用向量语义搜索，失败时回退到 LIKE
     try {
-      const results = await vectorSearch.search(keyword, { type: 'worklog', topK: 50 })
+      const results = await vectorSearch.search(keyword, { type: 'worklog', topK: 20 })
       if (results.length > 0) {
         const ids = results
           .map(r => {
@@ -64,9 +67,14 @@ export function registerWorklogIpc(): void {
     updateWorkLogCategory(id, category)
   })
 
-  ipcMain.handle('worklog:update', (_event, id: number, content: string, category: string, created_at?: string) => {
+  ipcMain.handle('worklog:update', async (_event, id: number, content: string, category: string, created_at?: string) => {
     const v = validate(WorklogUpdateSchema, { id, content, category, created_at })
-    return updateWorkLog(v.id, v.content, v.category, v.created_at)
+    const updated = updateWorkLog(v.id, v.content, v.category, v.created_at)
+    // 更新后重新向量化
+    if (updated) {
+      vectorSearch.indexSingleWorklog(updated.id, updated.content).catch(() => {})
+    }
+    return updated
   })
 
   ipcMain.handle('worklog:delete', (_event, id: number) => {

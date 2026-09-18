@@ -19,12 +19,12 @@ export interface UseVectorSearchReturn {
   error: string | null
   stats: VectorStats | null
   initialized: boolean
-  search: (query: string, options?: { type?: string; topK?: number; bm25?: boolean }) => Promise<SearchResult[]>
-  indexWorklog: (id: number, content: string, category: string, date: string) => Promise<boolean>
-  indexConversation: (id: string, title: string, messages: Array<{ role: string; content: string }>) => Promise<boolean>
+  search: (query: string, options?: { type?: string; topK?: number }) => Promise<SearchResult[]>
+  indexWorklog: (id: number, content: string) => Promise<boolean>
   removeDocument: (uri: string) => Promise<boolean>
   refreshStats: () => Promise<void>
   rebuildIndex: () => Promise<boolean>
+  autoIndex: () => Promise<{ indexed: number; errors: number; skipped: number } | null>
 }
 
 export function useVectorSearch(): UseVectorSearchReturn {
@@ -55,7 +55,7 @@ export function useVectorSearch(): UseVectorSearchReturn {
     return () => { cancelled = true }
   }, [])
 
-  const search = useCallback(async (query: string, options?: { type?: string; topK?: number; bm25?: boolean }) => {
+  const search = useCallback(async (query: string, options?: { type?: string; topK?: number }) => {
     setLoading(true)
     setError(null)
     try {
@@ -71,19 +71,9 @@ export function useVectorSearch(): UseVectorSearchReturn {
     }
   }, [])
 
-  const indexWorklog = useCallback(async (id: number, content: string, category: string, date: string) => {
+  const indexWorklog = useCallback(async (id: number, content: string) => {
     try {
-      await (window as any).api.vector.indexWorklog(id, content, category, date)
-      return true
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-      return false
-    }
-  }, [])
-
-  const indexConversation = useCallback(async (id: string, title: string, messages: Array<{ role: string; content: string }>) => {
-    try {
-      await (window as any).api.vector.indexConversation(id, title, messages)
+      await (window as any).api.vector.indexWorklog(id, content)
       return true
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -121,6 +111,17 @@ export function useVectorSearch(): UseVectorSearchReturn {
     }
   }, [refreshStats])
 
+  const autoIndex = useCallback(async () => {
+    try {
+      const result = await (window as any).api.vector.autoIndex()
+      await refreshStats()
+      return result
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      return null
+    }
+  }, [refreshStats])
+
   return {
     results,
     loading,
@@ -129,9 +130,9 @@ export function useVectorSearch(): UseVectorSearchReturn {
     initialized,
     search,
     indexWorklog,
-    indexConversation,
     removeDocument,
     refreshStats,
     rebuildIndex,
+    autoIndex,
   }
 }

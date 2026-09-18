@@ -282,12 +282,12 @@ interface API {
   }
   vector: {
     initialize: () => Promise<{ ok: boolean }>
-    indexWorklog: (id: number, content: string, category: string, date: string) => Promise<{ ok: boolean }>
-    indexConversation: (id: string, title: string, messages: Array<{ role: string; content: string }>) => Promise<{ ok: boolean }>
-    search: (query: string, options?: { type?: string; topK?: number; bm25?: boolean }) => Promise<Array<{ uri: string; score: number; text: string; metadata: Record<string, unknown> }>>
-    stats: () => Promise<{ itemCount: number; indexSize: number }>
+    indexWorklog: (id: number, content: string) => Promise<boolean>
+    search: (query: string, options?: { type?: string; topK?: number }) => Promise<Array<{ uri: string; score: number; text: string; metadata: Record<string, unknown> }>>
+    stats: () => Promise<{ version: number; items: number; metadataConfig: Record<string, unknown> }>
     remove: (uri: string) => Promise<{ ok: boolean }>
     rebuild: () => Promise<{ ok: boolean }>
+    autoIndex: () => Promise<{ indexed: number; errors: number; skipped: number }>
   }
   dotnet: {
     invoke: (method: string, ...args: unknown[]) => Promise<string | number>

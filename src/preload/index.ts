@@ -260,15 +260,14 @@ const api = {
   },
   vector: {
     initialize: () => ipcRenderer.invoke('vector:initialize'),
-    indexWorklog: (id: number, content: string, category: string, date: string) =>
-      ipcRenderer.invoke('vector:index-worklog', id, content, category, date),
-    indexConversation: (id: string, title: string, messages: Array<{ role: string; content: string }>) =>
-      ipcRenderer.invoke('vector:index-conversation', id, title, messages),
-    search: (query: string, options?: { type?: string; topK?: number; bm25?: boolean }) =>
+    indexWorklog: (id: number, content: string) =>
+      ipcRenderer.invoke('vector:index-worklog', id, content),
+    search: (query: string, options?: { type?: string; topK?: number }) =>
       ipcRenderer.invoke('vector:search', query, options),
     stats: () => ipcRenderer.invoke('vector:stats'),
     remove: (uri: string) => ipcRenderer.invoke('vector:remove', uri),
     rebuild: () => ipcRenderer.invoke('vector:rebuild'),
+    autoIndex: () => ipcRenderer.invoke('vector:auto-index'),
   },
   // 窗口控制（WCO 原生按钮接管 minimize/maximize/close，仅保留材质切换）
   window: {
