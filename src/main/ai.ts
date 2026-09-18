@@ -1,6 +1,5 @@
 import { net } from 'electron'
 import { getSetting } from './db'
-import { getStoredApiKey } from './secureSettings'
 import { getResolvedLanguage, tMain } from './i18n'
 import { getActiveChatConfig, getActiveProviderInfo } from './modelConfig'
 import type { ChatModelConfig } from './modelConfig'

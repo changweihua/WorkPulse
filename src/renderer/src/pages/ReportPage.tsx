@@ -28,7 +28,7 @@ interface Report {
   generated_at: string
 }
 
-type Status = 'idle' | 'no_key' | 'generating' | 'streaming' | 'success' | 'error' | 'no_data'
+type Status = 'idle' | 'generating' | 'streaming' | 'success' | 'error' | 'no_data'
 
 function ReportPage(): ReactNode {
   const [preset, setPreset] = useState<DatePreset>('this_week')
@@ -48,7 +48,6 @@ function ReportPage(): ReactNode {
   const { content: streamedContent, isStreaming, error: streamError, startStream, reset: resetStream } = useStreamChat()
 
   useEffect(() => {
-    checkApiKey()
     applyPreset('this_week')
     loadHistory()
   }, [])
@@ -74,13 +73,6 @@ function ReportPage(): ReactNode {
       setStatus('error')
     }
   }, [streamError, status])
-
-  const checkApiKey = async (): Promise<void> => {
-    const key = await window.api.settings.get('api_key')
-    if (!key) {
-      setStatus('no_key')
-    }
-  }
 
   const loadHistory = async (): Promise<void> => {
     const reports = await window.api.report.list(50)
@@ -283,7 +275,7 @@ function ReportPage(): ReactNode {
           {!isViewingHistory && (
             <button
               onClick={handleGenerate}
-              disabled={status === 'no_key' || status === 'generating' || status === 'streaming'}
+              disabled={status === 'generating' || status === 'streaming'}
               className="shrink-0 px-8 py-3 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-fluent hover:shadow-fluent-lg transition-all btn-bounce disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {status === 'generating' || status === 'streaming' ? (
@@ -298,16 +290,6 @@ function ReportPage(): ReactNode {
                 </span>
               )}
             </button>
-          )}
-
-          {status === 'no_key' && !isViewingHistory && (
-            <div className="flex items-start gap-3 p-4 surface-card rounded-xl border-l-4 border-l-amber-400 shrink-0">
-              <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{t('report.noKeyTitle')}</p>
-                <p className="text-xs text-amber-600 dark:text-amber-400/80 mt-1">{t('report.noKeySubtitle')}</p>
-              </div>
-            </div>
           )}
 
           {status === 'no_data' && !isViewingHistory && (

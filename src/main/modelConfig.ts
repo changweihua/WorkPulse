@@ -6,8 +6,10 @@
  * - Embedding 模型配置（含向量维度）
  * - 活跃 Chat 配置选择
  * - 供主进程和渲染进程调用
+ *
+ * 存储：model_configs 表（由 db.ts createTables 创建）
  */
-import { getSetting, setSetting } from './db'
+import { getDatabase } from './db'
 
 // ==================== 类型定义 ====================
 
@@ -17,7 +19,7 @@ export interface ChatModelConfig {
   name: string
   baseURL: string
   model: string
-  /** API Key 单独加密存储，不进 JSON */
+  /** API Key 单独加密存储，不进表 */
   token: string
   headers: string
   temperature: number
@@ -44,7 +46,7 @@ export interface EmbeddingModelConfig {
   token: string
 }
 
-/** 全局模型配置（持久化到 settings） */
+/** 全局模型配置（持久化到 model_configs 表） */
 export interface GlobalModelConfig {
   /** 所有 Chat 模型配置 */
   chatConfigs: ChatModelConfig[]
@@ -93,10 +95,10 @@ const DEFAULT_EMBEDDING_CONFIGS: EmbeddingModelConfig[] = [
   {
     id: 'openai-embedding',
     name: 'OpenAI Embedding',
-    provider: 'openai',
     baseURL: 'https://api.openai.com/v1',
     model: 'text-embedding-3-small',
     dimension: 1536,
+    headers: '',
     token: '',
   },
 ]
@@ -108,44 +110,75 @@ const DEFAULT_CONFIG: GlobalModelConfig = {
   activeEmbeddingConfigId: 'openai-embedding',
 }
 
-// ==================== 持久化键名 ====================
-
-const STORAGE_KEY = 'model_config'
-
 // ==================== 加密 Token 管理 ====================
-
-const TOKEN_PREFIX = 'llm_token_'
 
 function saveToken(configId: string, token: string): void {
   if (!token) {
     deleteToken(configId)
     return
   }
-  // 使用已有的 saveLLMToken（带 safeStorage 加密）
-  try {
-    const { saveLLMToken } = require('./secureSettings')
-    saveLLMToken(configId, token)
-  } catch {
-    // fallback: 直接存 settings
-    setSetting(`${TOKEN_PREFIX}${configId}`, token)
-  }
+  const { saveLLMToken } = require('./secureSettings')
+  saveLLMToken(configId, token)
 }
 
 function loadToken(configId: string): string {
-  try {
-    const { getLLMToken } = require('./secureSettings')
-    return getLLMToken(configId) || ''
-  } catch {
-    return getSetting(`${TOKEN_PREFIX}${configId}`) || ''
-  }
+  const { getLLMToken } = require('./secureSettings')
+  return getLLMToken(configId) || ''
 }
 
 function deleteToken(configId: string): void {
-  try {
-    const { deleteLLMToken } = require('./secureSettings')
-    deleteLLMToken(configId)
-  } catch {
-    setSetting(`${TOKEN_PREFIX}${configId}`, '')
+  const { deleteLLMToken } = require('./secureSettings')
+  deleteLLMToken(configId)
+}
+
+// ==================== 行 ↔ 类型转换 ====================
+
+interface ModelConfigRow {
+  id: string
+  config_type: string
+  name: string
+  base_url: string
+  model_name: string
+  temperature: number
+  max_tokens: number
+  top_p: number
+  top_k: number
+  prompt: string
+  stream: number
+  dimension: number
+  headers: string
+  is_active: number
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+function rowToChatConfig(row: ModelConfigRow): ChatModelConfig {
+  return {
+    id: row.id,
+    name: row.name,
+    baseURL: row.base_url,
+    model: row.model_name,
+    token: loadToken(row.id),
+    headers: row.headers,
+    temperature: row.temperature,
+    max_tokens: row.max_tokens,
+    top_p: row.top_p,
+    top_k: row.top_k,
+    prompt: row.prompt,
+    stream: row.stream === 1,
+  }
+}
+
+function rowToEmbedConfig(row: ModelConfigRow): EmbeddingModelConfig {
+  return {
+    id: row.id,
+    name: row.name,
+    baseURL: row.base_url,
+    model: row.model_name,
+    dimension: row.dimension,
+    headers: row.headers,
+    token: loadToken(`emb_${row.id}`),
   }
 }
 
@@ -155,51 +188,49 @@ function deleteToken(configId: string): void {
  * 获取完整模型配置（含 token 解密）
  */
 export function getGlobalConfig(): GlobalModelConfig {
-  const raw = getSetting(STORAGE_KEY)
-  let config: GlobalModelConfig
+  const db = getDatabase()
 
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw)
-      // 兼容旧格式：embedding(单个) → embeddingConfigs(数组)
-      if (!parsed.embeddingConfigs && parsed.embedding) {
-        const emb = { id: 'migrated-embedding', name: 'Embedding（旧配置）', ...parsed.embedding }
-        parsed.embeddingConfigs = [emb]
-        parsed.activeEmbeddingConfigId = emb.id
-      }
-      config = { ...DEFAULT_CONFIG, ...parsed }
-    } catch {
-      config = { ...DEFAULT_CONFIG }
-    }
-  } else {
-    // 兼容旧配置：从扁平 settings 迁移
-    config = migrateFromFlatSettings()
+  // 检查表是否有数据
+  const count = db.prepare('SELECT COUNT(*) as c FROM model_configs').get() as { c: number }
+  if (count.c === 0) {
+    // 表为空（首次启动或用户清空），写入默认配置并返回
+    setGlobalConfig(DEFAULT_CONFIG)
+    return { ...DEFAULT_CONFIG }
   }
 
-  // 确保数组存在且过滤无效元素
-  if (!config.chatConfigs) config.chatConfigs = []
-  if (!config.embeddingConfigs) config.embeddingConfigs = []
-  config.chatConfigs = config.chatConfigs.filter((c) => c && c.id)
-  config.embeddingConfigs = config.embeddingConfigs.filter((e) => e && e.id)
+  return readConfigFromTable()
+}
 
-  // 解密 token 到每个配置（JSON 中 token 为空，需要从加密存储恢复）
-  config.chatConfigs = config.chatConfigs.map((c) => ({
-    ...c,
-    token: loadToken(c.id),
-  }))
-  config.embeddingConfigs = config.embeddingConfigs.map((e) => ({
-    ...e,
-    token: loadToken(`emb_${e.id}`),
-  }))
+/** 从 model_configs 表读取配置 */
+function readConfigFromTable(): GlobalModelConfig {
+  const db = getDatabase()
 
-  return config
+  const chatRows = db.prepare(
+    "SELECT * FROM model_configs WHERE config_type = 'chat' ORDER BY sort_order"
+  ).all() as ModelConfigRow[]
+
+  const embedRows = db.prepare(
+    "SELECT * FROM model_configs WHERE config_type = 'embedding' ORDER BY sort_order"
+  ).all() as ModelConfigRow[]
+
+  const activeChat = chatRows.find((r) => r.is_active)
+  const activeEmbed = embedRows.find((r) => r.is_active)
+
+  return {
+    chatConfigs: chatRows.map(rowToChatConfig),
+    activeChatConfigId: activeChat?.id || chatRows[0]?.id || '',
+    embeddingConfigs: embedRows.map(rowToEmbedConfig),
+    activeEmbeddingConfigId: activeEmbed?.id || embedRows[0]?.id || '',
+  }
 }
 
 /**
- * 保存完整模型配置
+ * 保存完整模型配置到 model_configs 表
  */
 export function setGlobalConfig(config: GlobalModelConfig): void {
-  // 提取 token 分别加密存储，JSON 中不保存明文
+  const db = getDatabase()
+
+  // 提取 token 分别加密存储
   for (const c of config.chatConfigs) {
     if (c.token !== undefined) {
       saveToken(c.id, c.token)
@@ -211,13 +242,40 @@ export function setGlobalConfig(config: GlobalModelConfig): void {
     }
   }
 
-  // 保存不含 token 的 JSON
-  const toStore: GlobalModelConfig = {
-    ...config,
-    chatConfigs: config.chatConfigs.map((c) => ({ ...c, token: '' })),
-    embeddingConfigs: config.embeddingConfigs.map((e) => ({ ...e, token: '' })),
-  }
-  setSetting(STORAGE_KEY, JSON.stringify(toStore))
+  const tx = db.transaction(() => {
+    // 清空旧数据
+    db.prepare('DELETE FROM model_configs').run()
+
+    const insertChat = db.prepare(`
+      INSERT INTO model_configs
+        (id, config_type, name, base_url, model_name, temperature, max_tokens,
+         top_p, top_k, prompt, stream, dimension, headers, is_active, sort_order)
+      VALUES (?, 'chat', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+    `)
+    const insertEmbed = db.prepare(`
+      INSERT INTO model_configs
+        (id, config_type, name, base_url, model_name, dimension, headers, is_active, sort_order)
+      VALUES (?, 'embedding', ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    let sortIndex = 0
+    for (const c of config.chatConfigs) {
+      insertChat.run(
+        c.id, c.name, c.baseURL, c.model,
+        c.temperature, c.max_tokens, c.top_p, c.top_k,
+        c.prompt, c.stream ? 1 : 0, c.headers,
+        c.id === config.activeChatConfigId ? 1 : 0, sortIndex++
+      )
+    }
+    for (const e of config.embeddingConfigs) {
+      insertEmbed.run(
+        e.id, e.name, e.baseURL, e.model,
+        e.dimension, e.headers,
+        e.id === config.activeEmbeddingConfigId ? 1 : 0, sortIndex++
+      )
+    }
+  })
+  tx()
 }
 
 // ==================== 便捷方法 ====================
@@ -235,20 +293,29 @@ export function getEmbeddingConfigs(): EmbeddingModelConfig[] {
 
 /** 设置活跃 Chat 配置 */
 export function setActiveChatConfig(configId: string): void {
-  const config = getGlobalConfig()
-  config.activeChatConfigId = configId
-  setGlobalConfig(config)
+  const db = getDatabase()
+  db.prepare("UPDATE model_configs SET is_active = 0 WHERE config_type = 'chat'").run()
+  db.prepare("UPDATE model_configs SET is_active = 1 WHERE id = ? AND config_type = 'chat'").run(configId)
 }
 
 /** 删除 Chat 配置 */
 export function deleteChatConfig(configId: string): void {
-  const config = getGlobalConfig()
-  config.chatConfigs = config.chatConfigs.filter((c) => c.id !== configId)
-  if (config.activeChatConfigId === configId) {
-    config.activeChatConfigId = config.chatConfigs[0]?.id || ''
-  }
+  const db = getDatabase()
+  db.prepare('DELETE FROM model_configs WHERE id = ?').run(configId)
   deleteToken(configId)
-  setGlobalConfig(config)
+
+  // 如果删除的是活跃配置，自动切换到第一个
+  const active = db.prepare(
+    "SELECT id FROM model_configs WHERE config_type = 'chat' AND is_active = 1"
+  ).get() as { id: string } | undefined
+  if (!active) {
+    const first = db.prepare(
+      "SELECT id FROM model_configs WHERE config_type = 'chat' ORDER BY sort_order LIMIT 1"
+    ).get() as { id: string } | undefined
+    if (first) {
+      db.prepare('UPDATE model_configs SET is_active = 1 WHERE id = ?').run(first.id)
+    }
+  }
 }
 
 // ==================== 供主进程直接使用 ====================

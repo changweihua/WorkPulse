@@ -1,10 +1,16 @@
-import { LocalDocumentIndex, LocalEmbeddings } from 'vectra'
+/**
+ * 本地向量搜索服务
+ *
+ * - 调用全局 AI 配置的 Embedding API（OpenAI 兼容）
+ * - 向量持久化到 SQLite worklog_vectors 表
+ * - 内存余弦相似度搜索
+ * - 每日 API 调用上限 100 次，超限回退 BM25
+ */
 import { app } from 'electron'
-import path from 'path'
-import { rmSync } from 'fs'
 import log from 'electron-log/main'
+import { getDatabase } from './db'
 
-const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2'
+const DAILY_API_LIMIT = 100
 
 export interface VectorSearchResult {
   uri: string
@@ -19,160 +25,404 @@ export interface VectorStats {
   metadataConfig: Record<string, unknown>
 }
 
-class VectorSearchService {
-  private index: LocalDocumentIndex | null = null
-  private embeddings: LocalEmbeddings
-  private initPromise: Promise<void> | null = null
+// ==================== 向量表初始化 ====================
 
-  constructor() {
-    this.embeddings = new LocalEmbeddings({
-      model: EMBEDDING_MODEL,
-      maxTokens: 256,
-    })
-  }
+function ensureVectorTable(): void {
+  const db = getDatabase()
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS worklog_vectors (
+      worklog_id INTEGER PRIMARY KEY,
+      embedding TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
 
-  async initialize(): Promise<void> {
-    if (this.initPromise) return this.initPromise
-    this.initPromise = this._doInit().catch(e => {
-      this.initPromise = null
-      throw e
-    })
-    return this.initPromise
-  }
+    CREATE TABLE IF NOT EXISTS query_vectors (
+      query_text TEXT PRIMARY KEY,
+      embedding TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+  `)
+}
 
-  private async _doInit(): Promise<void> {
-    const indexPath = path.join(app.getPath('userData'), 'vector-index')
-    this.index = new LocalDocumentIndex({
-      folderPath: indexPath,
-      indexName: 'search',
-      embeddings: this.embeddings,
-    })
+// ==================== 全局配置读取 ====================
 
-    if (!(await this.index.isIndexCreated())) {
-      await this.index.createIndex({
-        version: 1,
-        metadata_config: {
-          indexed: ['type', 'date', 'category', 'conversationId'],
-        },
-      })
-      log.info('[VectorSearch] Created new index at', indexPath)
-    } else {
-      log.info('[VectorSearch] Loaded existing index at', indexPath)
+interface EmbeddingConfig {
+  baseURL: string
+  model: string
+  token: string
+  dimension: number
+}
+
+function getActiveEmbeddingConfig(): EmbeddingConfig | null {
+  try {
+    const { getGlobalConfig } = require('./modelConfig') as {
+      getGlobalConfig: () => {
+        embeddingConfigs: Array<{
+          id: string
+          name: string
+          baseURL: string
+          model: string
+          token: string
+          dimension: number
+          headers: string
+        }>
+        activeEmbeddingConfigId: string
+      }
     }
+    const config = getGlobalConfig()
+    const active = config.embeddingConfigs.find(e => e.id === config.activeEmbeddingConfigId)
+    if (!active || !active.baseURL || !active.model) return null
+    return {
+      baseURL: active.baseURL,
+      model: active.model,
+      token: active.token,
+      dimension: active.dimension,
+    }
+  } catch {
+    return null
+  }
+}
+
+// ==================== 每日调用计数 ====================
+
+function getTodayKey(): string {
+  return new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+}
+
+function getDailyCallCount(): number {
+  try {
+    const db = getDatabase()
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'embedding_daily_count'").get() as
+      | { value: string }
+      | undefined
+    if (!row) return 0
+    const { date, count } = JSON.parse(row.value) as { date: string; count: number }
+    if (date !== getTodayKey()) return 0
+    return count
+  } catch {
+    return 0
+  }
+}
+
+function incrementDailyCallCount(): number {
+  const db = getDatabase()
+  const today = getTodayKey()
+  const current = getDailyCallCount()
+  const newCount = current + 1
+  db.prepare(
+    "INSERT INTO settings (key, value) VALUES ('embedding_daily_count', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+  ).run(JSON.stringify({ date: today, count: newCount }))
+  return newCount
+}
+
+function isOverDailyLimit(): boolean {
+  return getDailyCallCount() >= DAILY_API_LIMIT
+}
+
+// ==================== Embedding API 调用 ====================
+
+async function callEmbeddingAPI(texts: string[]): Promise<number[][]> {
+  const config = getActiveEmbeddingConfig()
+  if (!config) throw new Error('未配置 Embedding 模型')
+
+  const url = `${config.baseURL.replace(/\/$/, '')}/embeddings`
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (config.token) {
+    headers['Authorization'] = `Bearer ${config.token}`
   }
 
-  async indexWorkLog(id: number, content: string, category: string, date: string): Promise<void> {
-    await this.initialize()
-    if (!this.index) throw new Error('Vector index not initialized')
+  log.info(`[VectorSearch] 调用 Embedding API: ${url}`)
+  log.info(`[VectorSearch] 模型: ${config.model}, 文本数: ${texts.length}`)
 
-    await this.index.upsertDocument(
-      `worklog://${id}`,
-      content,
-      'text',
-      {
-        type: 'worklog',
-        id: String(id),
-        category: category || '',
-        date,
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model: config.model,
+      input: texts,
+    }),
+  })
+
+  if (!resp.ok) {
+    const body = await resp.text()
+    throw new Error(`Embedding API 错误 ${resp.status}: ${body}`)
+  }
+
+  const data = (await resp.json()) as {
+    data: Array<{ embedding: number[]; index: number }>
+  }
+
+  // 按 index 排序确保顺序正确
+  const sorted = data.data.sort((a, b) => a.index - b.index)
+  return sorted.map(d => d.embedding)
+}
+
+async function getEmbedding(text: string): Promise<number[]> {
+  const results = await callEmbeddingAPI([text])
+  return results[0]
+}
+
+// ==================== 内容哈希（检测变更） ====================
+
+function contentHash(content: string): string {
+  // 简单哈希：长度 + 前后各 50 字符 + 全文长度
+  const start = content.slice(0, 50)
+  const end = content.slice(-50)
+  return `${content.length}-${start}-${end}`
+}
+
+// ==================== 余弦相似度 ====================
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 0
+  let dot = 0
+  let normA = 0
+  let normB = 0
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i]
+    normA += a[i] * a[i]
+    normB += b[i] * b[i]
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB)
+  return denom === 0 ? 0 : dot / denom
+}
+
+// ==================== 主服务 ====================
+
+class VectorSearchService {
+  private initialized = false
+
+  initialize(): void {
+    if (this.initialized) return
+    ensureVectorTable()
+    this.initialized = true
+    log.info('[VectorSearch] 初始化完成')
+  }
+
+  /**
+   * 增量向量化：只处理 vector_synced_at IS NULL 的 worklog 记录
+   */
+  async autoIndexAll(): Promise<{ indexed: number; errors: number; skipped: number }> {
+    this.initialize()
+
+    const { getUnindexedWorkLogs, markWorkLogsIndexed } = await import('./db')
+    const unindexed = getUnindexedWorkLogs()
+
+    if (unindexed.length === 0) {
+      log.info('[VectorSearch] 所有 worklog 已向量化，无需更新')
+      return { indexed: 0, errors: 0, skipped: 0 }
+    }
+
+    if (isOverDailyLimit()) {
+      log.warn(`[VectorSearch] 已达每日 API 限制 (${DAILY_API_LIMIT})，跳过向量化，等待明天`)
+      return { indexed: 0, errors: 0, skipped: unindexed.length }
+    }
+
+    const remaining = DAILY_API_LIMIT - getDailyCallCount()
+    // 过滤掉内容未变更的（已有向量且 hash 一致）
+    const db = getDatabase()
+    const existingHashes = db.prepare('SELECT worklog_id, content_hash FROM worklog_vectors').all() as Array<{
+      worklog_id: number
+      content_hash: string
+    }>
+    const hashMap = new Map(existingHashes.map(r => [r.worklog_id, r.content_hash]))
+
+    const needVectorize = unindexed.filter(wl => {
+      const existing = hashMap.get(wl.id)
+      if (existing && existing === contentHash(wl.content)) {
+        return false // 内容未变，跳过
       }
-    )
-    log.debug(`[VectorSearch] Indexed worklog #${id}`)
-  }
+      return true
+    })
 
-  async indexConversation(
-    id: string,
-    title: string,
-    messages: Array<{ role: string; content: string }>
-  ): Promise<void> {
-    await this.initialize()
-    if (!this.index) throw new Error('Vector index not initialized')
+    const toProcess = needVectorize.slice(0, remaining)
+    const skipped = needVectorize.length - toProcess.length
 
-    // Combine messages into a single document text
-    const text = messages
-      .filter((m) => m.content?.trim())
-      .map((m) => `[${m.role}]: ${m.content}`)
-      .join('\n')
+    if (skipped > 0) {
+      log.warn(`[VectorSearch] 每日限制还剩 ${remaining} 次，将跳过 ${skipped} 条`)
+    }
 
-    if (!text.trim()) return
+    log.info(`[VectorSearch] 发现 ${toProcess.length} 条待向量化 worklog（剩余 API 额度: ${remaining}）`)
 
-    await this.index.upsertDocument(
-      `conversation://${id}`,
-      text,
-      'chat',
-      {
-        type: 'conversation',
-        id,
-        title: title || 'Untitled',
-        messageCount: messages.length,
+    let indexed = 0
+    let errors = 0
+    const syncedIds: number[] = []
+
+    // 批量处理，每批 10 条（减少 API 调用次数）
+    const BATCH_SIZE = 10
+    for (let i = 0; i < toProcess.length; i += BATCH_SIZE) {
+      if (isOverDailyLimit()) {
+        log.warn('[VectorSearch] 向量化过程中达到每日限制，停止')
+        break
       }
-    )
-    log.debug(`[VectorSearch] Indexed conversation "${title}" (${messages.length} messages)`)
+
+      const batch = toProcess.slice(i, i + BATCH_SIZE)
+      try {
+        const texts = batch.map(wl => wl.content)
+        const embeddings = await callEmbeddingAPI(texts)
+        incrementDailyCallCount() // 每批算 1 次调用
+
+        const insert = db.prepare(
+          'INSERT OR REPLACE INTO worklog_vectors (worklog_id, embedding, content_hash) VALUES (?, ?, ?)'
+        )
+        const tx = db.transaction(() => {
+          for (let j = 0; j < batch.length; j++) {
+            const wl = batch[j]
+            const hash = contentHash(wl.content)
+            insert.run(wl.id, JSON.stringify(embeddings[j]), hash)
+            syncedIds.push(wl.id)
+          }
+        })
+        tx()
+        indexed += batch.length
+      } catch (e) {
+        log.error(`[VectorSearch] 批量向量化失败 (batch ${i / BATCH_SIZE + 1}):`, e)
+        errors += batch.length
+      }
+    }
+
+    // 只标记实际成功向量化的，跳过的保持 NULL 下次再试
+    markWorkLogsIndexed(syncedIds)
+
+    // 内容未变的也标记一下（它们已有向量，不需要再处理）
+    const unchangedIds = unindexed
+      .filter(wl => {
+        const existing = hashMap.get(wl.id)
+        return existing && existing === contentHash(wl.content)
+      })
+      .map(wl => wl.id)
+    if (unchangedIds.length > 0) {
+      markWorkLogsIndexed(unchangedIds)
+    }
+
+    log.info(`[VectorSearch] 增量向量化完成: ${indexed} 成功, ${errors} 失败, ${unchangedIds.length} 内容未变`)
+    return { indexed, errors, skipped }
   }
 
+  /**
+   * 搜索：先尝试向量语义搜索，超限则回退 BM25
+   */
   async search(
     query: string,
-    options?: { type?: string; topK?: number; bm25?: boolean }
+    options?: { type?: string; topK?: number }
   ): Promise<VectorSearchResult[]> {
-    await this.initialize()
-    if (!this.index) throw new Error('Vector index not initialized')
+    this.initialize()
 
-    const filter = options?.type
-      ? { type: { $eq: options.type } }
-      : undefined
+    const db = getDatabase()
 
-    const results = await this.index.queryDocuments(query, {
-      maxDocuments: options?.topK ?? 10,
-      maxChunks: 20,
-      filter,
-      isBm25: options?.bm25 ?? false,
+    // 先检查查询缓存
+    const cachedRow = db.prepare('SELECT embedding FROM query_vectors WHERE query_text = ?').get(query) as
+      | { embedding: string }
+      | undefined
+
+    let queryEmbedding: number[]
+
+    if (cachedRow) {
+      // 命中缓存，不消耗 API 调用
+      queryEmbedding = JSON.parse(cachedRow.embedding)
+      log.debug(`[VectorSearch] 查询缓存命中: "${query}"`)
+    } else {
+      // 超限则回退
+      if (isOverDailyLimit()) {
+        log.debug('[VectorSearch] 每日限制已满，回退到 BM25')
+        return []
+      }
+      try {
+        queryEmbedding = await getEmbedding(query)
+        incrementDailyCallCount()
+        // 存入缓存
+        db.prepare('INSERT OR IGNORE INTO query_vectors (query_text, embedding) VALUES (?, ?)').run(
+          query,
+          JSON.stringify(queryEmbedding)
+        )
+      } catch (e) {
+        log.warn('[VectorSearch] 查询向量化失败:', e)
+        return []
+      }
+    }
+
+    const rows = db.prepare('SELECT worklog_id, embedding FROM worklog_vectors').all() as Array<{
+      worklog_id: number
+      embedding: string
+    }>
+
+    if (rows.length === 0) return []
+
+    // 计算相似度并排序
+    const scored = rows
+      .map(row => {
+        const vec = JSON.parse(row.embedding) as number[]
+        return {
+          worklog_id: row.worklog_id,
+          score: cosineSimilarity(queryEmbedding, vec),
+        }
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, options?.topK ?? 10)
+
+    // 加载完整 worklog 数据
+    const ids = scored.map(s => s.worklog_id)
+    const placeholders = ids.map(() => '?').join(',')
+    const worklogs = db.prepare(
+      `SELECT wl.*, t.due_date AS task_due_date
+       FROM work_logs wl
+       LEFT JOIN tasks t ON wl.task_id = t.id
+       WHERE wl.id IN (${placeholders})`
+    ).all(...ids) as Array<{
+      id: number
+      content: string
+      category: string
+      created_at: string
+      task_id: number | null
+      task_due_date: string | null
+    }>
+
+    const worklogMap = new Map(worklogs.map(w => [w.id, w]))
+
+    return scored.map(s => {
+      const wl = worklogMap.get(s.worklog_id)
+      return {
+        uri: `worklog://${s.worklog_id}`,
+        score: s.score,
+        text: wl?.content ?? '',
+        metadata: {
+          type: 'worklog',
+          id: String(s.worklog_id),
+          category: wl?.category ?? '',
+          date: wl?.created_at ?? '',
+        },
+      }
     })
-
-    return Promise.all(
-      results.map(async (r) => ({
-        uri: r.uri,
-        score: r.score,
-        text: await r.loadText(),
-        metadata: await r.loadMetadata(),
-      }))
-    )
   }
 
-  async removeDocument(uri: string): Promise<void> {
-    await this.initialize()
-    if (!this.index) throw new Error('Vector index not initialized')
-    await this.index.deleteDocument(uri)
-    log.debug(`[VectorSearch] Removed document: ${uri}`)
-  }
-
-  async getStats(): Promise<VectorStats> {
-    await this.initialize()
-    if (!this.index) return { version: 0, items: 0, metadataConfig: {} }
-
-    const stats = await this.index.getIndexStats()
+  /**
+   * 获取统计信息
+   */
+  getStats(): VectorStats {
+    this.initialize()
+    const db = getDatabase()
+    const count = db.prepare('SELECT COUNT(*) as cnt FROM worklog_vectors').get() as { cnt: number }
+    const dailyUsed = getDailyCallCount()
     return {
-      version: stats.version,
-      items: stats.items,
-      metadataConfig: stats.metadata_config || {},
+      version: 1,
+      items: count.cnt,
+      metadataConfig: { dailyApiUsed: dailyUsed, dailyApiLimit: DAILY_API_LIMIT },
     }
   }
 
-  async rebuildIndex(): Promise<void> {
-    const indexPath = path.join(app.getPath('userData'), 'vector-index')
-    this.index = null
-    this.initPromise = null
-
-    // Let vectra release file handles before deletion (Windows EBUSY)
-    await new Promise(r => setTimeout(r, 200))
-
-    // Delete existing index
-    try {
-      rmSync(indexPath, { recursive: true, force: true })
-    } catch {
-      // ignore
-    }
-
-    await this.initialize()
-    log.info('[VectorSearch] Index rebuilt')
+  /**
+   * 清空向量索引
+   */
+  rebuildIndex(): void {
+    this.initialize()
+    const db = getDatabase()
+    db.exec('DELETE FROM worklog_vectors')
+    // 重置所有 worklog 的同步标记
+    db.exec("UPDATE work_logs SET vector_synced_at = NULL")
+    log.info('[VectorSearch] 向量索引已重建')
   }
 }
 

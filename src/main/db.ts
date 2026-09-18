@@ -191,6 +191,29 @@ function createTables(): void {
     CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at);
     CREATE INDEX IF NOT EXISTS idx_articles_read ON articles(is_read);
     CREATE INDEX IF NOT EXISTS idx_articles_starred ON articles(is_starred);
+
+    CREATE TABLE IF NOT EXISTS model_configs (
+      id TEXT PRIMARY KEY,
+      config_type TEXT NOT NULL CHECK(config_type IN ('chat', 'embedding')),
+      name TEXT NOT NULL DEFAULT '',
+      base_url TEXT NOT NULL DEFAULT '',
+      model_name TEXT NOT NULL DEFAULT '',
+      temperature REAL DEFAULT 0.7,
+      max_tokens INTEGER DEFAULT 4096,
+      top_p REAL DEFAULT 0.9,
+      top_k INTEGER DEFAULT 50,
+      prompt TEXT DEFAULT '',
+      stream INTEGER DEFAULT 1,
+      dimension INTEGER DEFAULT 1536,
+      headers TEXT DEFAULT '',
+      is_active INTEGER DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_model_configs_type ON model_configs(config_type);
+    CREATE INDEX IF NOT EXISTS idx_model_configs_active ON model_configs(is_active, config_type);
   `)
 
   createAttachmentTable(db)
@@ -256,6 +279,12 @@ function runMigrations(): void {
   const evInfo = db.prepare("PRAGMA table_info('calendar_events')").all() as { name: string }[]
   if (!evInfo.some((c) => c.name === 'notified')) {
     db.exec('ALTER TABLE calendar_events ADD COLUMN notified INTEGER NOT NULL DEFAULT 0')
+  }
+
+  // 向量同步追踪列：用于增量向量化
+  const wlInfo = db.prepare("PRAGMA table_info('work_logs')").all() as { name: string }[]
+  if (!wlInfo.some((c) => c.name === 'vector_synced_at')) {
+    db.exec("ALTER TABLE work_logs ADD COLUMN vector_synced_at TEXT DEFAULT NULL")
   }
 }
 
@@ -366,15 +395,40 @@ export function deleteWorkLog(id: number): boolean {
 
 export function updateWorkLog(id: number, content: string, category: string, created_at?: string): WorkLog | null {
   if (created_at) {
-    const stmt = db.prepare('UPDATE work_logs SET content = ?, category = ?, created_at = ? WHERE id = ? RETURNING *')
+    const stmt = db.prepare('UPDATE work_logs SET content = ?, category = ?, created_at = ?, vector_synced_at = NULL WHERE id = ? RETURNING *')
     return stmt.get(content, category, created_at, id) as WorkLog | null
   }
-  const stmt = db.prepare('UPDATE work_logs SET content = ?, category = ? WHERE id = ? RETURNING *')
+  const stmt = db.prepare('UPDATE work_logs SET content = ?, category = ?, vector_synced_at = NULL WHERE id = ? RETURNING *')
   return stmt.get(content, category, id) as WorkLog | null
 }
 
 export function restoreWorkLog(log: Pick<WorkLog, 'content' | 'category' | 'created_at' | 'task_id'>): WorkLog {
   return addWorkLog(log.content, log.category, log.task_id, log.created_at)
+}
+
+// --- 增量向量化辅助函数 ---
+
+/** 获取未向量化的工作日志（vector_synced_at IS NULL） */
+export function getUnindexedWorkLogs(): WorkLog[] {
+  return db.prepare(
+    `SELECT wl.*, t.due_date AS task_due_date
+     FROM work_logs wl
+     LEFT JOIN tasks t ON wl.task_id = t.id
+     WHERE wl.vector_synced_at IS NULL
+     ORDER BY wl.id ASC`
+  ).all() as WorkLog[]
+}
+
+/** 标记单条工作日志已向量化 */
+export function markWorkLogIndexed(id: number): void {
+  db.prepare("UPDATE work_logs SET vector_synced_at = datetime('now', 'localtime') WHERE id = ?").run(id)
+}
+
+/** 批量标记工作日志已向量化 */
+export function markWorkLogsIndexed(ids: number[]): void {
+  const stmt = db.prepare("UPDATE work_logs SET vector_synced_at = datetime('now', 'localtime') WHERE id = ?")
+  const tx = db.transaction((ids: number[]) => { for (const id of ids) stmt.run(id) })
+  tx(ids)
 }
 
 // --- Reports CRUD ---
