@@ -1,7 +1,7 @@
 import type { BrowserWindow } from 'electron'
 import { getSetting, getDueMeetings, markEventNotified } from './db'
 import { sendNotification } from './notifier'
-import { showDailySummary } from './daily-summary'
+import { showDailySummary, clearStaleDailySummaryMarker } from './daily-summary'
 import log from 'electron-log/main'
 
 let timer: ReturnType<typeof setInterval> | null = null
@@ -10,6 +10,7 @@ let timer: ReturnType<typeof setInterval> | null = null
 export function startScheduler(getMainWindow: () => BrowserWindow | null): void {
   if (timer) return
   setTimeout(() => {
+    clearStaleDailySummaryMarker()
     checkMeetings(getMainWindow)
     checkDailySummary(getMainWindow)
   }, 5_000)

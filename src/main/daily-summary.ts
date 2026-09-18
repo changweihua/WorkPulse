@@ -116,7 +116,6 @@ export function showDailySummary(getMainWindow: () => BrowserWindow | null): voi
     summaryWindow = null
   })
 
-  markShownToday()
   log.info('[DailySummary] 🟢 弹窗已显示')
 }
 
@@ -131,6 +130,7 @@ export function closeDailySummary(): void {
 /** 注册每日摘要 IPC 通道 */
 export function registerDailySummaryIpc(getMainWindow: () => BrowserWindow | null): void {
   ipcMain.on('daily-summary:dismiss', () => {
+    markShownToday()
     closeDailySummary()
     // 如果主窗口隐藏中，显示主窗口
     const main = getMainWindow()
@@ -139,6 +139,16 @@ export function registerDailySummaryIpc(getMainWindow: () => BrowserWindow | nul
       main.focus()
     }
   })
+}
+
+/** 清除今日残留标记（修复旧版本在创建时误标记的问题） */
+export function clearStaleDailySummaryMarker(): void {
+  const lastShown = getSetting('daily_summary_last_shown')
+  const today = getToday()
+  if (lastShown === today) {
+    log.info('[DailySummary] 🧹 清除旧版本残留标记')
+    setSetting('daily_summary_last_shown', '')
+  }
 }
 
 /** 手动触发弹窗（用于测试） */
