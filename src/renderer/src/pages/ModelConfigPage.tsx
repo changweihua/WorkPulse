@@ -150,9 +150,11 @@ export default function ModelConfigPage(): ReactNode {
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
+    let dbChatCount = 0
     try {
       const cfg = await (window as any).api?.models?.getGlobalConfig?.()
       if (cfg?.chatConfigs?.length) {
+        dbChatCount = cfg.chatConfigs.length
         setChatConfigs(cfg.chatConfigs)
         setActiveChatId(cfg.activeChatConfigId || cfg.chatConfigs[0]?.id || '')
       }
@@ -162,8 +164,9 @@ export default function ModelConfigPage(): ReactNode {
       }
     } catch { /* ignore */ }
 
-    // 全局配置为空时，尝试从旧 localStorage 迁移
-    if (chatConfigs.length === 0) {
+    // 仅在数据库确实为空（首次启动）时才从旧 localStorage 迁移
+    // 注意：必须用 dbChatCount 而非 chatConfigs state，因为 setState 是异步的
+    if (dbChatCount === 0) {
       try {
         const { recoverConfigs } = await import('../lib/chat-storage')
 

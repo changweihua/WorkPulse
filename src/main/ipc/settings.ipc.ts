@@ -28,6 +28,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'shortcut_quick_log', 'shortcut_quick_task',
   'app_language', 'theme', 'ui_accent',
   'daily_summary_enabled', 'daily_summary_last_shown',
+  'api_key',
 ])
 
 export function registerSettingsIpc(): void {

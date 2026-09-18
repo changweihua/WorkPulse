@@ -9,7 +9,7 @@
  *
  * 存储：model_configs 表（由 db.ts createTables 创建）
  */
-import { getDatabase } from './db'
+import { getDatabase, getSetting, setSetting } from './db'
 
 // ==================== 类型定义 ====================
 
@@ -184,11 +184,24 @@ function rowToEmbedConfig(row: ModelConfigRow): EmbeddingModelConfig {
 
 // ==================== 核心读写 ====================
 
+/** model_configs 表数据版本号，用于自动清理旧迁移脏数据 */
+const MODEL_CONFIGS_VERSION = 2
+
 /**
  * 获取完整模型配置（含 token 解密）
  */
 export function getGlobalConfig(): GlobalModelConfig {
   const db = getDatabase()
+
+  // 检查数据版本，清理旧迁移写入的脏数据
+  const storedVersion = parseInt(getSetting('model_configs_version') || '0', 10)
+  if (storedVersion < MODEL_CONFIGS_VERSION) {
+    // 旧版本数据可能包含 localStorage 迁移的错误配置，清除后重建默认配置
+    db.prepare('DELETE FROM model_configs').run()
+    setGlobalConfig(DEFAULT_CONFIG)
+    setSetting('model_configs_version', String(MODEL_CONFIGS_VERSION))
+    return { ...DEFAULT_CONFIG }
+  }
 
   // 检查表是否有数据
   const count = db.prepare('SELECT COUNT(*) as c FROM model_configs').get() as { c: number }
