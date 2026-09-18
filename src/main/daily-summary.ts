@@ -141,14 +141,18 @@ export function registerDailySummaryIpc(getMainWindow: () => BrowserWindow | nul
   })
 }
 
-/** 清除今日残留标记（修复旧版本在创建时误标记的问题） */
+/** 清除旧版本残留标记（仅执行一次） */
 export function clearStaleDailySummaryMarker(): void {
+  const alreadyCleared = getSetting('daily_summary_stale_cleared')
+  if (alreadyCleared) return
+
   const lastShown = getSetting('daily_summary_last_shown')
   const today = getToday()
   if (lastShown === today) {
     log.info('[DailySummary] 🧹 清除旧版本残留标记')
     setSetting('daily_summary_last_shown', '')
   }
+  setSetting('daily_summary_stale_cleared', '1')
 }
 
 /** 手动触发弹窗（用于测试） */
