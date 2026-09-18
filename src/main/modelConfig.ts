@@ -30,6 +30,8 @@ export interface ChatModelConfig {
   prompt: string
   /** 是否启用流式输出 */
   stream: boolean
+  /** 每日 API 调用上限（0=不限制） */
+  dailyLimit: number
 }
 
 /** Embedding 模型配置 */
@@ -44,6 +46,8 @@ export interface EmbeddingModelConfig {
   headers: string
   /** API Key（可选，不设则复用 Chat 的） */
   token: string
+  /** 每日 API 调用上限（0=不限制） */
+  dailyLimit: number
 }
 
 /** 全局模型配置（持久化到 model_configs 表） */
@@ -74,6 +78,7 @@ const DEFAULT_CHAT_CONFIGS: ChatModelConfig[] = [
     top_k: 50,
     prompt: '',
     stream: true,
+    dailyLimit: 0,
   },
   {
     id: 'gitee',
@@ -88,6 +93,7 @@ const DEFAULT_CHAT_CONFIGS: ChatModelConfig[] = [
     top_k: 50,
     prompt: '',
     stream: true,
+    dailyLimit: 0,
   },
 ]
 
@@ -100,6 +106,7 @@ const DEFAULT_EMBEDDING_CONFIGS: EmbeddingModelConfig[] = [
     dimension: 1536,
     headers: '',
     token: '',
+    dailyLimit: 0,
   },
 ]
 
@@ -149,6 +156,7 @@ interface ModelConfigRow {
   headers: string
   is_active: number
   sort_order: number
+  daily_limit: number
   created_at: string
   updated_at: string
 }
@@ -167,6 +175,7 @@ function rowToChatConfig(row: ModelConfigRow): ChatModelConfig {
     top_k: row.top_k,
     prompt: row.prompt,
     stream: row.stream === 1,
+    dailyLimit: row.daily_limit || 0,
   }
 }
 
@@ -179,6 +188,7 @@ function rowToEmbedConfig(row: ModelConfigRow): EmbeddingModelConfig {
     dimension: row.dimension,
     headers: row.headers,
     token: loadToken(`emb_${row.id}`),
+    dailyLimit: row.daily_limit || 0,
   }
 }
 
@@ -262,13 +272,13 @@ export function setGlobalConfig(config: GlobalModelConfig): void {
     const insertChat = db.prepare(`
       INSERT INTO model_configs
         (id, config_type, name, base_url, model_name, temperature, max_tokens,
-         top_p, top_k, prompt, stream, dimension, headers, is_active, sort_order)
-      VALUES (?, 'chat', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+         top_p, top_k, prompt, stream, dimension, headers, is_active, sort_order, daily_limit)
+      VALUES (?, 'chat', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
     `)
     const insertEmbed = db.prepare(`
       INSERT INTO model_configs
-        (id, config_type, name, base_url, model_name, dimension, headers, is_active, sort_order)
-      VALUES (?, 'embedding', ?, ?, ?, ?, ?, ?, ?)
+        (id, config_type, name, base_url, model_name, dimension, headers, is_active, sort_order, daily_limit)
+      VALUES (?, 'embedding', ?, ?, ?, ?, ?, ?, ?, ?)
     `)
 
     let sortIndex = 0
@@ -277,14 +287,16 @@ export function setGlobalConfig(config: GlobalModelConfig): void {
         c.id, c.name, c.baseURL, c.model,
         c.temperature, c.max_tokens, c.top_p, c.top_k,
         c.prompt, c.stream ? 1 : 0, c.headers,
-        c.id === config.activeChatConfigId ? 1 : 0, sortIndex++
+        c.id === config.activeChatConfigId ? 1 : 0, sortIndex++,
+        c.dailyLimit || 0
       )
     }
     for (const e of config.embeddingConfigs) {
       insertEmbed.run(
         e.id, e.name, e.baseURL, e.model,
         e.dimension, e.headers,
-        e.id === config.activeEmbeddingConfigId ? 1 : 0, sortIndex++
+        e.id === config.activeEmbeddingConfigId ? 1 : 0, sortIndex++,
+        e.dailyLimit || 0
       )
     }
   })
@@ -309,6 +321,53 @@ export function setActiveChatConfig(configId: string): void {
   const db = getDatabase()
   db.prepare("UPDATE model_configs SET is_active = 0 WHERE config_type = 'chat'").run()
   db.prepare("UPDATE model_configs SET is_active = 1 WHERE id = ? AND config_type = 'chat'").run(configId)
+}
+
+// ==================== 每日调用限额管理 ====================
+
+function getTodayKey(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+/** 检查指定模型是否超出每日调用限额（返回 true = 超限，应阻止调用） */
+export function isOverDailyLimit(modelId: string, dailyLimit: number): boolean {
+  if (dailyLimit <= 0) return false
+  const { getSetting } = require('./db')
+  const today = getTodayKey()
+  const raw = getSetting(`daily_count_${modelId}`)
+  if (!raw) return false
+  try {
+    const { date, count } = JSON.parse(raw) as { date: string; count: number }
+    return date === today && count >= dailyLimit
+  } catch { return false }
+}
+
+/** 记录一次 API 调用（成功时调用） */
+export function incrementDailyCallCount(modelId: string): void {
+  const { getSetting, setSetting } = require('./db')
+  const today = getTodayKey()
+  const countKey = `daily_count_${modelId}`
+  const raw = getSetting(countKey)
+  let count = 0
+  if (raw) {
+    try {
+      const { date, count: c } = JSON.parse(raw) as { date: string; count: number }
+      if (date === today) count = c
+    } catch { /* ignore */ }
+  }
+  setSetting(countKey, JSON.stringify({ date: today, count: count + 1 }))
+}
+
+/** 获取指定模型的今日已调用次数 */
+export function getDailyCallCount(modelId: string): number {
+  const { getSetting } = require('./db')
+  const today = getTodayKey()
+  const raw = getSetting(`daily_count_${modelId}`)
+  if (!raw) return 0
+  try {
+    const { date, count } = JSON.parse(raw) as { date: string; count: number }
+    return date === today ? count : 0
+  } catch { return 0 }
 }
 
 /** 删除 Chat 配置 */
@@ -338,16 +397,17 @@ export function deleteChatConfig(configId: string): void {
  */
 export function getActiveProviderInfo(): {
   baseURL: string; model: string; token: string; headers: Record<string, string>;
-  temperature: number; max_tokens: number; top_p: number
+  temperature: number; max_tokens: number; top_p: number; dailyLimit: number
 } {
   const active = getActiveChatConfig()
   if (!active) {
-    return { baseURL: '', model: '', token: '', headers: {}, temperature: 0.7, max_tokens: 4096, top_p: 0.9 }
+    return { baseURL: '', model: '', token: '', headers: {}, temperature: 0.7, max_tokens: 4096, top_p: 0.9, dailyLimit: 0 }
   }
   let customHeaders: Record<string, string> = {}
   if (active.headers) { try { customHeaders = JSON.parse(active.headers) } catch { /* ignore */ } }
   return {
     baseURL: active.baseURL, model: active.model, token: active.token || loadToken(active.id),
     headers: customHeaders, temperature: active.temperature, max_tokens: active.max_tokens, top_p: active.top_p,
+    dailyLimit: active.dailyLimit || 0,
   }
 }

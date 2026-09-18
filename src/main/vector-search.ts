@@ -10,7 +10,32 @@ import { app } from 'electron'
 import log from 'electron-log/main'
 import { getDatabase } from './db'
 
-const DAILY_API_LIMIT = 100
+const DAILY_API_LIMIT_FALLBACK = 100
+
+function getDailyApiLimit(): number {
+  try {
+    const { getActiveEmbeddingConfigs, getGlobalConfig } = require('./modelConfig') as {
+      getActiveEmbeddingConfigs: () => Array<{ dailyLimit: number }>
+      getGlobalConfig: () => { activeEmbeddingConfigId: string }
+    }
+    const config = getGlobalConfig()
+    const active = config.embeddingConfigs.find((e: any) => e.id === config.activeEmbeddingConfigId)
+    return active?.dailyLimit || DAILY_API_LIMIT_FALLBACK
+  } catch {
+    return DAILY_API_LIMIT_FALLBACK
+  }
+}
+
+function getActiveEmbeddingModelId(): string {
+  try {
+    const { getGlobalConfig } = require('./modelConfig') as {
+      getGlobalConfig: () => { activeEmbeddingConfigId: string }
+    }
+    return getGlobalConfig().activeEmbeddingConfigId || 'embedding'
+  } catch {
+    return 'embedding'
+  }
+}
 
 export interface VectorSearchResult {
   uri: string
@@ -117,7 +142,7 @@ function incrementDailyCallCount(): number {
 }
 
 function isOverDailyLimit(): boolean {
-  return getDailyCallCount() >= DAILY_API_LIMIT
+  return getDailyCallCount() >= getDailyApiLimit()
 }
 
 // ==================== Embedding API 调用 ====================
@@ -217,11 +242,11 @@ class VectorSearchService {
     }
 
     if (isOverDailyLimit()) {
-      log.warn(`[VectorSearch] 已达每日 API 限制 (${DAILY_API_LIMIT})，跳过向量化，等待明天`)
+      log.warn(`[VectorSearch] 已达每日 API 限制 (${getDailyApiLimit()})，跳过向量化，等待明天`)
       return { indexed: 0, errors: 0, skipped: unindexed.length }
     }
 
-    const remaining = DAILY_API_LIMIT - getDailyCallCount()
+    const remaining = getDailyApiLimit() - getDailyCallCount()
     // 过滤掉内容未变更的（已有向量且 hash 一致）
     const db = getDatabase()
     const existingHashes = db.prepare('SELECT worklog_id, content_hash FROM worklog_vectors').all() as Array<{
@@ -411,7 +436,7 @@ class VectorSearchService {
     return {
       version: 1,
       items: count.cnt,
-      metadataConfig: { dailyApiUsed: dailyUsed, dailyApiLimit: DAILY_API_LIMIT },
+      metadataConfig: { dailyApiUsed: dailyUsed, dailyApiLimit: getDailyApiLimit() },
     }
   }
 

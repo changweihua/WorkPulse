@@ -286,6 +286,12 @@ function runMigrations(): void {
   if (!wlInfo.some((c) => c.name === 'vector_synced_at')) {
     db.exec("ALTER TABLE work_logs ADD COLUMN vector_synced_at TEXT DEFAULT NULL")
   }
+
+  // model_configs 添加每日调用限额列
+  const mcInfo = db.prepare("PRAGMA table_info('model_configs')").all() as { name: string }[]
+  if (!mcInfo.some((c) => c.name === 'daily_limit')) {
+    db.exec("ALTER TABLE model_configs ADD COLUMN daily_limit INTEGER NOT NULL DEFAULT 0")
+  }
 }
 
 export function initDatabase(): void {
