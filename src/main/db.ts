@@ -292,6 +292,9 @@ function runMigrations(): void {
   if (!mcInfo.some((c) => c.name === 'daily_limit')) {
     db.exec("ALTER TABLE model_configs ADD COLUMN daily_limit INTEGER NOT NULL DEFAULT 0")
   }
+  if (!mcInfo.some((c) => c.name === 'quota_group')) {
+    db.exec("ALTER TABLE model_configs ADD COLUMN quota_group TEXT NOT NULL DEFAULT ''")
+  }
 }
 
 export function initDatabase(): void {

@@ -77,6 +77,7 @@ interface EmbeddingConfig {
   model: string
   token: string
   dimension: number
+  quotaGroup: string
 }
 
 function getActiveEmbeddingConfig(): EmbeddingConfig | null {
@@ -103,6 +104,7 @@ function getActiveEmbeddingConfig(): EmbeddingConfig | null {
       model: active.model,
       token: active.token,
       dimension: active.dimension,
+      quotaGroup: (active as any).quotaGroup || '',
     }
   } catch {
     return null
@@ -111,34 +113,36 @@ function getActiveEmbeddingConfig(): EmbeddingConfig | null {
 
 // ==================== 每日调用计数 ====================
 
-function getTodayKey(): string {
-  return new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+function getEmbeddingQuotaGroup(): string {
+  try {
+    const { getGlobalConfig } = require('./modelConfig') as {
+      getGlobalConfig: () => { embeddingConfigs: Array<{ id: string; quotaGroup?: string }>; activeEmbeddingConfigId: string }
+    }
+    const config = getGlobalConfig()
+    const active = config.embeddingConfigs.find((e: any) => e.id === config.activeEmbeddingConfigId)
+    return active?.quotaGroup || ''
+  } catch { return '' }
 }
 
 function getDailyCallCount(): number {
   try {
-    const db = getDatabase()
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'embedding_daily_count'").get() as
-      | { value: string }
-      | undefined
-    if (!row) return 0
-    const { date, count } = JSON.parse(row.value) as { date: string; count: number }
-    if (date !== getTodayKey()) return 0
-    return count
-  } catch {
-    return 0
-  }
+    const { getDailyCallCount: getDC } = require('./modelConfig') as { getDailyCallCount: (id: string, group: string) => number }
+    const activeId = getGlobalConfig().activeEmbeddingConfigId || 'embedding'
+    return getDC(activeId, getEmbeddingQuotaGroup())
+  } catch { return 0 }
 }
 
 function incrementDailyCallCount(): number {
-  const db = getDatabase()
-  const today = getTodayKey()
-  const current = getDailyCallCount()
-  const newCount = current + 1
-  db.prepare(
-    "INSERT INTO settings (key, value) VALUES ('embedding_daily_count', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-  ).run(JSON.stringify({ date: today, count: newCount }))
-  return newCount
+  try {
+    const { incrementDailyCallCount: incDC, getDailyCallCount: getDC } = require('./modelConfig') as {
+      incrementDailyCallCount: (id: string, group: string) => void
+      getDailyCallCount: (id: string, group: string) => number
+    }
+    const activeId = getGlobalConfig().activeEmbeddingConfigId || 'embedding'
+    const group = getEmbeddingQuotaGroup()
+    incDC(activeId, group)
+    return getDC(activeId, group)
+  } catch { return 0 }
 }
 
 function isOverDailyLimit(): boolean {

@@ -11,19 +11,19 @@ import { useThemeStore } from '../stores/themeStore'
 interface ChatModel {
   id: string; name: string; baseURL: string; model: string; token: string;
   headers: string; temperature: number; max_tokens: number; top_p: number;
-  top_k: number; prompt: string; stream: boolean; dailyLimit: number
+  top_k: number; prompt: string; stream: boolean; dailyLimit: number; quotaGroup: string
 }
 interface EmbeddingModel {
   id: string; name: string; baseURL: string;
-  model: string; dimension: number; headers: string; token: string; dailyLimit: number
+  model: string; dimension: number; headers: string; token: string; dailyLimit: number; quotaGroup: string
 }
 interface GlobalConfig {
   chatConfigs: ChatModel[]; activeChatConfigId: string;
   embeddingConfigs: EmbeddingModel[]; activeEmbeddingConfigId: string;
 }
 
-const EMPTY_CHAT: ChatModel = { id: '', name: '', baseURL: '', model: '', token: '', headers: '', temperature: 0.7, max_tokens: 4096, top_p: 0.9, top_k: 50, prompt: '', stream: true, dailyLimit: 0 }
-const EMPTY_EMBED: EmbeddingModel = { id: '', name: '', baseURL: 'https://api.openai.com/v1', model: '', dimension: 1536, headers: '', token: '', dailyLimit: 0 }
+const EMPTY_CHAT: ChatModel = { id: '', name: '', baseURL: '', model: '', token: '', headers: '', temperature: 0.7, max_tokens: 4096, top_p: 0.9, top_k: 50, prompt: '', stream: true, dailyLimit: 0, quotaGroup: '' }
+const EMPTY_EMBED: EmbeddingModel = { id: '', name: '', baseURL: 'https://api.openai.com/v1', model: '', dimension: 1536, headers: '', token: '', dailyLimit: 0, quotaGroup: '' }
 
 const CHAT_PRESETS = [
   { name: 'DeepSeek', baseURL: 'https://api.deepseek.com', model: 'deepseek-chat', iconLight: 'thesvg-color:deepseek', iconDark: 'thesvg-color:deepseek' },
@@ -87,6 +87,8 @@ function ChatEditForm({ editing, isNew, onChange, onSave, onCancel, inputCls, mo
       </div>
       <div className="mb-3"><label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">每日调用限额（0=不限）</label>
         <input type="number" step={100} min={0} value={editing.dailyLimit} onChange={e => onChange({ ...editing, dailyLimit: parseInt(e.target.value) || 0 })} placeholder="0 = 不限制" className={monoCls} /></div>
+      <div className="mb-3"><label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">额度共享组（同组共享计数）</label>
+        <input value={editing.quotaGroup} onChange={e => onChange({ ...editing, quotaGroup: e.target.value })} placeholder="留空=独立计数" className={monoCls} /></div>
       <div className="flex gap-2">
         <button onClick={onCancel} className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800 transition">取消</button>
         <button onClick={onSave} disabled={!editing.name || !editing.baseURL || !editing.model || !editing.token}
@@ -127,6 +129,8 @@ function EmbedEditForm({ editing, isNew, onChange, onSave, onCancel, inputCls, m
         <input type="password" value={editing.token} onChange={e => onChange({ ...editing, token: e.target.value })} placeholder="sk-..." className={monoCls} /></div>
       <div className="mb-3"><label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">每日调用限额（0=不限）</label>
         <input type="number" step={100} min={0} value={editing.dailyLimit} onChange={e => onChange({ ...editing, dailyLimit: parseInt(e.target.value) || 0 })} placeholder="0 = 不限制" className={monoCls} /></div>
+      <div className="mb-3"><label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">额度共享组（同组共享计数）</label>
+        <input value={editing.quotaGroup} onChange={e => onChange({ ...editing, quotaGroup: e.target.value })} placeholder="留空=独立计数" className={monoCls} /></div>
       <div className="flex gap-2">
         <button onClick={onCancel} className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800 transition">取消</button>
         <button onClick={onSave} disabled={!editing.name || !editing.baseURL || !editing.model || !editing.token}

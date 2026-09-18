@@ -233,7 +233,7 @@ export async function streamChat(
 
   // 检查每日调用限额
   const { isOverDailyLimit, incrementDailyCallCount } = require('./modelConfig')
-  if (isOverDailyLimit(info.model, info.dailyLimit || 0)) {
+  if (isOverDailyLimit(info.model, info.dailyLimit || 0, info.quotaGroup || '')) {
     onError(`已达到每日调用限额 (${info.dailyLimit} 次)，请明天再试`)
     return
   }
@@ -313,7 +313,7 @@ export async function streamChat(
         while (true) {
           const { done, value } = await reader.read()
           if (done) {
-            incrementDailyCallCount(info.model)
+            incrementDailyCallCount(info.model, info.quotaGroup || '')
             onDone()
             return
           }
