@@ -4,6 +4,7 @@ import { Trash2, ClipboardEdit, Search, X, Download, Undo2, Pencil, Check, Uploa
 import { useToast } from '../components/Toast'
 import { motion, AnimatePresence } from 'motion/react'
 import { Fade } from '../components/Motion'
+import { DailySummaryModal } from '../components/DailySummaryModal'
 import { useWorkLogStore } from '../stores/worklogStore'
 import { formatDate, formatTime, groupLogsByDate } from '../lib/dateUtils'
 import { useI18n } from '../stores/languageStore'
@@ -106,9 +107,21 @@ function WorkLogPage(): ReactNode {
   const toast = useToast()
   const { resolvedLanguage, t } = useI18n()
 
+  // 每日摘要弹窗状态
+  const [showDailySummary, setShowDailySummary] = useState(false)
+
   useEffect(() => {
     fetchLogs()
     inputRef.current?.focus()
+
+    // 检查今天是否已展示过每日摘要（开发模式每次都弹）
+    const today = new Date().toISOString().slice(0, 10)
+    const lastShown = localStorage.getItem('daily_summary_last_shown')
+    if (lastShown !== today) {
+      // 延迟弹出，等页面加载完成
+      const timer = setTimeout(() => setShowDailySummary(true), 800)
+      return () => clearTimeout(timer)
+    }
   }, [])
 
   // Prefetch next page during browser idle time
@@ -674,6 +687,11 @@ function WorkLogPage(): ReactNode {
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
+      )}
+
+      {/* 每日工作摘要弹窗 */}
+      {showDailySummary && (
+        <DailySummaryModal onClose={() => setShowDailySummary(false)} />
       )}
     </div>
   )
