@@ -17,11 +17,17 @@ import {
     MessageSquare,
     Send,
     Loader2,
+    Copy,
+    Check,
+    ThumbsUp,
+    ThumbsDown,
+    Share2,
 } from 'lucide-react';
 import { Message } from '@fauzitech/ai-ui';
 import { useAIPanelStore } from '../stores/aiPanelStore';
 import { recoverConversations, saveConversation, onSyncEvent, deleteConversation as deleteConversationFromDB } from '../lib/chat-storage';
 import { useStreamingReveal } from '../hooks/useStreamingReveal';
+import { encode as cl100kEncode } from 'gpt-tokenizer/encoding/cl100k_base';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface ModelConfig {
@@ -58,13 +64,17 @@ interface Conversation {
 
 function estimateTokens(text: string): number {
     if (!text) return 0;
-    let count = 0;
-    for (const ch of text) {
-        if (/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch)) count += 1.5;
-        else if (/[\u0800-\uFFFF]/.test(ch)) count += 2.5;
-        else count += 0.25;
+    try {
+        return cl100kEncode(text).length;
+    } catch {
+        let count = 0;
+        for (const ch of text) {
+            if (/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch)) count += 1.5;
+            else if (/[\u0800-\uFFFF]/.test(ch)) count += 2.5;
+            else count += 0.25;
+        }
+        return Math.ceil(count);
     }
-    return Math.ceil(count);
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────
@@ -89,14 +99,13 @@ function LoadingDots() {
 interface PanelStreamingMessageProps {
     content: string;
     reasoning?: string;
-    tokenUsage?: { input: number; output: number; total: number };
     isDark: boolean;
 }
 
-const PanelStreamingMessage = memo(function PanelStreamingMessage({ content, reasoning, tokenUsage, isDark }: PanelStreamingMessageProps) {
+const PanelStreamingMessage = memo(function PanelStreamingMessage({ content, reasoning, isDark }: PanelStreamingMessageProps) {
     const revealed = useStreamingReveal(content, true);
     return (
-        <div className="flex items-start gap-2.5" style={{ contain: 'layout style' } as React.CSSProperties}>
+        <div className="flex items-start gap-2.5 group" style={{ contain: 'layout style' } as React.CSSProperties}>
             <div className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-white shadow-sm"
                  style={{
                      background: 'linear-gradient(135deg, rgba(90,100,130,0.9), rgba(60,70,100,0.9))',
@@ -128,15 +137,116 @@ const PanelStreamingMessage = memo(function PanelStreamingMessage({ content, rea
                         ? <Message role="assistant" content={revealed} />
                         : <LoadingDots />}
                 </div>
-                {tokenUsage && (
-                    <div className="text-[10px] text-zinc-400 dark:text-zinc-500">
-                        {tokenUsage.total} tokens
-                    </div>
+                {revealed && (
+                    <>
+                        <div className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                            {estimateTokens(content)} tokens
+                        </div>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                            <MessageActionBar content={content} isUser={false} />
+                        </div>
+                    </>
                 )}
             </div>
         </div>
     );
 });
+
+// ─── 复制按钮（独立组件，避免 memo 组件无法访问父级 state） ──────────────
+function PanelCopyButton({ content, isDark }: { content: string; isDark: boolean }) {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(content);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        } catch { /* ignore */ }
+    };
+    return (
+        <button
+            onClick={handleCopy}
+            className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+            style={{
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.8)',
+                backdropFilter: 'blur(4px)',
+            }}
+            title="复制"
+        >
+            {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+        </button>
+    );
+}
+
+// ─── 消息操作栏（参考 ChatGPT/Claude 设计） ──────────────
+function MessageActionBar({ content, isUser }: { content: string; isUser: boolean }) {
+    const [copied, setCopied] = useState(false);
+    const [liked, setLiked] = useState<'up' | 'down' | null>(null);
+
+    const handleCopy = async () => {
+        await navigator.clipboard.writeText(content);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className={`flex items-center gap-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
+            {/* 复制按钮 */}
+            <button
+                onClick={handleCopy}
+                className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-all duration-150"
+                title={copied ? '已复制' : '复制'}
+            >
+                {copied ? (
+                    <>
+                        <Check size={13} className="text-green-500" />
+                        <span className="text-green-500">已复制</span>
+                    </>
+                ) : (
+                    <>
+                        <Copy size={13} />
+                        <span>复制</span>
+                    </>
+                )}
+            </button>
+
+            {/* AI 回复专属：点赞/踩/分享 */}
+            {!isUser && (
+                <>
+                    <div className="w-px h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+                    <button
+                        onClick={() => setLiked(liked === 'up' ? null : 'up')}
+                        className={`inline-flex items-center gap-1 px-1.5 py-1 rounded-md text-[11px] transition-all duration-150 ${
+                            liked === 'up'
+                                ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
+                        }`}
+                        title="有帮助"
+                    >
+                        <ThumbsUp size={13} />
+                    </button>
+                    <button
+                        onClick={() => setLiked(liked === 'down' ? null : 'down')}
+                        className={`inline-flex items-center gap-1 px-1.5 py-1 rounded-md text-[11px] transition-all duration-150 ${
+                            liked === 'down'
+                                ? 'text-red-500 bg-red-50 dark:bg-red-900/20'
+                                : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
+                        }`}
+                        title="没帮助"
+                    >
+                        <ThumbsDown size={13} />
+                    </button>
+                    <button
+                        onClick={handleCopy}
+                        className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-all duration-150"
+                        title="分享"
+                    >
+                        <Share2 size={13} />
+                    </button>
+                </>
+            )}
+        </div>
+    );
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────
 
@@ -783,8 +893,9 @@ export default function AIChatPanel() {
 
                             {messages.filter(msg => msg.id !== 'streaming').map((msg) => {
                                 const isUser = msg.role === 'user';
+                                const msgTokens = estimateTokens(msg.content);
                                 return (
-                                    <div key={msg.id} className={`flex items-start gap-2.5 ${isUser ? 'flex-row-reverse' : ''}`}>
+                                    <div key={msg.id} className={`flex items-start gap-2.5 group ${isUser ? 'flex-row-reverse' : ''}`}>
                                         <div
                                             className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center shadow-sm ${
                                                 isUser
@@ -821,11 +932,13 @@ export default function AIChatPanel() {
                                             >
                                                 <Message role={msg.role} content={msg.content} />
                                             </div>
-                                            {msg.tokenUsage && (
-                                                <div className={`text-[10px] text-zinc-400 dark:text-zinc-500 ${isUser ? 'text-right' : ''}`}>
-                                                    {msg.tokenUsage.total} tokens
-                                                </div>
-                                            )}
+                                            <div className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                                                {msgTokens} tokens
+                                            </div>
+                                            {/* 操作栏：hover 时显示 */}
+                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                                                <MessageActionBar content={msg.content} isUser={isUser} />
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -836,7 +949,6 @@ export default function AIChatPanel() {
                                 <PanelStreamingMessage
                                     content={messages[messages.length - 1].content}
                                     reasoning={messages[messages.length - 1].reasoning}
-                                    tokenUsage={messages[messages.length - 1].tokenUsage}
                                     isDark={isDark}
                                 />
                             )}

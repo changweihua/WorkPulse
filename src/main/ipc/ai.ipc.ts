@@ -13,6 +13,8 @@ import {
   AiChatStreamSchema, AiChatCancelSchema, ModelEnsureSchema,
 } from '../ipc-schemas'
 import { getActiveChatConfig } from '../modelConfig'
+import { logAiUsage } from '../aiUsage'
+import { countTokens } from '../tokenCounter'
 
 export function registerAiIpc(): void {
   // 模型下载进度广播
@@ -119,6 +121,8 @@ export function registerAiIpc(): void {
       const controller = new AbortController()
       activeStreams.set(requestId, controller)
       event.sender.send('ai-stream-request-id', requestId)
+      const streamStartTime = Date.now()
+      let streamOutputTokens = 0
 
       try {
         const client = new OpenAI({
@@ -146,9 +150,26 @@ export function registerAiIpc(): void {
             event.sender.send('ai-stream-reasoning', delta.reasoning_content)
           }
           if (delta.content) {
+            streamOutputTokens += countTokens(delta.content)
             event.sender.send('ai-stream-chunk', delta.content)
           }
         }
+
+        // 记录 Chat 流式用量
+        try {
+          logAiUsage({
+            model_id: finalConfig.id,
+            model_name: finalConfig.model,
+            provider: finalConfig.baseURL.includes('deepseek') ? 'deepseek'
+              : finalConfig.baseURL.includes('anthropic') ? 'anthropic'
+              : finalConfig.baseURL.includes('ollama') ? 'ollama'
+              : 'openai',
+            usage_type: 'chat',
+            output_tokens: streamOutputTokens,
+            total_tokens: streamOutputTokens,
+            latency_ms: Date.now() - streamStartTime,
+          })
+        } catch { /* usage 记录失败不影响主流程 */ }
 
         event.sender.send('ai-stream-done')
         activeStreams.delete(requestId)

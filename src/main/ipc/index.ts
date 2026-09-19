@@ -12,6 +12,7 @@ import { registerVectorIpc } from './vector.ipc'
 import { registerAttachmentIPC } from '../attachments'
 import { getDatabase } from '../db'
 import { registerDailySummaryIpc } from './daily-summary.ipc'
+import { registerAiUsageIpc } from './ai-usage.ipc'
 
 export function registerIpcHandlers(): void {
   // 核心业务
@@ -21,6 +22,7 @@ export function registerIpcHandlers(): void {
 
   // AI 与模型
   registerAiIpc()
+  registerAiUsageIpc()
 
   // 设置与导入导出
   registerSettingsIpc()

@@ -214,6 +214,26 @@ function createTables(): void {
 
     CREATE INDEX IF NOT EXISTS idx_model_configs_type ON model_configs(config_type);
     CREATE INDEX IF NOT EXISTS idx_model_configs_active ON model_configs(is_active, config_type);
+
+    CREATE TABLE IF NOT EXISTS ai_usage_logs (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      model_id      TEXT NOT NULL,
+      model_name    TEXT NOT NULL,
+      provider      TEXT NOT NULL DEFAULT '',
+      usage_type    TEXT NOT NULL DEFAULT 'chat',
+      input_tokens  INTEGER DEFAULT 0,
+      output_tokens INTEGER DEFAULT 0,
+      total_tokens  INTEGER DEFAULT 0,
+      cost_usd      REAL DEFAULT 0,
+      latency_ms    INTEGER DEFAULT 0,
+      success       INTEGER DEFAULT 1,
+      error_msg     TEXT,
+      created_at    TEXT DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_date  ON ai_usage_logs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_model ON ai_usage_logs(model_id);
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_type  ON ai_usage_logs(usage_type);
   `)
 
   createAttachmentTable(db)

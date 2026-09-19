@@ -19,6 +19,7 @@ const RssPage = lazy(() => import('./pages/RssPage'));
 const FluidGlassPage = lazy(() => import('./pages/FluidGlassPage'));
 const DotnetBridgePage = lazy(() => import('./pages/DotnetBridgePage'));
 const ModelConfigPage = lazy(() => import('./pages/ModelConfigPage'));
+const AiStatsPage = lazy(() => import('./pages/AiStatsPage'));
 
 function PageLoader() {
     return (
@@ -73,6 +74,7 @@ export const router = createHashRouter([
                     { path: 'fluid-glass', element: <Suspense fallback={<PageLoader />}><FluidGlassPage /></Suspense>, handle: { fluid: true } },
                     { path: 'dotnet', element: <Suspense fallback={<PageLoader />}><DotnetBridgePage /></Suspense> },
                     { path: 'model-config', element: <Suspense fallback={<PageLoader />}><ModelConfigPage /></Suspense> },
+                    { path: 'ai-stats', element: <Suspense fallback={<PageLoader />}><AiStatsPage /></Suspense>, handle: { fluid: true } },
                     { path: 'settings', element: <Suspense fallback={<PageLoader />}><SettingsPage /></Suspense> },
                 ],
             },

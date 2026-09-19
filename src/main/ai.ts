@@ -3,6 +3,8 @@ import { getSetting } from './db'
 import { getResolvedLanguage, tMain } from './i18n'
 import { getActiveChatConfig, getActiveProviderInfo } from './modelConfig'
 import type { ChatModelConfig } from './modelConfig'
+import { logAiUsage } from './aiUsage'
+import { countTokens } from './tokenCounter'
 
 interface Message {
   role: 'system' | 'user' | 'assistant'
@@ -111,8 +113,10 @@ async function callProvider(
     throw new Error(tMain('apiKeyMissing'))
   }
 
+  const startTime = Date.now()
   // 检测是否是 Anthropic（通过 baseURL 或特殊 headers）
   const isAnthropic = info.baseURL.includes('anthropic') || ('anthropic-version' in info.headers)
+  const provider = info.baseURL.includes('deepseek') ? 'deepseek' : isAnthropic ? 'anthropic' : 'openai'
 
   if (isAnthropic) {
     const url = info.baseURL.replace(/\/+$/, '') + '/v1/messages'
@@ -141,6 +145,18 @@ async function callProvider(
     }
 
     const data = await response.json()
+    // 记录 Anthropic usage
+    try {
+      logAiUsage({
+        model_id: info.model,
+        model_name: info.model,
+        provider,
+        usage_type: 'report',
+        input_tokens: data.usage?.input_tokens || 0,
+        output_tokens: data.usage?.output_tokens || 0,
+        latency_ms: Date.now() - startTime,
+      })
+    } catch { /* usage 记录失败不影响主流程 */ }
     return data.content[0]?.text || tMain('noGeneratedContent')
   }
 
@@ -168,6 +184,19 @@ async function callProvider(
   }
 
   const data = await response.json()
+  // 记录 OpenAI/DeepSeek usage
+  try {
+    const usage = data.usage
+    logAiUsage({
+      model_id: info.model,
+      model_name: info.model,
+      provider,
+      usage_type: 'report',
+      input_tokens: usage?.prompt_tokens || 0,
+      output_tokens: usage?.completion_tokens || 0,
+      latency_ms: Date.now() - startTime,
+    })
+  } catch { /* usage 记录失败不影响主流程 */ }
   return data.choices[0]?.message?.content || tMain('noGeneratedContent')
 }
 
@@ -253,9 +282,12 @@ export async function streamChat(
 
   const maxRetries = 3
   const baseDelay = 1000
+  const streamStartTime = Date.now()
+  let streamOutputTokens = 0
 
   // 检测是否是 Anthropic
   const isAnthropic = info.baseURL.includes('anthropic') || ('anthropic-version' in info.headers)
+  const provider = info.baseURL.includes('deepseek') ? 'deepseek' : isAnthropic ? 'anthropic' : 'openai'
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -314,6 +346,19 @@ export async function streamChat(
           const { done, value } = await reader.read()
           if (done) {
             incrementDailyCallCount(info.model, info.quotaGroup || '')
+            // 记录流式对话用量
+            try {
+              logAiUsage({
+                model_id: info.model,
+                model_name: info.model,
+                provider,
+                usage_type: 'chat',
+                output_tokens: streamOutputTokens,
+                total_tokens: streamOutputTokens,
+                latency_ms: Date.now() - streamStartTime,
+              })
+            } catch { /* usage 记录失败不影响主流程 */ }
+            onDone()
             onDone()
             return
           }
@@ -327,7 +372,10 @@ export async function streamChat(
           const lines = chunk.split('\n')
           for (const line of lines) {
             const text = parseSSEChunk(line)
-            if (text) onChunk(text)
+            if (text) {
+              streamOutputTokens += countTokens(text)
+              onChunk(text)
+            }
           }
         }
       }

@@ -18,6 +18,7 @@ export function TitleBar() {
     '/pp': t('nav.pp'),
     '/xray': t('nav.xray'),
     '/onnx': t('nav.onnx'),
+    '/ai-stats': t('nav.aiStats'),
     '/settings': t('nav.settings'),
   };
   const pageTitle = routeTitleMap[location.pathname] || 'WorkPulse';

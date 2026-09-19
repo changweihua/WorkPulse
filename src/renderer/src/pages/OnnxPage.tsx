@@ -286,9 +286,12 @@ function OnnxPageContent() {
         setStreamingId(assistantId);
         setInput('');
         if (textareaRef.current) textareaRef.current.style.height = 'auto';
+        const startTime = Date.now();
+        let outputLength = 0;
         try {
             // 流式生成：每个 token 立即追加到助手消息，形成打字机效果
             await generateStream(userMsg.content, (token: string) => {
+                outputLength += token.length;
                 setMessages((prev) =>
                     prev.map((m) =>
                         m.id === assistantId ? { ...m, content: m.content + token } : m
@@ -306,6 +309,18 @@ function OnnxPageContent() {
                     return { ...m, content: text || '（模型未返回内容）' };
                 })
             );
+            // 记录 ONNX 推理用量
+            try {
+                window.api.aiUsage.log({
+                    model_id: currentModel || 'onnx-local',
+                    model_name: (currentModel || 'onnx-local').split('/').pop()?.replace(/-ONNX.*$/i, '') || 'onnx',
+                    provider: 'local',
+                    usage_type: 'onnx',
+                    output_tokens: Math.ceil(outputLength / 4),
+                    latency_ms: Date.now() - startTime,
+                    success: true,
+                });
+            } catch { /* usage 记录失败不影响主流程 */ }
         } catch (err) {
             setMessages((prev) =>
                 prev.map((m) =>
@@ -314,10 +329,21 @@ function OnnxPageContent() {
                         : m
                 )
             );
+            try {
+                window.api.aiUsage.log({
+                    model_id: currentModel || 'onnx-local',
+                    model_name: (currentModel || 'onnx-local').split('/').pop()?.replace(/-ONNX.*$/i, '') || 'onnx',
+                    provider: 'local',
+                    usage_type: 'onnx',
+                    latency_ms: Date.now() - startTime,
+                    success: false,
+                    error_msg: (err as Error).message,
+                });
+            } catch { /* ignore */ }
         } finally {
             setStreamingId(null);
         }
-    }, [input, isReady, isGenerating, generateStream]);
+    }, [input, isReady, isGenerating, generateStream, currentModel]);
 
     const modelName = useMemo(
         () => (pendingModel || currentModel || '').split('/').pop()?.replace(/-ONNX.*$/i, '') || '',

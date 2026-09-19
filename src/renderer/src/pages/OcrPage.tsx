@@ -285,16 +285,39 @@ function OcrPageContent() {
             return;
         }
         setOcrResult('');
+        const startTime = Date.now();
         try {
             // 流式识别：每个 token 立即追加，形成渐进式结果
             const result = await recognize(imgRef.current, (token: string) => {
                 setOcrResult((prev) => prev + token);
             });
             setOcrResult(result);
+            // 记录 OCR 用量
+            try {
+                window.api.aiUsage.log({
+                    model_id: currentModel || 'ocr-local',
+                    model_name: (currentModel || 'ocr-local').split('/').pop() || 'ocr',
+                    provider: 'local',
+                    usage_type: 'ocr',
+                    latency_ms: Date.now() - startTime,
+                    success: true,
+                });
+            } catch { /* usage 记录失败不影响主流程 */ }
         } catch (err) {
             setOcrResult(`❌ 识别失败：${(err as Error).message}`);
+            try {
+                window.api.aiUsage.log({
+                    model_id: currentModel || 'ocr-local',
+                    model_name: (currentModel || 'ocr-local').split('/').pop() || 'ocr',
+                    provider: 'local',
+                    usage_type: 'ocr',
+                    latency_ms: Date.now() - startTime,
+                    success: false,
+                    error_msg: (err as Error).message,
+                });
+            } catch { /* ignore */ }
         }
-    }, [imageFile, recognize]);
+    }, [imageFile, recognize, currentModel]);
 
     const copyResult = async () => {
         if (!ocrResult) return;

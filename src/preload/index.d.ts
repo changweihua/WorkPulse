@@ -260,6 +260,17 @@ interface API {
     logs: (format: 'csv' | 'markdown') => Promise<string | null>
     report: (content: string, dateRange: string) => Promise<string | null>
   }
+  aiUsage: {
+    log: (record: Record<string, unknown>) => Promise<void>
+    getDailyStats: (from: string, to: string) => Promise<Array<{ date: string; call_count: number; total_tokens: number; total_cost: number; avg_latency: number }>>
+    getModelStats: (from: string, to: string) => Promise<Array<{ model_id: string; model_name: string; call_count: number; total_tokens: number; total_cost: number }>>
+    getTypeStats: (from: string, to: string) => Promise<Array<{ usage_type: string; call_count: number; total_tokens: number; total_cost: number }>>
+    getCostSummary: (from: string, to: string) => Promise<{ total_cost: number; total_calls: number; total_tokens: number; by_model: Array<{ model_id: string; model_name: string; call_count: number; total_tokens: number; total_cost: number }> }>
+    getTrend: (from: string, to: string) => Promise<Array<{ date: string; model_id: string; model_name: string; tokens: number; cost: number; calls: number }>>
+    getRecentLogs: (limit: number) => Promise<Array<{ id: number; model_id: string; model_name: string; provider: string; usage_type: string; input_tokens: number; output_tokens: number; total_tokens: number; cost_usd: number; latency_ms: number; success: number; error_msg: string | null; created_at: string }>>
+    cleanup: (daysToKeep: number) => Promise<number>
+    exportCsv: (from: string, to: string) => Promise<string>
+  }
   attachment: {
     add: (workLogId: number, data: {
       type: 'file' | 'screenshot' | 'link'

@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 type QuickCreateType = 'log' | 'task'
-type NavigatePage = 'worklog' | 'kanban' | 'report' | 'reports' | 'stats' | 'calendar' | 'chat' | 'xray' | 'onnx' | 'ocr' | 'pp' | 'settings'
+type NavigatePage = 'worklog' | 'kanban' | 'report' | 'reports' | 'stats' | 'calendar' | 'chat' | 'xray' | 'onnx' | 'ocr' | 'pp' | 'settings' | 'ai-stats'
 type AppLanguage = 'system' | 'zh' | 'en'
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'not_available' | 'downloading' | 'downloaded' | 'error'
 
@@ -217,6 +217,17 @@ const api = {
     logs: (format: 'csv' | 'markdown') => invoke(ipcRenderer.invoke('export:logs', format)),
     report: (content: string, dateRange: string) =>
       invoke(ipcRenderer.invoke('export:report', content, dateRange))
+  },
+  aiUsage: {
+    log: (record: Record<string, unknown>) => invoke(ipcRenderer.invoke('ai-usage:log', record)),
+    getDailyStats: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:daily-stats', { from, to })),
+    getModelStats: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:model-stats', { from, to })),
+    getTypeStats: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:type-stats', { from, to })),
+    getCostSummary: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:cost-summary', { from, to })),
+    getTrend: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:trend', { from, to })),
+    getRecentLogs: (limit: number) => invoke(ipcRenderer.invoke('ai-usage:recent', { limit })),
+    cleanup: (daysToKeep: number) => invoke(ipcRenderer.invoke('ai-usage:cleanup', { daysToKeep })),
+    exportCsv: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:export-csv', { from, to })),
   },
   attachment: {
     add: (workLogId: number, data: any) => invoke(ipcRenderer.invoke('attachment:add', { workLogId, ...data })),

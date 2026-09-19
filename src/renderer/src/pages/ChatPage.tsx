@@ -13,6 +13,11 @@ import {
     Loader2,
     Coins,
     BarChart3,
+    Copy,
+    Check,
+    ThumbsUp,
+    ThumbsDown,
+    Share2,
     X,
     ChevronLeft,
     ChevronRight,
@@ -20,8 +25,6 @@ import {
     MessageSquare,
     Clock,
     Zap,
-    Copy,
-    Check,
     PanelRightOpen,
     PanelRightClose,
     MoreVertical,
@@ -80,11 +83,17 @@ interface TokenStats {
 }
 
 // ---------- Token 估算 ----------
+import { encode as cl100kEncode } from 'gpt-tokenizer/encoding/cl100k_base';
+
 function estimateTokens(text: string): number {
     if (!text) return 0;
-    const cjkChars = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
-    const otherChars = text.length - cjkChars;
-    return Math.ceil(cjkChars / 1.5) + Math.ceil(otherChars / 4);
+    try {
+        return cl100kEncode(text).length;
+    } catch {
+        const cjkChars = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
+        const otherChars = text.length - cjkChars;
+        return Math.ceil(cjkChars / 1.5) + Math.ceil(otherChars / 4);
+    }
 }
 
 // ---------- 日期格式化 ----------
@@ -112,17 +121,84 @@ function LoadingDots() {
     );
 }
 
+// ---------- 消息操作栏（参考 ChatGPT/Claude 设计） ----------
+function MessageActionBar({ content, isUser }: { content: string; isUser: boolean }) {
+    const [copied, setCopied] = useState(false);
+    const [liked, setLiked] = useState<'up' | 'down' | null>(null);
+
+    const handleCopy = async () => {
+        await navigator.clipboard.writeText(content);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className={`flex items-center gap-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
+            <button
+                onClick={handleCopy}
+                className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-all duration-150"
+                title={copied ? '已复制' : '复制'}
+            >
+                {copied ? (
+                    <>
+                        <Check size={13} className="text-green-500" />
+                        <span className="text-green-500">已复制</span>
+                    </>
+                ) : (
+                    <>
+                        <Copy size={13} />
+                        <span>复制</span>
+                    </>
+                )}
+            </button>
+            {!isUser && (
+                <>
+                    <div className="w-px h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+                    <button
+                        onClick={() => setLiked(liked === 'up' ? null : 'up')}
+                        className={`inline-flex items-center gap-1 px-1.5 py-1 rounded-md text-[11px] transition-all duration-150 ${
+                            liked === 'up'
+                                ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
+                        }`}
+                        title="有帮助"
+                    >
+                        <ThumbsUp size={13} />
+                    </button>
+                    <button
+                        onClick={() => setLiked(liked === 'down' ? null : 'down')}
+                        className={`inline-flex items-center gap-1 px-1.5 py-1 rounded-md text-[11px] transition-all duration-150 ${
+                            liked === 'down'
+                                ? 'text-red-500 bg-red-50 dark:bg-red-900/20'
+                                : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
+                        }`}
+                        title="没帮助"
+                    >
+                        <ThumbsDown size={13} />
+                    </button>
+                    <button
+                        onClick={handleCopy}
+                        className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md text-[11px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-all duration-150"
+                        title="分享"
+                    >
+                        <Share2 size={13} />
+                    </button>
+                </>
+            )}
+        </div>
+    );
+}
+
 // ---------- 流式消息渲染（独立组件，避免 IIFE 导致的 diff 抖动） ----------
 interface StreamingMessageProps {
     content: string;
     reasoning?: string;
-    tokenUsage?: { input: number; output: number; total: number };
 }
 
-const StreamingMessage = memo(function StreamingMessage({ content, reasoning, tokenUsage }: StreamingMessageProps) {
+const StreamingMessage = memo(function StreamingMessage({ content, reasoning }: StreamingMessageProps) {
     const revealed = useStreamingReveal(content, true);
     return (
-        <div className="flex items-start gap-3" style={{ contain: 'layout style' } as React.CSSProperties}>
+        <div className="flex items-start gap-3 group" style={{ contain: 'layout style' } as React.CSSProperties}>
             <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-700 dark:from-zinc-500 dark:to-zinc-600 flex items-center justify-center text-white shadow-sm">
                 <Bot size={15} />
             </div>
@@ -133,10 +209,15 @@ const StreamingMessage = memo(function StreamingMessage({ content, reasoning, to
                         ? <Message role="assistant" content={revealed} />
                         : <LoadingDots />}
                 </div>
-                {tokenUsage && (
-                    <div className="text-[10px] text-zinc-400 dark:text-zinc-500">
-                        {tokenUsage.total} tokens
-                    </div>
+                {revealed && (
+                    <>
+                        <div className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                            {estimateTokens(content)} tokens
+                        </div>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                            <MessageActionBar content={content} isUser={false} />
+                        </div>
+                    </>
                 )}
             </div>
         </div>
@@ -830,8 +911,9 @@ export default function ChatPage() {
 
                     {messages.filter(msg => msg.id !== 'streaming').map((msg) => {
                         const isUser = msg.role === 'user';
+                        const msgTokens = estimateTokens(msg.content);
                         return (
-                            <div key={msg.id} className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
+                            <div key={msg.id} className={`flex items-start gap-3 group ${isUser ? 'flex-row-reverse' : ''}`}>
                                 <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm ${
                                     isUser
                                         ? 'bg-blue-500 text-white'
@@ -849,11 +931,13 @@ export default function ChatPage() {
                                     }`}>
                                         <Message role={msg.role} content={msg.content} />
                                     </div>
-                                    {msg.tokenUsage && (
-                                        <div className={`text-[10px] text-zinc-400 dark:text-zinc-500 ${isUser ? 'text-right' : ''}`}>
-                                            {msg.tokenUsage.total} tokens
-                                        </div>
-                                    )}
+                                    <div className={`text-[10px] text-zinc-400 dark:text-zinc-500 ${isUser ? 'text-right' : ''}`}>
+                                        {msgTokens} tokens
+                                    </div>
+                                    {/* 操作栏：hover 时显示 */}
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                                        <MessageActionBar content={msg.content} isUser={isUser} />
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -864,7 +948,6 @@ export default function ChatPage() {
                         <StreamingMessage
                             content={messages[messages.length - 1].content}
                             reasoning={messages[messages.length - 1].reasoning}
-                            tokenUsage={messages[messages.length - 1].tokenUsage}
                         />
                     )}
 

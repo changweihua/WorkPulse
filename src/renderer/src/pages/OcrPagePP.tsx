@@ -91,11 +91,34 @@ function OcrPageContent() {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const imgData = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, canvas.width, canvas.height);
+        const startTime = Date.now();
         try {
             // 推理在 Worker 中执行，结果通过 results 状态渐进式回传并自动重绘
             await runOCR(imgData);
+            // 记录 PaddleOCR 用量
+            try {
+                window.api.aiUsage.log({
+                    model_id: 'paddleocr',
+                    model_name: 'PaddleOCR',
+                    provider: 'local',
+                    usage_type: 'ocr',
+                    latency_ms: Date.now() - startTime,
+                    success: true,
+                });
+            } catch { /* usage 记录失败不影响主流程 */ }
         } catch (err) {
             console.error(err);
+            try {
+                window.api.aiUsage.log({
+                    model_id: 'paddleocr',
+                    model_name: 'PaddleOCR',
+                    provider: 'local',
+                    usage_type: 'ocr',
+                    latency_ms: Date.now() - startTime,
+                    success: false,
+                    error_msg: (err as Error).message,
+                });
+            } catch { /* ignore */ }
         }
     }, [runOCR]);
 

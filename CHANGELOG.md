@@ -8,6 +8,10 @@
 - `fe16d01` 🦄 refactor: 优化 AGENTS.md，补充提交范围规范和 AI Agent commit 格式要求
 
 ### 新增
+- ✨ feat: AI 模型使用统计功能，追踪调用次数、token 用量和费用，新增独立 /ai-stats 页面
+- ✨ feat: 集成 gpt-tokenizer 精确计算 token，替换粗略估算
+- ✨ feat: AI 助手弹窗和对话页面消息操作栏（复制/点赞/踩/分享），参考 ChatGPT/Claude 设计
+- ✨ feat: 每条消息气泡下方显示独立 token 数
 - `4c40e5e` ✨ feat: add electron security hardening and fix type errors
 - `db8e0da` ✨ feat: 统一 AI 模型配置管理，新增独立 ModelConfigPage 页面
 - `2825f89` ✨ feat: theme switching with smooth transitions and zinc palette

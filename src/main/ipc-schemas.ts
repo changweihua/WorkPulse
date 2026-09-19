@@ -429,6 +429,37 @@ export const RadialNavigateToSchema = z.object({
   page: z.string().min(1),
 });
 
+// ─── AI Usage Schemas ────────────────────────────────────────────────────────
+
+export const AiUsageLogSchema = z.object({
+  model_id: z.string().min(1),
+  model_name: z.string().min(1),
+  provider: z.string().optional(),
+  usage_type: z.enum(['chat', 'report', 'ocr', 'onnx']),
+  input_tokens: z.number().int().min(0).optional(),
+  output_tokens: z.number().int().min(0).optional(),
+  total_tokens: z.number().int().min(0).optional(),
+  cost_usd: z.number().min(0).optional(),
+  latency_ms: z.number().int().min(0).optional(),
+  success: z.boolean().optional(),
+  error_msg: z.string().optional(),
+});
+
+export const AiUsageDateRangeSchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export const AiUsageRecentSchema = z.object({
+  limit: z.number().int().min(1).max(500).optional(),
+});
+
+export const AiUsageCleanupSchema = z.object({
+  daysToKeep: z.number().int().min(1).max(3650),
+});
+
+// ─── Screenshot Schemas ──────────────────────────────────────────────────────
+
 export const ScreenshotCropSchema = z.object({
   rect: z.object({
     x: z.number(),
