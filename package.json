@@ -41,7 +41,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,cjs}": [
-      "oxlint --fix --max-warnings 50",
+      "oxlint . --fix --max-warnings 50",
       "oxfmt --write"
     ],
     "*.{json,css,html,md,yaml,yml}": [

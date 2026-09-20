@@ -24,8 +24,9 @@
 **⚠️ 严禁手动拼接 emoji + type！必须使用以下方式之一：**
 
 1. `npm run commit` — 交互式菜单选择（推荐）
-2. `npm run ai-commit` — 自动推断并生成 commit message
-3. 如果必须手动写，**必须逐字复制下方对照表中的 emoji 和 type 组合**，禁止凭记忆拼写
+2. `npx tsx scripts/commit.ts <type> "<subject>"` — AI Agent 专用提交脚本（**AI Agent 必须使用此方式**）
+3. `npm run ai-commit` — 自动推断并生成 commit message
+4. 如果必须手动写，**必须逐字复制下方对照表中的 emoji 和 type 组合**，禁止凭记忆拼写
 
 **emoji → type 速查（按 emoji 排序，用于复制）：**
 
