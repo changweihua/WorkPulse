@@ -21,20 +21,19 @@
 - **header**：最长 72 字符（含 emoji 和空格），超出会被拒绝
 - **body**：每行最长 200 字符（可选）
 
-**允许的 type：**
+**⚠️ 严禁手动拼接 emoji + type！必须使用以下方式之一：**
 
-- `🎉 init` — 项目初始化
-- `✨ feat` — 新功能
-- `🐞 fix` — Bug 修复
-- `📃 docs` — 文档
-- `🌈 style` — 样式调整（不影响逻辑）
-- `🦄 refactor` — 重构
-- `🎈 perf` — 性能优化
-- `🧪 test` — 测试
-- `🔧 build` — 构建/依赖
-- `🐎 ci` — CI/CD
-- `🐳 chore` — 其他杂项（发布、版本号等）
-- `↩ revert` — 回滚
+1. `npm run commit` — 交互式菜单选择（推荐）
+2. `npm run ai-commit` — 自动推断并生成 commit message
+3. 如果必须手动写，**必须逐字复制下方对照表中的 emoji 和 type 组合**，禁止凭记忆拼写
+
+**emoji → type 速查（按 emoji 排序，用于复制）：**
+
+```
+🎉 init     ✨ feat     🐞 fix      📃 docs     🌈 style    🦄 refactor
+🎈 perf     🧪 test     🔧 build    🐎 ci       🐳 chore    ↩ revert
+🔒 security 📦 deps     🗑️ remove
+```
 
 **emoji ↔ type 对照表（必须严格匹配）：**
 
