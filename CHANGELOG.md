@@ -4,6 +4,10 @@
 
 ## [未发布]
 
+### 新增
+
+- ✨ feat: 新增 `scripts/release.ts` 一键发布脚本，自动完成版本更新→文件同步→提交→打 tag→推送，支持 `patch/minor/major/精确版本号` 参数
+
 ### 修复
 
 - 🐞 fix: 添加 `.npmrc` 和 CI workflow 配置 `--legacy-peer-deps`，解决 `@react-three/fiber@9.x` 与 `react@19.3.0` 的 peer dependency 冲突

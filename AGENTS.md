@@ -129,15 +129,25 @@ node -e "require('fs').writeFileSync('C:\\Users\\Changweihua\\AppData\\Local\\Te
 
 ## 发布版本流程（必须严格遵循）
 
-**顺序不可调换，每一步都必须执行：**
+**推荐方式：一键发布脚本（自动完成全部步骤）**
 
-| 步骤  | 操作                                                                | 说明                                                  |
-| ----- | ------------------------------------------------------------------- | ----------------------------------------------------- |
-| **1** | `npx bumpp X.Y.Z --no-git-checks`                                   | 升 package.json 版本，自动生成 git tag                |
-| **2** | `npx tsx scripts/sync-version.ts`                                   | 同步 .env、splash.html 到新版本（必须在 step 1 之后） |
-| **3** | `git add package.json package-lock.json .env resources/splash.html` | 暂存所有版本相关文件                                  |
-| **4** | `pwsh -Command "..." && git commit -F "..."`                        | 用 🐳 chore: release vX.Y.Z 提交                      |
-| **5** | `git push && git push --tags`                                       | 推送 commits + tag                                    |
+```bash
+npx tsx scripts/release.ts          # 自动递增 patch 版本（0.3.5 → 0.3.6）
+npx tsx scripts/release.ts minor    # 递增 minor 版本（0.3.5 → 0.4.0）
+npx tsx scripts/release.ts 1.0.0    # 指定精确版本号
+```
+
+脚本自动执行：更新 package.json → npm install → 同步 .env/splash.html → 提交 → 创建 tag → 推送
+
+**手动发布方式（备用，顺序不可调换）：**
+
+| 步骤  | 操作                                                                | 说明                                                     |
+| ----- | ------------------------------------------------------------------- | -------------------------------------------------------- |
+| **1** | `npx bumpp X.Y.Z --no-git-checks`                                   | 升 package.json 版本，自动生成 git tag                   |
+| **2** | `npx tsx scripts/sync-version.ts`                                   | 同步 .env、splash.html 到新版本（必须在 step 1 之后）    |
+| **3** | `git add package.json package-lock.json .env resources/splash.html` | 暂存所有版本相关文件                                     |
+| **4** | `npx tsx scripts/commit.ts chore "release vX.Y.Z"`                  | 用 🐳 chore: release vX.Y.Z 提交（Windows 必须用此方式） |
+| **5** | `git tag vX.Y.Z && git push && git push --tags`                     | 手动创建 tag + 推送                                      |
 
 **⚠️ 常见错误（已犯过，禁止再犯）：**
 
@@ -145,6 +155,8 @@ node -e "require('fs').writeFileSync('C:\\Users\\Changweihua\\AppData\\Local\\Te
 - ❌ 忘记 git tag → GitHub Release / Changelog 无法关联版本
 - ❌ 忘记 push --tags → tag 只在本地，远程没有
 - ❌ 只 commit 不 tag → 版本追溯断裂
+- ❌ 用 `pwsh -Command` 写入 commit message → BOM 编码导致 commitlint 失败
+- ❌ 用 `git commit -m "emoji msg"` → Windows shell 破坏 emoji 字符
 
 **⚠️ bumpp 可能因 commitlint 失败导致 tag 未创建：**
 
