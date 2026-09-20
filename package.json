@@ -27,15 +27,26 @@
     "postbuild": "tsx scripts/generate-integrity.ts",
     "postinstall": "node scripts/brand-dev-exe.js",
     "commit": "cz",
-    "lint:commit": "commitlint --edit"
+    "lint:commit": "commitlint --edit",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "ai-commit": "tsx scripts/ai-commit.ts"
   },
   "config": {
     "commitizen": {
-      "path": "node_modules/cz-customizable"
+      "path": "cz-customizable"
     }
   },
   "lint-staged": {
-    "*.{ts,tsx}": "bash -c 'tsc --noEmit --pretty'"
+    "*.{ts,tsx,js,mjs,cjs}": [
+      "oxlint --fix --max-warnings 50",
+      "oxfmt --write"
+    ],
+    "*.{json,css,html,md,yaml,yml}": [
+      "prettier --write"
+    ]
   },
   "build": {
     "appId": "cmono.workpulse.app",
@@ -263,7 +274,6 @@
     "bmp-js": "^0.1.0",
     "bumpp": "^12.3.0",
     "commitizen": "^4.3.2",
-    "commitlint-config-git-commit-emoji": "^1.0.0",
     "cross-env": "^10.1.0",
     "cz-customizable": "^7.5.4",
     "electron": "^44.4.3",
@@ -272,6 +282,9 @@
     "husky": "^9.1.7",
     "javascript-obfuscator": "^5.7.0",
     "lint-staged": "^17.5.1",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
+    "prettier": "^3.9.8",
     "rcedit": "^5.0.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

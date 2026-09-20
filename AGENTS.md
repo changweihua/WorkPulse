@@ -22,6 +22,7 @@
 - **body**：每行最长 200 字符（可选）
 
 **允许的 type：**
+
 - `🎉 init` — 项目初始化
 - `✨ feat` — 新功能
 - `🐞 fix` — Bug 修复
@@ -37,22 +38,26 @@
 
 **emoji ↔ type 对照表（必须严格匹配）：**
 
-| emoji | type | 用途 |
-|-------|------|------|
-| 🎉 | init | 项目初始化 |
-| ✨ | feat | 新功能 |
-| 🐞 | fix | Bug 修复 |
-| 📃 | docs | 文档 |
-| 🌈 | style | 样式调整（不影响逻辑） |
-| 🦄 | refactor | 重构 |
-| 🎈 | perf | 性能优化 |
-| 🧪 | test | 测试 |
-| 🔧 | build | 构建/依赖 |
-| 🐎 | ci | CI/CD |
-| 🐳 | chore | 其他杂项（发布、版本号等） |
-| ↩ | revert | 回滚 |
+| emoji | type     | 用途                       |
+| ----- | -------- | -------------------------- |
+| 🎉    | init     | 项目初始化                 |
+| ✨    | feat     | 新功能                     |
+| 🐞    | fix      | Bug 修复                   |
+| 📃    | docs     | 文档                       |
+| 🌈    | style    | 样式调整（不影响逻辑）     |
+| 🦄    | refactor | 重构                       |
+| 🎈    | perf     | 性能优化                   |
+| 🧪    | test     | 测试                       |
+| 🔧    | build    | 构建/依赖                  |
+| 🐎    | ci       | CI/CD                      |
+| 🐳    | chore    | 其他杂项（发布、版本号等） |
+| ↩     | revert   | 回滚                       |
+| 🔒    | security | 安全修复                   |
+| 📦    | deps     | 依赖更新                   |
+| 🗑️    | remove   | 代码/功能移除              |
 
 **正确示例：**
+
 - `✨ feat: add radial menu navigation`
 - `🐞 fix: screenshot overlay transparency`
 - `🎈 perf: onnx/ocr webworker thread separation`
@@ -60,6 +65,7 @@
 - `📃 docs: update README installation steps`
 
 **错误示例（禁止）：**
+
 - `chore: release v0.2.23` ← 缺少 emoji
 - `🐠 chore: xxx` ← emoji 错误（热带鱼不是鲸鱼）
 - `fix: Add radial menu` ← 首字母大写
@@ -74,6 +80,7 @@ node -e "require('fs').writeFileSync('C:\\Users\\Changweihua\\AppData\\Local\\Te
 ```
 
 **关键点：**
+
 - 使用 Node.js `fs.writeFileSync(..., 'utf8')` 写入 —— **UTF-8 无 BOM**
 - **禁止** `pwsh -Command "[System.IO.File]::WriteAllText(..., [System.Text.Encoding]::UTF8)"` —— 会写入 BOM (`\uFEFF`)，导致 commitlint 报 `type must be one of [...]` 错误
 - **禁止** `git commit -m "emoji msg"` — shell 在插值字符串中会破坏 emoji
@@ -101,6 +108,13 @@ node -e "require('fs').writeFileSync('C:\\Users\\Changweihua\\AppData\\Local\\Te
 - 禁止使用 `git add .` 或 `git add -A`（除非确认所有变更都是自己做的）
 - 合并分支时除外：合并产生的冲突解决可以包含多方修改
 
+## 严禁私自提交（最严格规则）
+
+- **AI Agent 禁止自行执行 `git add` 和 `git commit`**，除非用户明确发出"提交"指令
+- AI 可以修改文件、更新 CHANGELOG、准备 commit message，但**提交动作必须由用户主动触发**
+- 用户说"提交"、"commit"、"帮我提交"才算明确指令；"改一下"、"修一下"、"优化"不算
+- 违反此规则将导致不受控的代码入库，**严重违规，零容忍**
+- Orchestrator 和所有子 Agent 均受此规则约束，无例外
 
 ## 严禁私自 Push
 
@@ -117,26 +131,29 @@ node -e "require('fs').writeFileSync('C:\\Users\\Changweihua\\AppData\\Local\\Te
 
 **顺序不可调换，每一步都必须执行：**
 
-| 步骤 | 操作 | 说明 |
-|------|------|------|
-| **1** | `npx bumpp X.Y.Z --no-git-checks` | 升 package.json 版本，自动生成 git tag |
-| **2** | `npx tsx scripts/sync-version.ts` | 同步 .env、splash.html 到新版本（必须在 step 1 之后） |
-| **3** | `git add package.json package-lock.json .env resources/splash.html` | 暂存所有版本相关文件 |
-| **4** | `pwsh -Command "..." && git commit -F "..."` | 用 🐳 chore: release vX.Y.Z 提交 |
-| **5** | `git push && git push --tags` | 推送 commits + tag |
+| 步骤  | 操作                                                                | 说明                                                  |
+| ----- | ------------------------------------------------------------------- | ----------------------------------------------------- |
+| **1** | `npx bumpp X.Y.Z --no-git-checks`                                   | 升 package.json 版本，自动生成 git tag                |
+| **2** | `npx tsx scripts/sync-version.ts`                                   | 同步 .env、splash.html 到新版本（必须在 step 1 之后） |
+| **3** | `git add package.json package-lock.json .env resources/splash.html` | 暂存所有版本相关文件                                  |
+| **4** | `pwsh -Command "..." && git commit -F "..."`                        | 用 🐳 chore: release vX.Y.Z 提交                      |
+| **5** | `git push && git push --tags`                                       | 推送 commits + tag                                    |
 
 **⚠️ 常见错误（已犯过，禁止再犯）：**
+
 - ❌ sync-version 在 bump 之前执行 → 同步的是旧版本号
 - ❌ 忘记 git tag → GitHub Release / Changelog 无法关联版本
 - ❌ 忘记 push --tags → tag 只在本地，远程没有
 - ❌ 只 commit 不 tag → 版本追溯断裂
 
 **⚠️ bumpp 可能因 commitlint 失败导致 tag 未创建：**
+
 - bumpp 在 commit 失败时不会创建 tag，必须手动创建
 - 如果 `git tag -l "vX.Y.Z"` 为空，必须手动执行 `git tag vX.Y.Z` 再 `git push origin vX.Y.Z`
 - **tag 必须由你手动创建和推送**，这样才能触发 GitHub Actions 自动构建
 
 **发版前必须确认：**
+
 1. `grep "VITE_APP_VERSION" .env` 显示正确版本
 2. `grep "APP_VERSION" resources/splash.html` 显示正确版本
 3. `git tag -l "vX.Y.Z"` 能找到 tag（若无则手动创建）
@@ -160,17 +177,20 @@ WorkPulse-<agent-id>   ← Agent 隔离目录（如 WorkPulse-agent-a）
 ### 操作流程
 
 **创建（Agent 开始工作前）：**
+
 ```bash
 # 基于 main 创建隔离工作树 + 分支
 git worktree add ../WorkPulse-<agent-id> -b agent/<agent-id>/<feature-name>
 ```
 
 **Agent 工作期间：**
+
 - 在自己的 worktree 目录中自由 commit、修改代码
 - 不需要 stash，不需要切分支
 - 可以 `git push` 自己的分支到 remote（如需协作）
 
 **完成合并：**
+
 ```bash
 # 1. 进入主工作目录
 cd D:\Github\WorkPulse
@@ -202,6 +222,7 @@ git branch -d agent/<agent-id>/<feature-name>
 5. **强制验证** — Orchestrator 合并前必须验证：worktree 无未提交更改、分支可正常合并、代码符合项目规范
 
 **Orchestrator 检查清单（合并前）：**
+
 ```bash
 # 1. 检查 worktree 是否有未提交更改
 git -C ../WorkPulse-<agent-id> status --porcelain

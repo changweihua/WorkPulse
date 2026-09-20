@@ -1,0 +1,62 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "import", "unicorn"],
+  "env": {
+    "browser": true,
+    "es2026": true,
+    "node": true
+  },
+  "settings": {
+    "react": {
+      "version": "19.0"
+    }
+  },
+  "ignorePatterns": [
+    "out/**",
+    "dist/**",
+    "node_modules/**",
+    "*.config.*",
+    "scripts/**",
+    "resources/**",
+    "build/**",
+    "native/**",
+    "*.d.ts"
+  ],
+  "rules": {
+    "eqeqeq": "warn",
+    "no-unused-vars": "off",
+    "import/no-cycle": "warn",
+    "unicorn/prefer-module": "off",
+    "unicorn/no-useless-undefined": "off"
+  },
+  "overrides": [
+    {
+      "files": ["*.config.*", "scripts/**"],
+      "env": { "node": true, "browser": false },
+      "rules": { "no-console": "off" }
+    },
+    {
+      "files": ["**/*.cjs"],
+      "env": { "node": true, "browser": false },
+      "rules": { "unicorn/prefer-module": "off" }
+    },
+    {
+      "files": ["src/main/**"],
+      "env": { "node": true, "browser": false }
+    },
+    {
+      "files": ["src/preload/**"],
+      "env": { "node": true, "browser": true }
+    },
+    {
+      "files": ["src/renderer/**"],
+      "env": { "browser": true, "node": false },
+      "globals": { "React": "readonly" }
+    },
+    {
+      "files": ["src/renderer/src/pkg/**"],
+      "env": { "browser": true },
+      "globals": { "WebAssembly": "readonly", "Response": "readonly", "fetch": "readonly" }
+    }
+  ]
+}

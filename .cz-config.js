@@ -1,43 +1,47 @@
+/**
+ * cz-customizable 配置
+ * 匹配 AGENTS.md 中的 git-commit-emoji 规范
+ */
 module.exports = {
-    types: [
-        { value: '🎉 init',   name: '🎉 init:     项目初始化' },
-        { value: '✨ feat',   name: '✨ feat:     新功能' },
-        { value: '🐞 fix',    name: '🐞 fix:      修复' },
-        { value: '📃 docs',   name: '📃 docs:     文档' },
-        { value: '🌈 style',  name: '🌈 style:    样式' },
-        { value: '🦄 refactor', name: '🦄 refactor:  重构' },
-        { value: '🎈 perf',   name: '🎈 perf:     性能' },
-        { value: '🧪 test',   name: '🧪 test:     测试' },
-        { value: '🔧 build',  name: '🔧 build:    构建' },
-        { value: '🐎 ci',     name: '🐎 ci:       CI/CD' },
-        { value: '🐳 chore',  name: '🐳 chore:    杂务' },
-        { value: '↩ revert',  name: '↩ revert:   回退' },
-    ],
-    scopes: [
-        { value: 'main',     name: '主进程' },
-        { value: 'preload',  name: '预加载脚本' },
-        { value: 'renderer', name: '渲染进程' },
-        { value: 'pages',    name: '页面' },
-        { value: 'layout',   name: '布局' },
-        { value: 'components', name: '组件' },
-        { value: 'stores',   name: '状态管理' },
-        { value: 'i18n',     name: '国际化' },
-        { value: 'build',    name: '构建配置' },
-        { value: 'deps',     name: '依赖' },
-        { value: 'config',   name: '配置' },
-        { value: 'db',       name: '数据库' },
-        { value: 'ipc',      name: 'IPC通信' },
-    ],
-    messages: {
-        type: '选择提交类型:\n',
-        scope: '选择影响范围 (可选):\n',
-        subject: '简短描述 (必填):\n',
-        body: '详细描述 (可选，按 Enter 跳过):\n',
-        breaking: '破坏性变更说明 (可选，按 Enter 跳过):\n',
-        footer: '关联 Issue (可选，按 Enter 跳过):\n',
-        confirm: '确认提交?\n',
-    },
-    allowCustomScopes: true,
-    allowBreakingChanges: ['feat', 'fix'],
-    skipQuestions: ['footer'],
-}
+  types: [
+    { name: '🎉 init:  项目初始化', value: '🎉 init' },
+    { name: '✨ feat:  新功能', value: '✨ feat' },
+    { name: '🐞 fix:   Bug 修复', value: '🐞 fix' },
+    { name: '📃 docs:  文档', value: '📃 docs' },
+    { name: '🌈 style: 样式调整（不影响逻辑）', value: '🌈 style' },
+    { name: '🦄 refactor: 重构', value: '🦄 refactor' },
+    { name: '🎈 perf:  性能优化', value: '🎈 perf' },
+    { name: '🧪 test:  测试', value: '🧪 test' },
+    { name: '🔧 build: 构建/依赖', value: '🔧 build' },
+    { name: '🐎 ci:    CI/CD', value: '🐎 ci' },
+    { name: '🐳 chore: 其他杂项', value: '🐳 chore' },
+    { name: '↩ revert: 回滚', value: '↩ revert' },
+    { name: '🔒 security: 安全修复', value: '🔒 security' },
+    { name: '📦 deps: 依赖更新', value: '📦 deps' },
+    { name: '🗑️ remove: 代码/功能移除', value: '🗑️ remove' },
+  ],
+
+  scopes: [
+    { name: 'main', value: 'main' },
+    { name: 'renderer', value: 'renderer' },
+    { name: 'preload', value: 'preload' },
+    { name: 'scripts', value: 'scripts' },
+    { name: 'shared', value: 'shared' },
+    { name: 'config', value: 'config' },
+  ],
+
+  // 允许自定义 scope
+  allowCustomScopes: true,
+  allowEmptyScopes: true,
+
+  // subject 规则
+  subjectLimit: 72,
+  subjectSeparator: ': ',
+  breaklineChar: '|',
+
+  // 格式
+  headerPrefix: '',
+  headerSuffix: '',
+  appendBranchSeparator: false,
+  appendIssueTrigger: false,
+};

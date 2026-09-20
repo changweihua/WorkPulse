@@ -16,72 +16,54 @@
 - 🦄 refactor: 输入区 — ChatGPT 风格融合式输入框（圆角容器+内嵌按钮+focus ring）
 - 🦄 refactor: 会话历史按钮移至 header 右侧，模型选择器独立为 subtle bar
 - 🌈 style: 增强面板与背景的视觉分离 — backdrop 加深至 black/30 + backdrop-blur，面板阴影增强为 −8px offset 30px spread
+- 🦄 refactor: lint-staged 重构 — JS/TS 文件走 oxlint+oxfmt，非 JS/TS 文件走 prettier，移除 eslint 相关配置
+- 🦄 refactor: zod ipc contract layer with unified IpcResult
+- 🦄 refactor: preload 新增 `invoke()` helper，解包 IpcResult，渲染端零改动兼容
+- 🦄 refactor: replace model config json blob with model_configs table
+- 🦄 refactor: remove BrowserWindow daily summary — keep only in-app modal
+- 🦄 refactor: remove renderer ai config backup, use main process sqlite
 
 ### 新增
 
-- ✨ feat: ESLint flat config（@eslint/js + react-hooks + react-refresh + prettier）
-- ✨ feat: Prettier 统一代码格式化（.prettierrc）
-- ✨ feat: .editorconfig 统一编辑器配置
+- ✨ feat: oxlint + oxfmt 代码检查和格式化（替代 ESLint+Prettier，Rust 原生工具，速度更快）
+- ✨ feat: Prettier 保留用于非 JS/TS 文件格式化（json/css/html/md/yaml/yml）
+- ✨ feat: .editorconfig 统一编辑器配置（2空格缩进，UTF-8，LF）
 - ✨ feat: cz-customizable 交互式提交（.cz-config.js，12 种 emoji type + 6 种 scope）
 - ✨ feat: AI 提交辅助脚本（scripts/ai-commit.ts，自动推断 type/scope/subject）
-
-### 变更
-
-- 🦄 refactor: lint-staged 拆分为三条管线 — ts/tsx 仅 prettier，js/mjs/cjs 走 eslint+prettier，其余走 prettier
-- 🦄 refactor: 移除 typescript-eslint 依赖（TS 7 不兼容），eslint 仅负责 JS 代码质量
-- 🦄 refactor: lint-staged 从 `*.{ts,tsx}` 走 eslint 改为仅 prettier（TS 类型检查由 tsc --noEmit 负责）
-
-### 修复
-
-- 🐞 fix: oxlint/oxfmt 迁移 — 替换 ESLint+Prettier 为 Rust 原生工具（oxlint v1.83.0 + oxfmt v0.68.0），提升代码检查和格式化速度
-- 🐞 fix: 修复 oxfmt.config.ts 和 oxlint.config.ts 的 Node.js module 类型警告，改为 JSON 配置格式
-- `fe16d01` 🦄 refactor: 优化 AGENTS.md，补充提交范围规范和 AI Agent commit 格式要求
-
-### 新增
-
 - ✨ feat: AI 模型使用统计功能，追踪调用次数、token 用量和费用，新增独立 /ai-stats 页面
 - ✨ feat: 集成 gpt-tokenizer 精确计算 token，替换粗略估算
 - ✨ feat: AI 助手弹窗和对话页面消息操作栏（复制/点赞/踩/分享），参考 ChatGPT/Claude 设计
 - ✨ feat: 每条消息气泡下方显示独立 token 数
-- `4c40e5e` ✨ feat: add electron security hardening and fix type errors
-- `db8e0da` ✨ feat: 统一 AI 模型配置管理，新增独立 ModelConfigPage 页面
-- `2825f89` ✨ feat: theme switching with smooth transitions and zinc palette
-- `1f9d314` ✨ feat: add daily work summary popup with QQ Music report style
-- `b287d49` ✨ feat: daily summary as in-app modal on WorkLog page
-- `efe07af` ✨ feat: add auto vectorization for worklog search
-- `da52277` ✨ feat: add configurable search mode (vector vs text)
-- `141dae4` ✨ feat: add per-model daily API call limit
-- `7bebe98` ✨ feat: add quotaGroup for shared API rate limits
-- `7a0a47e` ✨ feat: fix double loading indicator and streaming text jitter
-
-### 变更
-
-- `af630b0` 🦄 refactor: zod ipc contract layer with unified IpcResult
-- preload 新增 `invoke()` helper，解包 IpcResult，渲染端零改动兼容
-- AGENTS.md 新增「提交前必须更新 CHANGELOG.md」规则
-- `d7e8677` 🦄 refactor: replace model config json blob with model_configs table
-- `de7b880` 🦄 refactor: remove BrowserWindow daily summary — keep only in-app modal
-- `f935fd8` 🦄 refactor: remove renderer ai config backup, use main process sqlite
-
-### 样式
-
-- `5c8df12` 🌈 style: sidebar floating effect with gap and rounded corners
-- `c9a24bb` 🌈 style: unify border-radius tokens and enhance ai model menu
-- `33b433c` 🌈 style: add obsidian-style markdown for report and rss reader
-- `513bba3` 🌈 style: daily summary modal — blend with app theme
+- ✨ feat: electron security hardening and fix type errors
+- ✨ feat: 统一 AI 模型配置管理，新增独立 ModelConfigPage 页面
+- ✨ feat: theme switching with smooth transitions and zinc palette
+- ✨ feat: daily work summary popup with QQ Music report style
+- ✨ feat: daily summary as in-app modal on WorkLog page
+- ✨ feat: auto vectorization for worklog search
+- ✨ feat: configurable search mode (vector vs text)
+- ✨ feat: per-model daily API call limit
+- ✨ feat: quotaGroup for shared API rate limits
 
 ### 修复
 
-- `e437a49` 🐞 fix: packArgs single-arg schema packing for settings:get
-- `f42acf1` 🐞 fix: remove AI config entry from settings and add search mode toggle
-- `11c1b50` 🐞 fix: resolve stale model config from incorrect migration
-- `b33bb93` 🐞 fix: modal visible in dev, widen to 480px, remove stale api_key refs
-- `bf16729` 🐞 fix: daily summary — load via vite dev server in dev mode
-- `bfb1928` 🐞 fix: daily summary popup always show in dev mode
-- `9103d7f` 🐞 fix: daily summary stale marker cleared only once
-- `2ff09b1` 🐞 fix: daily summary popup — mark on dismiss, clear stale marker
-- `84ba565` 🐞 fix: daily summary popup blank screen — always render UI shell
-- `0d00351` 🐞 fix: AI 聊天和报告使用全局模型配置，修复滚动问题
+- 🐞 fix: oxlint/oxfmt 配置迁移 — 将 oxfmt.config.ts 和 oxlint.config.ts 改为 JSON 配置格式（.oxfmtrc.json / .oxlintrc.json），修复 Node.js module 类型警告
+- 🐞 fix: packArgs single-arg schema packing for settings:get
+- 🐞 fix: remove AI config entry from settings and add search mode toggle
+- 🐞 fix: resolve stale model config from incorrect migration
+- 🐞 fix: modal visible in dev, widen to 480px, remove stale api_key refs
+- 🐞 fix: daily summary — load via vite dev server in dev mode
+- 🐞 fix: daily summary popup always show in dev mode
+- 🐞 fix: daily summary stale marker cleared only once
+- 🐞 fix: daily summary popup — mark on dismiss, clear stale marker
+- 🐞 fix: daily summary popup blank screen — always render UI shell
+- 🐞 fix: AI 聊天和报告使用全局模型配置，修复滚动问题
+
+### 样式
+
+- 🌈 style: sidebar floating effect with gap and rounded corners
+- 🌈 style: unify border-radius tokens and enhance ai model menu
+- 🌈 style: add obsidian-style markdown for report and rss reader
+- 🌈 style: daily summary modal — blend with app theme
 
 ## [0.3.4] - 2026-09-16
 
