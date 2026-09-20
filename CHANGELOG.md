@@ -5,9 +5,40 @@
 ## [未发布]
 
 ### 变更
+
+- 🦄 refactor: AIChatPanel UI 重构 — 去除层叠渐变/辉光/毛玻璃炫技风格，采用 ChatGPT/Claude 主流简洁设计（clean surfaces, clear hierarchy, minimal chrome）
+- 🦄 refactor: 消息展示改为全宽式 — 参考 2026 年主流 AI 助手设计（Claude.ai/ChatGPT/Cursor），去除气泡背景，用户右对齐蓝色条，AI左对齐透明底+微灰背景条
+- 🦄 refactor: 每条AI消息显示模型名标签（AI头像+配置名称），提升可追溯性
+- 🦄 refactor: Thinking/reasoning 折叠区域 — 默认折叠的 `<details>` 元素，替代之前的固定展开
+- 🦄 refactor: 流式输出添加闪烁光标（caret）— 蓝色竖线 `animate-pulse`，表示仍在生成
+- 🦄 refactor: 空状态改为场景化快捷操作卡片 — 图标+文字的垂直列表，替代药丸按钮
+- 🦄 refactor: 面板整体 — 去除 animated gradient border 和 glow line，改用简洁 border-l + shadow-2xl
+- 🦄 refactor: 输入区 — ChatGPT 风格融合式输入框（圆角容器+内嵌按钮+focus ring）
+- 🦄 refactor: 会话历史按钮移至 header 右侧，模型选择器独立为 subtle bar
+- 🌈 style: 增强面板与背景的视觉分离 — backdrop 加深至 black/30 + backdrop-blur，面板阴影增强为 −8px offset 30px spread
+
+### 新增
+
+- ✨ feat: ESLint flat config（@eslint/js + react-hooks + react-refresh + prettier）
+- ✨ feat: Prettier 统一代码格式化（.prettierrc）
+- ✨ feat: .editorconfig 统一编辑器配置
+- ✨ feat: cz-customizable 交互式提交（.cz-config.js，12 种 emoji type + 6 种 scope）
+- ✨ feat: AI 提交辅助脚本（scripts/ai-commit.ts，自动推断 type/scope/subject）
+
+### 变更
+
+- 🦄 refactor: lint-staged 拆分为三条管线 — ts/tsx 仅 prettier，js/mjs/cjs 走 eslint+prettier，其余走 prettier
+- 🦄 refactor: 移除 typescript-eslint 依赖（TS 7 不兼容），eslint 仅负责 JS 代码质量
+- 🦄 refactor: lint-staged 从 `*.{ts,tsx}` 走 eslint 改为仅 prettier（TS 类型检查由 tsc --noEmit 负责）
+
+### 修复
+
+- 🐞 fix: oxlint/oxfmt 迁移 — 替换 ESLint+Prettier 为 Rust 原生工具（oxlint v1.83.0 + oxfmt v0.68.0），提升代码检查和格式化速度
+- 🐞 fix: 修复 oxfmt.config.ts 和 oxlint.config.ts 的 Node.js module 类型警告，改为 JSON 配置格式
 - `fe16d01` 🦄 refactor: 优化 AGENTS.md，补充提交范围规范和 AI Agent commit 格式要求
 
 ### 新增
+
 - ✨ feat: AI 模型使用统计功能，追踪调用次数、token 用量和费用，新增独立 /ai-stats 页面
 - ✨ feat: 集成 gpt-tokenizer 精确计算 token，替换粗略估算
 - ✨ feat: AI 助手弹窗和对话页面消息操作栏（复制/点赞/踩/分享），参考 ChatGPT/Claude 设计
@@ -24,6 +55,7 @@
 - `7a0a47e` ✨ feat: fix double loading indicator and streaming text jitter
 
 ### 变更
+
 - `af630b0` 🦄 refactor: zod ipc contract layer with unified IpcResult
 - preload 新增 `invoke()` helper，解包 IpcResult，渲染端零改动兼容
 - AGENTS.md 新增「提交前必须更新 CHANGELOG.md」规则
@@ -32,12 +64,14 @@
 - `f935fd8` 🦄 refactor: remove renderer ai config backup, use main process sqlite
 
 ### 样式
+
 - `5c8df12` 🌈 style: sidebar floating effect with gap and rounded corners
 - `c9a24bb` 🌈 style: unify border-radius tokens and enhance ai model menu
 - `33b433c` 🌈 style: add obsidian-style markdown for report and rss reader
 - `513bba3` 🌈 style: daily summary modal — blend with app theme
 
 ### 修复
+
 - `e437a49` 🐞 fix: packArgs single-arg schema packing for settings:get
 - `f42acf1` 🐞 fix: remove AI config entry from settings and add search mode toggle
 - `11c1b50` 🐞 fix: resolve stale model config from incorrect migration
@@ -52,16 +86,19 @@
 ## [0.3.4] - 2026-09-16
 
 ### 新增
+
 - `5852077` ✨ feat: enhance pdf export with print css, progress bar and watermark
 - `cb989fc` ✨ feat: 优化AI助手空会话不保存为历史记录
 - `846a211` ✨ feat: make dotnet FAB draggable
 - `85536df` ✨ feat: add dotnet bridge IPC and FAB on worklog
 
 ### 变更
+
 - `a5d47f3` 🦄 refactor: modularize main process and adopt wco titlebar
 - `820db7f` 🔧 build: bump dependency versions
 
 ### 修复
+
 - `ae05895` 🐞 fix: remove dotnet FAB from worklog page
 - `f2fe1b6` 🐞 fix: guard missing i18n keys and isolate page errors in navlayout
 - `468275e` 🐞 fix: remove duplicate dotnet nav entry
@@ -69,6 +106,7 @@
 - `37acd94` 🐞 fix: guard screenshot overlay against HMR duplicate root
 
 ### 样式
+
 - `938a06d` 🌈 style: optimize loading animation with logo breathing pulse
 - `c01afca` 🌈 style: widen content area to max-w-5xl for liquid glass pages
 - `5b715ec` 🌈 style: apply liquid glass surface to worklog and settings pages
@@ -76,6 +114,7 @@
 ## [0.3.3] - 2026-09-15
 
 ### 新增
+
 - `0b2ef7b` ✨ feat: add mermaid diagram rendering to markdown
 - `bf85b38` ✨ feat: add system notifications for user operations
 - `749b0d0` ✨ feat: add webgl fluid, spring animations, cursor ring and cancel
@@ -85,14 +124,17 @@
 - `934a907` ✨ feat: ipc 校验、流式重连、持久化增强、现代 css 优化
 
 ### 变更
+
 - `180a32c` 🔧 build: update dependencies and add sse retry with backoff
 
 ### 修复
+
 - `c6ce2af` 🐞 fix: radial menu icon offset caused by motion transform conflict
 
 ## [0.3.2] - 2026-09-09
 
 ### 新增
+
 - RSS 文章导出 PDF
 - GitHub 风格 Markdown 渲染（代码块语言标签 + 复制按钮、表格、引用块、标题锚点、任务列表）
 - Mermaid 图表渲染（自动适配亮/暗主题）
@@ -101,52 +143,64 @@
 - 液态玻璃效果（WebGL + CSS shimmer）
 
 ### 修复
+
 - RSS 订阅加载失败：`stream.push() after EOF` 错误，改用 feedsmith DOM 解析
 - 恢复启动时始终显示径向菜单
 
 ### 变更
+
 - 自动变更日志生成（pre-commit hook）
 
 ## [0.3.1] - 2026-09-07
 
 ### 新增
+
 - RSS 阅读器：毛玻璃三栏布局（订阅源 / 文章列表 / 阅读区），支持 PDF 导出文章
 
 ### 变更
+
 - 强制 Worktree 规范与管理脚本，支持 AI Agent 并行开发
 
 ## [0.3.0] - 2026-09-04
 
 ### 新增
+
 - 闲置图表初始化、工作日志预取、tooltip 箭头
 - 侧栏 line-md 图标与静态背景
 
 ### 变更
+
 - Electron 安全加固（基于掘金文章最佳实践）
 
 ## [0.2.28] - 2026-09-03
 
 ### 新增
+
 - PaddleOCR WebGPU 后端支持，模型变体选择（ppocrv6）
 - 导航栏重设计：可折叠侧栏 + AI 浮动面板
 
 ### 修复
+
 - Canvas getContext 添加 `willReadfrequently` 提示
 
 ### 变更
+
 - 添加 ppocrv6 模型变体与 git LFS 追踪
 
 ## [0.2.27] - 2026-09-02
 
 ### 新增
+
 - 径向菜单程序配置，支持自动图标提取
 
 ### 修复
+
 - 径向菜单 tooltip 修复：移至环形间隙、旋转朝向中心、恢复原始位置
 
 ## [0.2.26] - 2026-09-01
 
 ### 修复
+
 - 启动时移除 `mainWindow.show()` 防止窗口闪烁
 - 中心按钮单击展开替代双击
 - tooltip 移入环形间隙避免被扇形遮盖
@@ -154,15 +208,18 @@
 ## [0.2.25] - 2026-08-28
 
 ### 新增
+
 - Windows 托盘气泡通知
 
 ### 修复
+
 - 截图与径向菜单内存生命周期修复
 - 截图 overlay 取消时隐藏以支持窗口复用
 - 径向菜单 onState/onCursor 监听器注册遗漏
 - 径向菜单强制置顶：主窗口可见时隐藏、tooltip z-index、周期性重申
 
 ### 性能
+
 - 截图 overlay 3 分钟闲置自动销毁
 - 截图销毁、延迟加载径向菜单+dotnet、V8 堆限制
 - 内存泄漏修复与资源优化
@@ -170,10 +227,12 @@
 ## [0.2.24] - 2026-08-27
 
 ### 新增
+
 - 径向菜单启用/禁用开关，连接主进程
 - 径向菜单点击折叠/展开
 
 ### 修复
+
 - 径向菜单拖拽光标修复（grab/move/sizeall 通过 koffi user32.dll）
 - 中心按钮交互修复（双击展开、单击拖拽、收起时显示/展开时隐藏）
 - 径向窗口 not showing on Windows 修复
@@ -182,43 +241,51 @@
 - 径向图标、位置恢复、展开时禁用拖拽
 
 ### 变更
+
 - 径向菜单重构为持久浮动小部件（meel 架构）
 
 ## [0.2.23] - 2026-08-27
 
 ### 新增
+
 - AGENTS.md 项目规则文档
 - commitlint no-skip 规则
 
 ### 修复
+
 - 截图 overlay 鼠标穿透修复
 - 径向菜单透明区域鼠标穿透修复（OS 级 setShape）
 - 截图 overlay 窗口复用加速启动
 - 截图操作 toast 替换为系统通知
 
 ### 性能
+
 - ONNX/OCR webworker 线程分离 + 流式输出
 
 ## [0.2.22] - 2026-08-26
 
 ### 新增
+
 - 径向菜单：圆环布局、双击展开/收起、弹簧动效、拖拽修复、截图按钮、事件驱动窗口互斥
 - 径向菜单：程序图标中心、毛玻璃背景、位置持久化、页面跳转、配置面板
 - 截图：蒙版选择区域、操作菜单（复制/保存/标记/视觉搜索）、十字准星、toast 通知
 - Windows 系统通知集成（toastXml + workpulse:// 协议）
 
 ### 修复
+
 - 截图 overlay 用 img+veil 模式重写（Windows 兼容方案）
 - 彻底移除截图窗口 transparent 消除 DWM 鼠标穿透
 - 截图 preload 路径修复
 - 径向菜单：clip-path 闪白、拖拽延迟判定、背景适配深色主题
 
 ### 变更
+
 - 截图改为遮罩模式（先覆盖屏幕选区再截图）
 
 ## [0.2.11] - 2026-08-25
 
 ### 新增
+
 - 径向悬浮窗快捷菜单与附件管理
 - 动态背景 + 毛玻璃效果
 - 径向菜单：圆环分割布局、主窗口最小化自动显示、拖拽+互斥显示
@@ -227,16 +294,20 @@
 ## [0.2.10] - 2026-08-24
 
 ### 修复
+
 - 分类分布图表不显示（容器条件渲染导致 echarts init 跳过）
 
 ### 变更
+
 - ECharts 图表迁移、范围按钮 fixed、间距恢复
 - 统计页范围按钮 sticky 固定顶部 + 滚动条隐藏
 
 ### 性能
+
 - ECharts 柱状图动画不可见修复
 
 ### 新增
+
 - ECharts 柱状图动画美化 + 统计页时间范围按钮放大
 - rcedit 品牌化 dev electron.exe 图标
 - hf-mirror 并行下载 + 模型更新 + dev 环境图标修复
@@ -245,11 +316,13 @@
 ## [0.2.9] - 2026-08-23
 
 ### 新增
+
 - 用户可选主题色，七种 accent 即时切换
 - 报告与对话支持 Mermaid 图表渲染并跟随主题
 - 接入 motion 动画，路由过渡与统计卡入场升级
 
 ### 变更
+
 - 全页面表面色统一接入设计 token
 - 全部入场动画统一 motion 编排并结合 fade
 - 新增更新日志并按现有功能同步自述文件
@@ -257,12 +330,14 @@
 ## [0.2.8] - 2026-08-22
 
 ### 新增
+
 - 会议开始定时提醒：提前量可配置（5/10/15/30 分钟），系统通知点击后恢复并聚焦主窗口
 - Bark iOS 推送：`BARK_KEY` 通过环境变量或项目 `.env` 提供，可选 `BARK_SERVER` 接入自建服务
 - 看板任务完成时推送系统通知与 Bark（完成按钮与拖拽到完成列均触发）
 - `notifier` 模块统一通知出口（本地系统通知 + Bark），完整日志输出
 
 ### 修复
+
 - 统计页标识符损坏：每日活动图表恢复渲染、环形图与卡片配色排版恢复；移除刷新按钮，周期切换即重载数据
 - 报告生成卡在「生成中」：补回丢失的 `ai:stream-chat` 处理器并清理重复注册
 - 报告保存时序：生成完成后自动保存并关联记录，后续编辑直接更新该条报告
@@ -270,23 +345,27 @@
 - Splash 偶发加载失败（ERR_FAILED -2）自动重试一次
 
 ### 变更
+
 - 主进程接入 dotenv，支持从项目根目录 `.env` 读取配置
 
 ## [0.2.7] - 2026-08-22
 
 ### 新增
+
 - 设置页支持切换窗口材质（Mica / Mica Tabbed / Acrylic）
 - 日历月视图与待办、会议联动标记（圆点指示）
 - 本地模型加载失败增加重试按钮
 - 设计规范文档 `DESIGN.md`
 
 ### 变更
+
 - 迁移至原生 `backgroundMaterial`（Electron 36+），替代 talex-mica-electron DWM 方案
 - 全窗口 chrome 统一涂装：标题栏、导航栏、页面操作栏同色 + 毛玻璃效果
 - 暗色模式全面适配：日历、PaddleOCR、XRay、报告页、AI 页、设置页
 - 托盘图标与托盘菜单图标视觉优化（尺寸自适应、品牌配色）
 
 ### 修复
+
 - macOS 无证书环境构建签名失败（`identity: null`）
 - 工作日志与统计页大面积标识符损坏修复
 - 设置页头部滚动遮挡、内容区满幅背景恢复
@@ -294,6 +373,7 @@
 ## [0.2.6] - 2026-08-21
 
 ### 新增
+
 - AI 对话页重写：三栏布局、会话管理、Token 统计与成本估算、思考过程面板
 - 模型配置增强：8 家供应商预设、连接测试、配置导入导出、表单校验
 - 日程页面支持待办事项与会议预约（时间、地点）
@@ -301,28 +381,33 @@
 - commitlint（emoji 类型 + 中文描述）+ bumpp 交互式发布流程
 
 ### 变更
+
 - ONNX / OCR 页面重构为「模型面板 + 工作区」布局
 - 模型下载固定走 hf-mirror.com 国内镜像，本地文件夹缓存跨页面复用
 - 3D 贡献图动画性能优化（自管理时间线，动画结束后停止重绘）
 
 ### 修复
+
 - 分类分布图表无限闪烁（i18n 函数引用导致的 effect 循环）
 - 模型加载 dtype/device 回退链与镜像尾斜杠问题
 
 ## [0.2.5] - 2026-08-20
 
 ### 新增
+
 - 路由切换过渡动画
 - 报告页双栏布局：流式 Markdown 渲染（含 `<think>` 折叠面板）、历史侧栏、空状态引导
 - 3D 贡献图（React Three Fiber）+ ECharts 堆叠柱状图 + 全局 ErrorBoundary
 
 ### 修复
+
 - 流式 Markdown MessageChannel 端口竞态，改用事件广播模式
 - CI macOS 构建的平台专属依赖问题
 
 ## [0.2.4] - 2026-08-20
 
 ### 新增
+
 - AI streaming chat with net.fetch + MessagePort + Streamdown
 - 托盘菜单图标、关闭动作设置、标题栏修复
 - NSIS 安装包图片改为浅色背景
@@ -332,12 +417,14 @@
 ## [0.2.3] - 2026-08-20
 
 ### 变更
+
 - 移除 DSH 功能，版本号升至 0.2.2
 - 更新 workflow
 
 ## [0.2.2] - 2026-08-19
 
 ### 新增
+
 - 个性化 NSIS 安装界面：定制侧边栏和头部横幅图片
 - 新托盘图标 + 菜单项图标 + 右键菜单清理
 - 基于 token 的主题色机制 + 页面深色适配
@@ -347,6 +434,7 @@
 - SettingsPage 固定顶部栏
 
 ### 修复
+
 - NSIS 安装包图片用 Python Pillow 生成正确 BMP
 - 用 SVG+sharp 重写安装包图片生成，修复中文乱码
 - 导航栏完全透明，让 Mica 效果透出
@@ -354,43 +442,51 @@
 - 红绿灯 tooltip 被裁剪
 
 ### 变更
+
 - 移除强调色 IPC，优化 Mica 透明度
 - 移除 react-use 依赖
 
 ## [0.2.1] - 2026-08-18
 
 ### 新增
+
 - DSH 模块架构与安全优化
 - 页面布局与版本同步
 
 ### 修复
+
 - 主题切换与开机启动持久化
 
 ## [0.1.6] - 2026-08-03
 
 ### 修复
+
 - 任务完成对话框居中
 - 任务日期选择器
 
 ## [0.1.5] - 2026-07-31
 
 ### 新增
+
 - Redesign WorkPulse + 升级 Electron
 - 修复开发模式应用图标
 
 ## [0.1.4] - 2026-07-31
 
 ### 变更
+
 - 合并 PR #1（zhunihuifeima/main）+ 代码审查反馈
 
 ## [0.1.3] - 2026-07-31
 
 ### 新增
+
 - Bump release version to 0.1.5
 
 ## [0.1.2] - 2026-04-30
 
 ### 新增
+
 - 本地化与发布工作流
 - 报告、截图、设置功能增强
 - 应用图标更新
@@ -401,11 +497,13 @@
 ## [0.1.1] - 2026-04-30
 
 ### 新增
+
 - Bump release version to 0.1.1
 
 ## [0.1.0] - 2026-04-30
 
 ### 新增
+
 - 任务编辑、应用图标修复、拖拽边界限制、README
 - 搜索、深色模式、统计、导出、动画、日期选择器修复
 - 应用图标和 Logo 资源
@@ -416,4 +514,5 @@
 ## [0.1.0-beta] - 2026-03-30
 
 ### 新增
+
 - WorkPulse MVP：看板任务、工作日志、AI 报告
