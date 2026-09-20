@@ -9,61 +9,76 @@
  *
  * 存储：model_configs 表（由 db.ts createTables 创建）
  */
-import { getDatabase, getSetting, setSetting } from './db'
+import { getDatabase, getSetting, setSetting } from './db';
 
 // ==================== 类型定义 ====================
 
+/** 计费类型 */
+export type BillingType = 'calls' | 'tokens' | 'none';
+
 /** 单个 Chat 模型配置 */
 export interface ChatModelConfig {
-  id: string
-  name: string
-  baseURL: string
-  model: string
+  id: string;
+  name: string;
+  baseURL: string;
+  model: string;
   /** API Key 单独加密存储，不进表 */
-  token: string
-  headers: string
-  temperature: number
-  max_tokens: number
-  top_p: number
-  top_k: number
+  token: string;
+  headers: string;
+  temperature: number;
+  max_tokens: number;
+  top_p: number;
+  top_k: number;
   /** 系统提示词 */
-  prompt: string
+  prompt: string;
   /** 是否启用流式输出 */
-  stream: boolean
-  /** 每日 API 调用上限（0=不限制） */
-  dailyLimit: number
+  stream: boolean;
+  /** 服务商标识（用于筛选和展示） */
+  provider: string;
+  /** 计费类型：calls=按次数 / tokens=按token / none=无限制 */
+  billingType: BillingType;
+  /** 每日 API 调用上限（0=不限制，billingType='calls' 时生效） */
+  dailyLimit: number;
+  /** 每月 Token 用量上限（0=不限制，billingType='tokens' 时生效） */
+  tokenQuota: number;
   /** 额度共享组（填相同值的模型共享调用计数，留空=独立计数） */
-  quotaGroup: string
+  quotaGroup: string;
 }
 
 /** Embedding 模型配置 */
 export interface EmbeddingModelConfig {
-  id: string
-  name: string
-  baseURL: string
-  model: string
+  id: string;
+  name: string;
+  baseURL: string;
+  model: string;
   /** 向量维度（如 1536, 384, 768 等） */
-  dimension: number
+  dimension: number;
   /** 自定义 Headers (JSON) */
-  headers: string
+  headers: string;
   /** API Key（可选，不设则复用 Chat 的） */
-  token: string
-  /** 每日 API 调用上限（0=不限制） */
-  dailyLimit: number
+  token: string;
+  /** 服务商标识（用于筛选和展示） */
+  provider: string;
+  /** 计费类型：calls=按次数 / tokens=按token / none=无限制 */
+  billingType: BillingType;
+  /** 每日 API 调用上限（0=不限制，billingType='calls' 时生效） */
+  dailyLimit: number;
+  /** 每月 Token 用量上限（0=不限制，billingType='tokens' 时生效） */
+  tokenQuota: number;
   /** 额度共享组（填相同值的模型共享调用计数，留空=独立计数） */
-  quotaGroup: string
+  quotaGroup: string;
 }
 
 /** 全局模型配置（持久化到 model_configs 表） */
 export interface GlobalModelConfig {
   /** 所有 Chat 模型配置 */
-  chatConfigs: ChatModelConfig[]
+  chatConfigs: ChatModelConfig[];
   /** 当前选中的 Chat 配置 ID */
-  activeChatConfigId: string
+  activeChatConfigId: string;
   /** 所有 Embedding 模型配置 */
-  embeddingConfigs: EmbeddingModelConfig[]
+  embeddingConfigs: EmbeddingModelConfig[];
   /** 当前选中的 Embedding 配置 ID */
-  activeEmbeddingConfigId: string
+  activeEmbeddingConfigId: string;
 }
 
 // ==================== 默认值 ====================
@@ -82,7 +97,10 @@ const DEFAULT_CHAT_CONFIGS: ChatModelConfig[] = [
     top_k: 50,
     prompt: '',
     stream: true,
+    provider: 'deepseek',
+    billingType: 'calls',
     dailyLimit: 0,
+    tokenQuota: 0,
     quotaGroup: '',
   },
   {
@@ -98,10 +116,13 @@ const DEFAULT_CHAT_CONFIGS: ChatModelConfig[] = [
     top_k: 50,
     prompt: '',
     stream: true,
+    provider: 'gitee',
+    billingType: 'calls',
     dailyLimit: 0,
+    tokenQuota: 0,
     quotaGroup: '',
   },
-]
+];
 
 const DEFAULT_EMBEDDING_CONFIGS: EmbeddingModelConfig[] = [
   {
@@ -112,61 +133,67 @@ const DEFAULT_EMBEDDING_CONFIGS: EmbeddingModelConfig[] = [
     dimension: 1536,
     headers: '',
     token: '',
+    provider: 'openai',
+    billingType: 'calls',
     dailyLimit: 0,
+    tokenQuota: 0,
     quotaGroup: '',
   },
-]
+];
 
 const DEFAULT_CONFIG: GlobalModelConfig = {
   chatConfigs: DEFAULT_CHAT_CONFIGS,
   activeChatConfigId: 'deepseek',
   embeddingConfigs: DEFAULT_EMBEDDING_CONFIGS,
   activeEmbeddingConfigId: 'openai-embedding',
-}
+};
 
 // ==================== 加密 Token 管理 ====================
 
 function saveToken(configId: string, token: string): void {
   if (!token) {
-    deleteToken(configId)
-    return
+    deleteToken(configId);
+    return;
   }
-  const { saveLLMToken } = require('./secureSettings')
-  saveLLMToken(configId, token)
+  const { saveLLMToken } = require('./secureSettings');
+  saveLLMToken(configId, token);
 }
 
 function loadToken(configId: string): string {
-  const { getLLMToken } = require('./secureSettings')
-  return getLLMToken(configId) || ''
+  const { getLLMToken } = require('./secureSettings');
+  return getLLMToken(configId) || '';
 }
 
 function deleteToken(configId: string): void {
-  const { deleteLLMToken } = require('./secureSettings')
-  deleteLLMToken(configId)
+  const { deleteLLMToken } = require('./secureSettings');
+  deleteLLMToken(configId);
 }
 
 // ==================== 行 ↔ 类型转换 ====================
 
 interface ModelConfigRow {
-  id: string
-  config_type: string
-  name: string
-  base_url: string
-  model_name: string
-  temperature: number
-  max_tokens: number
-  top_p: number
-  top_k: number
-  prompt: string
-  stream: number
-  dimension: number
-  headers: string
-  is_active: number
-  sort_order: number
-  daily_limit: number
-  quota_group: string
-  created_at: string
-  updated_at: string
+  id: string;
+  config_type: string;
+  name: string;
+  base_url: string;
+  model_name: string;
+  temperature: number;
+  max_tokens: number;
+  top_p: number;
+  top_k: number;
+  prompt: string;
+  stream: number;
+  dimension: number;
+  headers: string;
+  is_active: number;
+  sort_order: number;
+  provider: string;
+  billing_type: string;
+  daily_limit: number;
+  token_quota: number;
+  quota_group: string;
+  created_at: string;
+  updated_at: string;
 }
 
 function rowToChatConfig(row: ModelConfigRow): ChatModelConfig {
@@ -183,9 +210,12 @@ function rowToChatConfig(row: ModelConfigRow): ChatModelConfig {
     top_k: row.top_k,
     prompt: row.prompt,
     stream: row.stream === 1,
+    provider: row.provider || '',
+    billingType: (row.billing_type as BillingType) || 'calls',
     dailyLimit: row.daily_limit || 0,
+    tokenQuota: row.token_quota || 0,
     quotaGroup: row.quota_group || '',
-  }
+  };
 }
 
 function rowToEmbedConfig(row: ModelConfigRow): EmbeddingModelConfig {
@@ -197,210 +227,316 @@ function rowToEmbedConfig(row: ModelConfigRow): EmbeddingModelConfig {
     dimension: row.dimension,
     headers: row.headers,
     token: loadToken(`emb_${row.id}`),
+    provider: row.provider || '',
+    billingType: (row.billing_type as BillingType) || 'calls',
     dailyLimit: row.daily_limit || 0,
+    tokenQuota: row.token_quota || 0,
     quotaGroup: row.quota_group || '',
-  }
+  };
 }
 
 // ==================== 核心读写 ====================
 
 /** model_configs 表数据版本号，用于自动清理旧迁移脏数据 */
-const MODEL_CONFIGS_VERSION = 2
+const MODEL_CONFIGS_VERSION = 2;
 
 /**
  * 获取完整模型配置（含 token 解密）
  */
 export function getGlobalConfig(): GlobalModelConfig {
-  const db = getDatabase()
+  const db = getDatabase();
 
   // 检查数据版本，清理旧迁移写入的脏数据
-  const storedVersion = parseInt(getSetting('model_configs_version') || '0', 10)
+  const storedVersion = parseInt(getSetting('model_configs_version') || '0', 10);
   if (storedVersion < MODEL_CONFIGS_VERSION) {
     // 旧版本数据可能包含 localStorage 迁移的错误配置，清除后重建默认配置
-    db.prepare('DELETE FROM model_configs').run()
-    setGlobalConfig(DEFAULT_CONFIG)
-    setSetting('model_configs_version', String(MODEL_CONFIGS_VERSION))
-    return { ...DEFAULT_CONFIG }
+    db.prepare('DELETE FROM model_configs').run();
+    setGlobalConfig(DEFAULT_CONFIG);
+    setSetting('model_configs_version', String(MODEL_CONFIGS_VERSION));
+    return { ...DEFAULT_CONFIG };
   }
 
   // 检查表是否有数据
-  const count = db.prepare('SELECT COUNT(*) as c FROM model_configs').get() as { c: number }
+  const count = db.prepare('SELECT COUNT(*) as c FROM model_configs').get() as { c: number };
   if (count.c === 0) {
     // 表为空（首次启动或用户清空），写入默认配置并返回
-    setGlobalConfig(DEFAULT_CONFIG)
-    return { ...DEFAULT_CONFIG }
+    setGlobalConfig(DEFAULT_CONFIG);
+    return { ...DEFAULT_CONFIG };
   }
 
-  return readConfigFromTable()
+  return readConfigFromTable();
 }
 
 /** 从 model_configs 表读取配置 */
 function readConfigFromTable(): GlobalModelConfig {
-  const db = getDatabase()
+  const db = getDatabase();
 
-  const chatRows = db.prepare(
-    "SELECT * FROM model_configs WHERE config_type = 'chat' ORDER BY sort_order"
-  ).all() as ModelConfigRow[]
+  const chatRows = db
+    .prepare("SELECT * FROM model_configs WHERE config_type = 'chat' ORDER BY sort_order")
+    .all() as ModelConfigRow[];
 
-  const embedRows = db.prepare(
-    "SELECT * FROM model_configs WHERE config_type = 'embedding' ORDER BY sort_order"
-  ).all() as ModelConfigRow[]
+  const embedRows = db
+    .prepare("SELECT * FROM model_configs WHERE config_type = 'embedding' ORDER BY sort_order")
+    .all() as ModelConfigRow[];
 
-  const activeChat = chatRows.find((r) => r.is_active)
-  const activeEmbed = embedRows.find((r) => r.is_active)
+  const activeChat = chatRows.find((r) => r.is_active);
+  const activeEmbed = embedRows.find((r) => r.is_active);
 
   return {
     chatConfigs: chatRows.map(rowToChatConfig),
     activeChatConfigId: activeChat?.id || chatRows[0]?.id || '',
     embeddingConfigs: embedRows.map(rowToEmbedConfig),
     activeEmbeddingConfigId: activeEmbed?.id || embedRows[0]?.id || '',
-  }
+  };
 }
 
 /**
  * 保存完整模型配置到 model_configs 表
  */
 export function setGlobalConfig(config: GlobalModelConfig): void {
-  const db = getDatabase()
+  const db = getDatabase();
 
   // 提取 token 分别加密存储
   for (const c of config.chatConfigs) {
     if (c.token !== undefined) {
-      saveToken(c.id, c.token)
+      saveToken(c.id, c.token);
     }
   }
   for (const e of config.embeddingConfigs) {
     if (e.token !== undefined) {
-      saveToken(`emb_${e.id}`, e.token)
+      saveToken(`emb_${e.id}`, e.token);
     }
   }
 
   const tx = db.transaction(() => {
     // 清空旧数据
-    db.prepare('DELETE FROM model_configs').run()
+    db.prepare('DELETE FROM model_configs').run();
 
     const insertChat = db.prepare(`
       INSERT INTO model_configs
         (id, config_type, name, base_url, model_name, temperature, max_tokens,
-         top_p, top_k, prompt, stream, dimension, headers, is_active, sort_order, daily_limit, quota_group)
-      VALUES (?, 'chat', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)
-    `)
+         top_p, top_k, prompt, stream, dimension, headers, is_active, sort_order,
+         provider, billing_type, daily_limit, token_quota, quota_group)
+      VALUES (?, 'chat', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
     const insertEmbed = db.prepare(`
       INSERT INTO model_configs
-        (id, config_type, name, base_url, model_name, dimension, headers, is_active, sort_order, daily_limit, quota_group)
-      VALUES (?, 'embedding', ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
+        (id, config_type, name, base_url, model_name, dimension, headers, is_active, sort_order,
+         provider, billing_type, daily_limit, token_quota, quota_group)
+      VALUES (?, 'embedding', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-    let sortIndex = 0
+    let sortIndex = 0;
     for (const c of config.chatConfigs) {
       insertChat.run(
-        c.id, c.name, c.baseURL, c.model,
-        c.temperature, c.max_tokens, c.top_p, c.top_k,
-        c.prompt, c.stream ? 1 : 0, c.headers,
-        c.id === config.activeChatConfigId ? 1 : 0, sortIndex++,
-        c.dailyLimit || 0, c.quotaGroup || ''
-      )
+        c.id,
+        c.name,
+        c.baseURL,
+        c.model,
+        c.temperature,
+        c.max_tokens,
+        c.top_p,
+        c.top_k,
+        c.prompt,
+        c.stream ? 1 : 0,
+        c.headers,
+        c.id === config.activeChatConfigId ? 1 : 0,
+        sortIndex++,
+        c.provider || '',
+        c.billingType || 'calls',
+        c.dailyLimit || 0,
+        c.tokenQuota || 0,
+        c.quotaGroup || '',
+      );
     }
     for (const e of config.embeddingConfigs) {
       insertEmbed.run(
-        e.id, e.name, e.baseURL, e.model,
-        e.dimension, e.headers,
-        e.id === config.activeEmbeddingConfigId ? 1 : 0, sortIndex++,
-        e.dailyLimit || 0, e.quotaGroup || ''
-      )
+        e.id,
+        e.name,
+        e.baseURL,
+        e.model,
+        e.dimension,
+        e.headers,
+        e.id === config.activeEmbeddingConfigId ? 1 : 0,
+        sortIndex++,
+        e.provider || '',
+        e.billingType || 'calls',
+        e.dailyLimit || 0,
+        e.tokenQuota || 0,
+        e.quotaGroup || '',
+      );
     }
-  })
-  tx()
+  });
+  tx();
 }
 
 // ==================== 便捷方法 ====================
 
 /** 获取当前活跃的 Chat 配置 */
 export function getActiveChatConfig(): ChatModelConfig | undefined {
-  const config = getGlobalConfig()
-  return config.chatConfigs.find((c) => c.id === config.activeChatConfigId) || config.chatConfigs[0]
+  const config = getGlobalConfig();
+  return (
+    config.chatConfigs.find((c) => c.id === config.activeChatConfigId) || config.chatConfigs[0]
+  );
 }
 
 /** 获取 Embedding 配置列表 */
 export function getEmbeddingConfigs(): EmbeddingModelConfig[] {
-  return getGlobalConfig().embeddingConfigs
+  return getGlobalConfig().embeddingConfigs;
 }
 
 /** 设置活跃 Chat 配置 */
 export function setActiveChatConfig(configId: string): void {
-  const db = getDatabase()
-  db.prepare("UPDATE model_configs SET is_active = 0 WHERE config_type = 'chat'").run()
-  db.prepare("UPDATE model_configs SET is_active = 1 WHERE id = ? AND config_type = 'chat'").run(configId)
+  const db = getDatabase();
+  db.prepare("UPDATE model_configs SET is_active = 0 WHERE config_type = 'chat'").run();
+  db.prepare("UPDATE model_configs SET is_active = 1 WHERE id = ? AND config_type = 'chat'").run(
+    configId,
+  );
 }
 
 // ==================== 每日调用限额管理 ====================
 
 function getTodayKey(): string {
-  return new Date().toISOString().slice(0, 10)
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getMonthKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
 /** 获取模型的计数器 Key（支持 quotaGroup 共享） */
 function getCounterKey(modelId: string, quotaGroup: string): string {
-  return quotaGroup ? `daily_count_group_${quotaGroup}` : `daily_count_${modelId}`
+  return quotaGroup ? `daily_count_group_${quotaGroup}` : `daily_count_${modelId}`;
 }
 
 /** 检查指定模型是否超出每日调用限额（返回 true = 超限，应阻止调用） */
 export function isOverDailyLimit(modelId: string, dailyLimit: number, quotaGroup: string): boolean {
-  if (dailyLimit <= 0) return false
-  const { getSetting } = require('./db')
-  const today = getTodayKey()
-  const raw = getSetting(getCounterKey(modelId, quotaGroup))
-  if (!raw) return false
+  if (dailyLimit <= 0) return false;
+  const { getSetting } = require('./db');
+  const today = getTodayKey();
+  const raw = getSetting(getCounterKey(modelId, quotaGroup));
+  if (!raw) return false;
   try {
-    const { date, count } = JSON.parse(raw) as { date: string; count: number }
-    return date === today && count >= dailyLimit
-  } catch { return false }
+    const { date, count } = JSON.parse(raw) as { date: string; count: number };
+    return date === today && count >= dailyLimit;
+  } catch {
+    return false;
+  }
 }
 
 /** 记录一次 API 调用（成功时调用） */
 export function incrementDailyCallCount(modelId: string, quotaGroup: string): void {
-  const { getSetting, setSetting } = require('./db')
-  const today = getTodayKey()
-  const countKey = getCounterKey(modelId, quotaGroup)
-  const raw = getSetting(countKey)
-  let count = 0
+  const { getSetting, setSetting } = require('./db');
+  const today = getTodayKey();
+  const countKey = getCounterKey(modelId, quotaGroup);
+  const raw = getSetting(countKey);
+  let count = 0;
   if (raw) {
     try {
-      const { date, count: c } = JSON.parse(raw) as { date: string; count: number }
-      if (date === today) count = c
-    } catch { /* ignore */ }
+      const { date, count: c } = JSON.parse(raw) as { date: string; count: number };
+      if (date === today) count = c;
+    } catch {
+      /* ignore */
+    }
   }
-  setSetting(countKey, JSON.stringify({ date: today, count: count + 1 }))
+  setSetting(countKey, JSON.stringify({ date: today, count: count + 1 }));
 }
 
 /** 获取指定模型的今日已调用次数 */
 export function getDailyCallCount(modelId: string, quotaGroup: string): number {
-  const { getSetting } = require('./db')
-  const today = getTodayKey()
-  const raw = getSetting(getCounterKey(modelId, quotaGroup))
-  if (!raw) return 0
+  const { getSetting } = require('./db');
+  const today = getTodayKey();
+  const raw = getSetting(getCounterKey(modelId, quotaGroup));
+  if (!raw) return 0;
   try {
-    const { date, count } = JSON.parse(raw) as { date: string; count: number }
-    return date === today ? count : 0
-  } catch { return 0 }
+    const { date, count } = JSON.parse(raw) as { date: string; count: number };
+    return date === today ? count : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// ==================== 每月 Token 限额管理 ====================
+
+/** 获取模型的月度 token 计数器 Key（支持 quotaGroup 共享） */
+function getTokenCounterKey(modelId: string, quotaGroup: string): string {
+  return quotaGroup ? `monthly_tokens_group_${quotaGroup}` : `monthly_tokens_${modelId}`;
+}
+
+/** 检查指定模型是否超出每月 Token 限额（返回 true = 超限） */
+export function isOverMonthlyTokenQuota(
+  modelId: string,
+  tokenQuota: number,
+  quotaGroup: string,
+): boolean {
+  if (tokenQuota <= 0) return false;
+  const { getSetting } = require('./db');
+  const month = getMonthKey();
+  const raw = getSetting(getTokenCounterKey(modelId, quotaGroup));
+  if (!raw) return false;
+  try {
+    const { month: m, tokens } = JSON.parse(raw) as { month: string; tokens: number };
+    return m === month && tokens >= tokenQuota;
+  } catch {
+    return false;
+  }
+}
+
+/** 累加 Token 用量（成功时调用） */
+export function incrementMonthlyTokenCount(
+  modelId: string,
+  quotaGroup: string,
+  tokens: number,
+): void {
+  const { getSetting, setSetting } = require('./db');
+  const month = getMonthKey();
+  const key = getTokenCounterKey(modelId, quotaGroup);
+  const raw = getSetting(key);
+  let current = 0;
+  if (raw) {
+    try {
+      const { month: m, tokens: t } = JSON.parse(raw) as { month: string; tokens: number };
+      if (m === month) current = t;
+    } catch {
+      /* ignore */
+    }
+  }
+  setSetting(key, JSON.stringify({ month, tokens: current + tokens }));
+}
+
+/** 获取指定模型的当月已消耗 Token 数 */
+export function getMonthlyTokenCount(modelId: string, quotaGroup: string): number {
+  const { getSetting } = require('./db');
+  const month = getMonthKey();
+  const raw = getSetting(getTokenCounterKey(modelId, quotaGroup));
+  if (!raw) return 0;
+  try {
+    const { month: m, tokens } = JSON.parse(raw) as { month: string; tokens: number };
+    return m === month ? tokens : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /** 删除 Chat 配置 */
 export function deleteChatConfig(configId: string): void {
-  const db = getDatabase()
-  db.prepare('DELETE FROM model_configs WHERE id = ?').run(configId)
-  deleteToken(configId)
+  const db = getDatabase();
+  db.prepare('DELETE FROM model_configs WHERE id = ?').run(configId);
+  deleteToken(configId);
 
   // 如果删除的是活跃配置，自动切换到第一个
-  const active = db.prepare(
-    "SELECT id FROM model_configs WHERE config_type = 'chat' AND is_active = 1"
-  ).get() as { id: string } | undefined
+  const active = db
+    .prepare("SELECT id FROM model_configs WHERE config_type = 'chat' AND is_active = 1")
+    .get() as { id: string } | undefined;
   if (!active) {
-    const first = db.prepare(
-      "SELECT id FROM model_configs WHERE config_type = 'chat' ORDER BY sort_order LIMIT 1"
-    ).get() as { id: string } | undefined
+    const first = db
+      .prepare(
+        "SELECT id FROM model_configs WHERE config_type = 'chat' ORDER BY sort_order LIMIT 1",
+      )
+      .get() as { id: string } | undefined;
     if (first) {
-      db.prepare('UPDATE model_configs SET is_active = 1 WHERE id = ?').run(first.id)
+      db.prepare('UPDATE model_configs SET is_active = 1 WHERE id = ?').run(first.id);
     }
   }
 }
@@ -411,18 +547,56 @@ export function deleteChatConfig(configId: string): void {
  * 获取主进程用的 Chat 调用信息（Report / Stream）
  */
 export function getActiveProviderInfo(): {
-  baseURL: string; model: string; token: string; headers: Record<string, string>;
-  temperature: number; max_tokens: number; top_p: number; dailyLimit: number; quotaGroup: string
+  baseURL: string;
+  model: string;
+  name: string;
+  token: string;
+  headers: Record<string, string>;
+  temperature: number;
+  max_tokens: number;
+  top_p: number;
+  billingType: BillingType;
+  dailyLimit: number;
+  tokenQuota: number;
+  quotaGroup: string;
 } {
-  const active = getActiveChatConfig()
+  const active = getActiveChatConfig();
   if (!active) {
-    return { baseURL: '', model: '', token: '', headers: {}, temperature: 0.7, max_tokens: 4096, top_p: 0.9, dailyLimit: 0, quotaGroup: '' }
+    return {
+      baseURL: '',
+      model: '',
+      name: '',
+      token: '',
+      headers: {},
+      temperature: 0.7,
+      max_tokens: 4096,
+      top_p: 0.9,
+      billingType: 'calls',
+      dailyLimit: 0,
+      tokenQuota: 0,
+      quotaGroup: '',
+    };
   }
-  let customHeaders: Record<string, string> = {}
-  if (active.headers) { try { customHeaders = JSON.parse(active.headers) } catch { /* ignore */ } }
+  let customHeaders: Record<string, string> = {};
+  if (active.headers) {
+    try {
+      customHeaders = JSON.parse(active.headers);
+    } catch {
+      /* ignore */
+    }
+  }
   return {
-    baseURL: active.baseURL, model: active.model, token: active.token || loadToken(active.id),
-    headers: customHeaders, temperature: active.temperature, max_tokens: active.max_tokens, top_p: active.top_p,
-    dailyLimit: active.dailyLimit || 0, quotaGroup: active.quotaGroup || '',
-  }
+    baseURL: active.baseURL,
+    model: active.model,
+    name: active.name || active.model,
+    token: active.token || loadToken(active.id),
+    headers: customHeaders,
+    temperature: active.temperature,
+    max_tokens: active.max_tokens,
+    top_p: active.top_p,
+    billingType: active.billingType || 'calls',
+    dailyLimit: active.dailyLimit || 0,
+    tokenQuota: active.tokenQuota || 0,
+    quotaGroup: active.quotaGroup || '',
+  };
 }

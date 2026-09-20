@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef, useCallback, ReactNode } from 'react'
-import { createPortal } from 'react-dom'
-import { motion } from 'motion/react'
-import { FadeIn, MOTION_EASE } from '../components/Motion'
+import { useEffect, useState, useRef, useCallback, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { motion } from 'motion/react';
+import { FadeIn, MOTION_EASE } from '../components/Motion';
 import {
   DndContext,
   DragOverlay,
@@ -12,54 +12,64 @@ import {
   useDroppable,
   type DragStartEvent,
   type DragEndEvent,
-  type DragOverEvent
-} from '@dnd-kit/core'
+  type DragOverEvent,
+} from '@dnd-kit/core';
 import {
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
-  arrayMove
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { restrictToWindowEdges } from '@dnd-kit/modifiers'
-import { Plus, Trash2, GripVertical, Archive, ChevronRight, ChevronLeft, Calendar, Pencil, Check, X } from 'lucide-react'
-import { useTaskStore } from '../stores/taskStore'
-import { useToast } from '../components/Toast'
-import { useI18n } from '../stores/languageStore'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import confetti from 'canvas-confetti' // ✅ 导入彩纸屑
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { restrictToWindowEdges } from '@dnd-kit/modifiers';
+import {
+  Plus,
+  Trash2,
+  GripVertical,
+  Archive,
+  ChevronRight,
+  ChevronLeft,
+  Calendar,
+  Pencil,
+  Check,
+  X,
+} from 'lucide-react';
+import { useTaskStore } from '../stores/taskStore';
+import { useToast } from '../components/Toast';
+import { useI18n } from '../stores/languageStore';
+import { SkeletonLine, SkeletonRect } from '../components/Skeleton';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import confetti from 'canvas-confetti'; // ✅ 导入彩纸屑
 
 interface Task {
-  id: number
-  title: string
-  description: string
-  status: 'todo' | 'in_progress' | 'done' | 'draft'
-  position: number
-  due_date: string | null
+  id: number;
+  title: string;
+  description: string;
+  status: 'todo' | 'in_progress' | 'done' | 'draft';
+  position: number;
+  due_date: string | null;
 }
 
-type ColumnId = 'todo' | 'in_progress' | 'done'
-type DroppableId = ColumnId | 'draft'
+type ColumnId = 'todo' | 'in_progress' | 'done';
+type DroppableId = ColumnId | 'draft';
 
-const COLUMNS: { id: ColumnId; labelKey: 'kanban.todo' | 'kanban.inProgress' | 'kanban.done'; color: string }[] = [
+const COLUMNS: {
+  id: ColumnId;
+  labelKey: 'kanban.todo' | 'kanban.inProgress' | 'kanban.done';
+  color: string;
+}[] = [
   { id: 'todo', labelKey: 'kanban.todo', color: 'border-zinc-300 dark:border-zinc-600' },
   { id: 'in_progress', labelKey: 'kanban.inProgress', color: 'border-blue-400' },
-  { id: 'done', labelKey: 'kanban.done', color: 'border-green-400' }
-]
+  { id: 'done', labelKey: 'kanban.done', color: 'border-green-400' },
+];
 
-const ALL_DROPPABLE_IDS: DroppableId[] = ['todo', 'in_progress', 'done', 'draft']
-const SAVE_SHORTCUT_LABEL = navigator.userAgent.includes('Mac') ? '⌘+Enter' : 'Ctrl+Enter'
+const ALL_DROPPABLE_IDS: DroppableId[] = ['todo', 'in_progress', 'done', 'draft'];
+const SAVE_SHORTCUT_LABEL = navigator.userAgent.includes('Mac') ? '⌘+Enter' : 'Ctrl+Enter';
 
 // --- Droppable Column Wrapper ---
-function DroppableColumn({
-  id,
-  children
-}: {
-  id: string
-  children: React.ReactNode
-}): ReactNode {
-  const { setNodeRef, isOver } = useDroppable({ id })
+function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }): ReactNode {
+  const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
     <div
@@ -68,24 +78,24 @@ function DroppableColumn({
     >
       {children}
     </div>
-  )
+  );
 }
 
 // --- Sortable Task Card ---
 function getDueDateStatus(due: string | null): 'normal' | 'soon' | 'overdue' | null {
-  if (!due) return null
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  const dueDate = new Date(due + 'T00:00:00')
-  const diff = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-  if (diff < 0) return 'overdue'
-  if (diff <= 2) return 'soon'
-  return 'normal'
+  if (!due) return null;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const dueDate = new Date(due + 'T00:00:00');
+  const diff = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+  if (diff < 0) return 'overdue';
+  if (diff <= 2) return 'soon';
+  return 'normal';
 }
 
 function formatDue(due: string): string {
-  const d = new Date(due + 'T00:00:00')
-  return `${d.getMonth() + 1}/${d.getDate()}`
+  const d = new Date(due + 'T00:00:00');
+  return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 // Portal date picker — renders outside dnd-kit transform context so native picker positions correctly
@@ -93,33 +103,33 @@ function DatePickerPortal({
   anchorRect,
   defaultValue,
   onChange,
-  onClose
+  onClose,
 }: {
-  anchorRect: DOMRect
-  defaultValue: string
-  onChange: (value: string) => void
-  onClose: () => void
+  anchorRect: DOMRect;
+  defaultValue: string;
+  onChange: (value: string) => void;
+  onClose: () => void;
 }): ReactNode {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Auto-open the native picker after mount
-    requestAnimationFrame(() => inputRef.current?.showPicker?.())
-  }, [])
+    requestAnimationFrame(() => inputRef.current?.showPicker?.());
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent): void => {
       if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
-        onClose()
+        onClose();
       }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [onClose])
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
 
   // Position below the anchor button
-  const top = anchorRect.bottom + 4
-  const left = anchorRect.left
+  const top = anchorRect.bottom + 4;
+  const left = anchorRect.left;
 
   return createPortal(
     <div className="fixed z-100" style={{ top, left }}>
@@ -128,97 +138,105 @@ function DatePickerPortal({
         type="date"
         defaultValue={defaultValue}
         onChange={(e) => {
-          onChange(e.target.value)
-          onClose()
+          onChange(e.target.value);
+          onClose();
         }}
         onBlur={onClose}
         onKeyDown={(e) => e.key === 'Escape' && onClose()}
         className="text-xs border border-zinc-300 dark:border-zinc-600 rounded px-1.5 py-0.5 outline-none surface-input dark:text-zinc-200 shadow-lg"
       />
     </div>,
-    document.body
-  )
+    document.body,
+  );
 }
 
 function SortableTaskCard({
   task,
   onDelete,
   onSetDue,
-  onUpdate
+  onUpdate,
 }: {
-  task: Task
-  onDelete: (id: number) => void
-  onSetDue?: (id: number, date: string | null) => void
-  onUpdate?: (id: number, updates: { title?: string; description?: string }) => void
+  task: Task;
+  onDelete: (id: number) => void;
+  onSetDue?: (id: number, date: string | null) => void;
+  onUpdate?: (id: number, updates: { title?: string; description?: string }) => void;
 }): ReactNode {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: task.id })
-  const [pickerRect, setPickerRect] = useState<DOMRect | null>(null)
-  const [editing, setEditing] = useState(false)
-  const [editTitle, setEditTitle] = useState(task.title)
-  const [editDesc, setEditDesc] = useState(task.description)
-  const titleInputRef = useRef<HTMLInputElement>(null)
-  const { t } = useI18n()
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+  });
+  const [pickerRect, setPickerRect] = useState<DOMRect | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editDesc, setEditDesc] = useState(task.description);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useI18n();
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.4 : 1
-  }
+    opacity: isDragging ? 0.4 : 1,
+  };
 
-  const dueStatus = getDueDateStatus(task.due_date)
-  const dueColor = dueStatus === 'overdue'
-    ? 'text-red-500'
-    : dueStatus === 'soon'
-      ? 'text-amber-500'
-      : 'text-zinc-400'
+  const dueStatus = getDueDateStatus(task.due_date);
+  const dueColor =
+    dueStatus === 'overdue'
+      ? 'text-red-500'
+      : dueStatus === 'soon'
+        ? 'text-amber-500'
+        : 'text-zinc-400';
 
-  const canEdit = task.status !== 'done' && onUpdate
+  const canEdit = task.status !== 'done' && onUpdate;
 
   const startEdit = useCallback(() => {
-    if (!canEdit) return
-    setEditTitle(task.title)
-    setEditDesc(task.description)
-    setEditing(true)
-    requestAnimationFrame(() => titleInputRef.current?.focus())
-  }, [canEdit, task.title, task.description])
+    if (!canEdit) return;
+    setEditTitle(task.title);
+    setEditDesc(task.description);
+    setEditing(true);
+    requestAnimationFrame(() => titleInputRef.current?.focus());
+  }, [canEdit, task.title, task.description]);
 
   const saveEdit = useCallback(() => {
-    const trimmedTitle = editTitle.trim()
-    if (!trimmedTitle) return // don't save empty title
-    const changes: { title?: string; description?: string } = {}
-    if (trimmedTitle !== task.title) changes.title = trimmedTitle
-    if (editDesc.trim() !== task.description) changes.description = editDesc.trim()
+    const trimmedTitle = editTitle.trim();
+    if (!trimmedTitle) return; // don't save empty title
+    const changes: { title?: string; description?: string } = {};
+    if (trimmedTitle !== task.title) changes.title = trimmedTitle;
+    if (editDesc.trim() !== task.description) changes.description = editDesc.trim();
     if (Object.keys(changes).length > 0) {
-      onUpdate?.(task.id, changes)
+      onUpdate?.(task.id, changes);
     }
-    setEditing(false)
-  }, [editTitle, editDesc, task, onUpdate])
+    setEditing(false);
+  }, [editTitle, editDesc, task, onUpdate]);
 
   const cancelEdit = useCallback(() => {
-    setEditing(false)
-    setEditTitle(task.title)
-    setEditDesc(task.description)
-  }, [task.title, task.description])
+    setEditing(false);
+    setEditTitle(task.title);
+    setEditDesc(task.description);
+  }, [task.title, task.description]);
 
-  const handleEditKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      saveEdit()
-    } else if (e.key === 'Escape') {
-      cancelEdit()
-    }
-  }, [saveEdit, cancelEdit])
+  const handleEditKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        saveEdit();
+      } else if (e.key === 'Escape') {
+        cancelEdit();
+      }
+    },
+    [saveEdit, cancelEdit],
+  );
 
   const openPicker = useCallback((e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    setPickerRect(rect)
-  }, [])
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setPickerRect(rect);
+  }, []);
 
-  const handleDateChange = useCallback((value: string): void => {
-    onSetDue?.(task.id, value || null)
-  }, [onSetDue, task.id])
+  const handleDateChange = useCallback(
+    (value: string): void => {
+      onSetDue?.(task.id, value || null);
+    },
+    [onSetDue, task.id],
+  );
 
-  const closePicker = useCallback(() => setPickerRect(null), [])
+  const closePicker = useCallback(() => setPickerRect(null), []);
 
   return (
     <motion.div
@@ -263,9 +281,7 @@ function SortableTaskCard({
               <div className="mt-1.5 p-2 border border-zinc-200 dark:border-zinc-700 rounded surface-inset">
                 <p className="text-[10px] text-zinc-400 mb-0.5">预览：</p>
                 <div className="text-xs prose prose-sm max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {editDesc}
-                  </ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{editDesc}</ReactMarkdown>
                 </div>
               </div>
             )}
@@ -298,9 +314,7 @@ function SortableTaskCard({
             </p>
             {task.description && (
               <div className="text-xs text-zinc-400 mt-1 prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {task.description}
-                </ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{task.description}</ReactMarkdown>
               </div>
             )}
           </>
@@ -357,7 +371,7 @@ function SortableTaskCard({
         </div>
       )}
     </motion.div>
-  )
+  );
 }
 
 // --- Overlay Card (while dragging) ---
@@ -366,7 +380,7 @@ function TaskCardOverlay({ task }: { task: Task }): ReactNode {
     <div className="p-3 surface-elevated rounded-lg shadow-lg rotate-2 scale-105">
       <p className="text-sm text-zinc-800 dark:text-zinc-200">{task.title}</p>
     </div>
-  )
+  );
 }
 
 // --- Complete Dialog ---
@@ -374,43 +388,45 @@ function CompleteDialog({
   task,
   onConfirm,
   onCancel,
-  onOnlyComplete
+  onOnlyComplete,
 }: {
-  task: Task
-  onConfirm: (logContent: string) => void
-    onCancel: () => void
-    onOnlyComplete: () => void
+  task: Task;
+  onConfirm: (logContent: string) => void;
+  onCancel: () => void;
+  onOnlyComplete: () => void;
 }): ReactNode {
-  const { t } = useI18n()
-  const [logContent, setLogContent] = useState(() => t('kanban.completeLogDefault', { title: task.title }))
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const { t } = useI18n();
+  const [logContent, setLogContent] = useState(() =>
+    t('kanban.completeLogDefault', { title: task.title }),
+  );
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    inputRef.current?.focus()
-    inputRef.current?.select()
-  }, [])
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      onConfirm(logContent)
+      onConfirm(logContent);
     }
     if (e.key === 'Escape') {
-      onCancel()
+      onCancel();
     }
-  }
+  };
 
-return createPortal(
-<FadeIn className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+  return createPortal(
+    <FadeIn className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <motion.div
         className="surface-elevated rounded-xl shadow-2xl w-full max-w-md mx-4 p-6"
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.25, ease: MOTION_EASE }}
       >
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">{t('kanban.completeTitle')}</h3>
-        <p className="text-sm text-zinc-500 mb-4">
-          {t('kanban.completePrompt')}
-        </p>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
+          {t('kanban.completeTitle')}
+        </h3>
+        <p className="text-sm text-zinc-500 mb-4">{t('kanban.completePrompt')}</p>
         <textarea
           ref={inputRef}
           value={logContent}
@@ -441,191 +457,249 @@ return createPortal(
         </div>
       </motion.div>
     </FadeIn>,
-    document.body
-  )
+    document.body,
+  );
 }
 
 // --- Main Kanban Page ---
 function KanbanPage(): ReactNode {
-  const { tasks, fetchTasks, addTask, updateTask, deleteTask, completeTask,completeTaskOnly,reorderTasks } =
-    useTaskStore()
-  const toast = useToast()
-  const { t } = useI18n()
-  const [newTaskTitle, setNewTaskTitle] = useState('')
-  const [newTaskDesc, setNewTaskDesc] = useState('')
-  const [newTaskDate, setNewTaskDate] = useState('')
-  const [showDescInput, setShowDescInput] = useState(false)
-  const [draftInput, setDraftInput] = useState('')
-  const [activeTask, setActiveTask] = useState<Task | null>(null)
-  const [pendingComplete, setPendingComplete] = useState<Task | null>(null)
-  const [localTasks, setLocalTasks] = useState<Task[]>([])
+  const {
+    tasks,
+    fetchTasks,
+    addTask,
+    updateTask,
+    deleteTask,
+    completeTask,
+    completeTaskOnly,
+    reorderTasks,
+  } = useTaskStore();
+  const toast = useToast();
+  const { t } = useI18n();
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDesc, setNewTaskDesc] = useState('');
+  const [newTaskDate, setNewTaskDate] = useState('');
+  const [showDescInput, setShowDescInput] = useState(false);
+  const [draftInput, setDraftInput] = useState('');
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [pendingComplete, setPendingComplete] = useState<Task | null>(null);
+  const [localTasks, setLocalTasks] = useState<Task[]>([]);
   const [draftOpen, setDraftOpen] = useState(() => {
-    const saved = localStorage.getItem('kanban:draftOpen')
-    return saved !== null ? saved === 'true' : true
-  })
-  const [previewDesc, setPreviewDesc] = useState(false)
+    const saved = localStorage.getItem('kanban:draftOpen');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [previewDesc, setPreviewDesc] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchTasks()
-  }, [])
+    fetchTasks().finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
-    setLocalTasks(tasks)
-  }, [tasks])
+    setLocalTasks(tasks);
+  }, [tasks]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  )
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const getColumnTasks = (columnId: DroppableId): Task[] =>
-    localTasks.filter((t) => t.status === columnId).sort((a, b) => a.position - b.position)
+    localTasks.filter((t) => t.status === columnId).sort((a, b) => a.position - b.position);
 
   const findTaskColumn = (taskId: number | string): DroppableId | null => {
-    const task = localTasks.find((t) => t.id === taskId)
-    return (task?.status as DroppableId) || null
-  }
+    const task = localTasks.find((t) => t.id === taskId);
+    return (task?.status as DroppableId) || null;
+  };
 
   const handleAddTask = async (): Promise<void> => {
-    if (!newTaskTitle.trim()) return
-    const createdAt = newTaskDate ? `${newTaskDate} ${new Date().toTimeString().slice(0, 8)}` : undefined
-    await addTask(newTaskTitle.trim(), newTaskDesc.trim() || undefined, undefined, createdAt)
-    setNewTaskTitle('')
-    setNewTaskDesc('')
-    setNewTaskDate('')
-    setShowDescInput(false)
-  }
+    if (!newTaskTitle.trim()) return;
+    const createdAt = newTaskDate
+      ? `${newTaskDate} ${new Date().toTimeString().slice(0, 8)}`
+      : undefined;
+    await addTask(newTaskTitle.trim(), newTaskDesc.trim() || undefined, undefined, createdAt);
+    setNewTaskTitle('');
+    setNewTaskDesc('');
+    setNewTaskDate('');
+    setShowDescInput(false);
+  };
 
   const handleAddDraft = async (): Promise<void> => {
-    if (!draftInput.trim()) return
-    await addTask(draftInput.trim(), undefined, 'draft')
-    setDraftInput('')
-  }
+    if (!draftInput.trim()) return;
+    await addTask(draftInput.trim(), undefined, 'draft');
+    setDraftInput('');
+  };
 
   const handleDragStart = (event: DragStartEvent): void => {
-    const task = localTasks.find((t) => t.id === event.active.id)
-    setActiveTask(task || null)
-  }
+    const task = localTasks.find((t) => t.id === event.active.id);
+    setActiveTask(task || null);
+  };
 
   const handleDragOver = (event: DragOverEvent): void => {
-    const { active, over } = event
-    if (!over) return
+    const { active, over } = event;
+    if (!over) return;
 
-    const activeId = active.id as number
-    const overId = over.id
+    const activeId = active.id as number;
+    const overId = over.id;
 
     // Determine which column the "over" element belongs to
-    let overColumn: DroppableId | null = null
+    let overColumn: DroppableId | null = null;
     if (ALL_DROPPABLE_IDS.includes(overId as DroppableId)) {
       // Dropped over a column container directly
-      overColumn = overId as DroppableId
+      overColumn = overId as DroppableId;
     } else {
       // Dropped over a task — find that task's column
-      overColumn = findTaskColumn(overId as number)
+      overColumn = findTaskColumn(overId as number);
     }
 
-    if (!overColumn) return
+    if (!overColumn) return;
 
-    const activeTaskItem = localTasks.find((t) => t.id === activeId)
-    if (!activeTaskItem || activeTaskItem.status === overColumn) return
+    const activeTaskItem = localTasks.find((t) => t.id === activeId);
+    if (!activeTaskItem || activeTaskItem.status === overColumn) return;
 
     // Move task to new column optimistically
     setLocalTasks((prev) =>
-      prev.map((t) =>
-        t.id === activeId ? { ...t, status: overColumn! } : t
-      )
-    )
-  }
+      prev.map((t) => (t.id === activeId ? { ...t, status: overColumn! } : t)),
+    );
+  };
 
   const handleDragEnd = async (event: DragEndEvent): Promise<void> => {
-    setActiveTask(null)
-    const { active, over } = event
+    setActiveTask(null);
+    const { active, over } = event;
     if (!over) {
       // Cancelled drag — revert
-      setLocalTasks(tasks)
-      return
+      setLocalTasks(tasks);
+      return;
     }
 
-    const activeId = active.id as number
-    const task = localTasks.find((t) => t.id === activeId)
-    if (!task) return
+    const activeId = active.id as number;
+    const task = localTasks.find((t) => t.id === activeId);
+    if (!task) return;
 
     // Determine target column
-    let targetColumn: DroppableId = task.status as DroppableId
+    let targetColumn: DroppableId = task.status as DroppableId;
     if (ALL_DROPPABLE_IDS.includes(over.id as DroppableId)) {
-      targetColumn = over.id as DroppableId
+      targetColumn = over.id as DroppableId;
     } else {
-      const overTask = localTasks.find((t) => t.id === over.id)
-      if (overTask) targetColumn = overTask.status as DroppableId
+      const overTask = localTasks.find((t) => t.id === over.id);
+      if (overTask) targetColumn = overTask.status as DroppableId;
     }
 
     // If moved to done, show complete dialog
-    const originalTask = tasks.find((t) => t.id === activeId)
+    const originalTask = tasks.find((t) => t.id === activeId);
     if (targetColumn === 'done' && originalTask?.status !== 'done') {
       // 只弹出对话框，不触发彩纸屑
-      setPendingComplete({ ...task, status: 'done' })
-      return
+      setPendingComplete({ ...task, status: 'done' });
+      return;
     }
 
     // Reorder within the column
     const columnTasks = localTasks
       .filter((t) => t.status === targetColumn)
-      .sort((a, b) => a.position - b.position)
+      .sort((a, b) => a.position - b.position);
 
-    const oldIndex = columnTasks.findIndex((t) => t.id === activeId)
-    const overIndex = columnTasks.findIndex((t) => t.id === over.id)
+    const oldIndex = columnTasks.findIndex((t) => t.id === activeId);
+    const overIndex = columnTasks.findIndex((t) => t.id === over.id);
 
     if (oldIndex !== -1 && overIndex !== -1 && oldIndex !== overIndex) {
-      const reordered = arrayMove(columnTasks, oldIndex, overIndex)
-      await reorderTasks(reordered.map((t) => t.id), targetColumn)
+      const reordered = arrayMove(columnTasks, oldIndex, overIndex);
+      await reorderTasks(
+        reordered.map((t) => t.id),
+        targetColumn,
+      );
     } else {
-      const ids = columnTasks.map((t) => t.id)
-      await reorderTasks(ids, targetColumn)
+      const ids = columnTasks.map((t) => t.id);
+      await reorderTasks(ids, targetColumn);
     }
-  }
+  };
 
   // ✅ 确认完成 → 触发彩纸屑
   const handleComplete = async (logContent: string): Promise<void> => {
-    if (!pendingComplete) return
-    await completeTask(pendingComplete.id, logContent)
+    if (!pendingComplete) return;
+    await completeTask(pendingComplete.id, logContent);
 
     // 🎊 彩纸屑庆祝
     confetti({
       particleCount: 120,
       spread: 70,
       origin: { y: 0.6 },
-      colors: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff6fd8']
-    })
+      colors: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff6fd8'],
+    });
 
-    setPendingComplete(null)
-    toast.success(t('kanban.completedToast'))
-  }
+    setPendingComplete(null);
+    toast.success(t('kanban.completedToast'));
+  };
 
   const handleCompleteOnly = async (): Promise<void> => {
-    if (!pendingComplete) return
-    await completeTaskOnly(pendingComplete.id)
-    setPendingComplete(null)
-    toast.success(t('kanban.completedOnlyToast'))
-  }
+    if (!pendingComplete) return;
+    await completeTaskOnly(pendingComplete.id);
+    setPendingComplete(null);
+    toast.success(t('kanban.completedOnlyToast'));
+  };
 
   // 跳过 → 不触发纸屑
   const handleCancelComplete = async (): Promise<void> => {
-    setPendingComplete(null)
-    await fetchTasks()
-  }
+    setPendingComplete(null);
+    await fetchTasks();
+  };
 
   const handleSetDue = async (id: number, date: string | null): Promise<void> => {
-    await updateTask(id, { due_date: date })
-  }
+    await updateTask(id, { due_date: date });
+  };
 
-  const handleUpdate = async (id: number, updates: { title?: string; description?: string }): Promise<void> => {
-    await updateTask(id, updates)
-  }
+  const handleUpdate = async (
+    id: number,
+    updates: { title?: string; description?: string },
+  ): Promise<void> => {
+    await updateTask(id, updates);
+  };
 
   const handleDelete = async (id: number): Promise<void> => {
-    await deleteTask(id)
-  }
+    await deleteTask(id);
+  };
 
-  const draftTasks = getColumnTasks('draft')
+  const draftTasks = getColumnTasks('draft');
+
+  // 骨架屏状态
+  if (loading && localTasks.length === 0) {
+    return (
+      <div className="flex gap-4 overflow-hidden p-4">
+        <div className="flex-1 min-w-0">
+          <div className="mb-6">
+            <SkeletonRect className="w-full h-10 rounded-lg" />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            {COLUMNS.map((col) => (
+              <div key={col.id} className="min-h-50">
+                <div className={`flex items-center gap-2 mb-3 pb-2 border-b-2 ${col.color}`}>
+                  <SkeletonLine width="4rem" height="0.875rem" />
+                </div>
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <div key={i} className="surface-card rounded-lg p-3 space-y-2">
+                      <SkeletonLine width={`${60 + i * 10}%`} height="0.875rem" />
+                      <SkeletonLine width={`${40 + i * 8}%`} height="0.625rem" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="shrink-0 w-56 border-l border-zinc-200 dark:border-zinc-700 rounded-lg">
+          <div className="px-3 py-3 border-b border-zinc-200 dark:border-zinc-700">
+            <SkeletonLine width="5rem" height="0.875rem" />
+          </div>
+          <div className="px-3 py-2">
+            <SkeletonRect className="w-full h-8 rounded" />
+          </div>
+          <div className="px-3 space-y-1.5">
+            {Array.from({ length: 2 }, (_, i) => (
+              <div key={i} className="surface-card rounded-lg p-3">
+                <SkeletonLine width={`${70 + i * 10}%`} height="0.875rem" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <DndContext
@@ -682,11 +756,13 @@ function KanbanPage(): ReactNode {
           {/* Board */}
           <div className="grid grid-cols-3 gap-4">
             {COLUMNS.map((col) => {
-              const columnTasks = getColumnTasks(col.id)
+              const columnTasks = getColumnTasks(col.id);
               return (
                 <div key={col.id} className="min-h-50">
                   <div className={`flex items-center gap-2 mb-3 pb-2 border-b-2 ${col.color}`}>
-                    <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t(col.labelKey)}</h3>
+                    <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                      {t(col.labelKey)}
+                    </h3>
                     <span className="text-xs text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
                       {columnTasks.length}
                     </span>
@@ -715,31 +791,28 @@ function KanbanPage(): ReactNode {
                     </DroppableColumn>
                   </SortableContext>
                 </div>
-              )
+              );
             })}
           </div>
         </div>
 
         {/* Draft Box Sidebar */}
         <div
-          className={`shrink-0 border-l border-zinc-200 dark:border-zinc-700 rounded-lg transition-all flex flex-col ${draftOpen ? 'w-56' : 'w-10'
-            }`}
+          className={`shrink-0 border-l border-zinc-200 dark:border-zinc-700 rounded-lg transition-all flex flex-col ${
+            draftOpen ? 'w-56' : 'w-10'
+          }`}
         >
           {/* Toggle Button */}
           <button
             onClick={() => {
-              const next = !draftOpen
-              setDraftOpen(next)
-              localStorage.setItem('kanban:draftOpen', String(next))
+              const next = !draftOpen;
+              setDraftOpen(next);
+              localStorage.setItem('kanban:draftOpen', String(next));
             }}
             className="flex items-center justify-center h-10 border-b border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0 rounded-t-lg"
             aria-label={draftOpen ? t('kanban.collapseDrafts') : t('kanban.expandDrafts')}
           >
-            {draftOpen ? (
-              <ChevronRight className="w-4 h-4" />
-            ) : (
-              <ChevronLeft className="w-4 h-4" />
-            )}
+            {draftOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
 
           {!draftOpen && (
@@ -755,15 +828,15 @@ function KanbanPage(): ReactNode {
             <div className="flex flex-col flex-1 overflow-hidden">
               <div className="flex items-center gap-2 px-3 py-3 border-b border-zinc-200 dark:border-zinc-700">
                 <Archive className="w-4 h-4 text-zinc-400" />
-                <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t('kanban.drafts')}</h3>
+                <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  {t('kanban.drafts')}
+                </h3>
                 <span className="text-xs text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
                   {draftTasks.length}
                 </span>
               </div>
 
-              <p className="text-xs text-zinc-400 px-3 py-2">
-                {t('kanban.draftHelp')}
-              </p>
+              <p className="text-xs text-zinc-400 px-3 py-2">{t('kanban.draftHelp')}</p>
 
               {/* Draft Input */}
               <div className="px-3 pb-3">
@@ -813,9 +886,7 @@ function KanbanPage(): ReactNode {
         </div>
       </div>
 
-      <DragOverlay>
-        {activeTask ? <TaskCardOverlay task={activeTask} /> : null}
-      </DragOverlay>
+      <DragOverlay>{activeTask ? <TaskCardOverlay task={activeTask} /> : null}</DragOverlay>
 
       {/* Complete Dialog */}
       {pendingComplete && (
@@ -826,10 +897,9 @@ function KanbanPage(): ReactNode {
 
           onOnlyComplete={handleCompleteOnly}
         />
-
       )}
     </DndContext>
-  )
+  );
 }
 
-export default KanbanPage
+export default KanbanPage;

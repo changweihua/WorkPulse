@@ -4,8 +4,16 @@
 
 ## [未发布]
 
+### 修复
+
+- 🐞 fix: 模型配置页"添加模型"按钮点击无反应 — 表单渲染从 map() 循环内移到循环外，新增模型 ID 不在列表中导致 isEditing 永远为 false
+- 🐞 fix: Embedding Provider 筛选标签数量与 Chat 不一致 — EMBED_PROVIDERS 新增 anthropic，两栏均为 8 个 Provider
+
 ### 变更
 
+- 🦄 refactor: 模型配置页全面重写 — Provider 筛选标签栏（全部 + 各 Provider pill）、添加模型改为下拉菜单选择 Provider 后自动填充 URL/模型名、计费方式选择器（按次数/按Token/无限制）、Token 月度限额输入、模型列表项显示 Provider 徽章+计费类型标签
+- 🦄 refactor: modelConfig.ts 新增 BillingType 类型、provider/billingType/tokenQuota 字段、月度 Token 配额追踪函数（getMonthKey/isOverMonthlyTokenQuota/incrementMonthlyTokenCount/getMonthlyTokenCount）
+- 🦄 refactor: db.ts 新增三条 ALTER TABLE 迁移（provider/billing_type/token_quota）
 - 🦄 refactor: AIChatPanel UI 重构 — 去除层叠渐变/辉光/毛玻璃炫技风格，采用 ChatGPT/Claude 主流简洁设计（clean surfaces, clear hierarchy, minimal chrome）
 - 🦄 refactor: 消息展示改为全宽式 — 参考 2026 年主流 AI 助手设计（Claude.ai/ChatGPT/Cursor），去除气泡背景，用户右对齐蓝色条，AI左对齐透明底+微灰背景条
 - 🦄 refactor: 每条AI消息显示模型名标签（AI头像+配置名称），提升可追溯性
@@ -25,6 +33,7 @@
 
 ### 新增
 
+- ✨ feat: 全局骨架屏加载动画 — 新增 Skeleton 组件库（SkeletonLine/SkeletonCircle/SkeletonRect/SkeletonStatCard/SkeletonTaskCard/SkeletonTableRow/SkeletonCard），8 个页面全面引入骨架屏（RssPage、ReportsPage、WorkLogPage、StatsPage、CalendarPage、KanbanPage、ChatPage、AiStatsPage）
 - ✨ feat: oxlint + oxfmt 代码检查和格式化（替代 ESLint+Prettier，Rust 原生工具，速度更快）
 - ✨ feat: Prettier 保留用于非 JS/TS 文件格式化（json/css/html/md/yaml/yml）
 - ✨ feat: .editorconfig 统一编辑器配置（2空格缩进，UTF-8，LF）

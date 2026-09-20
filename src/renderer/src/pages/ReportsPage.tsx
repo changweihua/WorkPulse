@@ -1,38 +1,47 @@
-import { useState, useEffect, ReactNode } from 'react'
-import { CalendarRange, Sparkles, BarChart3, Calendar, CheckCircle2, ListTodo, Users, Flame } from 'lucide-react'
-import { getDateRange, type DatePreset } from '../lib/dateUtils'
-import { useI18n } from '../stores/languageStore'
-import { FadeIn } from '../components/Motion'
+import { useState, useEffect, ReactNode } from 'react';
+import {
+  CalendarRange,
+  Sparkles,
+  BarChart3,
+  Calendar,
+  CheckCircle2,
+  ListTodo,
+  Users,
+  Flame,
+} from 'lucide-react';
+import { getDateRange, type DatePreset } from '../lib/dateUtils';
+import { useI18n } from '../stores/languageStore';
+import { FadeIn } from '../components/Motion';
 
 interface WeeklyReport {
-  period: { start: string; end: string }
+  period: { start: string; end: string };
   summary: {
-    totalLogs: number
-    totalTasksDone: number
-    totalTasksActive: number
-    meetingsAttended: number
-    activeDays: number
-  }
+    totalLogs: number;
+    totalTasksDone: number;
+    totalTasksActive: number;
+    meetingsAttended: number;
+    activeDays: number;
+  };
   dailyBreakdown: Array<{
-    date: string
-    logs: number
-    tasksDone: number
-    meetings: number
-    topCategories: Array<{ category: string; count: number }>
-  }>
-  highlights: string[]
+    date: string;
+    logs: number;
+    tasksDone: number;
+    meetings: number;
+    topCategories: Array<{ category: string; count: number }>;
+  }>;
+  highlights: string[];
 }
 
 function SummaryCard({
   icon,
   label,
   value,
-  iconBg
+  iconBg,
 }: {
-  icon: ReactNode
-  label: string
-  value: number
-  iconBg: string
+  icon: ReactNode;
+  label: string;
+  value: number;
+  iconBg: string;
 }): ReactNode {
   return (
     <div className="surface-card rounded-xl p-4 flex items-center gap-3">
@@ -49,46 +58,46 @@ function SummaryCard({
         </p>
       </div>
     </div>
-  )
+  );
 }
 
 function ReportsPage(): ReactNode {
-  const [preset, setPreset] = useState<DatePreset>('this_week')
-  const [start, setStart] = useState('')
-  const [end, setEnd] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [report, setReport] = useState<WeeklyReport | null>(null)
-  const { t } = useI18n()
+  const [preset, setPreset] = useState<DatePreset>('this_week');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [report, setReport] = useState<WeeklyReport | null>(null);
+  const { t } = useI18n();
 
   useEffect(() => {
-    applyPreset('this_week')
+    applyPreset('this_week');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   const applyPreset = (p: DatePreset): void => {
-    setPreset(p)
-    const range = getDateRange(p)
-    setStart(range.from)
-    setEnd(range.to)
-  }
+    setPreset(p);
+    const range = getDateRange(p);
+    setStart(range.from);
+    setEnd(range.to);
+  };
 
   const handleGenerate = async (): Promise<void> => {
-    if (!start || !end) return
-    setLoading(true)
+    if (!start || !end) return;
+    setLoading(true);
     try {
-      const data = await window.api.report.weekly(start, end)
-      setReport(data)
+      const data = await window.api.report.weekly(start, end);
+      setReport(data);
     } catch (err) {
-      console.error('Failed to generate weekly report:', err)
+      console.error('Failed to generate weekly report:', err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const presets: { value: DatePreset; label: string }[] = [
     { value: 'this_week', label: t('report.thisWeek') },
-    { value: 'last_week', label: t('report.lastWeek') }
-  ]
+    { value: 'last_week', label: t('report.lastWeek') },
+  ];
 
   return (
     <div className="h-full overflow-hidden">
@@ -98,7 +107,9 @@ function ReportsPage(): ReactNode {
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
               {t('reports.weeklyTitle')}
             </h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t('reports.weeklySubtitle')}</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+              {t('reports.weeklySubtitle')}
+            </p>
           </div>
         </FadeIn>
 
@@ -145,10 +156,46 @@ function ReportsPage(): ReactNode {
         </FadeIn>
 
         {loading && (
-          <div className="flex items-center justify-center py-16 text-zinc-400 text-sm">
-            <div className="w-6 h-6 mr-2 border-2 border-zinc-300 border-t-zinc-500 rounded-full animate-spin" />
-            {t('common.loading')}
-          </div>
+          <FadeIn className="space-y-5" delay={0.1}>
+            {/* 概览卡片骨架 */}
+            <div className="surface-card rounded-xl p-5">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <div key={i} className="surface-card rounded-xl p-4 flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl skeleton-shimmer shrink-0" />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="h-2.5 w-12 skeleton-shimmer rounded" />
+                      <div className="h-6 w-16 skeleton-shimmer rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* 高光骨架 */}
+            <div className="surface-card rounded-xl p-5 space-y-3">
+              <div className="h-4 w-24 skeleton-shimmer rounded" />
+              <div className="flex gap-2">
+                <div className="h-7 w-32 skeleton-shimmer rounded-lg" />
+                <div className="h-7 w-28 skeleton-shimmer rounded-lg" />
+                <div className="h-7 w-36 skeleton-shimmer rounded-lg" />
+              </div>
+            </div>
+            {/* 每日明细骨架 */}
+            <div className="surface-card rounded-xl p-5 space-y-2">
+              <div className="h-4 w-20 skeleton-shimmer rounded mb-4" />
+              {Array.from({ length: 4 }, (_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-4 rounded-lg bg-zinc-50 dark:bg-white/5 px-3 py-2.5"
+                >
+                  <div className="h-4 w-20 skeleton-shimmer rounded" />
+                  <div className="h-3 w-16 skeleton-shimmer rounded" />
+                  <div className="h-3 w-16 skeleton-shimmer rounded" />
+                  <div className="h-3 w-16 skeleton-shimmer rounded" />
+                </div>
+              ))}
+            </div>
+          </FadeIn>
         )}
 
         {!loading && report && (
@@ -231,13 +278,16 @@ function ReportsPage(): ReactNode {
                       {day.date.slice(5)}
                     </span>
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {t('stats.logLegend')} <b className="text-zinc-700 dark:text-zinc-200">{day.logs}</b>
+                      {t('stats.logLegend')}{' '}
+                      <b className="text-zinc-700 dark:text-zinc-200">{day.logs}</b>
                     </span>
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {t('stats.doneLegend')} <b className="text-zinc-700 dark:text-zinc-200">{day.tasksDone}</b>
+                      {t('stats.doneLegend')}{' '}
+                      <b className="text-zinc-700 dark:text-zinc-200">{day.tasksDone}</b>
                     </span>
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {t('reports.meetings')} <b className="text-zinc-700 dark:text-zinc-200">{day.meetings}</b>
+                      {t('reports.meetings')}{' '}
+                      <b className="text-zinc-700 dark:text-zinc-200">{day.meetings}</b>
                     </span>
                     {day.topCategories.length > 0 && (
                       <span className="flex flex-wrap gap-1.5 ml-auto">
@@ -266,7 +316,7 @@ function ReportsPage(): ReactNode {
         )}
       </div>
     </div>
-  )
+  );
 }
 
-export default ReportsPage
+export default ReportsPage;
