@@ -2,8 +2,10 @@
  * AI 使用统计服务 — 追踪调用次数、token 用量和费用
  *
  * 存储：ai_usage_logs 表（由 db.ts createTables 创建）
+ * 写入使用 Drizzle ORM 类型安全插入，聚合查询使用 Drizzle sql 模板原始 SQL
  */
-import { getDatabase } from './db';
+import { getDrizzleDb, aiUsageLogs } from './db';
+import { sql } from 'drizzle-orm';
 
 // ==================== 类型定义 ====================
 
@@ -98,44 +100,50 @@ function calculateCost(modelName: string, inputTokens: number, outputTokens: num
   return (inputTokens * price.input + outputTokens * price.output) / 1_000_000;
 }
 
+// ==================== 辅助函数 ====================
+
+/** 格式化为 SQLite datetime('now', 'localtime') 格式：YYYY-MM-DD HH:MM:SS */
+function nowLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+}
+
 // ==================== 核心读写 ====================
 
 /**
  * 记录一条 AI 使用日志
  */
 export function logAiUsage(record: AiUsageRecord): void {
-  const db = getDatabase();
+  const db = getDrizzleDb();
   const inputTokens = record.input_tokens || 0;
   const outputTokens = record.output_tokens || 0;
   const totalTokens = record.total_tokens || inputTokens + outputTokens;
   const costUsd = record.cost_usd ?? calculateCost(record.model_name, inputTokens, outputTokens);
 
-  db.prepare(`
-    INSERT INTO ai_usage_logs
-      (model_id, model_name, provider, usage_type, input_tokens, output_tokens, total_tokens, cost_usd, latency_ms, success, error_msg)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    record.model_id,
-    record.model_name,
-    record.provider || '',
-    record.usage_type,
-    inputTokens,
-    outputTokens,
-    totalTokens,
-    costUsd,
-    record.latency_ms || 0,
-    record.success !== false ? 1 : 0,
-    record.error_msg || null,
-  );
+  db.insert(aiUsageLogs)
+    .values({
+      modelId: record.model_id,
+      modelName: record.model_name,
+      provider: record.provider || '',
+      usageType: record.usage_type,
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      costUsd,
+      latencyMs: record.latency_ms || 0,
+      success: record.success !== false ? 1 : 0,
+      errorMsg: record.error_msg || null,
+      createdAt: nowLocal(),
+    })
+    .run();
 }
 
 /**
  * 按日聚合统计
  */
 export function getDailyStats(from: string, to: string): DailyStats[] {
-  const db = getDatabase();
-  return db
-    .prepare(`
+  const db = getDrizzleDb();
+  return db.all(sql`
     SELECT
       date(created_at) as date,
       COUNT(*) as call_count,
@@ -143,21 +151,19 @@ export function getDailyStats(from: string, to: string): DailyStats[] {
       COALESCE(SUM(cost_usd), 0) as total_cost,
       COALESCE(AVG(latency_ms), 0) as avg_latency
     FROM ai_usage_logs
-    WHERE date(created_at) BETWEEN ? AND ?
+    WHERE date(created_at) BETWEEN ${from} AND ${to}
       AND usage_type != 'embedding'
     GROUP BY date(created_at)
     ORDER BY date(created_at)
-  `)
-    .all(from, to) as DailyStats[];
+  `) as DailyStats[];
 }
 
 /**
  * 按模型聚合统计
  */
 export function getModelStats(from: string, to: string): ModelStats[] {
-  const db = getDatabase();
-  return db
-    .prepare(`
+  const db = getDrizzleDb();
+  return db.all(sql`
     SELECT
       model_id,
       model_name,
@@ -165,48 +171,43 @@ export function getModelStats(from: string, to: string): ModelStats[] {
       COALESCE(SUM(total_tokens), 0) as total_tokens,
       COALESCE(SUM(cost_usd), 0) as total_cost
     FROM ai_usage_logs
-    WHERE date(created_at) BETWEEN ? AND ?
+    WHERE date(created_at) BETWEEN ${from} AND ${to}
     GROUP BY model_id
     ORDER BY call_count DESC
-  `)
-    .all(from, to) as ModelStats[];
+  `) as ModelStats[];
 }
 
 /**
  * 按用途聚合统计
  */
 export function getTypeStats(from: string, to: string): TypeStats[] {
-  const db = getDatabase();
-  return db
-    .prepare(`
+  const db = getDrizzleDb();
+  return db.all(sql`
     SELECT
       usage_type,
       COUNT(*) as call_count,
       COALESCE(SUM(total_tokens), 0) as total_tokens,
       COALESCE(SUM(cost_usd), 0) as total_cost
     FROM ai_usage_logs
-    WHERE date(created_at) BETWEEN ? AND ?
+    WHERE date(created_at) BETWEEN ${from} AND ${to}
     GROUP BY usage_type
     ORDER BY call_count DESC
-  `)
-    .all(from, to) as TypeStats[];
+  `) as TypeStats[];
 }
 
 /**
  * 费用汇总
  */
 export function getCostSummary(from: string, to: string): CostSummary {
-  const db = getDatabase();
-  const row = db
-    .prepare(`
+  const db = getDrizzleDb();
+  const row = db.get(sql`
     SELECT
       COALESCE(SUM(cost_usd), 0) as total_cost,
       COUNT(*) as total_calls,
       COALESCE(SUM(total_tokens), 0) as total_tokens
     FROM ai_usage_logs
-    WHERE date(created_at) BETWEEN ? AND ?
-  `)
-    .get(from, to) as { total_cost: number; total_calls: number; total_tokens: number };
+    WHERE date(created_at) BETWEEN ${from} AND ${to}
+  `) as { total_cost: number; total_calls: number; total_tokens: number };
 
   return {
     ...row,
@@ -218,9 +219,8 @@ export function getCostSummary(from: string, to: string): CostSummary {
  * 趋势数据（按日×模型）
  */
 export function getUsageTrend(from: string, to: string): TrendData[] {
-  const db = getDatabase();
-  return db
-    .prepare(`
+  const db = getDrizzleDb();
+  return db.all(sql`
     SELECT
       date(created_at) as date,
       model_id,
@@ -229,39 +229,34 @@ export function getUsageTrend(from: string, to: string): TrendData[] {
       COALESCE(SUM(cost_usd), 0) as cost,
       COUNT(*) as calls
     FROM ai_usage_logs
-    WHERE date(created_at) BETWEEN ? AND ?
+    WHERE date(created_at) BETWEEN ${from} AND ${to}
       AND usage_type != 'embedding'
     GROUP BY date(created_at), model_id
     ORDER BY date(created_at), model_id
-  `)
-    .all(from, to) as TrendData[];
+  `) as TrendData[];
 }
 
 /**
  * 最近调用记录
  */
 export function getRecentLogs(limit: number): AiUsageLogRow[] {
-  const db = getDatabase();
-  return db
-    .prepare(`
+  const db = getDrizzleDb();
+  return db.all(sql`
     SELECT * FROM ai_usage_logs
     ORDER BY created_at DESC
-    LIMIT ?
-  `)
-    .all(limit) as AiUsageLogRow[];
+    LIMIT ${limit}
+  `) as AiUsageLogRow[];
 }
 
 /**
  * 清理旧数据，返回删除行数
  */
 export function cleanupOldLogs(daysToKeep: number): number {
-  const db = getDatabase();
-  const result = db
-    .prepare(`
+  const db = getDrizzleDb();
+  const result = db.run(sql`
     DELETE FROM ai_usage_logs
-    WHERE created_at < datetime('now', 'localtime', '-' || ? || ' days')
-  `)
-    .run(daysToKeep);
+    WHERE created_at < datetime('now', 'localtime', '-' || ${daysToKeep} || ' days')
+  `);
   return result.changes;
 }
 
@@ -269,14 +264,12 @@ export function cleanupOldLogs(daysToKeep: number): number {
  * 导出 CSV
  */
 export function exportCsv(from: string, to: string): string {
-  const db = getDatabase();
-  const rows = db
-    .prepare(`
+  const db = getDrizzleDb();
+  const rows = db.all(sql`
     SELECT * FROM ai_usage_logs
-    WHERE date(created_at) BETWEEN ? AND ?
+    WHERE date(created_at) BETWEEN ${from} AND ${to}
     ORDER BY created_at DESC
-  `)
-    .all(from, to) as AiUsageLogRow[];
+  `) as AiUsageLogRow[];
 
   const header =
     'id,model_id,model_name,provider,usage_type,input_tokens,output_tokens,total_tokens,cost_usd,latency_ms,success,error_msg,created_at';

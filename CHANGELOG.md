@@ -6,6 +6,7 @@
 
 ### 新增
 
+- 🦄 refactor: 引入 Drizzle ORM — 新增 `schema.ts`（12 张表声明）、`db/index.ts`（基础设施）、`drizzle.config.ts`；db.ts/aiUsage.ts/attachments.ts 迁移至 Drizzle ORM + raw SQL 混合模式，保留所有导出接口
 - ✨ feat: 新增 `scripts/release.ts` 一键发布脚本，自动完成版本更新→文件同步→提交→打 tag→推送，支持 `patch/minor/major/精确版本号` 参数
 - ✨ feat: AIChatPanel 无限滚动 — 使用 `@reactuses/core` 的 `useInfiniteScroll`，初始显示最近 50 条消息，向上滚动自动加载更多，保持滚动位置不变
 

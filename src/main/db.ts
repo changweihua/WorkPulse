@@ -1,11 +1,22 @@
-import Database from 'better-sqlite3';
-import { app } from 'electron';
-import { join } from 'path';
-import { existsSync, copyFileSync, mkdirSync } from 'fs';
-import { createAttachmentTable, type Attachment } from './attachments';
-import log from 'electron-log/main';
+/**
+ * 数据库 CRUD 操作模块
+ *
+ * 基础设施（初始化、表创建、迁移）已移至 ./db/index.ts
+ * Drizzle schema 定义在 ./db/schema.ts
+ * 本文件保留所有 CRUD 导出函数，逐步从原始 SQL 迁移到 Drizzle ORM
+ */
+import { eq, and, sql } from 'drizzle-orm';
+import type { Attachment } from './attachments';
+import { getDatabase, getDrizzleDb } from './db/index';
+import * as schema from './db/schema';
 
+// ==================== 重导出（保持向后兼容） ====================
+
+export { initDatabase, getDatabase, getDrizzleDb } from './db/index';
+export { aiUsageLogs } from './db/schema';
 export type { Attachment };
+
+// ==================== 接口定义 ====================
 
 export interface FeedCategory {
   id: number;
@@ -46,9 +57,7 @@ export interface Article {
   feed_favicon_url?: string | null;
 }
 
-let db: Database.Database;
-
-const DB_NAME = 'workpulse.db';
+// ==================== 辅助函数 ====================
 
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear();
@@ -57,298 +66,13 @@ function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function getDbPath(): string {
-  const userDataPath = app.getPath('userData');
-  return join(userDataPath, DB_NAME);
+function resolveWorkLogTaskId(taskId: number | null): number | null {
+  if (taskId === null) return null;
+  const exists = getDatabase().prepare('SELECT 1 FROM tasks WHERE id = ?').get(taskId);
+  return exists ? taskId : null;
 }
 
-function getBackupPath(): string {
-  const userDataPath = app.getPath('userData');
-  const backupDir = join(userDataPath, 'backups');
-  if (!existsSync(backupDir)) {
-    mkdirSync(backupDir, { recursive: true });
-  }
-  const date = formatLocalDate(new Date());
-  return join(backupDir, `workpulse-${date}.db`);
-}
-
-function runIntegrityCheck(): boolean {
-  try {
-    const result = db.pragma('integrity_check') as { integrity_check: string }[];
-    return result[0]?.integrity_check === 'ok';
-  } catch {
-    return false;
-  }
-}
-
-function createBackup(): void {
-  const backupPath = getBackupPath();
-  if (!existsSync(backupPath)) {
-    try {
-      db.pragma('wal_checkpoint(TRUNCATE)');
-      copyFileSync(getDbPath(), backupPath);
-    } catch {
-      // backup failure is non-critical
-    }
-  }
-}
-
-function createTables(): void {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS work_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      content TEXT NOT NULL,
-      category TEXT DEFAULT '',
-      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-      task_id INTEGER,
-      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS tasks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      description TEXT DEFAULT '',
-      status TEXT NOT NULL DEFAULT 'todo' CHECK(status IN ('todo', 'in_progress', 'done', 'draft')),
-      board_column TEXT NOT NULL DEFAULT 'todo',
-      position INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-      completed_at TEXT,
-      due_date TEXT DEFAULT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS reports (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT NOT NULL CHECK(type IN ('weekly', 'monthly', 'quarterly', 'custom')),
-      date_from TEXT NOT NULL,
-      date_to TEXT NOT NULL,
-      content TEXT NOT NULL,
-      generated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
-    );
-
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS calendar_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT NOT NULL CHECK(type IN ('todo', 'meeting')),
-      title TEXT NOT NULL,
-      description TEXT DEFAULT '',
-      event_date TEXT NOT NULL,
-      start_time TEXT,
-      end_time TEXT,
-      location TEXT DEFAULT '',
-      completed INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_work_logs_created_at ON work_logs(created_at);
-    CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
-    CREATE INDEX IF NOT EXISTS idx_reports_dates ON reports(date_from, date_to);
-    CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
-
-    CREATE TABLE IF NOT EXISTS feed_categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
-    );
-
-    CREATE TABLE IF NOT EXISTS feeds (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      url TEXT NOT NULL UNIQUE,
-      title TEXT,
-      description TEXT,
-      site_url TEXT,
-      favicon_url TEXT,
-      category_id INTEGER REFERENCES feed_categories(id) ON DELETE SET NULL,
-      refresh_interval INTEGER NOT NULL DEFAULT 3600,
-      last_fetched_at TEXT,
-      is_muted INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
-    );
-
-    CREATE TABLE IF NOT EXISTS articles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      feed_id INTEGER NOT NULL REFERENCES feeds(id) ON DELETE CASCADE,
-      guid TEXT,
-      title TEXT NOT NULL,
-      url TEXT,
-      author TEXT,
-      content TEXT,
-      summary TEXT,
-      published_at TEXT,
-      is_read INTEGER NOT NULL DEFAULT 0,
-      is_starred INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-      UNIQUE(feed_id, guid)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_feeds_category ON feeds(category_id);
-    CREATE INDEX IF NOT EXISTS idx_articles_feed ON articles(feed_id);
-    CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at);
-    CREATE INDEX IF NOT EXISTS idx_articles_read ON articles(is_read);
-    CREATE INDEX IF NOT EXISTS idx_articles_starred ON articles(is_starred);
-
-    CREATE TABLE IF NOT EXISTS model_configs (
-      id TEXT PRIMARY KEY,
-      config_type TEXT NOT NULL CHECK(config_type IN ('chat', 'embedding')),
-      name TEXT NOT NULL DEFAULT '',
-      base_url TEXT NOT NULL DEFAULT '',
-      model_name TEXT NOT NULL DEFAULT '',
-      temperature REAL DEFAULT 0.7,
-      max_tokens INTEGER DEFAULT 4096,
-      top_p REAL DEFAULT 0.9,
-      top_k INTEGER DEFAULT 50,
-      prompt TEXT DEFAULT '',
-      stream INTEGER DEFAULT 1,
-      dimension INTEGER DEFAULT 1536,
-      headers TEXT DEFAULT '',
-      is_active INTEGER DEFAULT 0,
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_model_configs_type ON model_configs(config_type);
-    CREATE INDEX IF NOT EXISTS idx_model_configs_active ON model_configs(is_active, config_type);
-
-    CREATE TABLE IF NOT EXISTS ai_usage_logs (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      model_id      TEXT NOT NULL,
-      model_name    TEXT NOT NULL,
-      provider      TEXT NOT NULL DEFAULT '',
-      usage_type    TEXT NOT NULL DEFAULT 'chat',
-      input_tokens  INTEGER DEFAULT 0,
-      output_tokens INTEGER DEFAULT 0,
-      total_tokens  INTEGER DEFAULT 0,
-      cost_usd      REAL DEFAULT 0,
-      latency_ms    INTEGER DEFAULT 0,
-      success       INTEGER DEFAULT 1,
-      error_msg     TEXT,
-      created_at    TEXT DEFAULT (datetime('now','localtime'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_ai_usage_date  ON ai_usage_logs(created_at);
-    CREATE INDEX IF NOT EXISTS idx_ai_usage_model ON ai_usage_logs(model_id);
-    CREATE INDEX IF NOT EXISTS idx_ai_usage_type  ON ai_usage_logs(usage_type);
-  `);
-
-  createAttachmentTable(db);
-}
-
-function runMigrations(): void {
-  const colInfo = db.prepare("PRAGMA table_info('tasks')").all() as { name: string }[];
-  const hasDueDate = colInfo.some((c) => c.name === 'due_date');
-
-  // SQLite can't ALTER CHECK constraints, so recreate table if needed
-  const tableInfo = db
-    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'")
-    .get() as { sql: string } | undefined;
-  if (tableInfo?.sql && !tableInfo.sql.includes("'draft'")) {
-    const dueDateSelect = hasDueDate ? 'due_date' : 'NULL as due_date';
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS tasks_new (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        description TEXT DEFAULT '',
-        status TEXT NOT NULL DEFAULT 'todo' CHECK(status IN ('todo', 'in_progress', 'done', 'draft')),
-        board_column TEXT NOT NULL DEFAULT 'todo',
-        position INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-        completed_at TEXT,
-        due_date TEXT DEFAULT NULL
-      );
-      INSERT INTO tasks_new (
-        id,
-        title,
-        description,
-        status,
-        board_column,
-        position,
-        created_at,
-        updated_at,
-        completed_at,
-        due_date
-      )
-      SELECT
-        id,
-        title,
-        description,
-        status,
-        board_column,
-        position,
-        created_at,
-        updated_at,
-        completed_at,
-        ${dueDateSelect}
-      FROM tasks;
-      DROP TABLE tasks;
-      ALTER TABLE tasks_new RENAME TO tasks;
-      CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
-    `);
-    return;
-  }
-
-  if (!hasDueDate) {
-    db.exec('ALTER TABLE tasks ADD COLUMN due_date TEXT DEFAULT NULL');
-  }
-
-  // 日程提醒：notified 标记会议是否已推送通知
-  const evInfo = db.prepare("PRAGMA table_info('calendar_events')").all() as { name: string }[];
-  if (!evInfo.some((c) => c.name === 'notified')) {
-    db.exec('ALTER TABLE calendar_events ADD COLUMN notified INTEGER NOT NULL DEFAULT 0');
-  }
-
-  // 向量同步追踪列：用于增量向量化
-  const wlInfo = db.prepare("PRAGMA table_info('work_logs')").all() as { name: string }[];
-  if (!wlInfo.some((c) => c.name === 'vector_synced_at')) {
-    db.exec('ALTER TABLE work_logs ADD COLUMN vector_synced_at TEXT DEFAULT NULL');
-  }
-
-  // model_configs 添加每日调用限额列
-  const mcInfo = db.prepare("PRAGMA table_info('model_configs')").all() as { name: string }[];
-  if (!mcInfo.some((c) => c.name === 'daily_limit')) {
-    db.exec('ALTER TABLE model_configs ADD COLUMN daily_limit INTEGER NOT NULL DEFAULT 0');
-  }
-  if (!mcInfo.some((c) => c.name === 'quota_group')) {
-    db.exec("ALTER TABLE model_configs ADD COLUMN quota_group TEXT NOT NULL DEFAULT ''");
-  }
-  if (!mcInfo.some((c) => c.name === 'provider')) {
-    db.exec("ALTER TABLE model_configs ADD COLUMN provider TEXT NOT NULL DEFAULT ''");
-  }
-  if (!mcInfo.some((c) => c.name === 'billing_type')) {
-    db.exec("ALTER TABLE model_configs ADD COLUMN billing_type TEXT NOT NULL DEFAULT 'calls'");
-  }
-  if (!mcInfo.some((c) => c.name === 'token_quota')) {
-    db.exec('ALTER TABLE model_configs ADD COLUMN token_quota INTEGER NOT NULL DEFAULT 0');
-  }
-}
-
-export function initDatabase(): void {
-  const dbPath = getDbPath();
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-
-  createTables();
-  runMigrations();
-
-  if (!runIntegrityCheck()) {
-    log.error('Database integrity check failed!');
-  }
-
-  createBackup();
-}
-
-export function getDatabase(): Database.Database {
-  return db;
-}
-
-// --- Work Logs CRUD ---
+// ==================== Work Logs CRUD ====================
 
 export interface WorkLog {
   id: number;
@@ -356,12 +80,6 @@ export interface WorkLog {
   category: string;
   created_at: string;
   task_id: number | null;
-}
-
-function resolveWorkLogTaskId(taskId: number | null): number | null {
-  if (taskId === null) return null;
-  const exists = db.prepare('SELECT 1 FROM tasks WHERE id = ?').get(taskId);
-  return exists ? taskId : null;
 }
 
 export function addWorkLog(
@@ -372,20 +90,20 @@ export function addWorkLog(
 ): WorkLog {
   const resolvedTaskId = resolveWorkLogTaskId(taskId);
   if (createdAt) {
-    const stmt = db.prepare(
+    const stmt = getDatabase().prepare(
       'INSERT INTO work_logs (content, category, task_id, created_at) VALUES (?, ?, ?, ?) RETURNING *',
     );
     return stmt.get(content, category, resolvedTaskId, createdAt) as WorkLog;
   }
 
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     'INSERT INTO work_logs (content, category, task_id) VALUES (?, ?, ?) RETURNING *',
   );
   return stmt.get(content, category, resolvedTaskId) as WorkLog;
 }
 
 export function getWorkLogs(limit = 200, offset = 0): WorkLog[] {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     `SELECT wl.*, t.due_date AS task_due_date
      FROM work_logs wl
      LEFT JOIN tasks t ON wl.task_id = t.id
@@ -396,14 +114,14 @@ export function getWorkLogs(limit = 200, offset = 0): WorkLog[] {
 }
 
 export function getWorkLogsByDateRange(from: string, to: string): WorkLog[] {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     'SELECT * FROM work_logs WHERE date(created_at) >= date(?) AND date(created_at) <= date(?) ORDER BY created_at ASC',
   );
   return stmt.all(from, to) as WorkLog[];
 }
 
 export function searchWorkLogs(keyword: string, limit = 200): WorkLog[] {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     `SELECT wl.*, t.due_date AS task_due_date
      FROM work_logs wl
      LEFT JOIN tasks t ON wl.task_id = t.id
@@ -416,18 +134,19 @@ export function searchWorkLogs(keyword: string, limit = 200): WorkLog[] {
 
 export function workLogExists(content: string, category: string, dateStr?: string): boolean {
   if (dateStr) {
-    const stmt = db.prepare(
+    const stmt = getDatabase().prepare(
       'SELECT 1 FROM work_logs WHERE content = ? AND category = ? AND date(created_at) = date(?) LIMIT 1',
     );
     return !!stmt.get(content, category, dateStr);
   }
-  const stmt = db.prepare('SELECT 1 FROM work_logs WHERE content = ? AND category = ? LIMIT 1');
+  const stmt = getDatabase().prepare(
+    'SELECT 1 FROM work_logs WHERE content = ? AND category = ? LIMIT 1',
+  );
   return !!stmt.get(content, category);
 }
 
 export function deleteWorkLog(id: number): boolean {
-  const stmt = db.prepare('DELETE FROM work_logs WHERE id = ?');
-  const result = stmt.run(id);
+  const result = getDrizzleDb().delete(schema.workLogs).where(eq(schema.workLogs.id, id)).run();
   return result.changes > 0;
 }
 
@@ -438,12 +157,12 @@ export function updateWorkLog(
   created_at?: string,
 ): WorkLog | null {
   if (created_at) {
-    const stmt = db.prepare(
+    const stmt = getDatabase().prepare(
       'UPDATE work_logs SET content = ?, category = ?, created_at = ?, vector_synced_at = NULL WHERE id = ? RETURNING *',
     );
     return stmt.get(content, category, created_at, id) as WorkLog | null;
   }
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     'UPDATE work_logs SET content = ?, category = ?, vector_synced_at = NULL WHERE id = ? RETURNING *',
   );
   return stmt.get(content, category, id) as WorkLog | null;
@@ -459,7 +178,7 @@ export function restoreWorkLog(
 
 /** 获取未向量化的工作日志（vector_synced_at IS NULL） */
 export function getUnindexedWorkLogs(): WorkLog[] {
-  return db
+  return getDatabase()
     .prepare(
       `SELECT wl.*, t.due_date AS task_due_date
      FROM work_logs wl
@@ -472,23 +191,25 @@ export function getUnindexedWorkLogs(): WorkLog[] {
 
 /** 标记单条工作日志已向量化 */
 export function markWorkLogIndexed(id: number): void {
-  db.prepare(
-    "UPDATE work_logs SET vector_synced_at = datetime('now', 'localtime') WHERE id = ?",
-  ).run(id);
+  getDrizzleDb()
+    .update(schema.workLogs)
+    .set({ vectorSyncedAt: sql`datetime('now', 'localtime')` })
+    .where(eq(schema.workLogs.id, id))
+    .run();
 }
 
 /** 批量标记工作日志已向量化 */
 export function markWorkLogsIndexed(ids: number[]): void {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     "UPDATE work_logs SET vector_synced_at = datetime('now', 'localtime') WHERE id = ?",
   );
-  const tx = db.transaction((ids: number[]) => {
+  const tx = getDatabase().transaction((ids: number[]) => {
     for (const id of ids) stmt.run(id);
   });
   tx(ids);
 }
 
-// --- Reports CRUD ---
+// ==================== Reports CRUD ====================
 
 export interface Report {
   id: number;
@@ -505,23 +226,23 @@ export function saveReport(
   dateTo: string,
   content: string,
 ): Report {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     'INSERT INTO reports (type, date_from, date_to, content) VALUES (?, ?, ?, ?) RETURNING *',
   );
   return stmt.get(type, dateFrom, dateTo, content) as Report;
 }
 
 export function getReports(limit = 50): Report[] {
-  const stmt = db.prepare('SELECT * FROM reports ORDER BY generated_at DESC LIMIT ?');
+  const stmt = getDatabase().prepare('SELECT * FROM reports ORDER BY generated_at DESC LIMIT ?');
   return stmt.all(limit) as Report[];
 }
 
 export function updateReportContent(id: number, content: string): Report | null {
-  const stmt = db.prepare('UPDATE reports SET content = ? WHERE id = ? RETURNING *');
+  const stmt = getDatabase().prepare('UPDATE reports SET content = ? WHERE id = ? RETURNING *');
   return stmt.get(content, id) as Report | null;
 }
 
-// --- Tasks CRUD ---
+// ==================== Tasks CRUD ====================
 
 export interface Task {
   id: number;
@@ -542,30 +263,30 @@ export function addTask(
   status: 'todo' | 'draft' = 'todo',
   createdAt?: string,
 ): Task {
-  const maxPos = db
+  const maxPos = getDatabase()
     .prepare('SELECT COALESCE(MAX(position), -1) + 1 as next FROM tasks WHERE status = ?')
     .get(status) as { next: number };
 
   if (createdAt) {
-    const stmt = db.prepare(
+    const stmt = getDatabase().prepare(
       'INSERT INTO tasks (title, description, status, board_column, position, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *',
     );
     return stmt.get(title, description, status, status, maxPos.next, createdAt) as Task;
   }
 
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     'INSERT INTO tasks (title, description, status, board_column, position) VALUES (?, ?, ?, ?, ?) RETURNING *',
   );
   return stmt.get(title, description, status, status, maxPos.next) as Task;
 }
 
 export function getTasks(): Task[] {
-  const stmt = db.prepare('SELECT * FROM tasks ORDER BY position ASC LIMIT 50000');
+  const stmt = getDatabase().prepare('SELECT * FROM tasks ORDER BY position ASC LIMIT 50000');
   return stmt.all() as Task[];
 }
 
 export function getTaskById(id: number): Task | null {
-  const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as Task | undefined;
+  const row = getDatabase().prepare('SELECT * FROM tasks WHERE id = ?').get(id) as Task | undefined;
   return row ?? null;
 }
 
@@ -605,17 +326,19 @@ export function updateTask(
   fields.push("updated_at = datetime('now', 'localtime')");
   values.push(id);
 
-  const stmt = db.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ? RETURNING *`);
+  const stmt = getDatabase().prepare(
+    `UPDATE tasks SET ${fields.join(', ')} WHERE id = ? RETURNING *`,
+  );
   return stmt.get(...values) as Task | null;
 }
 
 export function deleteTask(id: number): boolean {
-  const stmt = db.prepare('DELETE FROM tasks WHERE id = ?');
-  return stmt.run(id).changes > 0;
+  const result = getDrizzleDb().delete(schema.tasks).where(eq(schema.tasks.id, id)).run();
+  return result.changes > 0;
 }
 
 export function reorderTasks(taskIds: number[], status: string): void {
-  const stmt = db.prepare(`
+  const stmt = getDatabase().prepare(`
     UPDATE tasks
     SET
       position = ?,
@@ -629,7 +352,7 @@ export function reorderTasks(taskIds: number[], status: string): void {
       END
     WHERE id = ?
   `);
-  const tx = db.transaction((ids: number[]) => {
+  const tx = getDatabase().transaction((ids: number[]) => {
     ids.forEach((id, index) => {
       stmt.run(index, status, status, status, status, id);
     });
@@ -637,7 +360,7 @@ export function reorderTasks(taskIds: number[], status: string): void {
   tx(taskIds);
 }
 
-// --- Settings CRUD ---
+// ==================== Settings / Stats ====================
 
 export interface DailyStats {
   date: string;
@@ -652,7 +375,7 @@ export function getStats(days = 30): {
   totalTasksActive: number;
   streak: number;
 } {
-  const daily = db
+  const daily = getDatabase()
     .prepare(`
     SELECT date(created_at) as date, COUNT(*) as log_count, 0 as task_completed
     FROM work_logs
@@ -663,7 +386,7 @@ export function getStats(days = 30): {
     .all() as DailyStats[];
 
   // Merge completed tasks per day
-  const taskDone = db
+  const taskDone = getDatabase()
     .prepare(`
     SELECT date(completed_at) as date, COUNT(*) as cnt
     FROM tasks
@@ -684,12 +407,18 @@ export function getStats(days = 30): {
   });
   daily.sort((a, b) => a.date.localeCompare(b.date));
 
-  const totalLogs = (db.prepare('SELECT COUNT(*) as c FROM work_logs').get() as { c: number }).c;
+  const totalLogs = (
+    getDatabase().prepare('SELECT COUNT(*) as c FROM work_logs').get() as { c: number }
+  ).c;
   const totalTasksDone = (
-    db.prepare("SELECT COUNT(*) as c FROM tasks WHERE status = 'done'").get() as { c: number }
+    getDatabase().prepare("SELECT COUNT(*) as c FROM tasks WHERE status = 'done'").get() as {
+      c: number;
+    }
   ).c;
   const totalTasksActive = (
-    db.prepare("SELECT COUNT(*) as c FROM tasks WHERE status IN ('todo', 'in_progress')").get() as {
+    getDatabase()
+      .prepare("SELECT COUNT(*) as c FROM tasks WHERE status IN ('todo', 'in_progress')")
+      .get() as {
       c: number;
     }
   ).c;
@@ -822,7 +551,7 @@ export function generateWeeklyReport(startDate: string, endDate: string): Weekly
 }
 
 export function getAllWorkLogs(): WorkLog[] {
-  return db
+  return getDatabase()
     .prepare(
       `SELECT wl.*, t.due_date AS task_due_date
      FROM work_logs wl
@@ -834,35 +563,38 @@ export function getAllWorkLogs(): WorkLog[] {
 }
 
 export function getCategories(): string[] {
-  const rows = db
+  const rows = getDatabase()
     .prepare("SELECT DISTINCT category FROM work_logs WHERE category != '' ORDER BY category")
     .all() as { category: string }[];
   return rows.map((r) => r.category);
 }
 
 export function updateWorkLogCategory(id: number, category: string): void {
-  db.prepare('UPDATE work_logs SET category = ? WHERE id = ?').run(category, id);
+  getDrizzleDb().update(schema.workLogs).set({ category }).where(eq(schema.workLogs.id, id)).run();
 }
 
 export function getSetting(key: string): string | null {
-  const stmt = db.prepare('SELECT value FROM settings WHERE key = ?');
-  const row = stmt.get(key) as { value: string } | undefined;
+  const row = getDrizzleDb()
+    .select()
+    .from(schema.settings)
+    .where(eq(schema.settings.key, key))
+    .get();
   return row?.value ?? null;
 }
 
 export function setSetting(key: string, value: string): void {
-  const stmt = db.prepare(
-    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?',
-  );
-  stmt.run(key, value, value);
+  getDrizzleDb()
+    .insert(schema.settings)
+    .values({ key, value })
+    .onConflictDoUpdate({ target: schema.settings.key, set: { value } })
+    .run();
 }
 
 export function deleteSetting(key: string): void {
-  const stmt = db.prepare('DELETE FROM settings WHERE key = ?');
-  stmt.run(key);
+  getDrizzleDb().delete(schema.settings).where(eq(schema.settings.key, key)).run();
 }
 
-// --- Calendar Events (todos & meetings) ---
+// ==================== Calendar Events (todos & meetings) ====================
 
 export interface CalendarEvent {
   id: number;
@@ -888,7 +620,7 @@ export interface CalendarEventInput {
 }
 
 export function addEvent(input: CalendarEventInput): CalendarEvent {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     `INSERT INTO calendar_events (type, title, description, event_date, start_time, end_time, location)
      VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   );
@@ -904,7 +636,7 @@ export function addEvent(input: CalendarEventInput): CalendarEvent {
 }
 
 export function getEventsByDate(date: string): CalendarEvent[] {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     `SELECT * FROM calendar_events WHERE event_date = ?
      ORDER BY completed ASC, type DESC, start_time IS NULL, start_time, id`,
   );
@@ -912,7 +644,7 @@ export function getEventsByDate(date: string): CalendarEvent[] {
 }
 
 export function getEventsByRange(from: string, to: string): CalendarEvent[] {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     `SELECT * FROM calendar_events WHERE event_date >= ? AND event_date <= ?
      ORDER BY event_date, start_time IS NULL, start_time, id`,
   );
@@ -958,25 +690,28 @@ export function updateEvent(
   if (fields.length === 0) return getEventById(id);
 
   values.push(id);
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     `UPDATE calendar_events SET ${fields.join(', ')} WHERE id = ? RETURNING *`,
   );
   return stmt.get(...values) as CalendarEvent | null;
 }
 
 export function getEventById(id: number): CalendarEvent | null {
-  const stmt = db.prepare('SELECT * FROM calendar_events WHERE id = ?');
+  const stmt = getDatabase().prepare('SELECT * FROM calendar_events WHERE id = ?');
   return (stmt.get(id) as CalendarEvent | undefined) ?? null;
 }
 
 export function deleteEvent(id: number): boolean {
-  const stmt = db.prepare('DELETE FROM calendar_events WHERE id = ?');
-  return stmt.run(id).changes > 0;
+  const result = getDrizzleDb()
+    .delete(schema.calendarEvents)
+    .where(eq(schema.calendarEvents.id, id))
+    .run();
+  return result.changes > 0;
 }
 
 /** 查询未来 leadMinutes 分钟内开始、尚未通知的会议 */
 export function getDueMeetings(leadMinutes: number): CalendarEvent[] {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     `SELECT * FROM calendar_events
      WHERE type = 'meeting' AND completed = 0 AND notified = 0 AND start_time IS NOT NULL
        AND datetime(event_date || ' ' || start_time) BETWEEN datetime('now', 'localtime')
@@ -988,33 +723,41 @@ export function getDueMeetings(leadMinutes: number): CalendarEvent[] {
 
 /** 标记已通知，返回 false 表示已被处理过（防重复推送） */
 export function markEventNotified(id: number): boolean {
-  const stmt = db.prepare('UPDATE calendar_events SET notified = 1 WHERE id = ? AND notified = 0');
+  const stmt = getDatabase().prepare(
+    'UPDATE calendar_events SET notified = 1 WHERE id = ? AND notified = 0',
+  );
   return stmt.run(id).changes > 0;
 }
 
-// --- RSS Feed Categories CRUD ---
+// ==================== RSS Feed Categories CRUD ====================
 
 export function addFeedCategory(name: string): FeedCategory {
-  const stmt = db.prepare('INSERT INTO feed_categories (name) VALUES (?) RETURNING *');
+  const stmt = getDatabase().prepare('INSERT INTO feed_categories (name) VALUES (?) RETURNING *');
   return stmt.get(name) as FeedCategory;
 }
 
 export function getFeedCategories(): FeedCategory[] {
-  return db
+  return getDatabase()
     .prepare('SELECT * FROM feed_categories ORDER BY sort_order, name')
     .all() as FeedCategory[];
 }
 
 export function updateFeedCategory(id: number, name: string): FeedCategory | null {
-  const stmt = db.prepare('UPDATE feed_categories SET name = ? WHERE id = ? RETURNING *');
+  const stmt = getDatabase().prepare(
+    'UPDATE feed_categories SET name = ? WHERE id = ? RETURNING *',
+  );
   return stmt.get(name, id) as FeedCategory | null;
 }
 
 export function deleteFeedCategory(id: number): boolean {
-  return db.prepare('DELETE FROM feed_categories WHERE id = ?').run(id).changes > 0;
+  const result = getDrizzleDb()
+    .delete(schema.feedCategories)
+    .where(eq(schema.feedCategories.id, id))
+    .run();
+  return result.changes > 0;
 }
 
-// --- RSS Feeds CRUD ---
+// ==================== RSS Feeds CRUD ====================
 
 export function addFeed(
   url: string,
@@ -1024,7 +767,7 @@ export function addFeed(
   faviconUrl: string | null,
   categoryId: number | null,
 ): Feed {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     `INSERT INTO feeds (url, title, description, site_url, favicon_url, category_id)
      VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
   );
@@ -1032,9 +775,9 @@ export function addFeed(
 }
 
 export function getFeeds(): Feed[] {
-  return db
+  return getDatabase()
     .prepare(
-      `SELECT f.*, 
+      `SELECT f.*,
        (SELECT COUNT(*) FROM articles a WHERE a.feed_id = f.id AND a.is_read = 0) as unread_count
      FROM feeds f ORDER BY f.title`,
     )
@@ -1042,7 +785,7 @@ export function getFeeds(): Feed[] {
 }
 
 export function getFeedById(id: number): Feed | null {
-  const stmt = db.prepare('SELECT * FROM feeds WHERE id = ?');
+  const stmt = getDatabase().prepare('SELECT * FROM feeds WHERE id = ?');
   return (stmt.get(id) as Feed | undefined) ?? null;
 }
 
@@ -1070,20 +813,23 @@ export function updateFeed(
   }
   if (fields.length === 0) return getFeedById(id);
   values.push(id);
-  const stmt = db.prepare(`UPDATE feeds SET ${fields.join(', ')} WHERE id = ? RETURNING *`);
+  const stmt = getDatabase().prepare(
+    `UPDATE feeds SET ${fields.join(', ')} WHERE id = ? RETURNING *`,
+  );
   return stmt.get(...values) as Feed | null;
 }
 
 export function deleteFeed(id: number): boolean {
-  return db.prepare('DELETE FROM feeds WHERE id = ?').run(id).changes > 0;
+  const result = getDrizzleDb().delete(schema.feeds).where(eq(schema.feeds.id, id)).run();
+  return result.changes > 0;
 }
 
 export function getFeedByUrl(url: string): Feed | null {
-  const stmt = db.prepare('SELECT * FROM feeds WHERE url = ?');
+  const stmt = getDatabase().prepare('SELECT * FROM feeds WHERE url = ?');
   return (stmt.get(url) as Feed | undefined) ?? null;
 }
 
-// --- RSS Articles CRUD ---
+// ==================== RSS Articles CRUD ====================
 
 export function addArticle(
   feedId: number,
@@ -1095,7 +841,7 @@ export function addArticle(
   summary: string | null,
   publishedAt: string | null,
 ): Article | null {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     `INSERT INTO articles (feed_id, guid, title, url, author, content, summary, published_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(feed_id, guid) DO UPDATE SET
@@ -1135,7 +881,7 @@ export function getArticles(
   }
   params.push(limit, offset);
 
-  return db
+  return getDatabase()
     .prepare(
       `SELECT a.*, f.title as feed_title, f.favicon_url as feed_favicon_url
      FROM articles a
@@ -1148,7 +894,7 @@ export function getArticles(
 }
 
 export function getArticleById(id: number): Article | null {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     `SELECT a.*, f.title as feed_title, f.favicon_url as feed_favicon_url
      FROM articles a JOIN feeds f ON f.id = a.feed_id WHERE a.id = ?`,
   );
@@ -1156,17 +902,17 @@ export function getArticleById(id: number): Article | null {
 }
 
 export function markArticleRead(id: number): Article | null {
-  const stmt = db.prepare('UPDATE articles SET is_read = 1 WHERE id = ? RETURNING *');
+  const stmt = getDatabase().prepare('UPDATE articles SET is_read = 1 WHERE id = ? RETURNING *');
   return stmt.get(id) as Article | null;
 }
 
 export function markArticleUnread(id: number): Article | null {
-  const stmt = db.prepare('UPDATE articles SET is_read = 0 WHERE id = ? RETURNING *');
+  const stmt = getDatabase().prepare('UPDATE articles SET is_read = 0 WHERE id = ? RETURNING *');
   return stmt.get(id) as Article | null;
 }
 
 export function toggleArticleStar(id: number): Article | null {
-  const stmt = db.prepare(
+  const stmt = getDatabase().prepare(
     'UPDATE articles SET is_starred = 1 - is_starred WHERE id = ? RETURNING *',
   );
   return stmt.get(id) as Article | null;
@@ -1174,8 +920,16 @@ export function toggleArticleStar(id: number): Article | null {
 
 export function markAllRead(feedId?: number): void {
   if (feedId) {
-    db.prepare('UPDATE articles SET is_read = 1 WHERE feed_id = ? AND is_read = 0').run(feedId);
+    getDrizzleDb()
+      .update(schema.articles)
+      .set({ isRead: 1 })
+      .where(and(eq(schema.articles.feedId, feedId), eq(schema.articles.isRead, 0)))
+      .run();
   } else {
-    db.prepare('UPDATE articles SET is_read = 1 WHERE is_read = 0').run();
+    getDrizzleDb()
+      .update(schema.articles)
+      .set({ isRead: 1 })
+      .where(eq(schema.articles.isRead, 0))
+      .run();
   }
 }
