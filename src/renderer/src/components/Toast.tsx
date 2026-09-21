@@ -1,50 +1,53 @@
-import { createContext, useCallback, useContext, useState, ReactNode } from 'react'
-import { CheckCircle2, AlertCircle, X } from 'lucide-react'
+import { createContext, useCallback, useContext, useState, ReactNode } from 'react';
+import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 
 interface Toast {
-  id: number
-  message: string
-  type: 'success' | 'error'
-  exiting?: boolean
+  id: number;
+  message: string;
+  type: 'success' | 'error';
+  exiting?: boolean;
 }
 
 interface ToastContextValue {
-  success: (message: string) => void
-  error: (message: string) => void
+  success: (message: string) => void;
+  error: (message: string) => void;
 }
 
-const ToastContext = createContext<ToastContextValue | null>(null)
+const ToastContext = createContext<ToastContextValue | null>(null);
 
-let nextId = 0
+let nextId = 0;
 
 export function ToastProvider({ children }: { children: React.ReactNode }): ReactNode {
-  const [toasts, setToasts] = useState<Toast[]>([])
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   const remove = useCallback((id: number) => {
     // Start exit animation
-    setToasts((prev) => prev.map((t) => t.id === id ? { ...t, exiting: true } : t))
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)));
     // Remove after animation completes
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, 250)
-  }, [])
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 250);
+  }, []);
 
-  const add = useCallback((message: string, type: 'success' | 'error') => {
-    const id = nextId++
-    setToasts((prev) => [...prev, { id, message, type }])
-    setTimeout(() => remove(id), 2500)
-  }, [remove])
+  const add = useCallback(
+    (message: string, type: 'success' | 'error') => {
+      const id = nextId++;
+      setToasts((prev) => [...prev, { id, message, type }]);
+      setTimeout(() => remove(id), 2500);
+    },
+    [remove],
+  );
 
   const value: ToastContextValue = {
     success: useCallback((msg: string) => add(msg, 'success'), [add]),
-    error: useCallback((msg: string) => add(msg, 'error'), [add])
-  }
+    error: useCallback((msg: string) => add(msg, 'error'), [add]),
+  };
 
   return (
     <ToastContext.Provider value={value}>
       {children}
       {/* Toast Container */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+      <div className="fixed bottom-4 right-4 z-[55] flex flex-col gap-2">
         {toasts.map((toast) => (
           <div
             key={toast.id}
@@ -72,11 +75,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
         ))}
       </div>
     </ToastContext.Provider>
-  )
+  );
 }
 
 export function useToast(): ToastContextValue {
-  const ctx = useContext(ToastContext)
-  if (!ctx) throw new Error('useToast must be used within ToastProvider')
-  return ctx
+  const ctx = useContext(ToastContext);
+  if (!ctx) throw new Error('useToast must be used within ToastProvider');
+  return ctx;
 }

@@ -45,6 +45,11 @@
 - 🦄 refactor: remove BrowserWindow daily summary — keep only in-app modal
 - 🦄 refactor: remove renderer ai config backup, use main process sqlite
 
+- 🦄 refactor: fluid 页面全宽排版 — worklog/dotnet/model-config/settings 路由启用 fluid: true；WorkLog 双栏瀑布流+合并单行工具栏；Settings 多栏 flex-wrap；ModelConfig 响应式网格+编辑弹窗+小屏筛选折叠
+- 🦄 refactor: Settings 径向菜单两列 — 菜单项和自定义程序均改为 grid-cols-2 双列网格
+- 🦄 refactor: 返回顶部按钮独立化 — 从 NavLayout 内联代码提取为 `ScrollToTopButton` 组件，统一 FAB 设计语言（56px 尺寸、渐变背景、Motion 动画、hover tooltip）
+- 🌈 style: 统一 z-index 层级规范 — FAB 层 `z-[35]`（ScrollToTopButton/DotnetFAB/AIFloatingButton）、弹窗层 `z-50`、Toast 层 `z-[55]`
+
 ### 新增
 
 - ✨ feat: 全局骨架屏加载动画 — 新增 Skeleton 组件库（SkeletonLine/SkeletonCircle/SkeletonRect/SkeletonStatCard/SkeletonTaskCard/SkeletonTableRow/SkeletonCard），8 个页面全面引入骨架屏（RssPage、ReportsPage、WorkLogPage、StatsPage、CalendarPage、KanbanPage、ChatPage、AiStatsPage）

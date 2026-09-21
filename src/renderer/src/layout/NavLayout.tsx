@@ -4,31 +4,26 @@ import AnimatedOutlet from '../components/AnimatedOutlet';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AnimatePresence, motion } from 'motion/react';
 import { Icon } from '@iconify/react';
-import {
-    BarChart3,
-    CalendarRange,
-    Zap,
-    ArrowUp,
-    Rss,
-} from 'lucide-react';
+import { BarChart3, CalendarRange, Zap, Rss } from 'lucide-react';
 import { SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
 import { useI18n } from '../stores/languageStore';
 import { useClickAway } from 'react-use';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import WebGLFluid from '../components/WebGLFluid';
+import { ScrollToTopButton } from '../components/ScrollToTopButton';
 // import CursorRing from '../components/CursorRing';
 
 interface NavItem {
-    path: string;
-    icon: React.ReactNode;
-    label: string;
-    title?: string;
+  path: string;
+  icon: React.ReactNode;
+  label: string;
+  title?: string;
 }
 
 interface NavSection {
-    id: string;
-    label: string;
-    items: NavItem[];
+  id: string;
+  label: string;
+  items: NavItem[];
 }
 
 const SIDEBAR_WIDTH_COLLAPSED = 64;
@@ -36,335 +31,329 @@ const SIDEBAR_WIDTH_EXPANDED = 220;
 const STORAGE_KEY = 'sidebar-collapsed';
 
 export default function NavLayout() {
-    const location = useLocation();
-    const matches = useMatches();
-    const { t } = useI18n();
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const [showTopBtn, setShowTopBtn] = useState(false);
-    const moreMenuRef = useRef<HTMLDivElement>(null);
-    const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const location = useLocation();
+  const matches = useMatches();
+  const { t } = useI18n();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
-    // Tooltip state — track hovered item key and its bounding rect
-    const [hoveredItem, setHoveredItem] = useState<{ key: string; rect: DOMRect } | null>(null);
+  // Tooltip state — track hovered item key and its bounding rect
+  const [hoveredItem, setHoveredItem] = useState<{ key: string; rect: DOMRect } | null>(null);
 
-    // Collapsed state, persisted in localStorage
-    const [collapsed, setCollapsed] = useState(() => {
-        try {
-            return localStorage.getItem(STORAGE_KEY) === 'true';
-        } catch {
-            return false;
-        }
+  // Collapsed state, persisted in localStorage
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  // Persist collapsed state
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(collapsed));
+    } catch {
+      // ignore
+    }
+  }, [collapsed]);
+
+  // 监听主进程导航 IPC（从径向菜单/托盘/快捷键触发）
+  const navigate = useNavigate();
+  useEffect(() => {
+    const cleanup = window.api.on.navigate((page) => {
+      navigate(`/${page}`);
     });
+    return cleanup;
+  }, [navigate]);
 
-    // Persist collapsed state
-    useEffect(() => {
-        try {
-            localStorage.setItem(STORAGE_KEY, String(collapsed));
-        } catch {
-            // ignore
-        }
-    }, [collapsed]);
+  const fluid = (matches[matches.length - 1]?.handle as { fluid?: boolean })?.fluid ?? false;
 
-    // 监听主进程导航 IPC（从径向菜单/托盘/快捷键触发）
-    const navigate = useNavigate();
-    useEffect(() => {
-        const cleanup = window.api.on.navigate((page) => {
-            navigate(`/${page}`);
-        });
-        return cleanup;
-    }, [navigate]);
+  // Close dropdown on outside click via react-use
+  useClickAway(moreMenuRef, () => setShowMoreMenu(false));
 
-    const fluid =
-        (matches[matches.length - 1]?.handle as { fluid?: boolean })?.fluid ?? false;
+  const toggleCollapse = useCallback(() => {
+    setCollapsed((prev) => !prev);
+  }, []);
 
-    // Close dropdown on outside click via react-use
-    useClickAway(moreMenuRef, () => setShowMoreMenu(false));
+  // Tooltip handlers — capture the DOM rect on mouse enter for precise positioning
+  const handleItemEnter = useCallback(
+    (e: React.MouseEvent, key: string) => {
+      if (!collapsed) return;
+      setHoveredItem({ key, rect: e.currentTarget.getBoundingClientRect() });
+    },
+    [collapsed],
+  );
 
-    const handleScroll = useCallback(() => {
-        const el = scrollRef.current;
-        if (el) setShowTopBtn(el.scrollTop > 300);
-    }, []);
+  const handleItemLeave = useCallback(() => {
+    setHoveredItem(null);
+  }, []);
 
-    const scrollToTop = () => {
-        scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    const toggleCollapse = useCallback(() => {
-        setCollapsed((prev) => !prev);
-    }, []);
-
-    // Tooltip handlers — capture the DOM rect on mouse enter for precise positioning
-    const handleItemEnter = useCallback((e: React.MouseEvent, key: string) => {
-        if (!collapsed) return;
-        setHoveredItem({ key, rect: e.currentTarget.getBoundingClientRect() });
-    }, [collapsed]);
-
-    const handleItemLeave = useCallback(() => {
-        setHoveredItem(null);
-    }, []);
-
-    // ---- Navigation sections ----
-    const sections: NavSection[] = [
+  // ---- Navigation sections ----
+  const sections: NavSection[] = [
+    {
+      id: 'core',
+      label: '核心',
+      items: [
         {
-            id: 'core',
-            label: '核心',
-            items: [
-                {
-                    path: 'worklog',
-                    icon: <Icon icon="line-md:clipboard-list" width={18} height={18} />,
-                    label: t('nav.worklog'),
-                },
-                {
-                    path: 'kanban',
-                    icon: <Icon icon="line-md:grid-3" width={18} height={18} />,
-                    label: t('nav.kanban'),
-                },
-                {
-                    path: 'calendar',
-                    icon: <Icon icon="line-md:calendar" width={18} height={18} />,
-                    label: t('nav.calendar'),
-                },
-                {
-                    path: 'stats',
-                    icon: <BarChart3 className="w-[18px] h-[18px]" />,
-                    label: t('nav.stats'),
-                },
-            ],
+          path: 'worklog',
+          icon: <Icon icon="line-md:clipboard-list" width={18} height={18} />,
+          label: t('nav.worklog'),
         },
         {
-            id: 'insights',
-            label: '洞察',
-            items: [
-                {
-                    path: 'report',
-                    icon: <Icon icon="line-md:text-box" width={18} height={18} />,
-                    label: t('nav.report'),
-                },
-                {
-                    path: 'reports',
-                    icon: <CalendarRange className="w-[18px] h-[18px]" />,
-                    label: t('nav.weekly'),
-                },
-            ],
+          path: 'kanban',
+          icon: <Icon icon="line-md:grid-3" width={18} height={18} />,
+          label: t('nav.kanban'),
         },
         {
-            id: 'reading',
-            label: '阅读',
-            items: [
-                { path: 'rss', icon: <Rss className="w-[18px] h-[18px]" />, label: 'RSS' },
-            ],
+          path: 'calendar',
+          icon: <Icon icon="line-md:calendar" width={18} height={18} />,
+          label: t('nav.calendar'),
         },
         {
-            id: 'tools',
-            label: '工具',
-            items: [
-                { path: 'ocr', icon: <SiPaddle className="w-[18px] h-[18px]" />, label: t('nav.ocr') },
-                { path: 'pp', icon: <SiPaddlepaddle className="w-[18px] h-[18px]" />, label: t('nav.pp') },
-                { path: 'xray', icon: <Zap className="w-[18px] h-[18px]" />, label: t('nav.xray') },
-                { path: 'onnx', icon: <SiOnnx className="w-[18px] h-[18px]" />, label: t('nav.onnx') },
-                { path: 'model-config', icon: <Icon icon="mdi:robot" className="w-[18px] h-[18px]" />, label: 'AI 模型' },
-                { path: 'ai-stats', icon: <BarChart3 className="w-[18px] h-[18px]" />, label: t('nav.aiStats') },
-                { path: 'fluid-glass', icon: <Icon icon="mdi:glass-water" className="w-[18px] h-[18px]" />, label: t('nav.fluidGlass') },
-                { path: 'dotnet', icon: <Icon icon="mdi:dot-net" className="w-[18px] h-[18px]" />, label: t('nav.dotnet') },
-            ],
+          path: 'stats',
+          icon: <BarChart3 className="w-[18px] h-[18px]" />,
+          label: t('nav.stats'),
         },
-    ];
+      ],
+    },
+    {
+      id: 'insights',
+      label: '洞察',
+      items: [
+        {
+          path: 'report',
+          icon: <Icon icon="line-md:text-box" width={18} height={18} />,
+          label: t('nav.report'),
+        },
+        {
+          path: 'reports',
+          icon: <CalendarRange className="w-[18px] h-[18px]" />,
+          label: t('nav.weekly'),
+        },
+      ],
+    },
+    {
+      id: 'reading',
+      label: '阅读',
+      items: [{ path: 'rss', icon: <Rss className="w-[18px] h-[18px]" />, label: 'RSS' }],
+    },
+    {
+      id: 'tools',
+      label: '工具',
+      items: [
+        { path: 'ocr', icon: <SiPaddle className="w-[18px] h-[18px]" />, label: t('nav.ocr') },
+        { path: 'pp', icon: <SiPaddlepaddle className="w-[18px] h-[18px]" />, label: t('nav.pp') },
+        { path: 'xray', icon: <Zap className="w-[18px] h-[18px]" />, label: t('nav.xray') },
+        { path: 'onnx', icon: <SiOnnx className="w-[18px] h-[18px]" />, label: t('nav.onnx') },
+        {
+          path: 'model-config',
+          icon: <Icon icon="mdi:robot" className="w-[18px] h-[18px]" />,
+          label: 'AI 模型',
+        },
+        {
+          path: 'ai-stats',
+          icon: <BarChart3 className="w-[18px] h-[18px]" />,
+          label: t('nav.aiStats'),
+        },
+        {
+          path: 'fluid-glass',
+          icon: <Icon icon="mdi:glass-water" className="w-[18px] h-[18px]" />,
+          label: t('nav.fluidGlass'),
+        },
+        {
+          path: 'dotnet',
+          icon: <Icon icon="mdi:dot-net" className="w-[18px] h-[18px]" />,
+          label: t('nav.dotnet'),
+        },
+      ],
+    },
+  ];
 
-    const isActive = (path: string) =>
-        location.pathname === `/${path}` || (path === 'worklog' && location.pathname === '/');
+  const isActive = (path: string) =>
+    location.pathname === `/${path}` || (path === 'worklog' && location.pathname === '/');
 
-    const sidebarWidth = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
+  const sidebarWidth = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
 
-    // Resolve tooltip label from the hovered key
-    const tooltipLabel = hoveredItem
-        ? hoveredItem.key === 'settings'
-            ? t('nav.settings')
-            : sections.flatMap((s) => s.items).find((i) => i.path === hoveredItem.key)?.label ?? ''
-        : '';
+  // Resolve tooltip label from the hovered key
+  const tooltipLabel = hoveredItem
+    ? hoveredItem.key === 'settings'
+      ? t('nav.settings')
+      : (sections.flatMap((s) => s.items).find((i) => i.path === hoveredItem.key)?.label ?? '')
+    : '';
 
-    return (
-        <div className="flex h-full">
-            {/* ===== Global Background Layers ===== */}
-            <WebGLFluid opacity={0.04} speed={0.25} />
-            {/* <CursorRing /> */}
+  return (
+    <div className="flex h-full">
+      {/* ===== Global Background Layers ===== */}
+      <WebGLFluid opacity={0.04} speed={0.25} />
+      {/* <CursorRing /> */}
 
-            {/* ===== Sidebar ===== */}
-            <motion.aside
-                className="flex flex-col shrink-0 h-[calc(100%-24px)] my-3 ml-3
+      {/* ===== Sidebar ===== */}
+      <motion.aside
+        className="flex flex-col shrink-0 h-[calc(100%-24px)] my-3 ml-3
                            surface-sidebar select-none z-30 rounded-2xl"
-                style={{
-                    boxShadow: collapsed
-                        ? '0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)'
-                        : '0 8px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.05)',
-                }}
-                animate={{ width: sidebarWidth }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            >
-                {/* Liquid glass caustic overlay */}
-                <LiquidGlassSurface
-                    className="absolute inset-0 z-0"
-                    frosted={false}
-                    intensity={0.3}
-                    animated={true}
-                    style={{ pointerEvents: 'none' }}
-                >
-                    <div className="w-full h-full" />
-                </LiquidGlassSurface>
+        style={{
+          boxShadow: collapsed
+            ? '0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)'
+            : '0 8px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.05)',
+        }}
+        animate={{ width: sidebarWidth }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      >
+        {/* Liquid glass caustic overlay */}
+        <LiquidGlassSurface
+          className="absolute inset-0 z-0"
+          frosted={false}
+          intensity={0.3}
+          animated={true}
+          style={{ pointerEvents: 'none' }}
+        >
+          <div className="w-full h-full" />
+        </LiquidGlassSurface>
 
-                {/* -- Top: brand + toggle -- */}
-                <div className="flex items-center justify-between px-4 py-3 shrink-0">
-                    <span
-                        className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate overflow-hidden whitespace-nowrap"
-                        style={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 'auto' }}
-                    >
-                        工作台
-                    </span>
-                    {/* Toggle button — line-md animated hamburger ↔ fold */}
-                    <button
-                        onClick={toggleCollapse}
-                        className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-700
+        {/* -- Top: brand + toggle -- */}
+        <div className="flex items-center justify-between px-4 py-3 shrink-0">
+          <span
+            className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate overflow-hidden whitespace-nowrap"
+            style={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 'auto' }}
+          >
+            工作台
+          </span>
+          {/* Toggle button — line-md animated hamburger ↔ fold */}
+          <button
+            onClick={toggleCollapse}
+            className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-700
                                    dark:text-zinc-500 dark:hover:text-zinc-200
                                    hover:bg-zinc-100/60 dark:hover:bg-white/10
                                    transition-colors duration-150 shrink-0 ml-auto"
-                        aria-label={collapsed ? '展开侧栏' : '收起侧栏'}
-                    >
-                        {collapsed ? (
-                            <Icon key="hamburger" icon="line-md:menu" width={18} height={18} />
-                        ) : (
-                            <Icon key="close" icon="line-md:close" width={18} height={18} />
-                        )}
-                    </button>
-                </div>
+            aria-label={collapsed ? '展开侧栏' : '收起侧栏'}
+          >
+            {collapsed ? (
+              <Icon key="hamburger" icon="line-md:menu" width={18} height={18} />
+            ) : (
+              <Icon key="close" icon="line-md:close" width={18} height={18} />
+            )}
+          </button>
+        </div>
 
-                {/* -- Scrollable nav body -- */}
-                <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-3">
-                    {sections.map((section, sIdx) => (
-                        <div key={section.id} className={sIdx > 0 ? 'mt-2' : ''}>
-                            {/* Section divider — thin line when collapsed, label when expanded */}
-                            {collapsed ? (
-                                <div className="mx-3 my-2 border-t border-zinc-200/40 dark:border-zinc-700/40" />
-                            ) : (
-                                <h3 className="text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 px-4 py-2">
-                                    {section.label}
-                                </h3>
-                            )}
+        {/* -- Scrollable nav body -- */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-3">
+          {sections.map((section, sIdx) => (
+            <div key={section.id} className={sIdx > 0 ? 'mt-2' : ''}>
+              {/* Section divider — thin line when collapsed, label when expanded */}
+              {collapsed ? (
+                <div className="mx-3 my-2 border-t border-zinc-200/40 dark:border-zinc-700/40" />
+              ) : (
+                <h3 className="text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500 px-4 py-2">
+                  {section.label}
+                </h3>
+              )}
 
-                            {section.items.map((item) => {
-                                const active = isActive(item.path);
-                                const sharedClassName = `
+              {section.items.map((item) => {
+                const active = isActive(item.path);
+                const sharedClassName = `
                                     relative flex items-center gap-3 mx-2 rounded-lg text-sm
                                     transition-all duration-150 outline-none cursor-pointer
                                     focus-visible:ring-2 focus-visible:ring-sky-500/70
                                     ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}
                                     ${
-                                        active
-                                            ? 'text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/15 font-medium'
-                                            : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 dark:hover:bg-white/10'
+                                      active
+                                        ? 'text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/15 font-medium'
+                                        : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 dark:hover:bg-white/10'
                                     }
                                 `;
 
-                                return (
-                                    <Link
-                                        key={item.path}
-                                        to={`/${item.path}`}
-                                        className={sharedClassName}
-                                        onMouseEnter={(e) => handleItemEnter(e, item.path)}
-                                        onMouseLeave={handleItemLeave}
-                                    >
-                                        <span key={`${item.path}-${collapsed}`} className="flex items-center justify-center shrink-0">
-                                            {item.icon}
-                                        </span>
-                                        {!collapsed && (
-                                            <span className="truncate whitespace-nowrap">
-                                                {item.label}
-                                            </span>
-                                        )}
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    ))}
-                </nav>
+                return (
+                  <Link
+                    key={item.path}
+                    to={`/${item.path}`}
+                    className={sharedClassName}
+                    onMouseEnter={(e) => handleItemEnter(e, item.path)}
+                    onMouseLeave={handleItemLeave}
+                  >
+                    <span
+                      key={`${item.path}-${collapsed}`}
+                      className="flex items-center justify-center shrink-0"
+                    >
+                      {item.icon}
+                    </span>
+                    {!collapsed && <span className="truncate whitespace-nowrap">{item.label}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
 
-                {/* -- Footer: settings -- */}
-                <div className="shrink-0 border-t border-zinc-200/40 dark:border-zinc-700/40 pt-2 pb-3">
-                    <Link
-                        to="/settings"
-                        className={`
+        {/* -- Footer: settings -- */}
+        <div className="shrink-0 border-t border-zinc-200/40 dark:border-zinc-700/40 pt-2 pb-3">
+          <Link
+            to="/settings"
+            className={`
                             relative flex items-center gap-3 mx-2 rounded-lg rounded-b-2xl text-sm
                             transition-all duration-150 outline-none cursor-pointer
                             focus-visible:ring-2 focus-visible:ring-sky-500/70
                             ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}
                             ${
-                                isActive('settings')
-                                    ? 'text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/15 font-medium'
-                                    : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 dark:hover:bg-white/10'
+                              isActive('settings')
+                                ? 'text-blue-600 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-500/15 font-medium'
+                                : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100/60 dark:hover:bg-white/10'
                             }
                         `}
-                        onMouseEnter={(e) => handleItemEnter(e, 'settings')}
-                        onMouseLeave={handleItemLeave}
-                    >
-                        <span className="flex items-center justify-center shrink-0">
-                            <Icon icon="line-md:cog" width={18} height={18} />
-                        </span>
-                        {!collapsed && (
-                            <span className="truncate whitespace-nowrap">
-                                {t('nav.settings')}
-                            </span>
-                        )}
-                    </Link>
-                </div>
-            </motion.aside>
+            onMouseEnter={(e) => handleItemEnter(e, 'settings')}
+            onMouseLeave={handleItemLeave}
+          >
+            <span className="flex items-center justify-center shrink-0">
+              <Icon icon="line-md:cog" width={18} height={18} />
+            </span>
+            {!collapsed && <span className="truncate whitespace-nowrap">{t('nav.settings')}</span>}
+          </Link>
+        </div>
+      </motion.aside>
 
-            {/* ===== Tooltip (collapsed mode) — positioned via DOM rect ===== */}
-            <AnimatePresence>
-                {collapsed && hoveredItem && tooltipLabel && (
-                    <motion.div
-                        key={hoveredItem.key}
-                        initial={{ opacity: 0, x: -6, y: '-50%' }}
-                        animate={{ opacity: 1, x: 0, y: '-50%' }}
-                        exit={{ opacity: 0, x: -6, y: '-50%' }}
-                        transition={{ duration: 0.12, ease: 'easeOut' }}
-                        className="fixed z-50 px-2.5 py-1.5 text-xs font-medium
+      {/* ===== Tooltip (collapsed mode) — positioned via DOM rect ===== */}
+      <AnimatePresence>
+        {collapsed && hoveredItem && tooltipLabel && (
+          <motion.div
+            key={hoveredItem.key}
+            initial={{ opacity: 0, x: -6, y: '-50%' }}
+            animate={{ opacity: 1, x: 0, y: '-50%' }}
+            exit={{ opacity: 0, x: -6, y: '-50%' }}
+            transition={{ duration: 0.12, ease: 'easeOut' }}
+            className="fixed z-50 px-2.5 py-1.5 text-xs font-medium
                                    bg-zinc-800/90 dark:bg-zinc-100/90
                                    text-white dark:text-zinc-900
                                    rounded-md shadow-lg
                                    pointer-events-none
                                    backdrop-blur-sm whitespace-nowrap"
-                        style={{
-                            left: hoveredItem.rect.right + 8,
-                            top: hoveredItem.rect.top + hoveredItem.rect.height / 2,
-                        }}
-                    >
-                        <span className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2
+            style={{
+              left: hoveredItem.rect.right + 8,
+              top: hoveredItem.rect.top + hoveredItem.rect.height / 2,
+            }}
+          >
+            <span
+              className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2
                                          border-y-[5px] border-y-transparent
                                          border-r-[5px] border-r-zinc-800/90
-                                         dark:border-r-zinc-100/90" />
-                        {tooltipLabel}
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                                         dark:border-r-zinc-100/90"
+            />
+            {tooltipLabel}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-            {/* ===== Main content area ===== */}
-            <div ref={scrollRef} className="flex-1 min-w-0 overflow-auto" onScroll={handleScroll}>
-                <div className={fluid ? 'h-full' : 'max-w-5xl mx-auto px-4 py-6'}>
-                    <ErrorBoundary>
-                        <AnimatedOutlet />
-                    </ErrorBoundary>
-                </div>
-
-                {/* Scroll-to-top button */}
-                {showTopBtn && (
-                    <button
-                        onClick={scrollToTop}
-                        className="fixed bottom-[88px] right-6 z-50 p-3 rounded-full bg-zinc-900 dark:bg-zinc-100
-                                   text-white dark:text-zinc-900 shadow-lg hover:scale-110 transition-all duration-200"
-                        aria-label="返回顶部"
-                    >
-                        <ArrowUp className="w-5 h-5" />
-                    </button>
-                )}
-            </div>
+      {/* ===== Main content area ===== */}
+      <div ref={scrollRef} className="flex-1 min-w-0 overflow-auto">
+        <div className={fluid ? 'h-full' : 'max-w-5xl mx-auto px-4 py-6'}>
+          <ErrorBoundary>
+            <AnimatedOutlet />
+          </ErrorBoundary>
         </div>
-    );
+
+        {/* Scroll-to-top button */}
+        <ScrollToTopButton scrollRef={scrollRef} />
+      </div>
+    </div>
+  );
 }
