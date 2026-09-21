@@ -300,6 +300,31 @@ export async function deleteConversation(id: string): Promise<void> {
 }
 
 /**
+ * Get messages from a conversation with pagination (for infinite scrolling).
+ * Returns messages in reverse chronological order (newest first for top-scroll loading).
+ * offset=0 means the latest `limit` messages; increasing offset reveals older messages.
+ */
+export async function getConversationMessages(
+  conversationId: string,
+  limit: number = 50,
+  offset: number = 0,
+): Promise<{ messages: ChatMessage[]; hasMore: boolean }> {
+  const conv = await getConversation(conversationId);
+  if (!conv) return { messages: [], hasMore: false };
+
+  const allMessages = conv.messages;
+  const total = allMessages.length;
+  const start = Math.max(0, total - offset - limit);
+  const end = total - offset;
+  const sliced = allMessages.slice(start, end);
+
+  return {
+    messages: sliced,
+    hasMore: start > 0,
+  };
+}
+
+/**
  * Batch save multiple conversations (for migration/sync).
  * Enforces capacity limits on both message count and conversation count.
  */

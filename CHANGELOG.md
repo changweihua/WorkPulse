@@ -7,6 +7,7 @@
 ### 新增
 
 - ✨ feat: 新增 `scripts/release.ts` 一键发布脚本，自动完成版本更新→文件同步→提交→打 tag→推送，支持 `patch/minor/major/精确版本号` 参数
+- ✨ feat: AIChatPanel 无限滚动 — 使用 `@reactuses/core` 的 `useInfiniteScroll`，初始显示最近 50 条消息，向上滚动自动加载更多，保持滚动位置不变
 
 ### 修复
 
@@ -23,6 +24,10 @@
 - 🦄 refactor: modelConfig.ts 新增 BillingType 类型、provider/billingType/tokenQuota 字段、月度 Token 配额追踪函数（getMonthKey/isOverMonthlyTokenQuota/incrementMonthlyTokenCount/getMonthlyTokenCount）
 - 🦄 refactor: db.ts 新增三条 ALTER TABLE 迁移（provider/billing_type/token_quota）
 - 🦄 refactor: AIChatPanel UI 重构 — 去除层叠渐变/辉光/毛玻璃炫技风格，采用 ChatGPT/Claude 主流简洁设计（clean surfaces, clear hierarchy, minimal chrome）
+- 🌈 style: AI 助手 Liquid Glass 美化 — 亮/暗双模式自适应（跟随系统主题）、多色渐变标识(violet→blue→cyan)、用户消息亮色渐变气泡/暗色深色气泡、AI消息微渐变背景、渐变发送按钮、渐变流式光标、会话列表渐变选中态、空状态升级
+- 🦄 refactor: AIChatPanel DeepSeek 风格双栏布局 — 面板宽度 680px，左侧栏 260px 会话列表（新建按钮+月分组+相对时间），右侧主区域精简 Header+消息区+输入区
+- ✨ feat: 会话列表按月分组（本月/上月/X月）+ 相对时间显示（刚刚/X分钟前/X小时前/昨天/X天前/X月X日）+ 消息数统计
+- 🌈 style: FAB 浮动按钮 AI 星芒图标 — 三颗四角星（中心大+右上小+左下小），替代用户头像图标；idle 状态浮动动画 + drop-shadow 呼吸光晕
 - 🦄 refactor: 消息展示改为全宽式 — 参考 2026 年主流 AI 助手设计（Claude.ai/ChatGPT/Cursor），去除气泡背景，用户右对齐蓝色条，AI左对齐透明底+微灰背景条
 - 🦄 refactor: 每条AI消息显示模型名标签（AI头像+配置名称），提升可追溯性
 - 🦄 refactor: Thinking/reasoning 折叠区域 — 默认折叠的 `<details>` 元素，替代之前的固定展开

@@ -1,10 +1,10 @@
 /**
- * AIFloatingButton — Global floating action button for the AI chat panel.
- * Fixed position, draggable with localStorage persistence.
- * Toggles the AIChatPanel via aiPanelStore.
+ * AIFloatingButton — 全局浮动 AI 助手按钮。
+ * 固定定位，支持拖拽和 localStorage 持久化。
+ * 通过 aiPanelStore 切换 AIChatPanel。
  *
- * Liquid Glass Personality: breathing animation, gradient glass surface,
- * blue glow shadows, radial icon aura, glass tooltip.
+ * Liquid Glass 美学 — 多色渐变呼吸动画、毛玻璃表面、
+ * violet→blue→cyan 发光阴影、径向图标光晕、玻璃 tooltip。
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -18,11 +18,26 @@ const MOBILE_BREAKPOINT = 768;
 const DRAG_THRESHOLD = 5;
 const STORAGE_KEY = 'ai-fab-position';
 
-/* ─── CSS Keyframes ────────────────────────────────────────────── */
+/* ─── CSS Keyframes — 多色渐变呼吸 + 图标浮动 ─────────────────── */
 const BREATHING_CSS = `
 @keyframes ai-fab-breathe {
-  0%, 100% { transform: scale(1); box-shadow: 0 4px 20px rgba(59,130,246,0.12), 0 0 0 1px rgba(255,255,255,0.1), inset 0 1px 1px rgba(255,255,255,0.15); }
-  50% { transform: scale(1.04); box-shadow: 0 6px 28px rgba(59,130,246,0.2), 0 0 12px rgba(59,130,246,0.08), 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 2px rgba(255,255,255,0.2); }
+  0%, 100% {
+    transform: scale(1);
+    box-shadow:
+      0 4px 20px rgba(139,92,246,0.10),
+      0 4px 20px rgba(59,130,246,0.08),
+      0 0 0 1px rgba(255,255,255,0.08),
+      inset 0 1px 1px rgba(255,255,255,0.12);
+  }
+  50% {
+    transform: scale(1.035);
+    box-shadow:
+      0 6px 32px rgba(139,92,246,0.18),
+      0 6px 32px rgba(59,130,246,0.12),
+      0 0 16px rgba(34,211,238,0.06),
+      0 0 0 1px rgba(255,255,255,0.10),
+      inset 0 1px 2px rgba(255,255,255,0.18);
+  }
 }
 @keyframes ai-fab-pop {
   0% { transform: scale(1); }
@@ -30,6 +45,14 @@ const BREATHING_CSS = `
   60% { transform: scale(1.12); }
   80% { transform: scale(0.97); }
   100% { transform: scale(1); }
+}
+@keyframes ai-icon-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-1.5px); }
+}
+@keyframes ai-icon-glow {
+  0%, 100% { filter: drop-shadow(0 0 1px rgba(139,92,246,0.2)) drop-shadow(0 0 3px rgba(59,130,246,0.1)); }
+  50% { filter: drop-shadow(0 0 3px rgba(139,92,246,0.35)) drop-shadow(0 0 6px rgba(34,211,238,0.2)); }
 }
 `;
 
@@ -145,23 +168,25 @@ export default function AIFloatingButton() {
 
     const isIdle = !open && !hovered && !isDragging;
 
+    // 多色渐变背景 — violet→blue→cyan
     const fabBackground = open
         ? isDark
-            ? 'linear-gradient(135deg, rgba(40,50,90,0.75) 0%, rgba(25,35,70,0.65) 50%, rgba(50,60,110,0.55) 100%)'
-            : 'linear-gradient(135deg, rgba(200,215,255,0.65) 0%, rgba(160,185,245,0.45) 50%, rgba(220,230,255,0.55) 100%)'
+            ? 'linear-gradient(135deg, rgba(50,30,80,0.80) 0%, rgba(25,35,70,0.70) 50%, rgba(20,55,80,0.60) 100%)'
+            : 'linear-gradient(135deg, rgba(200,190,255,0.65) 0%, rgba(160,195,255,0.45) 50%, rgba(180,230,255,0.55) 100%)'
         : isDark
-            ? 'linear-gradient(135deg, rgba(50,55,80,0.75) 0%, rgba(30,35,60,0.65) 50%, rgba(60,65,100,0.55) 100%)'
-            : 'linear-gradient(135deg, rgba(255,255,255,0.75) 0%, rgba(210,220,255,0.45) 50%, rgba(255,255,255,0.6) 100%)';
+            ? 'linear-gradient(135deg, rgba(45,35,70,0.80) 0%, rgba(30,35,60,0.70) 50%, rgba(25,50,75,0.60) 100%)'
+            : 'linear-gradient(135deg, rgba(255,250,255,0.78) 0%, rgba(210,220,255,0.48) 50%, rgba(200,235,255,0.58) 100%)';
 
+    // 多色发光阴影 — violet + blue + cyan
     const fabShadow = hovered
-        ? '0 8px 40px rgba(59,130,246,0.28), 0 0 24px rgba(59,130,246,0.12), 0 0 0 1px rgba(255,255,255,0.15), inset 0 1px 2px rgba(255,255,255,0.25)'
-        : '0 4px 20px rgba(59,130,246,0.12), 0 0 0 1px rgba(255,255,255,0.1), inset 0 1px 1px rgba(255,255,255,0.15)';
+        ? '0 8px 40px rgba(139,92,246,0.20), 0 8px 40px rgba(59,130,246,0.15), 0 0 24px rgba(34,211,238,0.08), 0 0 0 1px rgba(255,255,255,0.12), inset 0 1px 2px rgba(255,255,255,0.22)'
+        : '0 4px 20px rgba(139,92,246,0.10), 0 4px 20px rgba(59,130,246,0.08), 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 1px rgba(255,255,255,0.12)';
 
     const fabBorder = hovered
-        ? '1px solid rgba(120,160,255,0.35)'
+        ? '1px solid rgba(139,140,255,0.30)'
         : open
-            ? '1px solid rgba(100,140,255,0.25)'
-            : '1px solid rgba(255,255,255,0.18)';
+            ? '1px solid rgba(120,130,255,0.22)'
+            : '1px solid rgba(255,255,255,0.10)';
 
     return (
         <>
@@ -195,18 +220,18 @@ export default function AIFloatingButton() {
                 }}
                 aria-label="AI 助手"
             >
-                {/* Radial icon aura */}
+                {/* 径向图标光晕 — 多色 */}
                 <div
                     className="absolute inset-0 rounded-full pointer-events-none"
                     style={{
                         background: open
-                            ? 'radial-gradient(circle at 40% 35%, rgba(99,130,255,0.2) 0%, transparent 65%)'
-                            : 'radial-gradient(circle at 40% 35%, rgba(99,130,255,0.1) 0%, transparent 60%)',
+                            ? 'radial-gradient(circle at 40% 35%, rgba(139,92,246,0.15) 0%, rgba(59,130,246,0.12) 40%, transparent 65%)'
+                            : 'radial-gradient(circle at 40% 35%, rgba(139,92,246,0.08) 0%, rgba(59,130,246,0.06) 40%, transparent 60%)',
                         transition: 'background 0.4s ease',
                     }}
                 />
 
-                {/* Bot icon with animated swap */}
+                {/* Bot 图标 — 多色渐变 */}
                 <AnimatePresence mode="wait">
                     {open ? (
                         <motion.div
@@ -217,10 +242,34 @@ export default function AIFloatingButton() {
                             transition={{ duration: 0.25, ease: 'easeOut' }}
                             className="relative z-[1]"
                         >
-                            <Bot
-                                size={24}
-                                className="text-blue-500 dark:text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.35)]"
-                            />
+                            <div className="w-7 h-7 flex items-center justify-center">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                                    <defs>
+                                        <linearGradient id="ai-grad-open" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stopColor="#8b5cf6" />
+                                            <stop offset="50%" stopColor="#3b82f6" />
+                                            <stop offset="100%" stopColor="#22d3ee" />
+                                        </linearGradient>
+                                    </defs>
+                                    {/* 主星芒 — 中心四角星 */}
+                                    <path
+                                        d="M12 3l1.8 5.4L19.2 10l-5.4 1.8L12 17.2l-1.8-5.4L4.8 10l5.4-1.8z"
+                                        fill="url(#ai-grad-open)"
+                                    />
+                                    {/* 小星芒 — 右上 */}
+                                    <path
+                                        d="M17.5 2.5l.6 1.8L19.9 4.9l-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6z"
+                                        fill="url(#ai-grad-open)"
+                                        opacity="0.8"
+                                    />
+                                    {/* 小星芒 — 左下 */}
+                                    <path
+                                        d="M5.5 16.5l.6 1.8L7.9 18.9l-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6z"
+                                        fill="url(#ai-grad-open)"
+                                        opacity="0.55"
+                                    />
+                                </svg>
+                            </div>
                         </motion.div>
                     ) : (
                         <motion.div
@@ -230,18 +279,45 @@ export default function AIFloatingButton() {
                             exit={{ rotate: -90, opacity: 0, scale: 0.5 }}
                             transition={{ duration: 0.25, ease: 'easeOut' }}
                             className="relative z-[1]"
+                            style={isIdle ? {
+                                animation: 'ai-icon-float 2.5s ease-in-out infinite',
+                            } : {}}
                         >
-                            <Bot
-                                size={24}
-                                className={hovered
-                                    ? 'text-blue-500 dark:text-blue-400 drop-shadow-[0_0_6px_rgba(59,130,246,0.3)]'
-                                    : 'text-zinc-600 dark:text-zinc-300 drop-shadow-[0_0_4px_rgba(59,130,246,0.15)]'}
-                            />
+                            <div className="w-7 h-7 flex items-center justify-center" style={isIdle ? {
+                                animation: 'ai-icon-glow 2.5s ease-in-out infinite',
+                            } : {}}>
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                                    <defs>
+                                        <linearGradient id="ai-grad-closed" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stopColor={hovered ? '#8b5cf6' : '#71717a'} />
+                                            <stop offset="50%" stopColor={hovered ? '#3b82f6' : '#a1a1aa'} />
+                                            <stop offset="100%" stopColor={hovered ? '#22d3ee' : '#71717a'} />
+                                        </linearGradient>
+                                    </defs>
+                                    {/* 主星芒 — 中心四角星 */}
+                                    <path
+                                        d="M12 3l1.8 5.4L19.2 10l-5.4 1.8L12 17.2l-1.8-5.4L4.8 10l5.4-1.8z"
+                                        fill="url(#ai-grad-closed)"
+                                    />
+                                    {/* 小星芒 — 右上 */}
+                                    <path
+                                        d="M17.5 2.5l.6 1.8L19.9 4.9l-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6z"
+                                        fill="url(#ai-grad-closed)"
+                                        opacity={hovered ? 0.8 : 0.55}
+                                    />
+                                    {/* 小星芒 — 左下 */}
+                                    <path
+                                        d="M5.5 16.5l.6 1.8L7.9 18.9l-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6z"
+                                        fill="url(#ai-grad-closed)"
+                                        opacity={hovered ? 0.6 : 0.4}
+                                    />
+                                </svg>
+                            </div>
                         </motion.div>
                     )}
                 </AnimatePresence>
 
-                {/* Active ring when panel is open */}
+                {/* 打开状态 — 多色渐变环 */}
                 <AnimatePresence>
                     {open && (
                         <motion.span
@@ -251,10 +327,10 @@ export default function AIFloatingButton() {
                             className="absolute inset-[-5px] rounded-full pointer-events-none"
                             style={{
                                 border: '1.5px solid transparent',
-                                backgroundImage: `linear-gradient(${isDark ? 'rgba(30,35,60,0.9)' : 'rgba(255,255,255,0.9)'}, ${isDark ? 'rgba(30,35,60,0.9)' : 'rgba(255,255,255,0.9)'}), linear-gradient(135deg, rgba(99,130,255,0.5), rgba(140,100,255,0.3), rgba(99,180,255,0.5))`,
+                                backgroundImage: `linear-gradient(${isDark ? 'rgba(30,35,60,0.9)' : 'rgba(255,255,255,0.9)'}, ${isDark ? 'rgba(30,35,60,0.9)' : 'rgba(255,255,255,0.9)'}), linear-gradient(135deg, rgba(139,92,246,0.5), rgba(59,130,246,0.4), rgba(34,211,238,0.5))`,
                                 backgroundOrigin: 'border-box',
                                 backgroundClip: 'padding-box, border-box',
-                                boxShadow: '0 0 20px rgba(59,130,246,0.18), inset 0 0 12px rgba(59,130,246,0.05)',
+                                boxShadow: '0 0 20px rgba(139,92,246,0.12), 0 0 20px rgba(59,130,246,0.08), inset 0 0 12px rgba(139,92,246,0.04)',
                             }}
                         />
                     )}
