@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, Fragment, ReactNode } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, Fragment, ReactNode } from 'react';
 import { runWhenIdle } from '../hooks/useIdleCallback';
 import {
   Trash2,
@@ -100,6 +100,175 @@ function AttachmentItem({
           </span>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * 瀑布流布局 Hook
+ *
+ * 使用 JavaScript 将卡片分配到最短列，实现真正的 Pinterest 风格瀑布流。
+ * - 响应式：通过 ResizeObserver 检测容器宽度，自动切换列数
+ * - 高度感知：通过测量实际渲染高度来分配卡片，而非估算
+ * - 平滑过渡：列数变化时通过 key 过渡保持视觉连贯
+ */
+
+/** 日期组条目的类型 */
+type DateEntry = [string, { id: number; created_at: string; content: string; category: string }[]];
+
+/**
+ * 卡片估算高度：表头 + 每条日志行的高度 + padding
+ * 用于首次渲染和未测量时的 fallback
+ */
+function estimateCardHeight(logCount: number): number {
+  // 表头(20px) + mb-2(8px) + 每条日志(36px含gap) + p-4(32px) + mb-4(16px)
+  return 40 + logCount * 36 + 32 + 16;
+}
+
+/** 用贪婪算法将条目分配到最短列 */
+function distributeToColumns(
+  entries: DateEntry[],
+  columnCount: number,
+  heightMap: Map<string, number>,
+): DateEntry[][] {
+  const cols: DateEntry[][] = Array.from({ length: columnCount }, () => []);
+  const colHeights = Array(columnCount).fill(0);
+
+  for (const entry of entries) {
+    const [dateKey, logs] = entry;
+    const h = heightMap.get(dateKey) ?? estimateCardHeight(logs.length);
+    // 找到最短的列
+    let shortestIdx = 0;
+    let shortestH = colHeights[0];
+    for (let i = 1; i < columnCount; i++) {
+      if (colHeights[i] < shortestH) {
+        shortestH = colHeights[i];
+        shortestIdx = i;
+      }
+    }
+    cols[shortestIdx].push(entry);
+    colHeights[shortestIdx] += h;
+  }
+
+  return cols;
+}
+
+function MasonryLayout({
+  entries,
+  renderCard,
+}: {
+  entries: DateEntry[];
+  renderCard: (dateKey: string, logs: DateEntry[1], index: number) => ReactNode;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [columnCount, setColumnCount] = useState(1);
+  // 记录每个日期组的实际渲染高度
+  const [heightMap, setHeightMap] = useState<Map<string, number>>(new Map());
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // 通过 ResizeObserver 检测容器宽度，决定列数
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateColumnCount = (): void => {
+      const width = container.getBoundingClientRect().width;
+      // >= 768px 双列，>= 1280px 三列
+      if (width >= 1280) {
+        setColumnCount(3);
+      } else if (width >= 768) {
+        setColumnCount(2);
+      } else {
+        setColumnCount(1);
+      }
+    };
+
+    updateColumnCount();
+    const observer = new ResizeObserver(updateColumnCount);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  // 测量每个卡片的实际高度并更新 heightMap
+  const measureAll = useCallback((): void => {
+    const newMap = new Map<string, number>();
+    cardRefs.current.forEach((el, dateKey) => {
+      if (el) {
+        newMap.set(dateKey, el.getBoundingClientRect().height);
+      }
+    });
+    if (newMap.size > 0) {
+      setHeightMap((prev) => {
+        // 仅在有变化时更新，避免不必要的重渲染
+        let changed = false;
+        if (prev.size !== newMap.size) {
+          changed = true;
+        } else {
+          for (const [k, v] of newMap) {
+            if (prev.get(k) !== v) {
+              changed = true;
+              break;
+            }
+          }
+        }
+        return changed ? newMap : prev;
+      });
+    }
+  }, []);
+
+  // 首次渲染后测量一次，然后在动画结束后再测量
+  useEffect(() => {
+    // 初始测量（短延迟确保 DOM 已渲染）
+    const timer = setTimeout(measureAll, 50);
+    // 第二次测量：等待可能的动画完成
+    const timer2 = setTimeout(measureAll, 600);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+    };
+  }, [entries, measureAll]);
+
+  // 分配卡片到各列
+  const columns = useMemo(
+    () => distributeToColumns(entries, columnCount, heightMap),
+    [entries, columnCount, heightMap],
+  );
+
+  const registerRef = useCallback(
+    (dateKey: string) => (el: HTMLDivElement | null) => {
+      if (el) {
+        cardRefs.current.set(dateKey, el);
+      } else {
+        cardRefs.current.delete(dateKey);
+      }
+    },
+    [],
+  );
+
+  return (
+    <div ref={containerRef} className="w-full">
+      <div
+        className="flex gap-4 items-start"
+        style={{ flexDirection: columnCount === 1 ? 'column' : 'row' }}
+      >
+        {columns.map((colEntries, colIdx) => (
+          <div
+            key={`col-${colIdx}`}
+            className="flex flex-col gap-4 min-w-0"
+            style={{ flex: columnCount === 1 ? 'none' : '1 1 0%' }}
+          >
+            {colEntries.map(([dateKey, dateLogs], cardIdx) => (
+              <div
+                key={dateKey}
+                ref={registerRef(dateKey)}
+                className="surface-card p-4 break-inside-avoid"
+              >
+                {renderCard(dateKey, dateLogs, cardIdx)}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -356,10 +525,11 @@ function WorkLogPage(): ReactNode {
   const grouped = groupLogsByDate(logs);
 
   return (
-    <div>
-      {/* Input */}
-      <div className="mb-4 surface-card p-4">
-        <div className="relative">
+    <div className="px-6 py-4">
+      {/* Toolbar: Input + Search + Actions */}
+      <div className="mb-4 surface-card p-3 flex items-center gap-3">
+        {/* Input */}
+        <div className="relative flex-1 min-w-0">
           <input
             ref={inputRef}
             type="text"
@@ -369,7 +539,7 @@ function WorkLogPage(): ReactNode {
             onPaste={handlePaste}
             placeholder={t('worklog.inputPlaceholder')}
             aria-label={t('worklog.inputAria')}
-            className={`w-full pl-4 pr-11 py-3 text-base border rounded-lg outline-none transition-all surface-input dark:text-zinc-100 ${
+            className={`w-full pl-4 pr-10 py-2 text-sm border rounded-lg outline-none transition-all surface-input dark:text-zinc-100 ${
               loading
                 ? 'animate-soake border-red-400 ring-2 ring-red-200'
                 : 'border-[var(--color-border)] focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700'
@@ -378,54 +548,20 @@ function WorkLogPage(): ReactNode {
           <button
             type="button"
             onClick={handlePickFile}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 hover:text-blue-500 transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-blue-500 transition-colors"
             title={t('worklog.addAttachment')}
             aria-label={t('worklog.addAttachment')}
           >
             <Paperclip className="w-4 h-4" />
           </button>
         </div>
-        {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-        {pendingAttachments.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {pendingAttachments.map((a, i) => (
-              <div
-                key={i}
-                className="relative surface-card rounded-lg border border-[var(--color-border)] p-1.5 flex items-center gap-1.5 w-32"
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPendingAttachments((prev) => prev.filter((_, idx) => idx !== i))
-                  }
-                  className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-zinc-900/70 text-white hover:bg-zinc-900 transition-colors z-10"
-                  title={t('worklog.deleteAttachment')}
-                  aria-label={t('worklog.deleteAttachment')}
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-                {a.type === 'screenshot' ? (
-                  <img
-                    src={`data:${a.mimeType || 'image/png'};base64,${a.base64Data}`}
-                    alt={a.originalName}
-                    className="w-9 h-9 object-cover rounded shrink-0"
-                  />
-                ) : (
-                  <FileText className="w-5 h-5 text-zinc-500 shrink-0" />
-                )}
-                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate flex-1">
-                  {a.originalName}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Search + Export */}
-      <div className="mb-4 surface-card p-3 flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 o-4 text-zinc-400" />
+        {/* Divider */}
+        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 shrink-0" />
+
+        {/* Search */}
+        <div className="relative w-56 shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
             type="text"
             value={search}
@@ -436,9 +572,9 @@ function WorkLogPage(): ReactNode {
           {search && (
             <button
               onClick={handleClearSearch}
-              className="absolute rigot-2 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600"
             >
-              <X className="w-4 o-4" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -491,9 +627,46 @@ function WorkLogPage(): ReactNode {
         </div>
       </div>
 
+      {/* Error */}
+      {error && <p className="mb-2 text-sm text-red-500">{error}</p>}
+
+      {/* Pending Attachments */}
+      {pendingAttachments.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {pendingAttachments.map((a, i) => (
+            <div
+              key={i}
+              className="relative surface-card rounded-lg border border-[var(--color-border)] p-1.5 flex items-center gap-1.5 w-32"
+            >
+              <button
+                type="button"
+                onClick={() => setPendingAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-zinc-900/70 text-white hover:bg-zinc-900 transition-colors z-10"
+                title={t('worklog.deleteAttachment')}
+                aria-label={t('worklog.deleteAttachment')}
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+              {a.type === 'screenshot' ? (
+                <img
+                  src={`data:${a.mimeType || 'image/png'};base64,${a.base64Data}`}
+                  alt={a.originalName}
+                  className="w-9 h-9 object-cover rounded shrink-0"
+                />
+              ) : (
+                <FileText className="w-5 h-5 text-zinc-500 shrink-0" />
+              )}
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate flex-1">
+                {a.originalName}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Search info */}
       {searchKeyword && (
-        <div className="mb-3 text-sm text-zinc-500">
+        <div className="mb-3 mx-auto max-w-3xl text-sm text-zinc-500">
           {t('worklog.searchInfo', { keyword: searchKeyword, count: logs.length })}
           <button onClick={handleClearSearch} className="ml-2 text-blue-500 hover:underline">
             {t('common.clear')}
@@ -541,9 +714,10 @@ function WorkLogPage(): ReactNode {
         </Fade>
       ) : (
         <>
-          <div role="list" className="space-y-6">
-            {Array.from(grouped.entries()).map(([dateKey, dateLogs]) => (
-              <div key={dateKey} role="group" className="surface-card p-4">
+          <MasonryLayout
+            entries={Array.from(grouped.entries())}
+            renderCard={(dateKey, dateLogs, cardIdx) => (
+              <>
                 <h3 className="text-sm font-medium text-zinc-400 dark:text-zinc-500 mb-2">
                   {formatDate(dateKey + 'T00:00:00', resolvedLanguage)}
                 </h3>
@@ -551,7 +725,10 @@ function WorkLogPage(): ReactNode {
                   className="space-y-1"
                   initial="hidden"
                   animate="show"
-                  variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }}
+                  variants={{
+                    hidden: {},
+                    show: { transition: { staggerChildren: 0.04, delayChildren: cardIdx * 0.06 } },
+                  }}
                 >
                   {dateLogs.map((log) => {
                     const atts = attachmentsByLog[log.id] || [];
@@ -560,8 +737,8 @@ function WorkLogPage(): ReactNode {
                       <Fragment key={log.id}>
                         <motion.div
                           variants={{
-                            hidden: { opacity: 0 },
-                            show: { opacity: 1, transition: { duration: 0.25 } },
+                            hidden: { opacity: 0, y: 8 },
+                            show: { opacity: 1, y: 0, transition: { duration: 0.25 } },
                           }}
                           className="group flex items-center justify-between py-2 px-3 rounded-lg surface-card transition-all hover:shadow-md"
                         >
@@ -721,9 +898,9 @@ function WorkLogPage(): ReactNode {
                     );
                   })}
                 </motion.div>
-              </div>
-            ))}
-          </div>
+              </>
+            )}
+          />
           {hasMore && !searchKeyword && (
             <div className="text-center py-4">
               <button

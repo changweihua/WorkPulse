@@ -10,6 +10,13 @@
 - ✨ feat: 新增 `scripts/release.ts` 一键发布脚本，自动完成版本更新→文件同步→提交→打 tag→推送，支持 `patch/minor/major/精确版本号` 参数
 - ✨ feat: AIChatPanel 无限滚动 — 使用 `@reactuses/core` 的 `useInfiniteScroll`，初始显示最近 50 条消息，向上滚动自动加载更多，保持滚动位置不变
 
+### 变更
+
+- 🦄 refactor: 全宽页面布局 — `worklog`、`dotnet`、`model-config`、`settings` 四个页面设为 `fluid: true` 全宽模式；WorkLog 双栏日期分组、Settings 多栏网格、ModelConfig 左右分栏（列表+编辑弹窗）
+- 🦄 refactor: 模型配置页模型卡片三行布局 — 模型名全显示 + 路径信息 + 标签行，最小高度 100px；默认模型右上角显示勾选图标（`default-model.svg`）
+- 🦄 refactor: 模型配置页编辑表单改为毛玻璃弹窗 — 固定标题/按钮 + 中间内容滚动；Provider 选中高亮；默认选中第一个 Provider
+- 🦄 refactor: 设置页网格布局 — 快捷键/搜索/开机/径向菜单半宽，报告偏好/外观/更新/关于全宽；径向菜单左列菜单项+右列自定义程序
+
 ### 修复
 
 - 🐞 fix: `set-close-action` IPC 参数校验失败 — `CloseActionSchema` 枚举值 `'close'` 与实际使用的 `'quit'` 不匹配，修正为 `z.enum(['minimize', 'quit', 'hide'])`

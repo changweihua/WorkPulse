@@ -7,8 +7,9 @@
  * - 每月 Token 限额设置
  */
 import React, { useState, useEffect, useMemo, ReactNode } from 'react';
-import { Plus, Trash2, Settings, Zap, Coins, Hash } from 'lucide-react';
+import { Plus, Trash2, Settings, Zap, Coins, Hash, SlidersHorizontal } from 'lucide-react';
 import { Icon } from '@iconify/react';
+import defaultModelSvg from '../assets/icons/default-model.svg';
 import { useToast } from '../components/Toast';
 import { useThemeStore } from '../stores/themeStore';
 
@@ -173,7 +174,7 @@ const EMPTY_CHAT: ChatModel = {
   top_k: 50,
   prompt: '',
   stream: true,
-  provider: '',
+  provider: 'deepseek',
   billingType: 'calls',
   dailyLimit: 0,
   tokenQuota: 0,
@@ -187,7 +188,7 @@ const EMPTY_EMBED: EmbeddingModel = {
   dimension: 1536,
   token: '',
   headers: '',
-  provider: '',
+  provider: 'deepseek',
   billingType: 'calls',
   dailyLimit: 0,
   tokenQuota: 0,
@@ -255,250 +256,259 @@ function ChatEditForm({
     onChange({ ...editing, provider: p.key, baseURL: p.baseURL });
   };
   return (
-    <div className="border border-blue-200 dark:border-blue-800 rounded-lg p-4 bg-blue-50/30 dark:bg-blue-900/10 mb-1.5 ml-0">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-          {isNew ? '添加 Chat 模型' : '编辑 Chat 模型'}
-        </h3>
-        <button onClick={onCancel} className="text-xs text-zinc-400 hover:text-zinc-600">
-          取消
-        </button>
+    <>
+      <div className="shrink-0 px-6 pt-6 pb-2">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+            {isNew ? '添加 Chat 模型' : '编辑 Chat 模型'}
+          </h3>
+          <button onClick={onCancel} className="text-xs text-zinc-400 hover:text-zinc-600">
+            取消
+          </button>
+        </div>
       </div>
 
-      {/* Provider 类型选择器 — 新增和编辑均显示，点击可切换 */}
-      {true && (
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-            选择 Provider 类型
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {CHAT_PROVIDERS.map((p) => (
-              <button
-                key={p.key}
-                onClick={() => handleProviderSelect(p)}
-                className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition text-zinc-700 dark:text-zinc-300"
-              >
-                <Icon icon={p.icon} className="w-5 h-5 shrink-0" />
-                <span className="truncate">{p.name}</span>
-              </button>
-            ))}
+      <div className="flex-1 overflow-y-auto px-6 py-3 min-h-0">
+        {/* Provider 类型选择器 — 新增和编辑均显示，点击可切换 */}
+        {true && (
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+              选择 Provider 类型
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {CHAT_PROVIDERS.map((p) => (
+                <button
+                  key={p.key}
+                  onClick={() => handleProviderSelect(p)}
+                  className={`flex items-center gap-2 px-3 py-2 text-xs rounded-lg border transition ${editing.provider === p.key ? 'border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                >
+                  <Icon icon={p.icon} className="w-5 h-5 shrink-0" />
+                  <span className="truncate">{p.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              名称
+            </label>
+            <input
+              value={editing.name}
+              onChange={(e) => onChange({ ...editing, name: e.target.value })}
+              placeholder="如 DeepSeek"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              模型名称
+            </label>
+            <input
+              value={editing.model}
+              onChange={(e) => onChange({ ...editing, model: e.target.value })}
+              placeholder="deepseek-chat"
+              className={monoCls}
+            />
           </div>
         </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div>
-          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            名称
-          </label>
-          <input
-            value={editing.name}
-            onChange={(e) => onChange({ ...editing, name: e.target.value })}
-            placeholder="如 DeepSeek"
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            模型名称
-          </label>
-          <input
-            value={editing.model}
-            onChange={(e) => onChange({ ...editing, model: e.target.value })}
-            placeholder="deepseek-chat"
-            className={monoCls}
-          />
-        </div>
-      </div>
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          API 地址
-        </label>
-        <input
-          value={editing.baseURL}
-          onChange={(e) => onChange({ ...editing, baseURL: e.target.value })}
-          placeholder="https://api.deepseek.com"
-          className={monoCls}
-        />
-      </div>
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          API Key
-        </label>
-        <input
-          type="password"
-          value={editing.token}
-          onChange={(e) => onChange({ ...editing, token: e.target.value })}
-          placeholder="sk-..."
-          className={monoCls}
-        />
-      </div>
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          自定义 Headers (JSON)
-        </label>
-        <textarea
-          value={editing.headers}
-          onChange={(e) => onChange({ ...editing, headers: e.target.value })}
-          placeholder='{"X-Custom": "value"}'
-          rows={2}
-          className={`${monoCls} resize-none`}
-        />
-      </div>
-      <div className="grid grid-cols-4 gap-3 mb-3">
-        <div>
-          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            Temperature
-          </label>
-          <input
-            type="number"
-            step={0.1}
-            min={0}
-            max={2}
-            value={editing.temperature}
-            onChange={(e) =>
-              onChange({ ...editing, temperature: parseFloat(e.target.value) || 0.7 })
-            }
-            className={monoCls}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            Max Tokens
-          </label>
-          <input
-            type="number"
-            step={256}
-            min={256}
-            value={editing.max_tokens}
-            onChange={(e) => onChange({ ...editing, max_tokens: parseInt(e.target.value) || 4096 })}
-            className={monoCls}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            Top P
-          </label>
-          <input
-            type="number"
-            step={0.05}
-            min={0}
-            max={1}
-            value={editing.top_p}
-            onChange={(e) => onChange({ ...editing, top_p: parseFloat(e.target.value) || 0.9 })}
-            className={monoCls}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            Top K
-          </label>
-          <input
-            type="number"
-            step={1}
-            min={0}
-            value={editing.top_k}
-            onChange={(e) => onChange({ ...editing, top_k: parseInt(e.target.value) || 50 })}
-            className={monoCls}
-          />
-        </div>
-      </div>
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          系统提示词 (System Prompt)
-        </label>
-        <textarea
-          value={editing.prompt}
-          onChange={(e) => onChange({ ...editing, prompt: e.target.value })}
-          placeholder="留空使用默认提示词"
-          rows={3}
-          className={`${monoCls} resize-none`}
-        />
-      </div>
-      <div className="flex items-center gap-3 mb-3">
-        <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">流式输出</label>
-        <button
-          onClick={() => onChange({ ...editing, stream: !editing.stream })}
-          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${editing.stream ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
-        >
-          <span
-            className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${editing.stream ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}
-          />
-        </button>
-        <span className="text-xs text-zinc-400">{editing.stream ? '开启' : '关闭'}</span>
-      </div>
-
-      {/* 计费类型 */}
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
-          计费方式
-        </label>
-        <BillingTypeSelector
-          value={editing.billingType}
-          onChange={(v) => onChange({ ...editing, billingType: v })}
-        />
-      </div>
-
-      {/* 配额限制 */}
-      {editing.billingType === 'calls' && (
         <div className="mb-3">
           <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            每日调用限额（0=不限）
+            API 地址
           </label>
           <input
-            type="number"
-            step={100}
-            min={0}
-            value={editing.dailyLimit}
-            onChange={(e) => onChange({ ...editing, dailyLimit: parseInt(e.target.value) || 0 })}
-            placeholder="0 = 不限制"
+            value={editing.baseURL}
+            onChange={(e) => onChange({ ...editing, baseURL: e.target.value })}
+            placeholder="https://api.deepseek.com"
             className={monoCls}
           />
         </div>
-      )}
-      {editing.billingType === 'tokens' && (
         <div className="mb-3">
           <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            每月 Token 限额（0=不限）
+            API Key
           </label>
           <input
-            type="number"
-            step={100000}
-            min={0}
-            value={editing.tokenQuota}
-            onChange={(e) => onChange({ ...editing, tokenQuota: parseInt(e.target.value) || 0 })}
-            placeholder="0 = 不限制"
+            type="password"
+            value={editing.token}
+            onChange={(e) => onChange({ ...editing, token: e.target.value })}
+            placeholder="sk-..."
             className={monoCls}
           />
         </div>
-      )}
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          额度共享组（同组共享计数）
-        </label>
-        <input
-          value={editing.quotaGroup}
-          onChange={(e) => onChange({ ...editing, quotaGroup: e.target.value })}
-          placeholder="留空=独立计数"
-          className={monoCls}
-        />
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+            自定义 Headers (JSON)
+          </label>
+          <textarea
+            value={editing.headers}
+            onChange={(e) => onChange({ ...editing, headers: e.target.value })}
+            placeholder='{"X-Custom": "value"}'
+            rows={2}
+            className={`${monoCls} resize-none`}
+          />
+        </div>
+        <div className="grid grid-cols-4 gap-3 mb-3">
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              Temperature
+            </label>
+            <input
+              type="number"
+              step={0.1}
+              min={0}
+              max={2}
+              value={editing.temperature}
+              onChange={(e) =>
+                onChange({ ...editing, temperature: parseFloat(e.target.value) || 0.7 })
+              }
+              className={monoCls}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              Max Tokens
+            </label>
+            <input
+              type="number"
+              step={256}
+              min={256}
+              value={editing.max_tokens}
+              onChange={(e) =>
+                onChange({ ...editing, max_tokens: parseInt(e.target.value) || 4096 })
+              }
+              className={monoCls}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              Top P
+            </label>
+            <input
+              type="number"
+              step={0.05}
+              min={0}
+              max={1}
+              value={editing.top_p}
+              onChange={(e) => onChange({ ...editing, top_p: parseFloat(e.target.value) || 0.9 })}
+              className={monoCls}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              Top K
+            </label>
+            <input
+              type="number"
+              step={1}
+              min={0}
+              value={editing.top_k}
+              onChange={(e) => onChange({ ...editing, top_k: parseInt(e.target.value) || 50 })}
+              className={monoCls}
+            />
+          </div>
+        </div>
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+            系统提示词 (System Prompt)
+          </label>
+          <textarea
+            value={editing.prompt}
+            onChange={(e) => onChange({ ...editing, prompt: e.target.value })}
+            placeholder="留空使用默认提示词"
+            rows={3}
+            className={`${monoCls} resize-none`}
+          />
+        </div>
+        <div className="flex items-center gap-3 mb-3">
+          <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">流式输出</label>
+          <button
+            onClick={() => onChange({ ...editing, stream: !editing.stream })}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${editing.stream ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${editing.stream ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}
+            />
+          </button>
+          <span className="text-xs text-zinc-400">{editing.stream ? '开启' : '关闭'}</span>
+        </div>
+
+        {/* 计费类型 */}
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+            计费方式
+          </label>
+          <BillingTypeSelector
+            value={editing.billingType}
+            onChange={(v) => onChange({ ...editing, billingType: v })}
+          />
+        </div>
+
+        {/* 配额限制 */}
+        {editing.billingType === 'calls' && (
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              每日调用限额（0=不限）
+            </label>
+            <input
+              type="number"
+              step={100}
+              min={0}
+              value={editing.dailyLimit}
+              onChange={(e) => onChange({ ...editing, dailyLimit: parseInt(e.target.value) || 0 })}
+              placeholder="0 = 不限制"
+              className={monoCls}
+            />
+          </div>
+        )}
+        {editing.billingType === 'tokens' && (
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              每月 Token 限额（0=不限）
+            </label>
+            <input
+              type="number"
+              step={100000}
+              min={0}
+              value={editing.tokenQuota}
+              onChange={(e) => onChange({ ...editing, tokenQuota: parseInt(e.target.value) || 0 })}
+              placeholder="0 = 不限制"
+              className={monoCls}
+            />
+          </div>
+        )}
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+            额度共享组（同组共享计数）
+          </label>
+          <input
+            value={editing.quotaGroup}
+            onChange={(e) => onChange({ ...editing, quotaGroup: e.target.value })}
+            placeholder="留空=独立计数"
+            className={monoCls}
+          />
+        </div>
       </div>
-      <div className="flex gap-2">
-        <button
-          onClick={onCancel}
-          className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
-        >
-          取消
-        </button>
-        <button
-          onClick={onSave}
-          disabled={!editing.name || !editing.baseURL || !editing.model || !editing.token}
-          className="flex-1 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 text-white rounded-md transition"
-        >
-          {isNew ? '添加' : '保存'}
-        </button>
+
+      <div className="shrink-0 px-6 pb-6 pt-3 border-t border-zinc-200/50 dark:border-zinc-700/50">
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+          >
+            取消
+          </button>
+          <button
+            onClick={onSave}
+            disabled={!editing.name || !editing.baseURL || !editing.model || !editing.token}
+            className="flex-1 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 text-white rounded-md transition"
+          >
+            {isNew ? '添加' : '保存'}
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -520,179 +530,186 @@ function EmbedEditForm({
     onChange({ ...editing, provider: p.key, baseURL: p.baseURL });
   };
   return (
-    <div className="border border-blue-200 dark:border-blue-800 rounded-lg p-4 bg-blue-50/30 dark:bg-blue-900/10 mb-1.5 ml-0">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-          {isNew ? '添加 Embedding 模型' : '编辑 Embedding 模型'}
-        </h3>
-        <button onClick={onCancel} className="text-xs text-zinc-400 hover:text-zinc-600">
-          取消
-        </button>
+    <>
+      <div className="shrink-0 px-6 pt-6 pb-2">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+            {isNew ? '添加 Embedding 模型' : '编辑 Embedding 模型'}
+          </h3>
+          <button onClick={onCancel} className="text-xs text-zinc-400 hover:text-zinc-600">
+            取消
+          </button>
+        </div>
       </div>
 
-      {/* Provider 类型选择器 — 新增和编辑均显示，点击可切换 */}
-      {true && (
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-            选择 Provider 类型
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {EMBED_PROVIDERS.map((p, i) => (
-              <button
-                key={`${p.key}-${i}`}
-                onClick={() => handleProviderSelect(p)}
-                className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition text-zinc-700 dark:text-zinc-300"
-              >
-                <Icon icon={p.icon} className="w-5 h-5 shrink-0" />
-                <span className="truncate">{p.name}</span>
-              </button>
-            ))}
+      <div className="flex-1 overflow-y-auto px-6 py-3 min-h-0">
+        {/* Provider 类型选择器 — 新增和编辑均显示，点击可切换 */}
+        {true && (
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+              选择 Provider 类型
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {EMBED_PROVIDERS.map((p, i) => (
+                <button
+                  key={`${p.key}-${i}`}
+                  onClick={() => handleProviderSelect(p)}
+                  className={`flex items-center gap-2 px-3 py-2 text-xs rounded-lg border transition ${editing.provider === p.key ? 'border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                >
+                  <Icon icon={p.icon} className="w-5 h-5 shrink-0" />
+                  <span className="truncate">{p.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              名称
+            </label>
+            <input
+              value={editing.name}
+              onChange={(e) => onChange({ ...editing, name: e.target.value })}
+              placeholder="如 OpenAI Embedding"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              模型名称
+            </label>
+            <input
+              value={editing.model}
+              onChange={(e) => onChange({ ...editing, model: e.target.value })}
+              placeholder="text-embedding-3-small"
+              className={monoCls}
+            />
           </div>
         </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div>
-          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            名称
-          </label>
-          <input
-            value={editing.name}
-            onChange={(e) => onChange({ ...editing, name: e.target.value })}
-            placeholder="如 OpenAI Embedding"
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            模型名称
-          </label>
-          <input
-            value={editing.model}
-            onChange={(e) => onChange({ ...editing, model: e.target.value })}
-            placeholder="text-embedding-3-small"
-            className={monoCls}
-          />
-        </div>
-      </div>
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          向量维度
-        </label>
-        <input
-          type="number"
-          value={editing.dimension}
-          onChange={(e) => onChange({ ...editing, dimension: parseInt(e.target.value) || 1536 })}
-          placeholder="1536"
-          className={monoCls}
-        />
-      </div>
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          API 地址
-        </label>
-        <input
-          value={editing.baseURL}
-          onChange={(e) => onChange({ ...editing, baseURL: e.target.value })}
-          placeholder="https://api.openai.com/v1"
-          className={monoCls}
-        />
-      </div>
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          自定义 Headers (JSON)
-        </label>
-        <textarea
-          value={editing.headers}
-          onChange={(e) => onChange({ ...editing, headers: e.target.value })}
-          placeholder='{"X-Custom": "value"}'
-          rows={2}
-          className={`${monoCls} resize-none`}
-        />
-      </div>
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          API Key
-        </label>
-        <input
-          type="password"
-          value={editing.token}
-          onChange={(e) => onChange({ ...editing, token: e.target.value })}
-          placeholder="sk-..."
-          className={monoCls}
-        />
-      </div>
-
-      {/* 计费类型 */}
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
-          计费方式
-        </label>
-        <BillingTypeSelector
-          value={editing.billingType}
-          onChange={(v) => onChange({ ...editing, billingType: v })}
-        />
-      </div>
-
-      {editing.billingType === 'calls' && (
         <div className="mb-3">
           <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            每日调用限额（0=不限）
+            向量维度
           </label>
           <input
             type="number"
-            step={100}
-            min={0}
-            value={editing.dailyLimit}
-            onChange={(e) => onChange({ ...editing, dailyLimit: parseInt(e.target.value) || 0 })}
-            placeholder="0 = 不限制"
+            value={editing.dimension}
+            onChange={(e) => onChange({ ...editing, dimension: parseInt(e.target.value) || 1536 })}
+            placeholder="1536"
             className={monoCls}
           />
         </div>
-      )}
-      {editing.billingType === 'tokens' && (
         <div className="mb-3">
           <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-            每月 Token 限额（0=不限）
+            API 地址
           </label>
           <input
-            type="number"
-            step={100000}
-            min={0}
-            value={editing.tokenQuota}
-            onChange={(e) => onChange({ ...editing, tokenQuota: parseInt(e.target.value) || 0 })}
-            placeholder="0 = 不限制"
+            value={editing.baseURL}
+            onChange={(e) => onChange({ ...editing, baseURL: e.target.value })}
+            placeholder="https://api.openai.com/v1"
             className={monoCls}
           />
         </div>
-      )}
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          额度共享组（同组共享计数）
-        </label>
-        <input
-          value={editing.quotaGroup}
-          onChange={(e) => onChange({ ...editing, quotaGroup: e.target.value })}
-          placeholder="留空=独立计数"
-          className={monoCls}
-        />
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+            自定义 Headers (JSON)
+          </label>
+          <textarea
+            value={editing.headers}
+            onChange={(e) => onChange({ ...editing, headers: e.target.value })}
+            placeholder='{"X-Custom": "value"}'
+            rows={2}
+            className={`${monoCls} resize-none`}
+          />
+        </div>
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+            API Key
+          </label>
+          <input
+            type="password"
+            value={editing.token}
+            onChange={(e) => onChange({ ...editing, token: e.target.value })}
+            placeholder="sk-..."
+            className={monoCls}
+          />
+        </div>
+
+        {/* 计费类型 */}
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1.5">
+            计费方式
+          </label>
+          <BillingTypeSelector
+            value={editing.billingType}
+            onChange={(v) => onChange({ ...editing, billingType: v })}
+          />
+        </div>
+
+        {editing.billingType === 'calls' && (
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              每日调用限额（0=不限）
+            </label>
+            <input
+              type="number"
+              step={100}
+              min={0}
+              value={editing.dailyLimit}
+              onChange={(e) => onChange({ ...editing, dailyLimit: parseInt(e.target.value) || 0 })}
+              placeholder="0 = 不限制"
+              className={monoCls}
+            />
+          </div>
+        )}
+        {editing.billingType === 'tokens' && (
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+              每月 Token 限额（0=不限）
+            </label>
+            <input
+              type="number"
+              step={100000}
+              min={0}
+              value={editing.tokenQuota}
+              onChange={(e) => onChange({ ...editing, tokenQuota: parseInt(e.target.value) || 0 })}
+              placeholder="0 = 不限制"
+              className={monoCls}
+            />
+          </div>
+        )}
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+            额度共享组（同组共享计数）
+          </label>
+          <input
+            value={editing.quotaGroup}
+            onChange={(e) => onChange({ ...editing, quotaGroup: e.target.value })}
+            placeholder="留空=独立计数"
+            className={monoCls}
+          />
+        </div>
       </div>
-      <div className="flex gap-2">
-        <button
-          onClick={onCancel}
-          className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
-        >
-          取消
-        </button>
-        <button
-          onClick={onSave}
-          disabled={!editing.name || !editing.baseURL || !editing.model || !editing.token}
-          className="flex-1 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 text-white rounded-md transition"
-        >
-          {isNew ? '添加' : '保存'}
-        </button>
+
+      <div className="shrink-0 px-6 pb-6 pt-3 border-t border-zinc-200/50 dark:border-zinc-700/50">
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800 transition"
+          >
+            取消
+          </button>
+          <button
+            onClick={onSave}
+            disabled={!editing.name || !editing.baseURL || !editing.model || !editing.token}
+            className="flex-1 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 text-white rounded-md transition"
+          >
+            {isNew ? '添加' : '保存'}
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -931,20 +948,25 @@ export default function ModelConfigPage(): ReactNode {
   const isAnyChatEditing = !!editingChat && !chatIsNew;
   const isAnyEmbedEditing = !!editingEmbed;
 
+  // ── 筛选栏折叠状态（小屏幕） ──
+  const [chatFilterCollapsed, setChatFilterCollapsed] = useState(true);
+  const [embedFilterCollapsed, setEmbedFilterCollapsed] = useState(true);
+
   return (
     <div className="flex flex-col bg-transparent">
       <main className="flex-1">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <section className="surface-card p-6">
+        <div className="px-6 py-6">
+          {/* 标题和 Tab */}
+          <div className="mb-4">
             <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
               AI 模型配置
             </h1>
-            <p className="text-xs text-zinc-400 mb-4">
+            <p className="text-xs text-zinc-400 mb-3">
               统一管理 Chat 和 Embedding 模型。支持按 Provider 筛选、计费方式标记和 Token 限额管理。
             </p>
 
             {/* Tab */}
-            <div className="flex gap-1 mb-5 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg w-fit">
+            <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg w-fit">
               {(['chat', 'embedding'] as const).map((t) => (
                 <button
                   key={t}
@@ -955,36 +977,55 @@ export default function ModelConfigPage(): ReactNode {
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* ═══ Chat Tab ═══ */}
-            {tab === 'chat' && (
-              <>
+          {/* ═══ Chat Tab ═══ */}
+          {tab === 'chat' && (
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* 左侧：筛选 + 模型列表 */}
+              <div className="flex-1 min-w-0">
                 {/* Provider 筛选栏 */}
-                <div className="flex items-center gap-2 mb-3 flex-wrap">
-                  <span className="text-xs text-zinc-400 mr-1">筛选：</span>
-                  <button
-                    onClick={() => setChatProviderFilter('')}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-full border transition ${
-                      !chatProviderFilter
-                        ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                        : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                    }`}
-                  >
-                    全部
-                  </button>
-                  {chatProviders.map((p) => (
+                <div className="mb-3">
+                  <div className="flex items-center gap-2 mb-2 sm:hidden">
                     <button
-                      key={p}
-                      onClick={() => setChatProviderFilter(chatProviderFilter === p ? '' : p)}
+                      onClick={() => setChatFilterCollapsed(!chatFilterCollapsed)}
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 rounded border border-zinc-200 dark:border-zinc-700"
+                    >
+                      <SlidersHorizontal className="w-3 h-3" />
+                      {chatFilterCollapsed ? '展开筛选' : '收起筛选'}
+                    </button>
+                    {chatProviderFilter && (
+                      <span className="text-[10px] text-blue-500">已筛选</span>
+                    )}
+                  </div>
+                  <div
+                    className={`flex items-center gap-2 flex-wrap ${chatFilterCollapsed ? 'hidden sm:flex' : 'flex'}`}
+                  >
+                    <span className="text-xs text-zinc-400 mr-1">筛选：</span>
+                    <button
+                      onClick={() => setChatProviderFilter('')}
                       className={`px-2.5 py-1 text-xs font-medium rounded-full border transition ${
-                        chatProviderFilter === p
+                        !chatProviderFilter
                           ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                           : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
                       }`}
                     >
-                      {getProviderName(p)}
+                      全部
                     </button>
-                  ))}
+                    {chatProviders.map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setChatProviderFilter(chatProviderFilter === p ? '' : p)}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-full border transition ${
+                          chatProviderFilter === p
+                            ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                            : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        {getProviderName(p)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between mb-3">
@@ -1016,133 +1057,136 @@ export default function ModelConfigPage(): ReactNode {
                   </p>
                 )}
 
-                {/* 新增模型表单（在列表外渲染） */}
-                {chatIsNew && editingChat && (
-                  <ChatEditForm
-                    editing={editingChat}
-                    isNew={true}
-                    onChange={setEditingChat}
-                    onSave={saveChat}
-                    onCancel={() => {
-                      setEditingChat(null);
-                      setChatIsNew(false);
-                    }}
-                  />
-                )}
-
-                {filteredChat.map((c) => {
-                  const isEditing = editingChat?.id === c.id && !chatIsNew;
-                  return (
-                    <React.Fragment key={c.id}>
-                      <div
-                        onClick={
-                          isAnyChatEditing
-                            ? undefined
-                            : () => {
-                                setActiveChatId(c.id);
-                                (window as any).api?.models?.setActiveChat?.(c.id);
-                              }
-                        }
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1.5 border transition cursor-pointer ${activeChatId === c.id ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20' : 'border-zinc-200/50 dark:border-zinc-700/50 hover:bg-zinc-50 dark:hover:bg-zinc-800'} ${isEditing ? 'ring-2 ring-blue-400/50' : ''}`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2">
+                  {filteredChat.map((c) => {
+                    const isEditing = editingChat?.id === c.id && !chatIsNew;
+                    return (
+                      <React.Fragment key={c.id}>
+                        <div
+                          onClick={
+                            isAnyChatEditing
+                              ? undefined
+                              : () => {
+                                  setActiveChatId(c.id);
+                                  (window as any).api?.models?.setActiveChat?.(c.id);
+                                }
+                          }
+                          className={`relative flex items-center gap-3 px-3 py-2.5 min-h-[100px] rounded-lg border transition cursor-pointer ${activeChatId === c.id ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20' : 'border-zinc-200/50 dark:border-zinc-700/50 hover:bg-zinc-50 dark:hover:bg-zinc-800'} ${isEditing ? 'ring-2 ring-blue-400/50' : ''}`}
+                        >
+                          {activeChatId === c.id && (
+                            <img
+                              src={defaultModelSvg}
+                              alt="默认"
+                              className="absolute top-2 right-2 w-10 h-10"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 break-all leading-tight">
                               {c.name || '未命名'}
                             </span>
-                            {activeChatId === c.id && (
+                            <div className="text-[11px] text-zinc-400 truncate">
+                              {c.model} · {c.baseURL?.replace(/https?:\/\//, '').slice(0, 40)}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="px-1.5 py-0.5 bg-blue-500 text-white text-[10px] font-medium rounded-full">
                                 默认
                               </span>
-                            )}
-                            {c.provider && (
-                              <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[10px] font-medium rounded">
-                                {getProviderName(c.provider)}
-                              </span>
-                            )}
-                            {c.billingType && c.billingType !== 'none' && (
-                              <span
-                                className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${c.billingType === 'tokens' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}
-                              >
-                                {BILLING_LABELS[c.billingType]}
-                              </span>
-                            )}
+                              {c.provider && (
+                                <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[10px] font-medium rounded">
+                                  {getProviderName(c.provider)}
+                                </span>
+                              )}
+                              {c.billingType && c.billingType !== 'none' && (
+                                <span
+                                  className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${c.billingType === 'tokens' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}
+                                >
+                                  {BILLING_LABELS[c.billingType]}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-                            {c.model} · {c.baseURL?.replace(/https?:\/\//, '').slice(0, 40)}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={(e2) => {
-                              e2.stopPropagation();
-                              setEditingChat({ ...c });
-                              setChatIsNew(false);
-                            }}
-                            disabled={isAnyChatEditing && !isEditing}
-                            className="p-1.5 text-zinc-400 hover:text-zinc-600 rounded hover:bg-zinc-100 transition disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="编辑"
-                          >
-                            <Settings className="w-3.5 h-3.5" />
-                          </button>
-                          {chatConfigs.length > 1 && (
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={(e2) => {
                                 e2.stopPropagation();
-                                if (confirm(`确定删除「${c.name}」？`)) void deleteChat(c.id);
+                                setEditingChat({ ...c });
+                                setChatIsNew(false);
                               }}
-                              disabled={isAnyChatEditing}
-                              className="p-1.5 text-zinc-400 hover:text-red-500 rounded hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
-                              title="删除"
+                              disabled={isAnyChatEditing && !isEditing}
+                              className="p-1.5 text-zinc-400 hover:text-zinc-600 rounded hover:bg-zinc-100 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="编辑"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Settings className="w-3.5 h-3.5" />
                             </button>
-                          )}
+                            {chatConfigs.length > 1 && (
+                              <button
+                                onClick={(e2) => {
+                                  e2.stopPropagation();
+                                  if (confirm(`确定删除「${c.name}」？`)) void deleteChat(c.id);
+                                }}
+                                disabled={isAnyChatEditing}
+                                className="p-1.5 text-zinc-400 hover:text-red-500 rounded hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="删除"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      {isEditing && editingChat && (
-                        <ChatEditForm
-                          editing={editingChat}
-                          isNew={false}
-                          onChange={setEditingChat}
-                          onSave={saveChat}
-                          onCancel={() => setEditingChat(null)}
-                        />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </>
-            )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
-            {/* ═══ Embedding Tab ═══ */}
-            {tab === 'embedding' && (
-              <>
-                <div className="flex items-center gap-2 mb-3 flex-wrap">
-                  <span className="text-xs text-zinc-400 mr-1">筛选：</span>
-                  <button
-                    onClick={() => setEmbedProviderFilter('')}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-full border transition ${
-                      !embedProviderFilter
-                        ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                        : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                    }`}
-                  >
-                    全部
-                  </button>
-                  {embedProviders.map((p) => (
+          {/* ═══ Embedding Tab ═══ */}
+          {tab === 'embedding' && (
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* 左侧：筛选 + 模型列表 */}
+              <div className="flex-1 min-w-0">
+                <div className="mb-3">
+                  <div className="flex items-center gap-2 mb-2 sm:hidden">
                     <button
-                      key={p}
-                      onClick={() => setEmbedProviderFilter(embedProviderFilter === p ? '' : p)}
+                      onClick={() => setEmbedFilterCollapsed(!embedFilterCollapsed)}
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 rounded border border-zinc-200 dark:border-zinc-700"
+                    >
+                      <SlidersHorizontal className="w-3 h-3" />
+                      {embedFilterCollapsed ? '展开筛选' : '收起筛选'}
+                    </button>
+                    {embedProviderFilter && (
+                      <span className="text-[10px] text-blue-500">已筛选</span>
+                    )}
+                  </div>
+                  <div
+                    className={`flex items-center gap-2 flex-wrap ${embedFilterCollapsed ? 'hidden sm:flex' : 'flex'}`}
+                  >
+                    <span className="text-xs text-zinc-400 mr-1">筛选：</span>
+                    <button
+                      onClick={() => setEmbedProviderFilter('')}
                       className={`px-2.5 py-1 text-xs font-medium rounded-full border transition ${
-                        embedProviderFilter === p
+                        !embedProviderFilter
                           ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                           : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
                       }`}
                     >
-                      {getProviderName(p)}
+                      全部
                     </button>
-                  ))}
+                    {embedProviders.map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setEmbedProviderFilter(embedProviderFilter === p ? '' : p)}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-full border transition ${
+                          embedProviderFilter === p
+                            ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                            : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        {getProviderName(p)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between mb-3">
@@ -1174,101 +1218,136 @@ export default function ModelConfigPage(): ReactNode {
                   </p>
                 )}
 
-                {/* 新增 Embedding 表单（在列表外渲染） */}
-                {embedIsNew && editingEmbed && (
-                  <EmbedEditForm
-                    editing={editingEmbed}
-                    isNew={true}
-                    onChange={setEditingEmbed}
-                    onSave={saveEmbed}
-                    onCancel={() => {
-                      setEditingEmbed(null);
-                      setEmbedIsNew(false);
-                    }}
-                  />
-                )}
-
-                {filteredEmbed.map((e) => {
-                  const isEditing = editingEmbed?.id === e.id && !embedIsNew;
-                  return (
-                    <React.Fragment key={e.id}>
-                      <div
-                        onClick={isAnyEmbedEditing ? undefined : () => setActiveEmbedId(e.id)}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1.5 border transition cursor-pointer ${activeEmbedId === e.id ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20' : 'border-zinc-200/50 dark:border-zinc-700/50 hover:bg-zinc-50 dark:hover:bg-zinc-800'} ${isEditing ? 'ring-2 ring-blue-400/50' : ''}`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2">
+                  {filteredEmbed.map((e) => {
+                    const isEditing = editingEmbed?.id === e.id && !embedIsNew;
+                    return (
+                      <React.Fragment key={e.id}>
+                        <div
+                          onClick={isAnyEmbedEditing ? undefined : () => setActiveEmbedId(e.id)}
+                          className={`relative flex items-center gap-3 px-3 py-2.5 min-h-[100px] rounded-lg border transition cursor-pointer ${activeEmbedId === e.id ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20' : 'border-zinc-200/50 dark:border-zinc-700/50 hover:bg-zinc-50 dark:hover:bg-zinc-800'} ${isEditing ? 'ring-2 ring-blue-400/50' : ''}`}
+                        >
+                          {activeEmbedId === e.id && (
+                            <img
+                              src={defaultModelSvg}
+                              alt="默认"
+                              className="absolute top-2 right-2 w-10 h-10"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200 break-all leading-tight">
                               {e.name || '未命名'}
                             </span>
-                            {activeEmbedId === e.id && (
+                            <div className="text-[11px] text-zinc-400 truncate">
+                              {e.model} · {e.baseURL?.replace(/https?:\/\//, '').slice(0, 40)} ·
+                              dim=
+                              {e.dimension}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="px-1.5 py-0.5 bg-blue-500 text-white text-[10px] font-medium rounded-full">
                                 默认
                               </span>
-                            )}
-                            {e.provider && (
-                              <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[10px] font-medium rounded">
-                                {getProviderName(e.provider)}
-                              </span>
-                            )}
-                            {e.billingType && e.billingType !== 'none' && (
-                              <span
-                                className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${e.billingType === 'tokens' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}
-                              >
-                                {BILLING_LABELS[e.billingType]}
-                              </span>
-                            )}
+                              {e.provider && (
+                                <span className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[10px] font-medium rounded">
+                                  {getProviderName(e.provider)}
+                                </span>
+                              )}
+                              {e.billingType && e.billingType !== 'none' && (
+                                <span
+                                  className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${e.billingType === 'tokens' ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}
+                                >
+                                  {BILLING_LABELS[e.billingType]}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-[11px] text-zinc-400 truncate mt-0.5">
-                            {e.model} · {e.baseURL?.replace(/https?:\/\//, '').slice(0, 40)} · dim=
-                            {e.dimension}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={(e2) => {
-                              e2.stopPropagation();
-                              setEditingEmbed({ ...e });
-                              setEmbedIsNew(false);
-                            }}
-                            disabled={isAnyEmbedEditing && !isEditing}
-                            className="p-1.5 text-zinc-400 hover:text-zinc-600 rounded hover:bg-zinc-100 transition disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="编辑"
-                          >
-                            <Settings className="w-3.5 h-3.5" />
-                          </button>
-                          {embedConfigs.length > 1 && (
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={(e2) => {
                                 e2.stopPropagation();
-                                if (confirm(`确定删除「${e.name}」？`)) void deleteEmbed(e.id);
+                                setEditingEmbed({ ...e });
+                                setEmbedIsNew(false);
                               }}
-                              disabled={isAnyEmbedEditing}
-                              className="p-1.5 text-zinc-400 hover:text-red-500 rounded hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
-                              title="删除"
+                              disabled={isAnyEmbedEditing && !isEditing}
+                              className="p-1.5 text-zinc-400 hover:text-zinc-600 rounded hover:bg-zinc-100 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="编辑"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Settings className="w-3.5 h-3.5" />
                             </button>
-                          )}
+                            {embedConfigs.length > 1 && (
+                              <button
+                                onClick={(e2) => {
+                                  e2.stopPropagation();
+                                  if (confirm(`确定删除「${e.name}」？`)) void deleteEmbed(e.id);
+                                }}
+                                disabled={isAnyEmbedEditing}
+                                className="p-1.5 text-zinc-400 hover:text-red-500 rounded hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="删除"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      {isEditing && editingEmbed && (
-                        <EmbedEditForm
-                          editing={editingEmbed}
-                          isNew={false}
-                          onChange={setEditingEmbed}
-                          onSave={saveEmbed}
-                          onCancel={() => setEditingEmbed(null)}
-                        />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </>
-            )}
-          </section>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
+
+      {/* Chat 编辑弹窗 */}
+      {(editingChat || chatIsNew) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-xl"
+            onClick={() => {
+              setEditingChat(null);
+              setChatIsNew(false);
+            }}
+          />
+          <div className="relative bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-white/10 w-full max-w-2xl h-full max-h-[85vh] mx-4 flex flex-col overflow-hidden">
+            <ChatEditForm
+              editing={editingChat!}
+              isNew={chatIsNew}
+              onChange={setEditingChat}
+              onSave={saveChat}
+              onCancel={() => {
+                setEditingChat(null);
+                setChatIsNew(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Embedding 编辑弹窗 */}
+      {(editingEmbed || embedIsNew) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-xl"
+            onClick={() => {
+              setEditingEmbed(null);
+              setEmbedIsNew(false);
+            }}
+          />
+          <div className="relative bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-white/10 w-full max-w-2xl h-full max-h-[85vh] mx-4 flex flex-col overflow-hidden">
+            <EmbedEditForm
+              editing={editingEmbed!}
+              isNew={embedIsNew}
+              onChange={setEditingEmbed}
+              onSave={saveEmbed}
+              onCancel={() => {
+                setEditingEmbed(null);
+                setEmbedIsNew(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
