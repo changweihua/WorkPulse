@@ -8,402 +8,417 @@ import { AlertTriangle } from 'lucide-react';
 const IS_WEBGPU_AVAILABLE = !!(navigator as any).gpu;
 
 function OcrPageContent() {
-    const { status, error, progress, results, imageData, runOCR, setImageData, variant, switchVariant, backend } = usePPOCR();
+  const {
+    status,
+    error,
+    progress,
+    results,
+    imageData,
+    runOCR,
+    setImageData,
+    variant,
+    switchVariant,
+    backend,
+  } = usePPOCR();
 
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const dragCounter = useRef(0);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounter = useRef(0);
 
-    const releaseImageUrl = useCallback(() => {
-        if (imageUrl) {
-            URL.revokeObjectURL(imageUrl);
-        }
-    }, [imageUrl]);
+  const releaseImageUrl = useCallback(() => {
+    if (imageUrl) {
+      URL.revokeObjectURL(imageUrl);
+    }
+  }, [imageUrl]);
 
-    useEffect(() => {
-        return releaseImageUrl;
-    }, [releaseImageUrl]);
+  useEffect(() => {
+    return releaseImageUrl;
+  }, [releaseImageUrl]);
 
-    const drawImageWithBoxes = useCallback(
-        (imgData: ImageData, boxes: typeof results) => {
-            const canvas = canvasRef.current;
-            if (!canvas) return;
-            canvas.width = imgData.width;
-            canvas.height = imgData.height;
-            const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-            ctx.putImageData(imgData, 0, 0);
+  const drawImageWithBoxes = useCallback((imgData: ImageData, boxes: typeof results) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width = imgData.width;
+    canvas.height = imgData.height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    ctx.putImageData(imgData, 0, 0);
 
-            if (boxes.length === 0) return;
+    if (boxes.length === 0) return;
 
-            ctx.shadowColor = 'rgba(0,0,0,0.8)';
-            ctx.shadowBlur = 4;
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 4;
 
-            for (const r of boxes) {
-                const conf = typeof r.confidence === 'number' && isFinite(r.confidence) ? r.confidence : 0.05;
-                const color = conf > 0.04 ? '#00aa55' : conf > 0.02 ? '#cc8800' : '#cc6600';
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 3;
-                ctx.font = 'bold 14px "Microsoft YaHei", sans-serif';
-                ctx.fillStyle = color;
-                ctx.strokeRect(r.box.x0, r.box.y0, r.box.x1 - r.box.x0, r.box.y1 - r.box.y0);
-                ctx.fillText(`${r.text} (${(conf * 100).toFixed(2)}%)`, r.box.x0, r.box.y0 - 6);
-            }
-            ctx.shadowBlur = 0;
-        },
-        []
-    );
+    for (const r of boxes) {
+      const conf = typeof r.confidence === 'number' && isFinite(r.confidence) ? r.confidence : 0.05;
+      const color = conf > 0.04 ? '#00aa55' : conf > 0.02 ? '#cc8800' : '#cc6600';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.font = 'bold 14px "Microsoft YaHei", sans-serif';
+      ctx.fillStyle = color;
+      ctx.strokeRect(r.box.x0, r.box.y0, r.box.x1 - r.box.x0, r.box.y1 - r.box.y0);
+      ctx.fillText(`${r.text} (${(conf * 100).toFixed(2)}%)`, r.box.x0, r.box.y0 - 6);
+    }
+    ctx.shadowBlur = 0;
+  }, []);
 
-    // 渐进式重绘：每当识别结果或图像变化时，在 Canvas 上叠加文本框
-    useEffect(() => {
-        if (imageData && canvasRef.current) {
-            drawImageWithBoxes(imageData, results);
-        }
-    }, [results, imageData, drawImageWithBoxes]);
+  // 渐进式重绘：每当识别结果或图像变化时，在 Canvas 上叠加文本框
+  useEffect(() => {
+    if (imageData && canvasRef.current) {
+      drawImageWithBoxes(imageData, results);
+    }
+  }, [results, imageData, drawImageWithBoxes]);
 
-    const loadImage = useCallback(
-        (file: File) => {
-            releaseImageUrl();
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = canvasRef.current;
-                    if (!canvas) return;
-                    canvas.width = img.naturalWidth;
-                    canvas.height = img.naturalHeight;
-                    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-                    ctx.drawImage(img, 0, 0);
-                    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    setImageData(imgData);
-                    setImageFile(file);
-                    setImageUrl(URL.createObjectURL(file));
-                };
-                img.src = e.target?.result as string;
-            };
-            reader.readAsDataURL(file);
-        },
-        [releaseImageUrl, setImageData]
-    );
-
-    const handleOCR = useCallback(async () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const imgData = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, canvas.width, canvas.height);
-        const startTime = Date.now();
-        try {
-            // 推理在 Worker 中执行，结果通过 results 状态渐进式回传并自动重绘
-            await runOCR(imgData);
-            // 记录 PaddleOCR 用量
-            try {
-                window.api.aiUsage.log({
-                    model_id: 'paddleocr',
-                    model_name: 'PaddleOCR',
-                    provider: 'local',
-                    usage_type: 'ocr',
-                    latency_ms: Date.now() - startTime,
-                    success: true,
-                });
-            } catch { /* usage 记录失败不影响主流程 */ }
-        } catch (err) {
-            console.error(err);
-            try {
-                window.api.aiUsage.log({
-                    model_id: 'paddleocr',
-                    model_name: 'PaddleOCR',
-                    provider: 'local',
-                    usage_type: 'ocr',
-                    latency_ms: Date.now() - startTime,
-                    success: false,
-                    error_msg: (err as Error).message,
-                });
-            } catch { /* ignore */ }
-        }
-    }, [runOCR]);
-
-    const handleClear = useCallback(() => {
-        const canvas = canvasRef.current;
-        if (canvas) {
-            canvas.width = 0;
-            canvas.height = 0;
-        }
-        setImageFile(null);
-        releaseImageUrl();
-        setImageUrl(null);
-        setImageData(null);
-    }, [releaseImageUrl, setImageData]);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) loadImage(file);
-    };
-
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-    };
-    const handleDragEnter = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dragCounter.current++;
-    };
-    const handleDragLeave = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dragCounter.current--;
-    };
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dragCounter.current = 0;
-        const file = e.dataTransfer.files?.[0];
-        if (file) loadImage(file);
-    };
-
-    useEffect(() => {
-        const handlePaste = (e: ClipboardEvent) => {
-            const file = e.clipboardData?.files[0];
-            if (file && file.type.startsWith('image/')) {
-                loadImage(file);
-            }
+  const loadImage = useCallback(
+    (file: File) => {
+      releaseImageUrl();
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+          ctx.drawImage(img, 0, 0);
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          setImageData(imgData);
+          setImageFile(file);
+          setImageUrl(URL.createObjectURL(file));
         };
-        document.addEventListener('paste', handlePaste);
-        return () => document.removeEventListener('paste', handlePaste);
-    }, [loadImage]);
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    },
+    [releaseImageUrl, setImageData],
+  );
 
-    const statusDot = () => {
-        if (status === 'loading') return <span className="status-dot loading" />;
-        if (status === 'ready') return <span className="status-dot ready" />;
-        if (status === 'error') return <span className="status-dot error" />;
-        return <span className="status-dot idle" />;
+  const handleOCR = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const imgData = canvas
+      .getContext('2d', { willReadFrequently: true })!
+      .getImageData(0, 0, canvas.width, canvas.height);
+    const startTime = Date.now();
+    try {
+      // 推理在 Worker 中执行，结果通过 results 状态渐进式回传并自动重绘
+      await runOCR(imgData);
+      // 记录 PaddleOCR 用量
+      try {
+        window.api.aiUsage.log({
+          model_id: 'paddleocr',
+          model_name: 'PaddleOCR',
+          provider: 'local',
+          usage_type: 'ocr',
+          latency_ms: Date.now() - startTime,
+          success: true,
+        });
+      } catch {
+        /* usage 记录失败不影响主流程 */
+      }
+    } catch (err) {
+      console.error(err);
+      try {
+        window.api.aiUsage.log({
+          model_id: 'paddleocr',
+          model_name: 'PaddleOCR',
+          provider: 'local',
+          usage_type: 'ocr',
+          latency_ms: Date.now() - startTime,
+          success: false,
+          error_msg: (err as Error).message,
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [runOCR]);
+
+  const handleClear = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+    setImageFile(null);
+    releaseImageUrl();
+    setImageUrl(null);
+    setImageData(null);
+  }, [releaseImageUrl, setImageData]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) loadImage(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    const file = e.dataTransfer.files?.[0];
+    if (file) loadImage(file);
+  };
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const file = e.clipboardData?.files[0];
+      if (file && file.type.startsWith('image/')) {
+        loadImage(file);
+      }
     };
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [loadImage]);
 
-    const statusLabel = {
-        idle: '未加载',
-        loading: '加载中...',
-        ready: '就绪',
-        running: '运行中',
-        error: '错误',
-    }[status];
+  const statusDot = () => {
+    if (status === 'loading') return <span className="status-dot loading" />;
+    if (status === 'ready') return <span className="status-dot ready" />;
+    if (status === 'error') return <span className="status-dot error" />;
+    return <span className="status-dot idle" />;
+  };
 
-    const isReady = status === 'ready';
-    const isRunning = status === 'running';
-    const hasImage = imageUrl !== null;
+  const statusLabel = {
+    idle: '未加载',
+    loading: '加载中...',
+    ready: '就绪',
+    running: '运行中',
+    error: '错误',
+  }[status];
 
-    return (
-        <div className="flex flex-col h-full p-6 bg-zinc-50 dark:bg-zinc-900/40 text-zinc-800 dark:text-zinc-100 overflow-hidden">
-            <header className="flex items-center gap-4 px-6 py-3 border-b border-zinc-200 dark:border-zinc-700/70 surface-card shrink-0">
-                <h1 className="text-xl font-semibold">浏览器端 OCR</h1>
-                <span className="px-3 py-1 text-xs border border-blue-300 bg-blue-50 text-blue-600 rounded-full">
-                    PP-OCRv6 {variant} + onnxruntime-web
-                </span>
-            </header>
+  const isReady = status === 'ready';
+  const isRunning = status === 'running';
+  const hasImage = imageUrl !== null;
 
-            <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 min-h-0 overflow-hidden">
-                {/* 左侧：图片上传 + Canvas */}
-                <div className="flex-1 min-w-0 flex flex-col min-h-0">
-                    <div
-                        className="border-2 border-dashed border-zinc-300 dark:border-zinc-600/70 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition shrink-0"
-                        onClick={() => fileInputRef.current?.click()}
-                        onDragOver={handleDragOver}
-                        onDragEnter={handleDragEnter}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                    >
-                        <div className="text-4xl mb-2 opacity-60">📷</div>
-                        <div className="text-sm text-zinc-500 dark:text-zinc-400">点击或拖拽图片到此处</div>
-                        <div className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">支持 PNG / JPG</div>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleFileChange}
-                        />
-                    </div>
+  return (
+    <div className="flex flex-col h-full px-8 py-4 gap-4 text-zinc-800 dark:text-zinc-100 overflow-hidden">
+      <header className="flex items-center gap-4 px-6 py-3 border-b border-zinc-200 dark:border-zinc-700/70 surface-card shrink-0">
+        <h1 className="text-xl font-semibold">浏览器端 OCR</h1>
+        <span className="px-3 py-1 text-xs border border-blue-300 bg-blue-50 text-blue-600 rounded-full">
+          PP-OCRv6 {variant} + onnxruntime-web
+        </span>
+      </header>
 
-                    <div className="mt-4 bg-zinc-50 dark:bg-zinc-900/60 rounded-lg border border-zinc-200 dark:border-zinc-700/70 overflow-hidden flex-1 min-h-0 flex items-center justify-center">
-                        <canvas
-                            ref={canvasRef}
-                            className="max-w-full max-h-full object-contain"
-                        />
-                        {!hasImage && (
-                            <div className="absolute py-8 text-center text-zinc-400 dark:text-zinc-500">
-                                上传图片后，点击「开始识别」运行 OCR
-                            </div>
-                        )}
-                    </div>
-                </div>
+      <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 min-h-0 overflow-hidden surface-card">
+        {/* 左侧：图片上传 + Canvas */}
+        <div className="flex-1 min-w-0 flex flex-col min-h-0 surface-card rounded-xl p-4">
+          <div
+            className="border-2 border-dashed border-zinc-300 dark:border-zinc-600/70 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition shrink-0"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <div className="text-4xl mb-2 opacity-60">📷</div>
+            <div className="text-sm text-zinc-500 dark:text-zinc-400">点击或拖拽图片到此处</div>
+            <div className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">支持 PNG / JPG</div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+          </div>
 
-                {/* 右侧：状态、进度、结果 */}
-                <div className="w-full lg:w-96 flex-shrink-0 space-y-4 flex flex-col min-h-0 overflow-hidden">
-                    {/* 模型状态 */}
-                    <div className="surface-card border border-zinc-200 dark:border-zinc-700/70 rounded-lg p-4 shrink-0">
-                        <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                            模型状态
-                        </div>
-
-                        {/* 模型变体选择 */}
-                        <div className="mt-3">
-                            <label className="text-xs text-zinc-500 dark:text-zinc-400 mb-1 block">模型变体</label>
-                            <div className="flex gap-1.5">
-                                {MODEL_VARIANTS.map((v) => (
-                                    <button
-                                        key={v.id}
-                                        onClick={() => switchVariant(v.id)}
-                                        disabled={status === 'loading' || status === 'running'}
-                                        className={`flex-1 px-2 py-1.5 text-xs rounded-md border transition-all ${
-                                            variant === v.id
-                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
-                                                : 'border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-500'
-                                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                    >
-                                        {v.id}
-                                        <span className="block text-[10px] opacity-60 mt-0.5">{v.size}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between">
-                            <span className="text-sm text-zinc-600 dark:text-zinc-300">状态</span>
-                            <span className="flex items-center gap-2 text-sm">
-                                {statusDot()}
-                                {statusLabel}
-                            </span>
-                        </div>
-                        {status === 'loading' && (
-                            <div className="mt-2">
-                                <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700/60 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
-                                        style={{ width: `${progress.percent}%` }}
-                                    />
-                                </div>
-                                <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                                    <span>{progress.step}</span>
-                                    <span>{progress.percent}%</span>
-                                </div>
-                            </div>
-                        )}
-                        {status === 'error' && (
-                            <div className="mt-2 text-sm text-red-500">❌ {error}</div>
-                        )}
-                    </div>
-
-                    {!IS_WEBGPU_AVAILABLE && (
-                        <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200/70 dark:border-amber-800/50 shrink-0">
-                            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                                <AlertTriangle size={12} /> 未检测到 WebGPU
-                            </p>
-                            <p className="text-[11px] text-amber-600/80 dark:text-amber-500/80 mt-1 leading-relaxed">
-                                将回退到 WASM 模式，速度较慢。建议使用 Chrome/Edge 113+。
-                            </p>
-                        </div>
-                    )}
-
-                    {/* OCR 进度（运行时） */}
-                    {isRunning && (
-                        <div className="surface-card border border-zinc-200 dark:border-zinc-700/70 rounded-lg p-4 shrink-0">
-                            <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                OCR 进度
-                            </div>
-                            <div className="mt-2">
-                                <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700/60 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
-                                        style={{ width: `${progress.percent}%` }}
-                                    />
-                                </div>
-                                <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                                    <span>{progress.step}</span>
-                                    <span>{progress.percent}%</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 操作按钮 */}
-                    <div className="flex gap-2 shrink-0">
-                        <button
-                            onClick={handleOCR}
-                            disabled={!isReady || isRunning || !hasImage}
-                            className="flex-1 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-md font-medium transition"
-                        >
-                            {isRunning ? '识别中...' : '开始识别'}
-                        </button>
-                        <button
-                            onClick={handleClear}
-                            disabled={!hasImage}
-                            className="flex-1 py-2 bg-zinc-200 dark:bg-zinc-700/60 hover:bg-zinc-300 dark:hover:bg-zinc-600/60 disabled:opacity-40 text-zinc-700 dark:text-zinc-200 rounded-md font-medium transition"
-                        >
-                            清除
-                        </button>
-                    </div>
-
-                    {/* 识别结果 */}
-                    <div className="surface-card border border-zinc-200 dark:border-zinc-700/70 rounded-lg flex-1 min-h-0 overflow-hidden flex flex-col">
-                        <div className="flex justify-between items-center px-4 py-2 border-b border-zinc-200 dark:border-zinc-700/70 shrink-0">
-                            <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                                识别结果
-                            </span>
-                            <span className="text-xs text-blue-500">
-                                {results.length > 0 ? `${results.length} 个文本块` : '等待识别'}
-                            </span>
-                        </div>
-                        <div className="p-4 overflow-y-auto font-mono text-sm space-y-2 flex-1">
-                            {results.length === 0 ? (
-                                <div className="text-zinc-400 dark:text-zinc-500 text-sm">
-                                    {status === 'idle' ? '加载模型后，上传图片开始识别...' : '上传图片并识别'}
-                                </div>
-                            ) : (
-                                results.map((r, i) => {
-                                    const conf = r.confidence || 0.05;
-                                    const color =
-                                        conf > 0.04 ? '#00aa55' : conf > 0.02 ? '#cc8800' : '#cc6600';
-                                    return (
-                                        <div
-                                            key={i}
-                                            className="pl-3 border-l-4 rounded-r bg-zinc-50 dark:bg-zinc-900/40"
-                                            style={{ borderLeftColor: color }}
-                                        >
-                                            <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                                                #{i + 1} conf {(conf * 100).toFixed(2)}% {r.charCount}字
-                                            </div>
-                                            <div className="text-sm" style={{ color }}>
-                                                {r.text}
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                            {results.length > 0 && (
-                                <div className="border-t border-zinc-200 dark:border-zinc-700/70 mt-2 pt-2">
-                                    <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">全文：</div>
-                                    <div className="text-sm text-zinc-800 dark:text-zinc-100 whitespace-pre-wrap">
-                                        {results.map((r) => r.text).join('\n')}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* 底部状态栏 */}
-            <div className="text-xs text-zinc-400 dark:text-zinc-500 text-center py-2 border-t border-zinc-200 dark:border-zinc-700/70 surface-card shrink-0">
-                {backend ? `推理后端: ${backend.toUpperCase()}` : IS_WEBGPU_AVAILABLE ? 'WebGPU 已检测' : 'WebGPU 未支持'} ｜ 状态：{status}
-            </div>
+          <div className="mt-4 bg-zinc-50 dark:bg-zinc-900/60 rounded-lg border border-zinc-200 dark:border-zinc-700/70 overflow-hidden flex-1 min-h-0 flex items-center justify-center">
+            <canvas ref={canvasRef} className="max-w-full max-h-full object-contain" />
+            {!hasImage && (
+              <div className="absolute py-8 text-center text-zinc-400 dark:text-zinc-500">
+                上传图片后，点击「开始识别」运行 OCR
+              </div>
+            )}
+          </div>
         </div>
-    );
+
+        {/* 右侧：状态、进度、结果 */}
+        <div className="w-full lg:w-96 flex-shrink-0 space-y-4 flex flex-col min-h-0 overflow-hidden">
+          {/* 模型状态 */}
+          <div className="surface-card border border-zinc-200 dark:border-zinc-700/70 rounded-lg p-4 shrink-0">
+            <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+              模型状态
+            </div>
+
+            {/* 模型变体选择 */}
+            <div className="mt-3">
+              <label className="text-xs text-zinc-500 dark:text-zinc-400 mb-1 block">
+                模型变体
+              </label>
+              <div className="flex gap-1.5">
+                {MODEL_VARIANTS.map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => switchVariant(v.id)}
+                    disabled={status === 'loading' || status === 'running'}
+                    className={`flex-1 px-2 py-1.5 text-xs rounded-md border transition-all ${
+                      variant === v.id
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
+                        : 'border-zinc-200 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-500'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {v.id}
+                    <span className="block text-[10px] opacity-60 mt-0.5">{v.size}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-sm text-zinc-600 dark:text-zinc-300">状态</span>
+              <span className="flex items-center gap-2 text-sm">
+                {statusDot()}
+                {statusLabel}
+              </span>
+            </div>
+            {status === 'loading' && (
+              <div className="mt-2">
+                <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700/60 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
+                    style={{ width: `${progress.percent}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  <span>{progress.step}</span>
+                  <span>{progress.percent}%</span>
+                </div>
+              </div>
+            )}
+            {status === 'error' && <div className="mt-2 text-sm text-red-500">❌ {error}</div>}
+          </div>
+
+          {!IS_WEBGPU_AVAILABLE && (
+            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200/70 dark:border-amber-800/50 shrink-0">
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                <AlertTriangle size={12} /> 未检测到 WebGPU
+              </p>
+              <p className="text-[11px] text-amber-600/80 dark:text-amber-500/80 mt-1 leading-relaxed">
+                将回退到 WASM 模式，速度较慢。建议使用 Chrome/Edge 113+。
+              </p>
+            </div>
+          )}
+
+          {/* OCR 进度（运行时） */}
+          {isRunning && (
+            <div className="surface-card border border-zinc-200 dark:border-zinc-700/70 rounded-lg p-4 shrink-0">
+              <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                OCR 进度
+              </div>
+              <div className="mt-2">
+                <div className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700/60 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
+                    style={{ width: `${progress.percent}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  <span>{progress.step}</span>
+                  <span>{progress.percent}%</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 操作按钮 */}
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={handleOCR}
+              disabled={!isReady || isRunning || !hasImage}
+              className="flex-1 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-md font-medium transition"
+            >
+              {isRunning ? '识别中...' : '开始识别'}
+            </button>
+            <button
+              onClick={handleClear}
+              disabled={!hasImage}
+              className="flex-1 py-2 bg-zinc-200 dark:bg-zinc-700/60 hover:bg-zinc-300 dark:hover:bg-zinc-600/60 disabled:opacity-40 text-zinc-700 dark:text-zinc-200 rounded-md font-medium transition"
+            >
+              清除
+            </button>
+          </div>
+
+          {/* 识别结果 */}
+          <div className="surface-card border border-zinc-200 dark:border-zinc-700/70 rounded-lg flex-1 min-h-0 overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center px-4 py-2 border-b border-zinc-200 dark:border-zinc-700/70 shrink-0">
+              <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                识别结果
+              </span>
+              <span className="text-xs text-blue-500">
+                {results.length > 0 ? `${results.length} 个文本块` : '等待识别'}
+              </span>
+            </div>
+            <div className="p-4 overflow-y-auto font-mono text-sm space-y-2 flex-1">
+              {results.length === 0 ? (
+                <div className="text-zinc-400 dark:text-zinc-500 text-sm">
+                  {status === 'idle' ? '加载模型后，上传图片开始识别...' : '上传图片并识别'}
+                </div>
+              ) : (
+                results.map((r, i) => {
+                  const conf = r.confidence || 0.05;
+                  const color = conf > 0.04 ? '#00aa55' : conf > 0.02 ? '#cc8800' : '#cc6600';
+                  return (
+                    <div
+                      key={i}
+                      className="pl-3 border-l-4 rounded-r bg-zinc-50 dark:bg-zinc-900/40"
+                      style={{ borderLeftColor: color }}
+                    >
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                        #{i + 1} conf {(conf * 100).toFixed(2)}% {r.charCount}字
+                      </div>
+                      <div className="text-sm" style={{ color }}>
+                        {r.text}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              {results.length > 0 && (
+                <div className="border-t border-zinc-200 dark:border-zinc-700/70 mt-2 pt-2">
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">全文：</div>
+                  <div className="text-sm text-zinc-800 dark:text-zinc-100 whitespace-pre-wrap">
+                    {results.map((r) => r.text).join('\n')}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 底部状态栏 */}
+      <div className="text-xs text-zinc-400 dark:text-zinc-500 text-center py-2 border-t border-zinc-200 dark:border-zinc-700/70 surface-card shrink-0">
+        {backend
+          ? `推理后端: ${backend.toUpperCase()}`
+          : IS_WEBGPU_AVAILABLE
+            ? 'WebGPU 已检测'
+            : 'WebGPU 未支持'}{' '}
+        ｜ 状态：{status}
+      </div>
+    </div>
+  );
 }
 
 // 错误边界包装
 export default function OcrPagePP() {
-    return (
-        <ErrorBoundary>
-            <OcrPageContent />
-        </ErrorBoundary>
-    );
+  return (
+    <ErrorBoundary>
+      <OcrPageContent />
+    </ErrorBoundary>
+  );
 }

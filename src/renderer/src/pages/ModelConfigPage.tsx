@@ -953,9 +953,9 @@ export default function ModelConfigPage(): ReactNode {
   const [embedFilterCollapsed, setEmbedFilterCollapsed] = useState(true);
 
   return (
-    <div className="flex flex-col bg-transparent">
+    <div className="flex flex-col h-full px-8 py-4">
       <main className="flex-1">
-        <div className="px-6 py-6">
+        <div className="surface-card h-full p-6">
           {/* 标题和 Tab */}
           <div className="mb-4">
             <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-1">

@@ -768,7 +768,7 @@ function StatsPage(): ReactNode {
   if (!stats) {
     return (
       <div className="h-full overflow-hidden">
-        <div className="hide-scrollbar h-full overflow-y-auto px-6 py-6 space-y-5">
+        <div className="hide-scrollbar h-full overflow-y-auto px-6 py-4 space-y-5">
           <FadeIn>
             <div>
               <SkeletonLine width="8rem" height="1.5rem" />
@@ -813,7 +813,7 @@ function StatsPage(): ReactNode {
 
   return (
     <div className="h-full overflow-hidden">
-      <div className="hide-scrollbar h-full overflow-y-auto px-6 py-6 space-y-5">
+      <div className="hide-scrollbar h-full overflow-y-auto px-6 py-4 space-y-5">
         {/* 标题 */}
         <FadeIn>
           <div>

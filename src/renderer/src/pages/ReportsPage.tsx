@@ -101,7 +101,7 @@ function ReportsPage(): ReactNode {
 
   return (
     <div className="h-full overflow-hidden">
-      <div className="hide-scrollbar h-full overflow-y-auto px-6 py-6 space-y-5">
+      <div className="hide-scrollbar h-full overflow-y-auto px-6 py-4 space-y-5">
         <FadeIn>
           <div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">

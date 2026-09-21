@@ -231,7 +231,7 @@ const CalendarPage: React.FC = () => {
     : '';
 
   return (
-    <div className="h-full flex flex-col px-4 md:px-6 pt-6 pb-6 overflow-hidden">
+    <div className="h-full flex flex-col px-6 py-4 overflow-hidden">
       <div className="flex flex-1 flex-col lg:flex-row gap-5 w-full max-w-[1400px] mx-auto min-h-0">
         {/* 左侧日历 */}
         <div className="lg:w-3/5 flex-1 flex flex-col overflow-hidden rounded-xl min-h-0">

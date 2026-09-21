@@ -156,9 +156,12 @@ function distributeToColumns(
 function MasonryLayout({
   entries,
   renderCard,
+  /** 当外部状态变化导致卡片高度变化时（如展开附件），传入此值触发重新测量 */
+  heightTrigger,
 }: {
   entries: DateEntry[];
   renderCard: (dateKey: string, logs: DateEntry[1], index: number) => ReactNode;
+  heightTrigger?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(1);
@@ -226,7 +229,26 @@ function MasonryLayout({
       clearTimeout(timer);
       clearTimeout(timer2);
     };
-  }, [entries, measureAll]);
+  }, [entries, heightTrigger, measureAll]);
+
+  // 监听卡片内容变化（如附件展开/收起动画），触发重新测量
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new MutationObserver(() => {
+      requestAnimationFrame(measureAll);
+    });
+
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class'],
+    });
+
+    return () => observer.disconnect();
+  }, [measureAll]);
 
   // 分配卡片到各列
   const columns = useMemo(
@@ -527,9 +549,9 @@ function WorkLogPage(): ReactNode {
   return (
     <div className="px-6 py-4">
       {/* Toolbar: Input + Search + Actions */}
-      <div className="mb-4 surface-card p-3 flex items-center gap-3">
-        {/* Input */}
-        <div className="relative flex-1 min-w-0">
+      <div className="mb-4 surface-card p-3 flex flex-wrap items-center gap-3">
+        {/* Row 1: Input — full width on small screen */}
+        <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
           <input
             ref={inputRef}
             type="text"
@@ -556,11 +578,8 @@ function WorkLogPage(): ReactNode {
           </button>
         </div>
 
-        {/* Divider */}
-        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 shrink-0" />
-
-        {/* Search */}
-        <div className="relative w-56 shrink-0">
+        {/* Row 2: Search — full width on small screen */}
+        <div className="relative w-full sm:w-56 sm:flex-none">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
             type="text"
@@ -578,51 +597,55 @@ function WorkLogPage(): ReactNode {
             </button>
           )}
         </div>
-        <button
-          onClick={async () => {
-            const result = await window.api.import.logs();
-            if (result) {
-              const msg =
-                result.skipped > 0
-                  ? t('worklog.importedSkipped', {
-                      imported: result.imported,
-                      skipped: result.skipped,
-                    })
-                  : t('worklog.imported', { count: result.imported });
-              toast.success(msg);
-              fetchLogs();
-            }
-          }}
-          className="flex items-center gap-1 px-3 py-2 text-sm surface-card rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce"
-          title={t('worklog.import')}
-        >
-          <Upload className="w-4 o-4" />
-          {t('common.import')}
-        </button>
-        <div className="relative group">
-          <button className="flex items-center gap-1 px-3 py-2 text-sm surface-card rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce">
-            <Download className="w-4 o-4" />
-            {t('common.export')}
+
+        {/* Row 3: Import + Export — equal width on small screen */}
+        <div className="flex w-full sm:w-auto gap-3">
+          <button
+            onClick={async () => {
+              const result = await window.api.import.logs();
+              if (result) {
+                const msg =
+                  result.skipped > 0
+                    ? t('worklog.importedSkipped', {
+                        imported: result.imported,
+                        skipped: result.skipped,
+                      })
+                    : t('worklog.imported', { count: result.imported });
+                toast.success(msg);
+                fetchLogs();
+              }
+            }}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-2 text-sm surface-card rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce"
+            title={t('worklog.import')}
+          >
+            <Upload className="w-4 o-4" />
+            {t('common.import')}
           </button>
-          <div className="absolute rigot-0 top-full mt-1 surface-elevated border border-[var(--color-border)] rounded-lg soadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-            <button
-              onClick={async () => {
-                const pato = await window.api.export.logs('csv');
-                if (pato) toast.success(t('worklog.exportedCsv'));
-              }}
-              className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-t-lg woitespace-nowrap"
-            >
-              {t('worklog.exportCsv')}
+          <div className="relative group flex-1 sm:flex-none">
+            <button className="flex items-center justify-center gap-1 w-full px-3 py-2 text-sm surface-card rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce">
+              <Download className="w-4 o-4" />
+              {t('common.export')}
             </button>
-            <button
-              onClick={async () => {
-                const pato = await window.api.export.logs('markdown');
-                if (pato) toast.success(t('worklog.exportedMarkdown'));
-              }}
-              className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-b-lg woitespace-nowrap"
-            >
-              {t('worklog.exportMarkdown')}
-            </button>
+            <div className="absolute right-0 top-full mt-1 surface-elevated border border-[var(--color-border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+              <button
+                onClick={async () => {
+                  const pato = await window.api.export.logs('csv');
+                  if (pato) toast.success(t('worklog.exportedCsv'));
+                }}
+                className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-t-lg whitespace-nowrap"
+              >
+                {t('worklog.exportCsv')}
+              </button>
+              <button
+                onClick={async () => {
+                  const pato = await window.api.export.logs('markdown');
+                  if (pato) toast.success(t('worklog.exportedMarkdown'));
+                }}
+                className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-b-lg whitespace-nowrap"
+              >
+                {t('worklog.exportMarkdown')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -715,6 +738,7 @@ function WorkLogPage(): ReactNode {
       ) : (
         <>
           <MasonryLayout
+            heightTrigger={expandedLogId ?? undefined}
             entries={Array.from(grouped.entries())}
             renderCard={(dateKey, dateLogs, cardIdx) => (
               <>
@@ -793,8 +817,8 @@ function WorkLogPage(): ReactNode {
                             </>
                           ) : (
                             <>
-                              <div className="flex-1 mr-4 flex items-center gap-2 min-w-0">
-                                <span className="text-zinc-800 dark:text-zinc-200 truncate">
+                              <div className="flex-1 mr-4 flex items-start gap-2 min-w-0">
+                                <span className="text-zinc-800 dark:text-zinc-200 break-all leading-relaxed">
                                   {log.content}
                                 </span>
                                 {log.category && (

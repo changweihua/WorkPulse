@@ -464,7 +464,7 @@ export default function AiStatsPage() {
 
   if (loading) {
     return (
-      <div className="h-full overflow-y-auto p-6 space-y-6">
+      <div className="h-full overflow-y-auto px-6 py-4 space-y-6">
         <div className="flex items-center justify-between">
           <SkeletonLine width="8rem" height="1.5rem" />
           <SkeletonLine width="10rem" height="2rem" />
@@ -496,7 +496,7 @@ export default function AiStatsPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
+    <div className="h-full overflow-y-auto px-6 py-4 space-y-6">
       {/* 顶部栏 */}
       <FadeIn>
         <div className="flex items-center justify-between">

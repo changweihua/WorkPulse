@@ -12,6 +12,9 @@
 
 ### 变更
 
+- 🦄 refactor: worklog 页面瀑布流布局 — 新增 MasonryLayout 组件（ResizeObserver 响应式列数、贪心分配算法），工具栏响应式换行（小屏三行排列、大屏一行排开）；日志内容长文本自动换行
+- 🦄 refactor: 多页面 padding 统一边距 — ReportsPage、StatsPage、SettingsPage、ModelConfigPage、XrayProcessor、OcrPagePP、CalendarPage、OcrPage、OnnxPage、ReportPage、AiStatsPage 统一为 px-6 py-4
+- 🦄 refactor: OCR/ONNX/FluidGlass/ModelConfig 页面内容区域 surface-card 背景填充空白区域
 - 🦄 refactor: 全宽页面布局 — `worklog`、`dotnet`、`model-config`、`settings` 四个页面设为 `fluid: true` 全宽模式；WorkLog 双栏日期分组、Settings 多栏网格、ModelConfig 左右分栏（列表+编辑弹窗）
 - 🦄 refactor: 模型配置页模型卡片三行布局 — 模型名全显示 + 路径信息 + 标签行，最小高度 100px；默认模型右上角显示勾选图标（`default-model.svg`）
 - 🦄 refactor: 模型配置页编辑表单改为毛玻璃弹窗 — 固定标题/按钮 + 中间内容滚动；Provider 选中高亮；默认选中第一个 Provider

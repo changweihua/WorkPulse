@@ -672,7 +672,7 @@ function SettingsPage(): ReactNode {
   return (
     <div className="flex flex-col bg-transparent">
       <main className="flex-1">
-        <div className="px-6 py-6">
+        <div className="px-6 py-4">
           <div className="grid grid-cols-2 gap-4 items-start">
             {/* Report Preferences */}
             <section className="col-span-2 surface-card p-5">
