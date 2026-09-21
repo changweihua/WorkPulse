@@ -1,45 +1,75 @@
-import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge, ipcRenderer } from 'electron';
+import { electronAPI } from '@electron-toolkit/preload';
 
-type QuickCreateType = 'log' | 'task'
-type NavigatePage = 'worklog' | 'kanban' | 'report' | 'reports' | 'stats' | 'calendar' | 'chat' | 'xray' | 'onnx' | 'ocr' | 'pp' | 'settings' | 'ai-stats'
-type AppLanguage = 'system' | 'zh' | 'en'
-type UpdateStatus = 'idle' | 'checking' | 'available' | 'not_available' | 'downloading' | 'downloaded' | 'error'
+type QuickCreateType = 'log' | 'task';
+type NavigatePage =
+  | 'worklog'
+  | 'kanban'
+  | 'report'
+  | 'reports'
+  | 'stats'
+  | 'calendar'
+  | 'chat'
+  | 'xray'
+  | 'onnx'
+  | 'ocr'
+  | 'pp'
+  | 'settings'
+  | 'ai-stats';
+type AppLanguage = 'system' | 'zh' | 'en';
+type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not_available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error';
 
 interface AppUpdateState {
-  status: UpdateStatus
-  currentVersion: string
-  version?: string
-  releaseName?: string
-  releaseDate?: string
-  releaseNotes?: string
-  releaseUrl?: string
-  downloadUrl?: string
-  progress?: number
-  error?: string
-  canInstall?: boolean
+  status: UpdateStatus;
+  currentVersion: string;
+  version?: string;
+  releaseName?: string;
+  releaseDate?: string;
+  releaseNotes?: string;
+  releaseUrl?: string;
+  downloadUrl?: string;
+  progress?: number;
+  error?: string;
+  canInstall?: boolean;
 }
 
 // ─── IpcResult 解包 ──────────────────────────────────────────────────────────
 // 主进程 handler 统一返回 { ok, data } 或 { ok, error }
 // invoke() 解包成功结果，失败时抛出错误（保持渲染端 try/catch 兼容）
 
-interface IpcOk<T> { ok: true; data: T }
-interface IpcFail { ok: false; error: { code: string; message: string; issues?: unknown[] } }
-type IpcResult<T = unknown> = IpcOk<T> | IpcFail
+interface IpcOk<T> {
+  ok: true;
+  data: T;
+}
+interface IpcFail {
+  ok: false;
+  error: { code: string; message: string; issues?: unknown[] };
+}
+type IpcResult<T = unknown> = IpcOk<T> | IpcFail;
 
 async function invoke<T>(promise: Promise<IpcResult<T>>): Promise<T> {
-  const result = await promise
-  if (result.ok) return result.data
-  const err = new Error(result.error.message)
-  ;(err as Error & { code: string }).code = result.error.code
-  throw err
+  const result = await promise;
+  if (result.ok) return result.data;
+  const err = new Error(result.error.message);
+  (err as Error & { code: string }).code = result.error.code;
+  throw err;
 }
 
 const api = {
   // 新增：发送 IPC 消息到主进程
   send: (channel: string, ...args: any[]) => {
-    const ALLOWED_SEND_CHANNELS = ['screenshot:ready', 'screenshot:cancel', 'screenshot:crop'] as const;
+    const ALLOWED_SEND_CHANNELS = [
+      'screenshot:ready',
+      'screenshot:cancel',
+      'screenshot:crop',
+    ] as const;
     if ((ALLOWED_SEND_CHANNELS as readonly string[]).includes(channel)) {
       ipcRenderer.send(channel, ...args);
     }
@@ -49,12 +79,15 @@ const api = {
     setAutoLaunch: (enable: boolean) => invoke(ipcRenderer.invoke('set-auto-launch', enable)),
     getCloseAction: () => invoke(ipcRenderer.invoke('get-close-action')) as Promise<string>,
     setCloseAction: (action: string) => invoke(ipcRenderer.invoke('set-close-action', action)),
-    setLanguage: (language: AppLanguage) => invoke(ipcRenderer.invoke('app:language:update', language)),
+    setLanguage: (language: AppLanguage) =>
+      invoke(ipcRenderer.invoke('app:language:update', language)),
     getVersion: () => invoke(ipcRenderer.invoke('app:get-version')) as Promise<string>,
-    getUpdateState: () => invoke(ipcRenderer.invoke('app:updates:get-state')) as Promise<AppUpdateState>,
-    checkForUpdates: () => invoke(ipcRenderer.invoke('app:updates:check')) as Promise<AppUpdateState>,
+    getUpdateState: () =>
+      invoke(ipcRenderer.invoke('app:updates:get-state')) as Promise<AppUpdateState>,
+    checkForUpdates: () =>
+      invoke(ipcRenderer.invoke('app:updates:check')) as Promise<AppUpdateState>,
     installUpdate: () => invoke(ipcRenderer.invoke('app:updates:install')) as Promise<boolean>,
-    openBackupDir: () => invoke(ipcRenderer.invoke('app:open-backup-dir')) as Promise<string>
+    openBackupDir: () => invoke(ipcRenderer.invoke('app:open-backup-dir')) as Promise<string>,
   },
   worklog: {
     add: (content: string, category?: string) =>
@@ -70,8 +103,12 @@ const api = {
     update: (id: number, content: string, category: string, created_at?: string) =>
       invoke(ipcRenderer.invoke('worklog:update', id, content, category, created_at)),
     delete: (id: number) => invoke(ipcRenderer.invoke('worklog:delete', id)),
-    restore: (log: { content: string; category: string; created_at: string; task_id: number | null }) =>
-      invoke(ipcRenderer.invoke('worklog:restore', log))
+    restore: (log: {
+      content: string;
+      category: string;
+      created_at: string;
+      task_id: number | null;
+    }) => invoke(ipcRenderer.invoke('worklog:restore', log)),
   },
   task: {
     add: (title: string, description?: string, status?: 'todo' | 'draft', createdAt?: string) =>
@@ -88,7 +125,7 @@ const api = {
       invoke(ipcRenderer.invoke('task:completeOnly', id)) as Promise<any>,
   },
   stats: {
-    get: (days?: number) => invoke(ipcRenderer.invoke('stats:get', days))
+    get: (days?: number) => invoke(ipcRenderer.invoke('stats:get', days)),
   },
   event: {
     add: (input: Record<string, unknown>) => invoke(ipcRenderer.invoke('event:add', input)),
@@ -99,98 +136,120 @@ const api = {
     delete: (id: number) => invoke(ipcRenderer.invoke('event:delete', id)),
   },
   import: {
-    logs: () => invoke(ipcRenderer.invoke('import:logs')) as Promise<{ imported: number; skipped: number; filePath: string } | null>,
+    logs: () =>
+      invoke(ipcRenderer.invoke('import:logs')) as Promise<{
+        imported: number;
+        skipped: number;
+        filePath: string;
+      } | null>,
   },
   report: {
-    generate: (dateFrom: string, dateTo: string) =>
-      invoke(ipcRenderer.invoke('report:generate', dateFrom, dateTo)),
-    weekly: (start: string, end: string) =>
-      invoke(ipcRenderer.invoke('report:weekly', start, end)),
+    weekly: (start: string, end: string) => invoke(ipcRenderer.invoke('report:weekly', start, end)),
     create: (type: string, dateFrom: string, dateTo: string, content: string) =>
       invoke(ipcRenderer.invoke('report:create', type, dateFrom, dateTo, content)),
     list: (limit?: number) => invoke(ipcRenderer.invoke('report:list', limit)),
     update: (id: number, content: string) =>
-      invoke(ipcRenderer.invoke('report:update', id, content))
+      invoke(ipcRenderer.invoke('report:update', id, content)),
   },
   ai: {
     streamChat: (prompt: string) => {
       // 流式聊天：invoke 返回 void，通过事件监听接收数据
-      ipcRenderer.invoke('ai-chat-stream', { userMessage: prompt, history: [] })
+      ipcRenderer.invoke('ai-chat-stream', { userMessage: prompt, history: [] });
       return {
         onChunk: (cb: (text: string) => void) => {
-          const handler = (_e: any, text: string) => cb(text)
-          ipcRenderer.on('ai-stream-chunk', handler)
-          return () => ipcRenderer.removeListener('ai-stream-chunk', handler)
+          const handler = (_e: any, text: string) => cb(text);
+          ipcRenderer.on('ai-stream-chunk', handler);
+          return () => ipcRenderer.removeListener('ai-stream-chunk', handler);
         },
         onDone: (cb: () => void) => {
-          const handler = () => cb()
-          ipcRenderer.on('ai-stream-done', handler)
-          return () => ipcRenderer.removeListener('ai-stream-done', handler)
+          const handler = () => cb();
+          ipcRenderer.on('ai-stream-done', handler);
+          return () => ipcRenderer.removeListener('ai-stream-done', handler);
         },
         onError: (cb: (err: string) => void) => {
-          const handler = (_e: any, err: string) => cb(err)
-          ipcRenderer.on('ai-stream-error', handler)
-          return () => ipcRenderer.removeListener('ai-stream-error', handler)
-        }
-      }
-    }
+          const handler = (_e: any, err: string) => cb(err);
+          ipcRenderer.on('ai-stream-error', handler);
+          return () => ipcRenderer.removeListener('ai-stream-error', handler);
+        },
+      };
+    },
   },
   models: {
     ensure: (modelId: string, required: string[], optional: string[]) =>
       invoke(ipcRenderer.invoke('model:ensure', modelId, required, optional)) as Promise<{
-        ok: boolean
-        missing: string[]
+        ok: boolean;
+        missing: string[];
       }>,
     onProgress: (
-      cb: (p: { modelId: string; file: string; loaded: number; total: number; percent: number }) => void
+      cb: (p: {
+        modelId: string;
+        file: string;
+        loaded: number;
+        total: number;
+        percent: number;
+      }) => void,
     ) => {
-      const handler = (_e: unknown, p: { modelId: string; file: string; loaded: number; total: number; percent: number }): void =>
-        cb(p)
-      ipcRenderer.on('model-download-progress', handler)
-      return () => ipcRenderer.removeListener('model-download-progress', handler)
+      const handler = (
+        _e: unknown,
+        p: { modelId: string; file: string; loaded: number; total: number; percent: number },
+      ): void => cb(p);
+      ipcRenderer.on('model-download-progress', handler);
+      return () => ipcRenderer.removeListener('model-download-progress', handler);
     },
     getConfig: (type?: 'chat' | 'embedding') =>
       invoke(ipcRenderer.invoke('model:get-config', type || 'chat')) as Promise<{
-        type: 'chat' | 'embedding'
-        provider: string
-        baseUrl: string
-        model: string
-        hasApiKey: boolean
-        dimension?: number
+        type: 'chat' | 'embedding';
+        provider: string;
+        baseUrl: string;
+        model: string;
+        hasApiKey: boolean;
+        dimension?: number;
       }>,
     getGlobalConfig: () =>
       invoke(ipcRenderer.invoke('model:get-global-config')) as Promise<{
         chatConfigs: Array<{
-          id: string; name: string; baseURL: string; model: string;
-          token: string; headers: string; temperature: number; max_tokens: number; top_p: number
-        }>
-        activeChatConfigId: string
+          id: string;
+          name: string;
+          baseURL: string;
+          model: string;
+          token: string;
+          headers: string;
+          temperature: number;
+          max_tokens: number;
+          top_p: number;
+        }>;
+        activeChatConfigId: string;
         embedding: {
-          provider: string; baseURL: string; model: string; dimension: number; token: string
-        }
+          provider: string;
+          baseURL: string;
+          model: string;
+          dimension: number;
+          token: string;
+        };
       }>,
     setGlobalConfig: (config: any) =>
-      invoke(ipcRenderer.invoke('model:set-global-config', 'global', JSON.stringify(config))) as Promise<{ ok: boolean }>,
+      invoke(
+        ipcRenderer.invoke('model:set-global-config', 'global', JSON.stringify(config)),
+      ) as Promise<{ ok: boolean }>,
     getActiveChat: () =>
       invoke(ipcRenderer.invoke('model:get-active-chat')) as Promise<{
-        id: string; name: string; baseURL: string; model: string;
-        token: string; headers: string; temperature: number; max_tokens: number; top_p: number
+        id: string;
+        name: string;
+        baseURL: string;
+        model: string;
+        token: string;
+        headers: string;
+        temperature: number;
+        max_tokens: number;
+        top_p: number;
       } | null>,
     setActiveChat: (configId: string) =>
       invoke(ipcRenderer.invoke('model:set-active-chat', configId)) as Promise<{ ok: boolean }>,
-    addChatConfig: (config: any) =>
-      invoke(ipcRenderer.invoke('model:add-chat-config', config)) as Promise<{ ok: boolean }>,
-    updateChatConfig: (config: any) =>
-      invoke(ipcRenderer.invoke('model:update-chat-config', config)) as Promise<{ ok: boolean }>,
-    deleteChatConfig: (configId: string) =>
-      invoke(ipcRenderer.invoke('model:delete-chat-config', configId)) as Promise<{ ok: boolean }>,
-    updateEmbedding: (params: { embeddingConfigs: any[]; activeEmbeddingConfigId: string }) =>
-      invoke(ipcRenderer.invoke('model:update-embedding', params)) as Promise<{ ok: boolean }>,
   },
   settings: {
     get: (key: string) => invoke(ipcRenderer.invoke('settings:get', key)),
     set: (key: string, value: string) => invoke(ipcRenderer.invoke('settings:set', key, value)),
-    delete: (key: string) => invoke(ipcRenderer.invoke('settings:delete', key))
+    delete: (key: string) => invoke(ipcRenderer.invoke('settings:delete', key)),
   },
   radial: {
     setEnabled: (enabled: boolean) => invoke(ipcRenderer.invoke('radial:set-enabled', enabled)),
@@ -198,39 +257,48 @@ const api = {
     getConfig: () => invoke(ipcRenderer.invoke('radial:get-config')),
     pickProgram: () => invoke(ipcRenderer.invoke('radial:pick-program')),
     getFileIcon: (filePath: string) => invoke(ipcRenderer.invoke('radial:get-file-icon', filePath)),
-    launchProgram: (programPath: string) => invoke(ipcRenderer.invoke('radial:launch-program', programPath)),
+    launchProgram: (programPath: string) =>
+      invoke(ipcRenderer.invoke('radial:launch-program', programPath)),
   },
   notification: {
     show: (options: {
-      title: string
-      body: string
-      group?: string
-      tag?: string
-      urgency?: 'normal' | 'low' | 'critical'
-      silent?: boolean
-    }) => invoke(ipcRenderer.invoke('notification:show', options))
+      title: string;
+      body: string;
+      group?: string;
+      tag?: string;
+      urgency?: 'normal' | 'low' | 'critical';
+      silent?: boolean;
+    }) => invoke(ipcRenderer.invoke('notification:show', options)),
   },
   shortcut: {
-    update: (key: string, value: string) => invoke(ipcRenderer.invoke('shortcut:update', key, value))
+    update: (key: string, value: string) =>
+      invoke(ipcRenderer.invoke('shortcut:update', key, value)),
   },
   export: {
     logs: (format: 'csv' | 'markdown') => invoke(ipcRenderer.invoke('export:logs', format)),
     report: (content: string, dateRange: string) =>
-      invoke(ipcRenderer.invoke('export:report', content, dateRange))
+      invoke(ipcRenderer.invoke('export:report', content, dateRange)),
   },
   aiUsage: {
     log: (record: Record<string, unknown>) => invoke(ipcRenderer.invoke('ai-usage:log', record)),
-    getDailyStats: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:daily-stats', { from, to })),
-    getModelStats: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:model-stats', { from, to })),
-    getTypeStats: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:type-stats', { from, to })),
-    getCostSummary: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:cost-summary', { from, to })),
-    getTrend: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:trend', { from, to })),
+    getDailyStats: (from: string, to: string) =>
+      invoke(ipcRenderer.invoke('ai-usage:daily-stats', { from, to })),
+    getModelStats: (from: string, to: string) =>
+      invoke(ipcRenderer.invoke('ai-usage:model-stats', { from, to })),
+    getTypeStats: (from: string, to: string) =>
+      invoke(ipcRenderer.invoke('ai-usage:type-stats', { from, to })),
+    getCostSummary: (from: string, to: string) =>
+      invoke(ipcRenderer.invoke('ai-usage:cost-summary', { from, to })),
+    getTrend: (from: string, to: string) =>
+      invoke(ipcRenderer.invoke('ai-usage:trend', { from, to })),
     getRecentLogs: (limit: number) => invoke(ipcRenderer.invoke('ai-usage:recent', { limit })),
     cleanup: (daysToKeep: number) => invoke(ipcRenderer.invoke('ai-usage:cleanup', { daysToKeep })),
-    exportCsv: (from: string, to: string) => invoke(ipcRenderer.invoke('ai-usage:export-csv', { from, to })),
+    exportCsv: (from: string, to: string) =>
+      invoke(ipcRenderer.invoke('ai-usage:export-csv', { from, to })),
   },
   attachment: {
-    add: (workLogId: number, data: any) => invoke(ipcRenderer.invoke('attachment:add', { workLogId, ...data })),
+    add: (workLogId: number, data: any) =>
+      invoke(ipcRenderer.invoke('attachment:add', { workLogId, ...data })),
     list: (workLogId: number) => invoke(ipcRenderer.invoke('attachment:list', workLogId)),
     delete: (id: number) => invoke(ipcRenderer.invoke('attachment:delete', id)),
     pickFile: () => invoke(ipcRenderer.invoke('attachment:pickFile')),
@@ -249,7 +317,8 @@ const api = {
     categories: {
       list: () => invoke(ipcRenderer.invoke('feed:categories:list')),
       add: (name: string) => invoke(ipcRenderer.invoke('feed:categories:add', name)),
-      update: (id: number, name: string) => invoke(ipcRenderer.invoke('feed:categories:update', id, name)),
+      update: (id: number, name: string) =>
+        invoke(ipcRenderer.invoke('feed:categories:update', id, name)),
       delete: (id: number) => invoke(ipcRenderer.invoke('feed:categories:delete', id)),
     },
     articles: {
@@ -260,12 +329,18 @@ const api = {
       star: (id: number) => invoke(ipcRenderer.invoke('feed:articles:star', id)),
       readAll: (feedId?: number) => invoke(ipcRenderer.invoke('feed:articles:readAll', feedId)),
     },
-    exportPdf: (html: string, title: string, metadata?: { feedTitle?: string; author?: string; publishedAt?: string; url?: string }) =>
-      invoke(ipcRenderer.invoke('feed:exportPdf', html, title, metadata)),
+    exportPdf: (
+      html: string,
+      title: string,
+      metadata?: { feedTitle?: string; author?: string; publishedAt?: string; url?: string },
+    ) => invoke(ipcRenderer.invoke('feed:exportPdf', html, title, metadata)),
     onExportPdfProgress: (cb: (data: { stage: string; percent: number }) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: { stage: string; percent: number }) => cb(data)
-      ipcRenderer.on('feed:exportPdf-progress', handler)
-      return () => ipcRenderer.removeListener('feed:exportPdf-progress', handler)
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: { stage: string; percent: number },
+      ) => cb(data);
+      ipcRenderer.on('feed:exportPdf-progress', handler);
+      return () => ipcRenderer.removeListener('feed:exportPdf-progress', handler);
     },
   },
   dotnet: {
@@ -290,42 +365,55 @@ const api = {
   },
   on: {
     quickCreate: (cb: (type: QuickCreateType) => void) => {
-      const logHandler = (): void => cb('log')
-      const taskHandler = (): void => cb('task')
-      ipcRenderer.on('quick-create:log', logHandler)
-      ipcRenderer.on('quick-create:task', taskHandler)
+      const logHandler = (): void => cb('log');
+      const taskHandler = (): void => cb('task');
+      ipcRenderer.on('quick-create:log', logHandler);
+      ipcRenderer.on('quick-create:task', taskHandler);
       return () => {
-        ipcRenderer.removeListener('quick-create:log', logHandler)
-        ipcRenderer.removeListener('quick-create:task', taskHandler)
-      }
+        ipcRenderer.removeListener('quick-create:log', logHandler);
+        ipcRenderer.removeListener('quick-create:task', taskHandler);
+      };
     },
     navigate: (cb: (page: NavigatePage) => void) => {
-      const pages: NavigatePage[] = ['worklog', 'kanban', 'report', 'reports', 'stats', 'calendar', 'chat', 'xray', 'onnx', 'ocr', 'pp', 'settings']
+      const pages: NavigatePage[] = [
+        'worklog',
+        'kanban',
+        'report',
+        'reports',
+        'stats',
+        'calendar',
+        'chat',
+        'xray',
+        'onnx',
+        'ocr',
+        'pp',
+        'settings',
+      ];
       const handlers = pages.map((page) => {
-        const handler = (): void => cb(page)
-        ipcRenderer.on(`navigate:${page}`, handler)
-        return { page, handler }
-      })
+        const handler = (): void => cb(page);
+        ipcRenderer.on(`navigate:${page}`, handler);
+        return { page, handler };
+      });
       return () => {
         handlers.forEach(({ page, handler }) =>
-          ipcRenderer.removeListener(`navigate:${page}`, handler)
-        )
-      }
+          ipcRenderer.removeListener(`navigate:${page}`, handler),
+        );
+      };
     },
     updateStatus: (cb: (state: AppUpdateState) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, state: AppUpdateState): void => cb(state)
-      ipcRenderer.on('app:update-status', handler)
+      const handler = (_event: Electron.IpcRendererEvent, state: AppUpdateState): void => cb(state);
+      ipcRenderer.on('app:update-status', handler);
       return () => {
-        ipcRenderer.removeListener('app:update-status', handler)
-      }
-    }
-  }
-}
+        ipcRenderer.removeListener('app:update-status', handler);
+      };
+    },
+  },
+};
 
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
+    contextBridge.exposeInMainWorld('electron', electronAPI);
+    contextBridge.exposeInMainWorld('api', api);
 
     // 暴露给渲染进程的 AI API，封装在 `ai` 命名空间下
     contextBridge.exposeInMainWorld('ai', {
@@ -337,19 +425,34 @@ if (process.contextIsolated) {
         throw new Error(`Invalid channel: ${channel}`);
       },
       on: (channel: string, listener: (...args: any[]) => void) => {
-        const validChannels = ['ai-stream-chunk', 'ai-stream-done', 'ai-stream-error', 'ai-stream-reasoning', 'ai-stream-retry', 'ai-stream-request-id'];
+        const validChannels = [
+          'ai-stream-chunk',
+          'ai-stream-done',
+          'ai-stream-error',
+          'ai-stream-reasoning',
+          'ai-stream-retry',
+          'ai-stream-request-id',
+        ];
         if (validChannels.includes(channel)) {
           ipcRenderer.on(channel, listener);
         }
       },
       removeAllListeners: (channel: string) => {
-        const validChannels = ['ai-stream-chunk', 'ai-stream-done', 'ai-stream-error', 'ai-stream-reasoning', 'ai-stream-retry', 'ai-stream-request-id'];
+        const validChannels = [
+          'ai-stream-chunk',
+          'ai-stream-done',
+          'ai-stream-error',
+          'ai-stream-reasoning',
+          'ai-stream-retry',
+          'ai-stream-request-id',
+        ];
         if (validChannels.includes(channel)) {
           ipcRenderer.removeAllListeners(channel);
         }
       },
       cancel: (requestId: string) => invoke(ipcRenderer.invoke('ai-chat-cancel', requestId)),
-      saveLLMToken: (modelId: string, token: string) => invoke(ipcRenderer.invoke('llm-tokens:save', { modelId, token })),
+      saveLLMToken: (modelId: string, token: string) =>
+        invoke(ipcRenderer.invoke('llm-tokens:save', { modelId, token })),
       getLLMToken: (modelId: string) => invoke(ipcRenderer.invoke('llm-tokens:get', modelId)),
       deleteLLMToken: (modelId: string) => invoke(ipcRenderer.invoke('llm-tokens:delete', modelId)),
     });
@@ -367,11 +470,11 @@ if (process.contextIsolated) {
       },
     });
   } catch (error) {
-    console.error(error)
+    console.error(error);
   }
 } else {
   // @ts-ignore
-  window.electron = electronAPI
+  window.electron = electronAPI;
   // @ts-ignore
-  window.api = api
+  window.api = api;
 }

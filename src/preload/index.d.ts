@@ -1,344 +1,483 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
+import { ElectronAPI } from '@electron-toolkit/preload';
 
 interface WorkLog {
-  id: number
-  content: string
-  category: string
-  created_at: string
-  task_id: number | null
+  id: number;
+  content: string;
+  category: string;
+  created_at: string;
+  task_id: number | null;
 }
 
 interface Report {
-  id: number
-  type: string
-  date_from: string
-  date_to: string
-  content: string
-  generated_at: string
+  id: number;
+  type: string;
+  date_from: string;
+  date_to: string;
+  content: string;
+  generated_at: string;
 }
 
 interface WeeklyReport {
-  period: { start: string; end: string }
+  period: { start: string; end: string };
   summary: {
-    totalLogs: number
-    totalTasksDone: number
-    totalTasksActive: number
-    meetingsAttended: number
-    activeDays: number
-  }
+    totalLogs: number;
+    totalTasksDone: number;
+    totalTasksActive: number;
+    meetingsAttended: number;
+    activeDays: number;
+  };
   dailyBreakdown: Array<{
-    date: string
-    logs: number
-    tasksDone: number
-    meetings: number
-    topCategories: Array<{ category: string; count: number }>
-  }>
-  highlights: string[]
+    date: string;
+    logs: number;
+    tasksDone: number;
+    meetings: number;
+    topCategories: Array<{ category: string; count: number }>;
+  }>;
+  highlights: string[];
 }
 
 interface Task {
-  id: number
-  title: string
-  description: string
-  status: 'todo' | 'in_progress' | 'done' | 'draft'
-  board_column: string
-  position: number
-  created_at: string
-  updated_at: string
-  completed_at: string | null
-  due_date: string | null
+  id: number;
+  title: string;
+  description: string;
+  status: 'todo' | 'in_progress' | 'done' | 'draft';
+  board_column: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  due_date: string | null;
 }
 
 interface CalendarEvent {
-  id: number
-  type: 'todo' | 'meeting'
-  title: string
-  description: string
-  event_date: string
-  start_time: string | null
-  end_time: string | null
-  location: string
-  completed: number
-  created_at: string
+  id: number;
+  type: 'todo' | 'meeting';
+  title: string;
+  description: string;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  location: string;
+  completed: number;
+  created_at: string;
 }
 
 interface Attachment {
-  id: number
-  work_log_id: number
-  type: 'file' | 'screenshot' | 'link'
-  original_name: string
-  stored_path: string | null
-  mime_type: string | null
-  url: string | null
-  file_size: number | null
-  thumbnail_path: string | null
-  created_at: string
+  id: number;
+  work_log_id: number;
+  type: 'file' | 'screenshot' | 'link';
+  original_name: string;
+  stored_path: string | null;
+  mime_type: string | null;
+  url: string | null;
+  file_size: number | null;
+  thumbnail_path: string | null;
+  created_at: string;
 }
 
-type QuickCreateType = 'log' | 'task'
-type NavigatePage = 'worklog' | 'kanban' | 'report' | 'reports' | 'stats' | 'calendar' | 'chat' | 'xray' | 'onnx' | 'ocr' | 'pp' | 'settings'
-type AppLanguage = 'system' | 'zh' | 'en'
-type UpdateStatus = 'idle' | 'checking' | 'available' | 'not_available' | 'downloading' | 'downloaded' | 'error'
+type QuickCreateType = 'log' | 'task';
+type NavigatePage =
+  | 'worklog'
+  | 'kanban'
+  | 'report'
+  | 'reports'
+  | 'stats'
+  | 'calendar'
+  | 'chat'
+  | 'xray'
+  | 'onnx'
+  | 'ocr'
+  | 'pp'
+  | 'settings';
+type AppLanguage = 'system' | 'zh' | 'en';
+type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not_available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error';
 
 interface AppUpdateState {
-  status: UpdateStatus
-  currentVersion: string
-  version?: string
-  releaseName?: string
-  releaseDate?: string
-  releaseNotes?: string
-  releaseUrl?: string
-  downloadUrl?: string
-  progress?: number
-  error?: string
-  canInstall?: boolean
+  status: UpdateStatus;
+  currentVersion: string;
+  version?: string;
+  releaseName?: string;
+  releaseDate?: string;
+  releaseNotes?: string;
+  releaseUrl?: string;
+  downloadUrl?: string;
+  progress?: number;
+  error?: string;
+  canInstall?: boolean;
 }
 
 interface API {
   send: (channel: string, ...args: any[]) => void;
   app: {
-    getAutoLaunch: () => Promise<boolean>;   // 新增
+    getAutoLaunch: () => Promise<boolean>; // 新增
     setAutoLaunch: (enable: boolean) => Promise<void>; // 新增
     getCloseAction: () => Promise<string>;
     setCloseAction: (action: string) => Promise<void>;
-    setLanguage: (language: AppLanguage) => Promise<void>
-    getVersion: () => Promise<string>
-    getUpdateState: () => Promise<AppUpdateState>
-    checkForUpdates: () => Promise<AppUpdateState>
-    installUpdate: () => Promise<boolean>
-    openBackupDir: () => Promise<string>
-  }
+    setLanguage: (language: AppLanguage) => Promise<void>;
+    getVersion: () => Promise<string>;
+    getUpdateState: () => Promise<AppUpdateState>;
+    checkForUpdates: () => Promise<AppUpdateState>;
+    installUpdate: () => Promise<boolean>;
+    openBackupDir: () => Promise<string>;
+  };
   on: {
-    quickCreate: (cb: (type: QuickCreateType) => void) => () => void
-    navigate: (cb: (page: NavigatePage) => void) => () => void
-    updateStatus: (cb: (state: AppUpdateState) => void) => () => void
-  }
+    quickCreate: (cb: (type: QuickCreateType) => void) => () => void;
+    navigate: (cb: (page: NavigatePage) => void) => () => void;
+    updateStatus: (cb: (state: AppUpdateState) => void) => () => void;
+  };
   task: {
-    add: (title: string, description?: string, status?: 'todo' | 'draft', createdAt?: string) => Promise<Task>
-    list: () => Promise<Task[]>
-    update: (id: number, updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'position' | 'due_date'>>) => Promise<Task | null>
-    delete: (id: number) => Promise<boolean>
-    reorder: (taskIds: number[], status: string) => Promise<void>
-    complete: (id: number, logContent: string) => Promise<Task | null>
-    completeOnly: (id: number) => Promise<Task | null>
-  }
+    add: (
+      title: string,
+      description?: string,
+      status?: 'todo' | 'draft',
+      createdAt?: string,
+    ) => Promise<Task>;
+    list: () => Promise<Task[]>;
+    update: (
+      id: number,
+      updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'position' | 'due_date'>>,
+    ) => Promise<Task | null>;
+    delete: (id: number) => Promise<boolean>;
+    reorder: (taskIds: number[], status: string) => Promise<void>;
+    complete: (id: number, logContent: string) => Promise<Task | null>;
+    completeOnly: (id: number) => Promise<Task | null>;
+  };
   worklog: {
-    add: (content: string, category?: string) => Promise<WorkLog>
-    list: (limit?: number, offset?: number) => Promise<WorkLog[]>
-    byDateRange: (from: string, to: string) => Promise<WorkLog[]>
-    search: (keyword: string) => Promise<WorkLog[]>
-    categories: () => Promise<string[]>
-    setCategory: (id: number, category: string) => Promise<void>
-    update: (id: number, content: string, category: string, created_at?: string) => Promise<WorkLog | null>
-    delete: (id: number) => Promise<boolean>
-    restore: (log: Pick<WorkLog, 'content' | 'category' | 'created_at' | 'task_id'>) => Promise<WorkLog>
-  }
+    add: (content: string, category?: string) => Promise<WorkLog>;
+    list: (limit?: number, offset?: number) => Promise<WorkLog[]>;
+    byDateRange: (from: string, to: string) => Promise<WorkLog[]>;
+    search: (keyword: string) => Promise<WorkLog[]>;
+    categories: () => Promise<string[]>;
+    setCategory: (id: number, category: string) => Promise<void>;
+    update: (
+      id: number,
+      content: string,
+      category: string,
+      created_at?: string,
+    ) => Promise<WorkLog | null>;
+    delete: (id: number) => Promise<boolean>;
+    restore: (
+      log: Pick<WorkLog, 'content' | 'category' | 'created_at' | 'task_id'>,
+    ) => Promise<WorkLog>;
+  };
   import: {
-    logs: () => Promise<{ imported: number; skipped: number; filePath: string } | null>
-  }
+    logs: () => Promise<{ imported: number; skipped: number; filePath: string } | null>;
+  };
   stats: {
     get: (days?: number) => Promise<{
-      daily: { date: string; log_count: number; task_completed: number }[]
-      totalLogs: number
-      totalTasksDone: number
-      totalTasksActive: number
-      streak: number
-    }>
-  }
+      daily: { date: string; log_count: number; task_completed: number }[];
+      totalLogs: number;
+      totalTasksDone: number;
+      totalTasksActive: number;
+      streak: number;
+    }>;
+  };
   event: {
     add: (input: {
-      type: 'todo' | 'meeting'
-      title: string
-      description?: string
-      event_date: string
-      start_time?: string | null
-      end_time?: string | null
-      location?: string
-    }) => Promise<CalendarEvent>
-    byDate: (date: string) => Promise<CalendarEvent[]>
-    byRange: (from: string, to: string) => Promise<CalendarEvent[]>
-    update: (id: number, updates: Partial<{
-      type: 'todo' | 'meeting'
-      title: string
-      description: string
-      event_date: string
-      start_time: string | null
-      end_time: string | null
-      location: string
-      completed: boolean
-    }>) => Promise<CalendarEvent | null>
-    delete: (id: number) => Promise<boolean>
-  }
+      type: 'todo' | 'meeting';
+      title: string;
+      description?: string;
+      event_date: string;
+      start_time?: string | null;
+      end_time?: string | null;
+      location?: string;
+    }) => Promise<CalendarEvent>;
+    byDate: (date: string) => Promise<CalendarEvent[]>;
+    byRange: (from: string, to: string) => Promise<CalendarEvent[]>;
+    update: (
+      id: number,
+      updates: Partial<{
+        type: 'todo' | 'meeting';
+        title: string;
+        description: string;
+        event_date: string;
+        start_time: string | null;
+        end_time: string | null;
+        location: string;
+        completed: boolean;
+      }>,
+    ) => Promise<CalendarEvent | null>;
+    delete: (id: number) => Promise<boolean>;
+  };
   report: {
-    generate: (dateFrom: string, dateTo: string) => Promise<Report>
-    weekly: (start: string, end: string) => Promise<WeeklyReport>
-    create: (type: string, dateFrom: string, dateTo: string, content: string) => Promise<Report>
-    list: (limit?: number) => Promise<Report[]>
-    update: (id: number, content: string) => Promise<Report | null>
-  }
+    weekly: (start: string, end: string) => Promise<WeeklyReport>;
+    create: (type: string, dateFrom: string, dateTo: string, content: string) => Promise<Report>;
+    list: (limit?: number) => Promise<Report[]>;
+    update: (id: number, content: string) => Promise<Report | null>;
+  };
   ai: {
     streamChat: (prompt: string) => Promise<{
-      onPort: (callback: (port: MessagePort) => void) => () => void
-    }>
-  }
+      onPort: (callback: (port: MessagePort) => void) => () => void;
+    }>;
+  };
   models: {
     ensure: (
       modelId: string,
       required: string[],
-      optional: string[]
-    ) => Promise<{ ok: boolean; missing: string[] }>
+      optional: string[],
+    ) => Promise<{ ok: boolean; missing: string[] }>;
     onProgress: (
-      cb: (p: { modelId: string; file: string; loaded: number; total: number; percent: number }) => void
-    ) => () => void
+      cb: (p: {
+        modelId: string;
+        file: string;
+        loaded: number;
+        total: number;
+        percent: number;
+      }) => void,
+    ) => () => void;
     /** 获取全局模型配置（chat / embedding）— 向后兼容 */
     getConfig: (type?: 'chat' | 'embedding') => Promise<{
-      type: 'chat' | 'embedding'
-      provider: string
-      baseUrl: string
-      model: string
-      hasApiKey: boolean
-      dimension?: number
-    }>
+      type: 'chat' | 'embedding';
+      provider: string;
+      baseUrl: string;
+      model: string;
+      hasApiKey: boolean;
+      dimension?: number;
+    }>;
     /** 获取完整全局模型配置（不含明文 token） */
     getGlobalConfig: () => Promise<{
       chatConfigs: Array<{
-        id: string; name: string; baseURL: string; model: string;
-        token: string; headers: string; temperature: number; max_tokens: number; top_p: number
-      }>
-      activeChatConfigId: string
+        id: string;
+        name: string;
+        baseURL: string;
+        model: string;
+        token: string;
+        headers: string;
+        temperature: number;
+        max_tokens: number;
+        top_p: number;
+      }>;
+      activeChatConfigId: string;
       embedding: {
-        provider: string; baseURL: string; model: string; dimension: number; token: string
-      }
-    }>
+        provider: string;
+        baseURL: string;
+        model: string;
+        dimension: number;
+        token: string;
+      };
+    }>;
     /** 保存完整全局模型配置 */
-    setGlobalConfig: (config: any) => Promise<{ ok: boolean }>
+    setGlobalConfig: (config: any) => Promise<{ ok: boolean }>;
     /** 获取当前活跃 Chat 配置 */
     getActiveChat: () => Promise<{
-      id: string; name: string; baseURL: string; model: string;
-      token: string; headers: string; temperature: number; max_tokens: number; top_p: number
-    } | null>
+      id: string;
+      name: string;
+      baseURL: string;
+      model: string;
+      token: string;
+      headers: string;
+      temperature: number;
+      max_tokens: number;
+      top_p: number;
+    } | null>;
     /** 设置活跃 Chat 配置 */
-    setActiveChat: (configId: string) => Promise<{ ok: boolean }>
-    /** 添加 Chat 配置 */
-    addChatConfig: (config: any) => Promise<{ ok: boolean }>
-    /** 更新 Chat 配置 */
-    updateChatConfig: (config: any) => Promise<{ ok: boolean }>
-    /** 删除 Chat 配置 */
-    deleteChatConfig: (configId: string) => Promise<{ ok: boolean }>
-    /** 更新 Embedding 配置列表 */
-    updateEmbedding: (params: { embeddingConfigs: any[]; activeEmbeddingConfigId: string }) => Promise<{ ok: boolean }>
-  }
+    setActiveChat: (configId: string) => Promise<{ ok: boolean }>;
+  };
   settings: {
-    get: (key: string) => Promise<string | null>
-    set: (key: string, value: string) => Promise<void>
-    delete: (key: string) => Promise<void>
-  }
+    get: (key: string) => Promise<string | null>;
+    set: (key: string, value: string) => Promise<void>;
+    delete: (key: string) => Promise<void>;
+  };
   radial: {
-    setEnabled: (enabled: boolean) => Promise<boolean>
-    setConfig?: (items: unknown) => Promise<boolean>
-    getConfig?: () => Promise<unknown>
-    close?: () => Promise<boolean>
-    pickProgram?: () => Promise<{ path: string; name: string } | null>
-    getFileIcon?: (filePath: string) => Promise<string | null>
-    launchProgram?: (programPath: string) => Promise<boolean>
-    onConfigChanged?: (cb: (items?: unknown) => void) => () => void
-  }
+    setEnabled: (enabled: boolean) => Promise<boolean>;
+    setConfig?: (items: unknown) => Promise<boolean>;
+    getConfig?: () => Promise<unknown>;
+    close?: () => Promise<boolean>;
+    pickProgram?: () => Promise<{ path: string; name: string } | null>;
+    getFileIcon?: (filePath: string) => Promise<string | null>;
+    launchProgram?: (programPath: string) => Promise<boolean>;
+    onConfigChanged?: (cb: (items?: unknown) => void) => () => void;
+  };
   notification: {
     show: (options: {
-      title: string
-      body: string
-      group?: string
-      tag?: string
-      urgency?: 'normal' | 'low' | 'critical'
-      silent?: boolean
-    }) => Promise<{ ok: boolean }>
-  }
+      title: string;
+      body: string;
+      group?: string;
+      tag?: string;
+      urgency?: 'normal' | 'low' | 'critical';
+      silent?: boolean;
+    }) => Promise<{ ok: boolean }>;
+  };
   shortcut: {
-    update: (key: string, value: string) => Promise<boolean>
-  }
+    update: (key: string, value: string) => Promise<boolean>;
+  };
   export: {
-    logs: (format: 'csv' | 'markdown') => Promise<string | null>
-    report: (content: string, dateRange: string) => Promise<string | null>
-  }
+    logs: (format: 'csv' | 'markdown') => Promise<string | null>;
+    report: (content: string, dateRange: string) => Promise<string | null>;
+  };
   aiUsage: {
-    log: (record: Record<string, unknown>) => Promise<void>
-    getDailyStats: (from: string, to: string) => Promise<Array<{ date: string; call_count: number; total_tokens: number; total_cost: number; avg_latency: number }>>
-    getModelStats: (from: string, to: string) => Promise<Array<{ model_id: string; model_name: string; call_count: number; total_tokens: number; total_cost: number }>>
-    getTypeStats: (from: string, to: string) => Promise<Array<{ usage_type: string; call_count: number; total_tokens: number; total_cost: number }>>
-    getCostSummary: (from: string, to: string) => Promise<{ total_cost: number; total_calls: number; total_tokens: number; by_model: Array<{ model_id: string; model_name: string; call_count: number; total_tokens: number; total_cost: number }> }>
-    getTrend: (from: string, to: string) => Promise<Array<{ date: string; model_id: string; model_name: string; tokens: number; cost: number; calls: number }>>
-    getRecentLogs: (limit: number) => Promise<Array<{ id: number; model_id: string; model_name: string; provider: string; usage_type: string; input_tokens: number; output_tokens: number; total_tokens: number; cost_usd: number; latency_ms: number; success: number; error_msg: string | null; created_at: string }>>
-    cleanup: (daysToKeep: number) => Promise<number>
-    exportCsv: (from: string, to: string) => Promise<string>
-  }
+    log: (record: Record<string, unknown>) => Promise<void>;
+    getDailyStats: (
+      from: string,
+      to: string,
+    ) => Promise<
+      Array<{
+        date: string;
+        call_count: number;
+        total_tokens: number;
+        total_cost: number;
+        avg_latency: number;
+      }>
+    >;
+    getModelStats: (
+      from: string,
+      to: string,
+    ) => Promise<
+      Array<{
+        model_id: string;
+        model_name: string;
+        call_count: number;
+        total_tokens: number;
+        total_cost: number;
+      }>
+    >;
+    getTypeStats: (
+      from: string,
+      to: string,
+    ) => Promise<
+      Array<{ usage_type: string; call_count: number; total_tokens: number; total_cost: number }>
+    >;
+    getCostSummary: (
+      from: string,
+      to: string,
+    ) => Promise<{
+      total_cost: number;
+      total_calls: number;
+      total_tokens: number;
+      by_model: Array<{
+        model_id: string;
+        model_name: string;
+        call_count: number;
+        total_tokens: number;
+        total_cost: number;
+      }>;
+    }>;
+    getTrend: (
+      from: string,
+      to: string,
+    ) => Promise<
+      Array<{
+        date: string;
+        model_id: string;
+        model_name: string;
+        tokens: number;
+        cost: number;
+        calls: number;
+      }>
+    >;
+    getRecentLogs: (
+      limit: number,
+    ) => Promise<
+      Array<{
+        id: number;
+        model_id: string;
+        model_name: string;
+        provider: string;
+        usage_type: string;
+        input_tokens: number;
+        output_tokens: number;
+        total_tokens: number;
+        cost_usd: number;
+        latency_ms: number;
+        success: number;
+        error_msg: string | null;
+        created_at: string;
+      }>
+    >;
+    cleanup: (daysToKeep: number) => Promise<number>;
+    exportCsv: (from: string, to: string) => Promise<string>;
+  };
   attachment: {
-    add: (workLogId: number, data: {
-      type: 'file' | 'screenshot' | 'link'
-      originalName: string
-      filePath?: string
-      base64Data?: string
-      mimeType?: string
-      url?: string
-    }) => Promise<Attachment>
-    list: (workLogId: number) => Promise<Attachment[]>
-    delete: (id: number) => Promise<boolean>
-    pickFile: () => Promise<{ path: string; name: string }[] | null>
-  }
+    add: (
+      workLogId: number,
+      data: {
+        type: 'file' | 'screenshot' | 'link';
+        originalName: string;
+        filePath?: string;
+        base64Data?: string;
+        mimeType?: string;
+        url?: string;
+      },
+    ) => Promise<Attachment>;
+    list: (workLogId: number) => Promise<Attachment[]>;
+    delete: (id: number) => Promise<boolean>;
+    pickFile: () => Promise<{ path: string; name: string }[] | null>;
+  };
   window: {
-    minimize: () => void
-    maximize: () => void
-    close: () => void
-    getMaterial: () => Promise<string>
-    setMaterial: (material: string) => Promise<{ success: boolean }>
-  }
+    minimize: () => void;
+    maximize: () => void;
+    close: () => void;
+    getMaterial: () => Promise<string>;
+    setMaterial: (material: string) => Promise<{ success: boolean }>;
+  };
   vector: {
-    initialize: () => Promise<{ ok: boolean }>
-    indexWorklog: (id: number, content: string) => Promise<boolean>
-    search: (query: string, options?: { type?: string; topK?: number }) => Promise<Array<{ uri: string; score: number; text: string; metadata: Record<string, unknown> }>>
-    stats: () => Promise<{ version: number; items: number; metadataConfig: Record<string, unknown> }>
-    remove: (uri: string) => Promise<{ ok: boolean }>
-    rebuild: () => Promise<{ ok: boolean }>
-    autoIndex: () => Promise<{ indexed: number; errors: number; skipped: number }>
-  }
+    initialize: () => Promise<{ ok: boolean }>;
+    indexWorklog: (id: number, content: string) => Promise<boolean>;
+    search: (
+      query: string,
+      options?: { type?: string; topK?: number },
+    ) => Promise<
+      Array<{ uri: string; score: number; text: string; metadata: Record<string, unknown> }>
+    >;
+    stats: () => Promise<{
+      version: number;
+      items: number;
+      metadataConfig: Record<string, unknown>;
+    }>;
+    remove: (uri: string) => Promise<{ ok: boolean }>;
+    rebuild: () => Promise<{ ok: boolean }>;
+    autoIndex: () => Promise<{ indexed: number; errors: number; skipped: number }>;
+  };
   dotnet: {
-    invoke: (method: string, ...args: unknown[]) => Promise<string | number>
-  }
+    invoke: (method: string, ...args: unknown[]) => Promise<string | number>;
+  };
   feed: {
-    add: (url: string, categoryId?: number | null) => Promise<any>
-    list: () => Promise<any[]>
-    update: (id: number, updates: Record<string, unknown>) => Promise<any>
-    delete: (id: number) => Promise<boolean>
-    refresh: (id: number) => Promise<{ newArticles: number }>
-    refreshAll: () => Promise<Array<{ feedId: number; result: { newArticles: number } }>>
-    importOpml: (xml: string) => Promise<{ feeds: any[]; categories: any[] }>
-    exportOpml: () => Promise<string>
+    add: (url: string, categoryId?: number | null) => Promise<any>;
+    list: () => Promise<any[]>;
+    update: (id: number, updates: Record<string, unknown>) => Promise<any>;
+    delete: (id: number) => Promise<boolean>;
+    refresh: (id: number) => Promise<{ newArticles: number }>;
+    refreshAll: () => Promise<Array<{ feedId: number; result: { newArticles: number } }>>;
+    importOpml: (xml: string) => Promise<{ feeds: any[]; categories: any[] }>;
+    exportOpml: () => Promise<string>;
     categories: {
-      list: () => Promise<any[]>
-      add: (name: string) => Promise<any>
-      update: (id: number, name: string) => Promise<any>
-      delete: (id: number) => Promise<boolean>
-    }
+      list: () => Promise<any[]>;
+      add: (name: string) => Promise<any>;
+      update: (id: number, name: string) => Promise<any>;
+      delete: (id: number) => Promise<boolean>;
+    };
     articles: {
-      list: (feedId?: number, filter?: string, limit?: number, offset?: number) => Promise<any[]>
-      read: (id: number) => Promise<void>
-      unread: (id: number) => Promise<void>
-      star: (id: number) => Promise<void>
-      readAll: (feedId?: number) => Promise<void>
-    }
-    exportPdf: (html: string, title: string, metadata?: {
-      feedTitle?: string
-      author?: string
-      publishedAt?: string
-      url?: string
-    }) => Promise<{ success: boolean; filePath?: string }>
-    onExportPdfProgress: (cb: (data: { stage: string; percent: number }) => void) => () => void
-  }
+      list: (feedId?: number, filter?: string, limit?: number, offset?: number) => Promise<any[]>;
+      read: (id: number) => Promise<void>;
+      unread: (id: number) => Promise<void>;
+      star: (id: number) => Promise<void>;
+      readAll: (feedId?: number) => Promise<void>;
+    };
+    exportPdf: (
+      html: string,
+      title: string,
+      metadata?: {
+        feedTitle?: string;
+        author?: string;
+        publishedAt?: string;
+        url?: string;
+      },
+    ) => Promise<{ success: boolean; filePath?: string }>;
+    onExportPdfProgress: (cb: (data: { stage: string; percent: number }) => void) => () => void;
+  };
 }
 
 declare global {
   interface Window {
-    electron: ElectronAPI
-    api: API
+    electron: ElectronAPI;
+    api: API;
     ai: {
       invoke: (channel: string, ...args: any[]) => Promise<any>;
       on: (channel: string, listener: (...args: any[]) => void) => void;
@@ -361,16 +500,16 @@ declare global {
       };
     };
     nativeAPI: {
-      sayHello: (name: string) => string
+      sayHello: (name: string) => string;
     };
     __splash_env__: {
-      MODE: string
-      DEV: boolean
-      PROD: boolean
-      BASE_URL: string
-      VITE_APP_VERSION?: string
-      VITE_APP_TITLE?: string
-    }
+      MODE: string;
+      DEV: boolean;
+      PROD: boolean;
+      BASE_URL: string;
+      VITE_APP_VERSION?: string;
+      VITE_APP_TITLE?: string;
+    };
   }
 }
 

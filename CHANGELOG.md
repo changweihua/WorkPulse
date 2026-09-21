@@ -12,12 +12,17 @@
 
 ### 修复
 
+- 🐞 fix: `set-close-action` IPC 参数校验失败 — `CloseActionSchema` 枚举值 `'close'` 与实际使用的 `'quit'` 不匹配，修正为 `z.enum(['minimize', 'quit', 'hide'])`
 - 🐞 fix: 添加 `.npmrc` 和 CI workflow 配置 `--legacy-peer-deps`，解决 `@react-three/fiber@9.x` 与 `react@19.3.0` 的 peer dependency 冲突
 - 🐞 fix: 修复 lint-staged 中 oxlint 在 Windows 上无法解析单文件路径的问题，改为目录扫描模式
 - 🎈 perf: 新增 `scripts/commit.ts` 提交辅助脚本，AI Agent 使用 `npx tsx scripts/commit.ts <type> "<subject>"` 提交，避免 Windows 下 emoji 编码问题
 
 - 🐞 fix: 模型配置页"添加模型"按钮点击无反应 — 表单渲染从 map() 循环内移到循环外，新增模型 ID 不在列表中导致 isEditing 永远为 false
 - 🐞 fix: Embedding Provider 筛选标签数量与 Chat 不一致 — EMBED_PROVIDERS 新增 anthropic，两栏均为 8 个 Provider
+
+### 移除
+
+- 🗑️ remove: 清理 preload 中 5 个无主进程 handler 的 dead code IPC 通道（`report:generate`、`model:add-chat-config`、`model:update-chat-config`、`model:delete-chat-config`、`model:update-embedding`）及对应的类型声明和 `deleteChatConfig()` 函数
 
 ### 变更
 

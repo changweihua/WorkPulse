@@ -41,19 +41,21 @@ export const AiChatStreamSchema = z.object({
       z.object({
         role: z.enum(['system', 'user', 'assistant']),
         content: z.string(),
-      })
+      }),
     )
     .max(200),
-  config: z.object({
-    id: z.string().optional(),
-    baseURL: z.string().optional(),
-    model: z.string().min(1).optional(),
-    token: z.string().optional(),
-    headers: z.string().optional(),
-    temperature: z.number().min(0).max(2).optional(),
-    max_tokens: z.number().min(1).max(128000).optional(),
-    top_p: z.number().min(0).max(1).optional(),
-  }).optional(),
+  config: z
+    .object({
+      id: z.string().optional(),
+      baseURL: z.string().optional(),
+      model: z.string().min(1).optional(),
+      token: z.string().optional(),
+      headers: z.string().optional(),
+      temperature: z.number().min(0).max(2).optional(),
+      max_tokens: z.number().min(1).max(128000).optional(),
+      top_p: z.number().min(0).max(1).optional(),
+    })
+    .optional(),
 });
 
 export const AiStreamChatSchema = z.object({
@@ -250,10 +252,12 @@ export const AiChatCancelSchema = z.object({
 
 export const VectorSearchSchema = z.object({
   query: z.string().min(1).max(1000),
-  options: z.object({
-    type: z.string().optional(),
-    topK: z.number().int().min(1).max(100).optional(),
-  }).optional(),
+  options: z
+    .object({
+      type: z.string().optional(),
+      topK: z.number().int().min(1).max(100).optional(),
+    })
+    .optional(),
 });
 
 export const VectorIndexWorklogSchema = z.object({
@@ -320,12 +324,14 @@ export const FeedArticlesReadAllSchema = z.object({
 export const FeedExportPdfSchema = z.object({
   html: z.string().max(1000000),
   title: z.string().min(1).max(500),
-  metadata: z.object({
-    feedTitle: z.string().optional(),
-    author: z.string().optional(),
-    publishedAt: z.string().optional(),
-    url: z.string().optional(),
-  }).optional(),
+  metadata: z
+    .object({
+      feedTitle: z.string().optional(),
+      author: z.string().optional(),
+      publishedAt: z.string().optional(),
+      url: z.string().optional(),
+    })
+    .optional(),
 });
 
 // ─── Attachment Schemas ──────────────────────────────────────────────────────
@@ -355,7 +361,7 @@ export const AutoLaunchSchema = z.object({
 });
 
 export const CloseActionSchema = z.object({
-  action: z.enum(['minimize', 'close', 'hide']),
+  action: z.enum(['minimize', 'quit', 'hide']),
 });
 
 export const WindowMaterialSchema = z.object({

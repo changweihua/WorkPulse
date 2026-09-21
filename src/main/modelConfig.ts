@@ -519,28 +519,6 @@ export function getMonthlyTokenCount(modelId: string, quotaGroup: string): numbe
   }
 }
 
-/** 删除 Chat 配置 */
-export function deleteChatConfig(configId: string): void {
-  const db = getDatabase();
-  db.prepare('DELETE FROM model_configs WHERE id = ?').run(configId);
-  deleteToken(configId);
-
-  // 如果删除的是活跃配置，自动切换到第一个
-  const active = db
-    .prepare("SELECT id FROM model_configs WHERE config_type = 'chat' AND is_active = 1")
-    .get() as { id: string } | undefined;
-  if (!active) {
-    const first = db
-      .prepare(
-        "SELECT id FROM model_configs WHERE config_type = 'chat' ORDER BY sort_order LIMIT 1",
-      )
-      .get() as { id: string } | undefined;
-    if (first) {
-      db.prepare('UPDATE model_configs SET is_active = 1 WHERE id = ?').run(first.id);
-    }
-  }
-}
-
 // ==================== 供主进程直接使用 ====================
 
 /**
