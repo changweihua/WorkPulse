@@ -1,29 +1,32 @@
-import React, { useRef } from 'react'
-import { useRssStore } from '@/stores/rssStore'
-import { Download, Upload } from 'lucide-react'
+import React, { useRef } from 'react';
+import { useRssStore } from '@/stores/rssStore';
+import { useShallow } from 'zustand/react/shallow';
+import { Download, Upload } from 'lucide-react';
 
 export default function OpmlImportExport() {
-  const { exportOpml, importOpml } = useRssStore()
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { exportOpml, importOpml } = useRssStore(
+    useShallow((s) => ({ exportOpml: s.exportOpml, importOpml: s.importOpml })),
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = async () => {
-    const xml = await exportOpml()
-    const blob = new Blob([xml], { type: 'text/xml' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'workpulse-feeds.opml'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+    const xml = await exportOpml();
+    const blob = new Blob([xml], { type: 'text/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'workpulse-feeds.opml';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const text = await file.text()
-    await importOpml(text)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    await importOpml(text);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   return (
     <div className="flex items-center gap-1.5">
@@ -51,5 +54,5 @@ export default function OpmlImportExport() {
         className="hidden"
       />
     </div>
-  )
+  );
 }

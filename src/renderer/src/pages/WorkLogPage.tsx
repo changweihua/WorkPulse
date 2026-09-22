@@ -20,6 +20,7 @@ import { Fade } from '../components/Motion';
 import { SkeletonLine, SkeletonRect } from '../components/Skeleton';
 import { DailySummaryModal } from '../components/DailySummaryModal';
 import { useWorkLogStore } from '../stores/worklogStore';
+import { useShallow } from 'zustand/react/shallow';
 import { formatDate, formatTime, groupLogsByDate } from '../lib/dateUtils';
 import { useI18n } from '../stores/languageStore';
 import type { TranslationKey } from '../lib/i18n';
@@ -311,7 +312,24 @@ function WorkLogPage(): ReactNode {
     searchKeyword,
     loading,
     updateLog,
-  } = useWorkLogStore();
+  } = useWorkLogStore(
+    useShallow((s) => ({
+      logs: s.logs,
+      fetchLogs: s.fetchLogs,
+      loadMore: s.loadMore,
+      hasMore: s.hasMore,
+      addLog: s.addLog,
+      deleteLog: s.deleteLog,
+      undoDelete: s.undoDelete,
+      dismissUndo: s.dismissUndo,
+      lastDeleted: s.lastDeleted,
+      searchLogs: s.searchLogs,
+      clearSearch: s.clearSearch,
+      searchKeyword: s.searchKeyword,
+      loading: s.loading,
+      updateLog: s.updateLog,
+    })),
+  );
   const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
   const [shaking, setShaking] = useState(false);

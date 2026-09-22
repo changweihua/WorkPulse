@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import { useThemeStore, ACCENTS, type Theme } from '../stores/themeStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useI18n, useLanguageStore } from '../stores/languageStore';
 import type { AppLanguage, ResolvedLanguage } from '../lib/i18n';
 
@@ -197,7 +198,14 @@ function SettingsPage(): ReactNode {
     currentVersion: '',
   });
   const toast = useToast();
-  const { theme, setTheme, accent, setAccent } = useThemeStore();
+  const { theme, setTheme, accent, setAccent } = useThemeStore(
+    useShallow((s) => ({
+      theme: s.theme,
+      setTheme: s.setTheme,
+      accent: s.accent,
+      setAccent: s.setAccent,
+    })),
+  );
   const styleOptions = [
     t('settings.styleConcise'),
     t('settings.styleDetailed'),

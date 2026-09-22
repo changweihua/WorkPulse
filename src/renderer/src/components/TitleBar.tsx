@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import { useI18n } from '../stores/languageStore';
 
 export function TitleBar() {
@@ -25,18 +25,20 @@ export function TitleBar() {
 
   return (
     <div
-      style={{
-        height: 'env(titlebar-area-height, 44px)',
-        display: 'flex',
-        alignItems: 'center',
-        paddingLeft: 'env(titlebar-area-x, 14px)',
-        paddingRight: 'calc(100vw - env(titlebar-area-width, 100vw))',
-        WebkitAppRegion: 'drag',
-        flexShrink: 0,
-        userSelect: 'none',
-        position: 'relative',
-        zIndex: 50,
-      } as React.CSSProperties}
+      style={
+        {
+          height: 'env(titlebar-area-height, 44px)',
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: 'env(titlebar-area-x, 14px)',
+          paddingRight: 'calc(100vw - env(titlebar-area-width, 100vw))',
+          WebkitAppRegion: 'drag',
+          flexShrink: 0,
+          userSelect: 'none',
+          position: 'relative',
+          zIndex: 50,
+        } as React.CSSProperties
+      }
     >
       <span
         className="text-zinc-800 dark:text-white/90"

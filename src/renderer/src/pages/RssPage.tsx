@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useRssStore } from '@/stores/rssStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '@/components/Toast';
 import { SkeletonLine, SkeletonRect } from '@/components/Skeleton';
 import { FadeIn } from '@/components/Motion';
@@ -53,7 +54,17 @@ function RssSkeleton(): React.ReactNode {
 
 export default function RssPage() {
   const { loadFeeds, loadCategories, loadArticles, error, clearError, feeds, articles } =
-    useRssStore();
+    useRssStore(
+      useShallow((s) => ({
+        loadFeeds: s.loadFeeds,
+        loadCategories: s.loadCategories,
+        loadArticles: s.loadArticles,
+        error: s.error,
+        clearError: s.clearError,
+        feeds: s.feeds,
+        articles: s.articles,
+      })),
+    );
   const toast = useToast();
   const prevErrorRef = useRef<string | null>(null);
   const loading = feeds.length === 0 && articles.length === 0;

@@ -6,6 +6,22 @@
 
 ### 新增
 
+- ✨ feat: 侧边栏响应式自动收起/展开 — 小屏幕（<768px）自动收起，大屏幕（≥768px）自动展开，尊重用户手动操作
+- ✨ feat: RULES.md — 基于实际依赖版本生成的代码审查规则文档（12 章节覆盖 React 19/Zustand v5/Drizzle/Zod v4/Tailwind v4/Motion/Vite 8/TS 7/Router v7）
+- ✨ feat: FIX-PLAN.md — 代码审查修复方案文档
+- 🦄 refactor: React Router 导入路径迁移 — 6 个文件的 hooks/组件从 `react-router-dom` 迁移至 `react-router`（`createHashRouter` 和 `RouterProvider` 保留 `react-router-dom`）
+- 🦄 refactor: Zustand v5 规范对齐 — 6 个 store 改为 `create<T>()(...)` 双调用，12 个消费组件添加 `useShallow` 防止不必要重渲染
+- 🦄 refactor: CSS 设计规范对齐 — `surface-card` 毛玻璃参数统一为 `blur(16px) saturate(180%)`，新增 `chrome-bg`/`panel-dark`/`surface-subtle-dark` token 替代硬编码 hex
+
+### 修复
+
+- 🐞 fix: 全局 `focus-visible` 焦点环 — 新增 CSS 基础规则，40+ 可交互元素获得键盘导航支持（可访问性修复）
+- 🐞 fix: 焦点环颜色纠正 — NavLayout 和 AIChatPanel 中 `ring-sky-500`/`ring-violet-500` 统一改为 `ring-blue-400`
+- 🐞 fix: Toast Context.Provider 迁移 — `<ToastContext.Provider>` 改为 React 19 推荐的 `<Context value={}>` 写法
+- 🐞 fix: 移除导航链接 `hover:scale` 违反动画禁令的代码
+
+### 变更
+
 - 🦄 refactor: 引入 Drizzle ORM — 新增 `schema.ts`（12 张表声明）、`db/index.ts`（基础设施）、`drizzle.config.ts`；db.ts/aiUsage.ts/attachments.ts 迁移至 Drizzle ORM + raw SQL 混合模式，保留所有导出接口
 - ✨ feat: 新增 `scripts/release.ts` 一键发布脚本，自动完成版本更新→文件同步→提交→打 tag→推送，支持 `patch/minor/major/精确版本号` 参数
 - ✨ feat: AIChatPanel 无限滚动 — 使用 `@reactuses/core` 的 `useInfiniteScroll`，初始显示最近 50 条消息，向上滚动自动加载更多，保持滚动位置不变

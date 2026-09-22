@@ -1,37 +1,48 @@
-import React, { useState } from 'react'
-import { useRssStore } from '@/stores/rssStore'
-import { X, Plus, Loader2, AlertCircle } from 'lucide-react'
+import React, { useState } from 'react';
+import { useRssStore } from '@/stores/rssStore';
+import { useShallow } from 'zustand/react/shallow';
+import { X, Plus, Loader2, AlertCircle } from 'lucide-react';
 
 export default function AddFeedDialog() {
-  const { showAddFeedDialog, setShowAddFeedDialog, addFeed, categories } = useRssStore()
-  const [url, setUrl] = useState('')
-  const [categoryId, setCategoryId] = useState<number | null>(null)
-  const [isAdding, setIsAdding] = useState(false)
-  const [error, setError] = useState('')
+  const { showAddFeedDialog, setShowAddFeedDialog, addFeed, categories } = useRssStore(
+    useShallow((s) => ({
+      showAddFeedDialog: s.showAddFeedDialog,
+      setShowAddFeedDialog: s.setShowAddFeedDialog,
+      addFeed: s.addFeed,
+      categories: s.categories,
+    })),
+  );
+  const [url, setUrl] = useState('');
+  const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [error, setError] = useState('');
 
-  if (!showAddFeedDialog) return null
+  if (!showAddFeedDialog) return null;
 
   const handleAdd = async () => {
-    if (!url.trim()) return
-    setError('')
-    setIsAdding(true)
+    if (!url.trim()) return;
+    setError('');
+    setIsAdding(true);
     try {
-      await addFeed(url.trim(), categoryId)
-      setUrl('')
-      setCategoryId(null)
-      setShowAddFeedDialog(false)
+      await addFeed(url.trim(), categoryId);
+      setUrl('');
+      setCategoryId(null);
+      setShowAddFeedDialog(false);
     } catch (e: any) {
-      setError(e?.message ?? '添加订阅失败')
+      setError(e?.message ?? '添加订阅失败');
     } finally {
-      setIsAdding(false)
+      setIsAdding(false);
     }
-  }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowAddFeedDialog(false)} />
-      
+      <div
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+        onClick={() => setShowAddFeedDialog(false)}
+      />
+
       {/* Dialog */}
       <div className="relative surface-elevated rounded-2xl shadow-xl w-[420px] max-w-[90vw]">
         {/* Header */}
@@ -48,11 +59,16 @@ export default function AddFeedDialog() {
         {/* Body */}
         <div className="px-5 py-4 space-y-3">
           <div>
-            <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">订阅地址</label>
+            <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">
+              订阅地址
+            </label>
             <input
               type="url"
               value={url}
-              onChange={(e) => { setUrl(e.target.value); setError('') }}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                setError('');
+              }}
               placeholder="https://example.com/feed.xml"
               className="w-full px-3 py-2 text-sm surface-input rounded-lg border-0 outline-none text-[var(--color-text)] placeholder:text-[var(--color-text-tertiary)]"
               autoFocus
@@ -61,15 +77,19 @@ export default function AddFeedDialog() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">分类（可选）</label>
+            <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">
+              分类（可选）
+            </label>
             <select
               value={categoryId ?? ''}
               onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : null)}
               className="w-full px-3 py-2 text-sm surface-input rounded-lg border-0 outline-none text-[var(--color-text)]"
             >
               <option value="">未分类</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
               ))}
             </select>
           </div>
@@ -95,11 +115,15 @@ export default function AddFeedDialog() {
             disabled={!url.trim() || isAdding}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
           >
-            {isAdding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+            {isAdding ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Plus className="w-3.5 h-3.5" />
+            )}
             订阅
           </button>
         </div>
       </div>
     </div>
-  )
+  );
 }

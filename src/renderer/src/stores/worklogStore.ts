@@ -1,37 +1,37 @@
-import { create } from 'zustand'
+import { create } from 'zustand';
 
 interface WorkLog {
-  id: number
-  content: string
-  category: string
-  created_at: string
-  task_id: number | null
+  id: number;
+  content: string;
+  category: string;
+  created_at: string;
+  task_id: number | null;
 }
 
 interface WorkLogStore {
-  logs: WorkLog[]
-  loading: boolean
-  hasMore: boolean
-  searchKeyword: string
-  lastDeleted: WorkLog | null
-  fetchLogs: () => Promise<void>
-  loadMore: () => Promise<void>
-  prefetchNext: () => Promise<void>
-  searchLogs: (keyword: string) => Promise<void>
-  clearSearch: () => Promise<void>
-  addLog: (content: string, category?: string) => Promise<WorkLog>
-  deleteLog: (id: number) => Promise<void>
-  undoDelete: () => Promise<void>
-  dismissUndo: () => void
-  updateLog: (id: number, content: string, category: string, created_at?: string) => Promise<void>
+  logs: WorkLog[];
+  loading: boolean;
+  hasMore: boolean;
+  searchKeyword: string;
+  lastDeleted: WorkLog | null;
+  fetchLogs: () => Promise<void>;
+  loadMore: () => Promise<void>;
+  prefetchNext: () => Promise<void>;
+  searchLogs: (keyword: string) => Promise<void>;
+  clearSearch: () => Promise<void>;
+  addLog: (content: string, category?: string) => Promise<WorkLog>;
+  deleteLog: (id: number) => Promise<void>;
+  undoDelete: () => Promise<void>;
+  dismissUndo: () => void;
+  updateLog: (id: number, content: string, category: string, created_at?: string) => Promise<void>;
 }
 
-const PAGE_SIZE = 50
+const PAGE_SIZE = 50;
 
 // Simple cache for prefetched work log data
-let prefetchedData: WorkLog[] | null = null
+let prefetchedData: WorkLog[] | null = null;
 
-export const useWorkLogStore = create<WorkLogStore>((set, get) => ({
+export const useWorkLogStore = create<WorkLogStore>()((set, get) => ({
   logs: [],
   loading: false,
   hasMore: true,
@@ -39,94 +39,94 @@ export const useWorkLogStore = create<WorkLogStore>((set, get) => ({
   lastDeleted: null,
 
   fetchLogs: async () => {
-    set({ loading: true })
+    set({ loading: true });
     try {
-      const logs = await window.api.worklog.list(PAGE_SIZE, 0)
-      set({ logs, hasMore: logs.length >= PAGE_SIZE })
+      const logs = await window.api.worklog.list(PAGE_SIZE, 0);
+      set({ logs, hasMore: logs.length >= PAGE_SIZE });
     } finally {
-      set({ loading: false })
+      set({ loading: false });
     }
   },
 
   loadMore: async () => {
-    if (get().loading || !get().hasMore || get().searchKeyword) return
-    set({ loading: true })
+    if (get().loading || !get().hasMore || get().searchKeyword) return;
+    set({ loading: true });
     try {
       // Use prefetched data if available
-      let more = prefetchedData
+      let more = prefetchedData;
       if (!more) {
-        more = await window.api.worklog.list(PAGE_SIZE, get().logs.length)
+        more = await window.api.worklog.list(PAGE_SIZE, get().logs.length);
       }
-      prefetchedData = null
+      prefetchedData = null;
       set({
         logs: [...get().logs, ...more],
-        hasMore: more.length >= PAGE_SIZE
-      })
+        hasMore: more.length >= PAGE_SIZE,
+      });
     } finally {
-      set({ loading: false })
+      set({ loading: false });
     }
   },
 
   prefetchNext: async () => {
-    if (!get().hasMore || get().searchKeyword) return
-    const offset = get().logs.length
-    const data = await window.api.worklog.list(PAGE_SIZE, offset)
-    prefetchedData = data.length > 0 ? data : null
+    if (!get().hasMore || get().searchKeyword) return;
+    const offset = get().logs.length;
+    const data = await window.api.worklog.list(PAGE_SIZE, offset);
+    prefetchedData = data.length > 0 ? data : null;
   },
 
   searchLogs: async (keyword: string) => {
-    set({ loading: true, searchKeyword: keyword })
+    set({ loading: true, searchKeyword: keyword });
     try {
-      const logs = await window.api.worklog.search(keyword)
-      set({ logs })
+      const logs = await window.api.worklog.search(keyword);
+      set({ logs });
     } finally {
-      set({ loading: false })
+      set({ loading: false });
     }
   },
 
   clearSearch: async () => {
-    set({ searchKeyword: '' })
-    await get().fetchLogs()
+    set({ searchKeyword: '' });
+    await get().fetchLogs();
   },
 
   addLog: async (content: string, category?: string) => {
-    const log = await window.api.worklog.add(content, category)
+    const log = await window.api.worklog.add(content, category);
     // If searching, re-run search; otherwise prepend
     if (get().searchKeyword) {
-      await get().searchLogs(get().searchKeyword)
+      await get().searchLogs(get().searchKeyword);
     } else {
-      set({ logs: [log, ...get().logs] })
+      set({ logs: [log, ...get().logs] });
     }
-    return log
+    return log;
   },
 
   deleteLog: async (id: number) => {
-    const deleted = get().logs.find((l) => l.id === id)
-    await window.api.worklog.delete(id)
-    set({ logs: get().logs.filter((l) => l.id !== id), lastDeleted: deleted || null })
+    const deleted = get().logs.find((l) => l.id === id);
+    await window.api.worklog.delete(id);
+    set({ logs: get().logs.filter((l) => l.id !== id), lastDeleted: deleted || null });
   },
 
   undoDelete: async () => {
-    const deleted = get().lastDeleted
-    if (!deleted) return
-    await window.api.worklog.restore(deleted)
-    set({ lastDeleted: null })
+    const deleted = get().lastDeleted;
+    if (!deleted) return;
+    await window.api.worklog.restore(deleted);
+    set({ lastDeleted: null });
     // Refresh to get correct ordering
     if (get().searchKeyword) {
-      await get().searchLogs(get().searchKeyword)
+      await get().searchLogs(get().searchKeyword);
     } else {
-      await get().fetchLogs()
+      await get().fetchLogs();
     }
   },
 
   dismissUndo: () => {
-    set({ lastDeleted: null })
+    set({ lastDeleted: null });
   },
 
   updateLog: async (id: number, content: string, category: string, created_at?: string) => {
-    const updated = await window.api.worklog.update(id, content, category, created_at)
+    const updated = await window.api.worklog.update(id, content, category, created_at);
     if (updated) {
-      set({ logs: get().logs.map((l) => (l.id === id ? updated : l)) })
+      set({ logs: get().logs.map((l) => (l.id === id ? updated : l)) });
     }
-  }
-}))
+  },
+}));

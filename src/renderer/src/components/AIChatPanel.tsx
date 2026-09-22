@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Message } from '@fauzitech/ai-ui';
 import { useAIPanelStore } from '../stores/aiPanelStore';
+import { useShallow } from 'zustand/react/shallow';
 import {
   recoverConversations,
   saveConversation,
@@ -54,7 +55,9 @@ function formatConvTime(timestamp: number): string {
   return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
-function groupConversationsByMonth(conversations: Conversation[]): { label: string; items: Conversation[] }[] {
+function groupConversationsByMonth(
+  conversations: Conversation[],
+): { label: string; items: Conversation[] }[] {
   const groups = new Map<string, Conversation[]>();
   for (const conv of conversations) {
     const d = new Date(conv.updatedAt);
@@ -304,7 +307,9 @@ function MessageActionBar({ content, isUser }: { content: string; isUser: boolea
 // ─── Main Component ───────────────────────────────────────────────────────
 
 export default function AIChatPanel() {
-  const { open, closePanel } = useAIPanelStore();
+  const { open, closePanel } = useAIPanelStore(
+    useShallow((s) => ({ open: s.open, closePanel: s.closePanel })),
+  );
 
   // ── State ──
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
@@ -481,14 +486,18 @@ export default function AIChatPanel() {
   }, [open, currentConvId]);
 
   // ── Infinite scroll: load older messages when scrolling to top ──
-  useInfiniteScroll(scrollContainerRef, async () => {
-    if (!hasMoreMessages) return;
-    setVisibleCount((prev) => Math.min(prev + INITIAL_MESSAGE_COUNT, allMessages.length));
-  }, {
-    direction: 'top',
-    preserveScrollPosition: true,
-    distance: 80,
-  });
+  useInfiniteScroll(
+    scrollContainerRef,
+    async () => {
+      if (!hasMoreMessages) return;
+      setVisibleCount((prev) => Math.min(prev + INITIAL_MESSAGE_COUNT, allMessages.length));
+    },
+    {
+      direction: 'top',
+      preserveScrollPosition: true,
+      distance: 80,
+    },
+  );
 
   // ── Close on Escape ──
   useEffect(() => {
@@ -757,7 +766,7 @@ export default function AIChatPanel() {
             transition={{ type: 'spring', stiffness: 400, damping: 35 }}
             className="fixed top-[44px] right-0 bottom-0 z-40 w-[680px]
                                    flex flex-row overflow-hidden
-                                   bg-white dark:bg-[#0D0D14]
+                                   bg-white dark:bg-panel-dark
                                    border-l border-zinc-200/80 dark:border-white/[0.06]
                                    shadow-[-8px_0_40px_rgba(0,0,0,0.08)] dark:shadow-[-8px_0_40px_rgba(0,0,0,0.5)]"
           >
@@ -853,7 +862,7 @@ export default function AIChatPanel() {
                                        border border-zinc-200/60 dark:border-white/[0.06]
                                        text-zinc-600 dark:text-zinc-400
                                        outline-none cursor-pointer
-                                       focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500/30
+                                       focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400/30
                                        transition-all duration-200 max-w-[280px]"
                     >
                       {configs.map((c) => (
@@ -879,7 +888,11 @@ export default function AIChatPanel() {
                 {hasMoreMessages && (
                   <div className="flex justify-center py-2">
                     <button
-                      onClick={() => setVisibleCount((prev) => Math.min(prev + INITIAL_MESSAGE_COUNT, allMessages.length))}
+                      onClick={() =>
+                        setVisibleCount((prev) =>
+                          Math.min(prev + INITIAL_MESSAGE_COUNT, allMessages.length),
+                        )
+                      }
                       className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-full bg-zinc-100/80 dark:bg-white/[0.04] hover:bg-zinc-200/80 dark:hover:bg-white/[0.08] border border-zinc-200/60 dark:border-white/[0.06] transition-all duration-200"
                     >
                       <Loader2 size={12} className="animate-spin" />
@@ -979,7 +992,7 @@ export default function AIChatPanel() {
 
               {/* 输入区 — 亮/暗自适应 */}
               <div className="shrink-0 p-3 border-t border-zinc-200/60 dark:border-white/[0.06] bg-white dark:bg-white/[0.01]">
-                <div className="flex items-end gap-2 bg-zinc-50 dark:bg-white/[0.04] rounded-2xl border border-zinc-200/60 dark:border-white/[0.06] px-3 py-2 focus-within:ring-2 focus-within:ring-violet-500/20 focus-within:border-violet-500/30 transition-all duration-300">
+                <div className="flex items-end gap-2 bg-zinc-50 dark:bg-white/[0.04] rounded-2xl border border-zinc-200/60 dark:border-white/[0.06] px-3 py-2 focus-within:ring-2 focus-within:ring-blue-400/20 focus-within:border-blue-400/30 transition-all duration-300">
                   <textarea
                     ref={textareaRef}
                     value={input}

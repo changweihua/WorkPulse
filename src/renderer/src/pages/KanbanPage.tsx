@@ -35,6 +35,7 @@ import {
   X,
 } from 'lucide-react';
 import { useTaskStore } from '../stores/taskStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../components/Toast';
 import { useI18n } from '../stores/languageStore';
 import { SkeletonLine, SkeletonRect } from '../components/Skeleton';
@@ -472,7 +473,18 @@ function KanbanPage(): ReactNode {
     completeTask,
     completeTaskOnly,
     reorderTasks,
-  } = useTaskStore();
+  } = useTaskStore(
+    useShallow((s) => ({
+      tasks: s.tasks,
+      fetchTasks: s.fetchTasks,
+      addTask: s.addTask,
+      updateTask: s.updateTask,
+      deleteTask: s.deleteTask,
+      completeTask: s.completeTask,
+      completeTaskOnly: s.completeTaskOnly,
+      reorderTasks: s.reorderTasks,
+    })),
+  );
   const toast = useToast();
   const { t } = useI18n();
   const [newTaskTitle, setNewTaskTitle] = useState('');

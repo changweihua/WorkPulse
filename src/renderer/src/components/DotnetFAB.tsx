@@ -1,6 +1,6 @@
 import { useCallback, useState, useRef, useEffect, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Cpu } from 'lucide-react';
 
 const DRAG_THRESHOLD = 5;

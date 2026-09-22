@@ -1,76 +1,74 @@
-import { useEffect, useRef, useState, ReactNode } from 'react'
-import { motion } from 'motion/react'
-import { ClipboardList, Columns3 } from 'lucide-react'
-import { Fade, MOTION_EASE } from './Motion'
-import { useWorkLogStore } from '../stores/worklogStore'
-import { useTaskStore } from '../stores/taskStore'
-import { useToast } from './Toast'
-import { useI18n } from '../stores/languageStore'
+import { useEffect, useRef, useState, ReactNode } from 'react';
+import { motion } from 'motion/react';
+import { ClipboardList, Columns3 } from 'lucide-react';
+import { Fade, MOTION_EASE } from './Motion';
+import { useWorkLogStore } from '../stores/worklogStore';
+import { useTaskStore } from '../stores/taskStore';
+import { useShallow } from 'zustand/react/shallow';
+import { useToast } from './Toast';
+import { useI18n } from '../stores/languageStore';
 
-type Mode = 'log' | 'task'
+type Mode = 'log' | 'task';
 
 interface Props {
-  initialMode: Mode
-  onClose: () => void
+  initialMode: Mode;
+  onClose: () => void;
 }
 
 export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
-  const [mode, setMode] = useState<Mode>(initialMode)
-  const [value, setValue] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const { addLog } = useWorkLogStore()
-  const { addTask } = useTaskStore()
-  const toast = useToast()
-  const { t } = useI18n()
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const [value, setValue] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const addLog = useWorkLogStore((s) => s.addLog);
+  const addTask = useTaskStore((s) => s.addTask);
+  const toast = useToast();
+  const { t } = useI18n();
 
   const parseCategory = (text: string): { content: string; category: string } => {
-    const match = text.match(/#(\S+)\s*/)
+    const match = text.match(/#(\S+)\s*/);
     if (match) {
-      return { content: text.replace(match[0], '').trim(), category: match[1] }
+      return { content: text.replace(match[0], '').trim(), category: match[1] };
     }
-    return { content: text, category: '' }
-  }
+    return { content: text, category: '' };
+  };
 
   useEffect(() => {
-    inputRef.current?.focus()
-  }, [mode])
+    inputRef.current?.focus();
+  }, [mode]);
 
   const handleSubmit = async (): Promise<void> => {
-    const trimmed = value.trim()
-    if (!trimmed) return
-    setSubmitting(true)
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setSubmitting(true);
     try {
       if (mode === 'log') {
-        const { content, category } = parseCategory(trimmed)
-        await addLog(content, category)
-        toast.success(t('quick.logSaved'))
+        const { content, category } = parseCategory(trimmed);
+        await addLog(content, category);
+        toast.success(t('quick.logSaved'));
       } else {
-        await addTask(trimmed)
-        toast.success(t('quick.taskSaved'))
+        await addTask(trimmed);
+        toast.success(t('quick.taskSaved'));
       }
-      onClose()
+      onClose();
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Enter') handleSubmit()
-    if (e.key === 'Escape') onClose()
+    if (e.key === 'Enter') handleSubmit();
+    if (e.key === 'Escape') onClose();
     // Tab switches mode
     if (e.key === 'Tab') {
-      e.preventDefault()
-      setMode((m) => (m === 'log' ? 'task' : 'log'))
-      setValue('')
+      e.preventDefault();
+      setMode((m) => (m === 'log' ? 'task' : 'log'));
+      setValue('');
     }
-  }
+  };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-32"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-32" onClick={onClose}>
       {/* Backdrop */}
       <Fade className="absolute inset-0 bg-black/20" />
 
@@ -85,7 +83,10 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
         {/* Mode toggle */}
         <div className="flex border-b border-zinc-100 dark:border-zinc-800">
           <button
-            onClick={() => { setMode('log'); setValue('') }}
+            onClick={() => {
+              setMode('log');
+              setValue('');
+            }}
             className={`flex items-center gap-2 px-4 py-3 text-sm flex-1 transition-colors ${
               mode === 'log'
                 ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/10 border-b-2 border-blue-600 dark:border-blue-400'
@@ -96,7 +97,10 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
             {t('quick.log')}
           </button>
           <button
-            onClick={() => { setMode('task'); setValue('') }}
+            onClick={() => {
+              setMode('task');
+              setValue('');
+            }}
             className={`flex items-center gap-2 px-4 py-3 text-sm flex-1 transition-colors ${
               mode === 'task'
                 ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/10 border-b-2 border-blue-600 dark:border-blue-400'
@@ -121,9 +125,7 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
             className="w-full px-3 py-2.5 text-base border border-zinc-300 dark:border-zinc-600 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-400/30 surface-input dark:text-zinc-100 disabled:opacity-50"
           />
           <div className="flex items-center justify-between mt-3">
-            <span className="text-xs text-zinc-400">
-              {t('quick.help')}
-            </span>
+            <span className="text-xs text-zinc-400">{t('quick.help')}</span>
             <button
               onClick={handleSubmit}
               disabled={!value.trim() || submitting}
@@ -135,5 +137,5 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
         </div>
       </motion.div>
     </div>
-  )
+  );
 }

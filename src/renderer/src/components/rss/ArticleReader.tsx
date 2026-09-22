@@ -1,100 +1,104 @@
-import React, { useState, useCallback, useRef, useEffect, type ReactNode } from 'react'
-import mermaid from 'mermaid'
-import { useRssStore } from '@/stores/rssStore'
-import { ExternalLink, Star, Clock, User, FileDown, Hash } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
-import 'highlight.js/styles/github.css'
+import React, { useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
+import mermaid from 'mermaid';
+import { useRssStore } from '@/stores/rssStore';
+import { useShallow } from 'zustand/react/shallow';
+import { ExternalLink, Star, Clock, User, FileDown, Hash } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/github.css';
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString()
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleString();
 }
 
 function isExternalLink(href: string | undefined): boolean {
-  if (!href) return false
-  return href.startsWith('http://') || href.startsWith('https://')
+  if (!href) return false;
+  return href.startsWith('http://') || href.startsWith('https://');
 }
 
-const headingCounts = new Map<string, number>()
+const headingCounts = new Map<string, number>();
 function uniqueSlug(text: string): string {
-  const base = text.toLowerCase().replace(/[^\w\u4e00-\u9fff]+/g, '-').replace(/^-+|-+$/g, '')
-  const count = headingCounts.get(base) || 0
-  headingCounts.set(base, count + 1)
-  return count > 0 ? `${base}-${count}` : base
+  const base = text
+    .toLowerCase()
+    .replace(/[^\w\u4e00-\u9fff]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const count = headingCounts.get(base) || 0;
+  headingCounts.set(base, count + 1);
+  return count > 0 ? `${base}-${count}` : base;
 }
 
 // ── Mermaid Diagram ──
-let mermaidInitialized = false
+let mermaidInitialized = false;
 
 function MermaidDiagram({ code }: { code: string }) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!containerRef.current) return;
 
-    const isDark = document.body.classList.contains('dark')
+    const isDark = document.body.classList.contains('dark');
     mermaid.initialize({
       startOnLoad: false,
       theme: isDark ? 'dark' : 'default',
       securityLevel: 'loose',
-    })
+    });
 
     const renderDiagram = async () => {
-      if (!containerRef.current) return
+      if (!containerRef.current) return;
       try {
-        const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-        const { svg } = await mermaid.render(id, code.trim())
+        const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const { svg } = await mermaid.render(id, code.trim());
         if (containerRef.current) {
-          containerRef.current.innerHTML = svg
+          containerRef.current.innerHTML = svg;
         }
       } catch {
         if (containerRef.current) {
-          containerRef.current.innerHTML = `<pre style="color: #cf222e; padding: 12px; background: #fff1f0; border-radius: 6px;">Mermaid 图表渲染失败</pre>`
+          containerRef.current.innerHTML = `<pre style="color: #cf222e; padding: 12px; background: #fff1f0; border-radius: 6px;">Mermaid 图表渲染失败</pre>`;
         }
       }
-    }
+    };
 
-    renderDiagram()
-  }, [code])
+    renderDiagram();
+  }, [code]);
 
-  return <div ref={containerRef} className="github-mermaid" />
+  return <div ref={containerRef} className="github-mermaid" />;
 }
 
 // ── Custom Code Block (with language label + copy button) ──
 function CodeBlock({ children, className, ...props }: { children: ReactNode; className?: string }) {
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(false);
 
-  const match = /language-(\w+)/.exec(className || '')
-  const language = match ? match[1] : ''
-  const codeString = typeof children === 'string' ? children : String(children)
+  const match = /language-(\w+)/.exec(className || '');
+  const language = match ? match[1] : '';
+  const codeString = typeof children === 'string' ? children : String(children);
 
   // Only show copy button for block code (has language class)
-  const isBlockCode = !!match
+  const isBlockCode = !!match;
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(codeString)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      await navigator.clipboard.writeText(codeString);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
       // Fallback
-      const textarea = document.createElement('textarea')
-      textarea.value = codeString
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      const textarea = document.createElement('textarea');
+      textarea.value = codeString;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
-  }, [codeString])
+  }, [codeString]);
 
   if (isBlockCode) {
     // Mermaid diagram
     if (language === 'mermaid') {
-      return <MermaidDiagram code={codeString} />
+      return <MermaidDiagram code={codeString} />;
     }
 
     return (
@@ -125,7 +129,7 @@ function CodeBlock({ children, className, ...props }: { children: ReactNode; cla
           </code>
         </pre>
       </div>
-    )
+    );
   }
 
   // Inline code
@@ -133,7 +137,7 @@ function CodeBlock({ children, className, ...props }: { children: ReactNode; cla
     <code className={`github-inline-code ${className || ''}`} {...props}>
       {children}
     </code>
-  )
+  );
 }
 
 // ── Custom Components ──
@@ -201,9 +205,7 @@ const components = {
       {...props}
     >
       {children}
-      {isExternalLink(href) && (
-        <ExternalLink className="github-external-icon" />
-      )}
+      {isExternalLink(href) && <ExternalLink className="github-external-icon" />}
     </a>
   ),
 
@@ -245,7 +247,9 @@ const components = {
       alt={alt}
       className="github-image"
       loading="lazy"
-      onError={(e) => { e.currentTarget.style.display = 'none' }}
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+      }}
       {...props}
     />
   ),
@@ -264,9 +268,9 @@ const components = {
           readOnly
           {...props}
         />
-      )
+      );
     }
-    return <input {...props} />
+    return <input {...props} />;
   },
 
   // Lists with proper spacing
@@ -285,38 +289,46 @@ const components = {
       {children}
     </li>
   ),
-}
+};
 
 export default function ArticleReader() {
-  const { articles, selectedArticleId, toggleStar } = useRssStore()
-  const article = articles.find(a => a.id === selectedArticleId)
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [exporting, setExporting] = useState(false)
-  const [exportProgress, setExportProgress] = useState({ stage: '', percent: 0 })
+  const { articles, selectedArticleId, toggleStar } = useRssStore(
+    useShallow((s) => ({
+      articles: s.articles,
+      selectedArticleId: s.selectedArticleId,
+      toggleStar: s.toggleStar,
+    })),
+  );
+  const article = articles.find((a) => a.id === selectedArticleId);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState({ stage: '', percent: 0 });
 
   // 监听 PDF 导出进度事件（必须在早期返回之前）
   useEffect(() => {
     const unsub = window.api.feed.onExportPdfProgress?.((data) => {
-      setExportProgress(data)
+      setExportProgress(data);
       if (data.stage === 'done' || data.percent >= 100) {
         setTimeout(() => {
-          setExporting(false)
-          setExportProgress({ stage: '', percent: 0 })
-        }, 1500)
+          setExporting(false);
+          setExportProgress({ stage: '', percent: 0 });
+        }, 1500);
       }
-    })
-    return () => { if (unsub) unsub() }
-  }, [])
+    });
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
 
   // 导出超时安全网：15秒后强制重置
   useEffect(() => {
-    if (!exporting) return
+    if (!exporting) return;
     const timer = setTimeout(() => {
-      setExporting(false)
-      setExportProgress({ stage: '', percent: 0 })
-    }, 15000)
-    return () => clearTimeout(timer)
-  }, [exporting])
+      setExporting(false);
+      setExportProgress({ stage: '', percent: 0 });
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [exporting]);
 
   if (!article) {
     return (
@@ -327,36 +339,40 @@ export default function ArticleReader() {
         <p className="text-sm text-[var(--color-text-secondary)] font-medium">选择一篇文章</p>
         <p className="text-xs text-[var(--color-text-tertiary)] mt-1">使用 J/K 导航，Enter 打开</p>
       </div>
-    )
+    );
   }
 
-  const content = article.content || article.summary || ''
+  const content = article.content || article.summary || '';
 
   const handleExportPdf = async () => {
-    if (!contentRef.current || exporting) return
-    setExporting(true)
-    setExportProgress({ stage: 'preparing', percent: 0 })
+    if (!contentRef.current || exporting) return;
+    setExporting(true);
+    setExportProgress({ stage: 'preparing', percent: 0 });
 
-    const renderedHtml = contentRef.current.innerHTML || content
+    const renderedHtml = contentRef.current.innerHTML || content;
     const metadata = {
       feedTitle: article.feed_title || '',
       author: article.author || '',
       publishedAt: article.published_at || '',
       url: article.url || '',
-    }
+    };
     try {
-      const result = await window.api.feed.exportPdf(renderedHtml, article.title, metadata)
+      const result = await window.api.feed.exportPdf(renderedHtml, article.title, metadata);
       if (result?.success) {
-        window.api.notification?.show?.({ title: 'PDF 已保存', body: result.filePath || '', urgency: 'normal' })
+        window.api.notification?.show?.({
+          title: 'PDF 已保存',
+          body: result.filePath || '',
+          urgency: 'normal',
+        });
       } else {
-        setExporting(false)
-        setExportProgress({ stage: '', percent: 0 })
+        setExporting(false);
+        setExportProgress({ stage: '', percent: 0 });
       }
     } catch {
-      setExporting(false)
-      setExportProgress({ stage: '', percent: 0 })
+      setExporting(false);
+      setExportProgress({ stage: '', percent: 0 });
     }
-  }
+  };
 
   return (
     <div className="flex-1 h-full flex flex-col surface-card rounded-xl overflow-hidden">
@@ -390,8 +406,12 @@ export default function ArticleReader() {
             onClick={() => toggleStar(article.id)}
             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs hover:bg-[var(--color-surface-inset)] transition-colors"
           >
-            <Star className={`w-3.5 h-3.5 ${article.is_starred ? 'fill-amber-400 text-amber-400' : 'text-[var(--color-text-tertiary)]'}`} />
-            <span className="text-[var(--color-text-secondary)]">{article.is_starred ? '已收藏' : '收藏'}</span>
+            <Star
+              className={`w-3.5 h-3.5 ${article.is_starred ? 'fill-amber-400 text-amber-400' : 'text-[var(--color-text-tertiary)]'}`}
+            />
+            <span className="text-[var(--color-text-secondary)]">
+              {article.is_starred ? '已收藏' : '收藏'}
+            </span>
           </button>
           {article.url && (
             <button
@@ -436,15 +456,32 @@ export default function ArticleReader() {
 
       {/* PDF 导出进度条动画覆盖层 */}
       {exporting && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
-          <div className="rounded-2xl p-8 min-w-[320px] text-center" style={{ background: 'var(--color-surface)', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
+        >
+          <div
+            className="rounded-2xl p-8 min-w-[320px] text-center"
+            style={{ background: 'var(--color-surface)', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}
+          >
             {/* 进度圆环 */}
             <div className="relative w-16 h-16 mx-auto mb-5">
               <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
-                <circle cx="32" cy="32" r="28" fill="none" stroke="var(--color-border-subtle)" strokeWidth="4" />
                 <circle
-                  cx="32" cy="32" r="28" fill="none"
-                  stroke="var(--color-accent)" strokeWidth="4"
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="var(--color-border-subtle)"
+                  strokeWidth="4"
+                />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="var(--color-accent)"
+                  strokeWidth="4"
                   strokeLinecap="round"
                   strokeDasharray={`${2 * Math.PI * 28}`}
                   strokeDashoffset={`${2 * Math.PI * 28 * (1 - exportProgress.percent / 100)}`}
@@ -453,11 +490,23 @@ export default function ArticleReader() {
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 {exportProgress.stage === 'done' ? (
-                  <svg className="w-7 h-7" style={{ color: '#22c55e' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    className="w-7 h-7"
+                    style={{ color: '#22c55e' }}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <polyline points="20 6 9 17 4 12" className="export-check-path" />
                   </svg>
                 ) : (
-                  <span className="text-sm font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     {exportProgress.percent}%
                   </span>
                 )}
@@ -474,14 +523,18 @@ export default function ArticleReader() {
             </p>
 
             {/* 进度条 */}
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-inset)' }}>
+            <div
+              className="h-1.5 rounded-full overflow-hidden"
+              style={{ background: 'var(--color-surface-inset)' }}
+            >
               <div
                 className="h-full rounded-full export-progress-bar"
                 style={{
                   width: `${exportProgress.percent}%`,
-                  background: exportProgress.stage === 'done'
-                    ? '#22c55e'
-                    : 'linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, white))',
+                  background:
+                    exportProgress.stage === 'done'
+                      ? '#22c55e'
+                      : 'linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, white))',
                   transition: 'width 0.4s ease-out',
                 }}
               />
@@ -511,5 +564,5 @@ export default function ArticleReader() {
         </div>
       )}
     </div>
-  )
+  );
 }

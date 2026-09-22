@@ -1,87 +1,109 @@
-import React, { useEffect, useCallback } from 'react'
-import { useRssStore } from '@/stores/rssStore'
-import { Star, Clock, ArrowDown, RefreshCw } from 'lucide-react'
+import React, { useEffect, useCallback } from 'react';
+import { useRssStore } from '@/stores/rssStore';
+import { useShallow } from 'zustand/react/shallow';
+import { Star, Clock, ArrowDown, RefreshCw } from 'lucide-react';
 
 function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return ''
-  const now = Date.now()
-  const then = new Date(dateStr).getTime()
-  const diff = Math.floor((now - then) / 1000)
-  if (diff < 60) return '刚刚'
-  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`
-  if (diff < 2592000) return `${Math.floor(diff / 86400)}天前`
-  return new Date(dateStr).toLocaleDateString()
+  if (!dateStr) return '';
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = Math.floor((now - then) / 1000);
+  if (diff < 60) return '刚刚';
+  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
+  if (diff < 2592000) return `${Math.floor(diff / 86400)}天前`;
+  return new Date(dateStr).toLocaleDateString();
 }
 
 export default function ArticleList() {
   const {
-    articles, selectedArticleId, setSelectedArticle,
-    markRead, toggleStar, isLoading, filter,
-    loadArticles, selectedFeedId
-  } = useRssStore()
+    articles,
+    selectedArticleId,
+    setSelectedArticle,
+    markRead,
+    toggleStar,
+    isLoading,
+    filter,
+    loadArticles,
+    selectedFeedId,
+  } = useRssStore(
+    useShallow((s) => ({
+      articles: s.articles,
+      selectedArticleId: s.selectedArticleId,
+      setSelectedArticle: s.setSelectedArticle,
+      markRead: s.markRead,
+      toggleStar: s.toggleStar,
+      isLoading: s.isLoading,
+      filter: s.filter,
+      loadArticles: s.loadArticles,
+      selectedFeedId: s.selectedFeedId,
+    })),
+  );
 
-  const currentIndex = articles.findIndex(a => a.id === selectedArticleId)
+  const currentIndex = articles.findIndex((a) => a.id === selectedArticleId);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
-    switch (e.key) {
-      case 'j':
-      case 'ArrowDown': {
-        e.preventDefault()
-        const next = Math.min(currentIndex + 1, articles.length - 1)
-        if (articles[next]) setSelectedArticle(articles[next].id)
-        break
-      }
-      case 'k':
-      case 'ArrowUp': {
-        e.preventDefault()
-        const prev = Math.max(currentIndex - 1, 0)
-        if (articles[prev]) setSelectedArticle(articles[prev].id)
-        break
-      }
-      case 'Enter': {
-        const article = articles[currentIndex]
-        if (article?.url) {
-          window.open(article.url, '_blank')
-          markRead(article.id)
+      switch (e.key) {
+        case 'j':
+        case 'ArrowDown': {
+          e.preventDefault();
+          const next = Math.min(currentIndex + 1, articles.length - 1);
+          if (articles[next]) setSelectedArticle(articles[next].id);
+          break;
         }
-        break
-      }
-      case 's': {
-        const article = articles[currentIndex]
-        if (article) toggleStar(article.id)
-        break
-      }
-      case 'r': {
-        const article = articles[currentIndex]
-        if (article) {
-          if (article.is_read) {
-            // mark unread not available via markRead, just refresh
-          } else {
-            markRead(article.id)
+        case 'k':
+        case 'ArrowUp': {
+          e.preventDefault();
+          const prev = Math.max(currentIndex - 1, 0);
+          if (articles[prev]) setSelectedArticle(articles[prev].id);
+          break;
+        }
+        case 'Enter': {
+          const article = articles[currentIndex];
+          if (article?.url) {
+            window.open(article.url, '_blank');
+            markRead(article.id);
           }
+          break;
         }
-        break
+        case 's': {
+          const article = articles[currentIndex];
+          if (article) toggleStar(article.id);
+          break;
+        }
+        case 'r': {
+          const article = articles[currentIndex];
+          if (article) {
+            if (article.is_read) {
+              // mark unread not available via markRead, just refresh
+            } else {
+              markRead(article.id);
+            }
+          }
+          break;
+        }
       }
-    }
-  }, [articles, currentIndex, setSelectedArticle, markRead, toggleStar])
+    },
+    [articles, currentIndex, setSelectedArticle, markRead, toggleStar],
+  );
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   // Mark as read when selected
   useEffect(() => {
     if (selectedArticleId) {
-      const article = articles.find(a => a.id === selectedArticleId)
+      const article = articles.find((a) => a.id === selectedArticleId);
       if (article && !article.is_read) {
-        markRead(selectedArticleId)
+        markRead(selectedArticleId);
       }
     }
-  }, [selectedArticleId])
+  }, [selectedArticleId]);
 
   return (
     <div className="w-80 h-full flex flex-col surface-card rounded-xl overflow-hidden">
@@ -118,13 +140,18 @@ export default function ArticleList() {
             </p>
           </div>
         ) : (
-          articles.map(article => (
+          articles.map((article) => (
             <div
               key={article.id}
               role="button"
               tabIndex={0}
               onClick={() => setSelectedArticle(article.id)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedArticle(article.id) } }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSelectedArticle(article.id);
+                }
+              }}
               className={`w-full text-left px-3 py-2.5 border-b border-[var(--color-border-subtle)] transition-colors cursor-pointer ${
                 selectedArticleId === article.id
                   ? 'bg-blue-500/8'
@@ -137,9 +164,13 @@ export default function ArticleList() {
                     {!article.is_read && (
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
                     )}
-                    <h4 className={`text-xs leading-tight truncate ${
-                      article.is_read ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text)] font-medium'
-                    }`}>
+                    <h4
+                      className={`text-xs leading-tight truncate ${
+                        article.is_read
+                          ? 'text-[var(--color-text-secondary)]'
+                          : 'text-[var(--color-text)] font-medium'
+                      }`}
+                    >
                       {article.title}
                     </h4>
                   </div>
@@ -150,10 +181,15 @@ export default function ArticleList() {
                   </div>
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); toggleStar(article.id) }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleStar(article.id);
+                  }}
                   className="p-1 rounded shrink-0 hover:bg-[var(--color-surface-inset)] transition-colors"
                 >
-                  <Star className={`w-3 h-3 ${article.is_starred ? 'fill-amber-400 text-amber-400' : 'text-[var(--color-text-tertiary)]'}`} />
+                  <Star
+                    className={`w-3 h-3 ${article.is_starred ? 'fill-amber-400 text-amber-400' : 'text-[var(--color-text-tertiary)]'}`}
+                  />
                 </button>
               </div>
             </div>
@@ -161,5 +197,5 @@ export default function ArticleList() {
         )}
       </div>
     </div>
-  )
+  );
 }

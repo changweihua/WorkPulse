@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { Link, useLocation, useMatches, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useMatches, useNavigate } from 'react-router';
 import AnimatedOutlet from '../components/AnimatedOutlet';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AnimatePresence, motion } from 'motion/react';
@@ -50,6 +50,27 @@ export default function NavLayout() {
     }
   });
 
+  // Track whether user has manually toggled — suppresses auto-resize after manual action
+  const userToggledRef = useRef(false);
+
+  // 响应式自动收起/展开：小屏幕（<768px）自动收起，大屏幕（≥768px）自动展开
+  // 仅在用户未手动操作时生效
+  useEffect(() => {
+    const RESPONSIVE_BREAKPOINT = 768;
+
+    const handleResize = () => {
+      if (userToggledRef.current) return;
+      const width = window.innerWidth;
+      setCollapsed(width < RESPONSIVE_BREAKPOINT);
+    };
+
+    // 初始化时根据窗口宽度设置
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Persist collapsed state
   useEffect(() => {
     try {
@@ -74,6 +95,7 @@ export default function NavLayout() {
   useClickAway(moreMenuRef, () => setShowMoreMenu(false));
 
   const toggleCollapse = useCallback(() => {
+    userToggledRef.current = true;
     setCollapsed((prev) => !prev);
   }, []);
 
@@ -255,7 +277,7 @@ export default function NavLayout() {
                 const sharedClassName = `
                                     relative flex items-center gap-3 mx-2 rounded-lg text-sm
                                     transition-all duration-150 outline-none cursor-pointer
-                                    focus-visible:ring-2 focus-visible:ring-sky-500/70
+                                    focus-visible:ring-2 focus-visible:ring-blue-400/70
                                     ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}
                                     ${
                                       active
@@ -293,7 +315,7 @@ export default function NavLayout() {
             className={`
                             relative flex items-center gap-3 mx-2 rounded-lg rounded-b-2xl text-sm
                             transition-all duration-150 outline-none cursor-pointer
-                            focus-visible:ring-2 focus-visible:ring-sky-500/70
+                            focus-visible:ring-2 focus-visible:ring-blue-400/70
                             ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}
                             ${
                               isActive('settings')

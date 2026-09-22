@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
-import { createHashRouter, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router';
+import { createHashRouter } from 'react-router-dom';
 import TitleBarLayout from './layout/TitleBarLayout';
 import NavLayout from './layout/NavLayout';
 

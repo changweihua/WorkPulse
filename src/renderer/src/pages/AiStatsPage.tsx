@@ -673,7 +673,7 @@ export default function AiStatsPage() {
           </div>
           <div className="overflow-x-auto max-h-[360px] overflow-y-auto">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-white/80 dark:bg-[#28272b]/80 backdrop-blur-sm z-10">
+              <thead className="sticky top-0 bg-white/80 dark:bg-surface-subtle-dark/80 backdrop-blur-sm z-10">
                 <tr className="border-b border-zinc-200 dark:border-zinc-700">
                   <th className="text-left py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">
                     时间

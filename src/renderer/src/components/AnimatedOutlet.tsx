@@ -1,7 +1,7 @@
-import { type ReactNode } from 'react'
-import { Outlet, useLocation, useOutlet } from 'react-router-dom'
-import { AnimatePresence, motion } from 'motion/react'
-import { SPRING_SPRING } from './Motion'
+import { type ReactNode } from 'react';
+import { Outlet, useLocation, useOutlet } from 'react-router';
+import { AnimatePresence, motion } from 'motion/react';
+import { SPRING_SPRING } from './Motion';
 
 /**
  * 路由切换动画：AnimatePresence + useOutlet 快照模式。
@@ -12,8 +12,8 @@ import { SPRING_SPRING } from './Motion'
  * - 异步时机：入场慢（弹簧自然节奏），退场快（不拖泥带水）
  */
 export default function AnimatedOutlet(): ReactNode {
-  const location = useLocation()
-  const element = useOutlet()
+  const location = useLocation();
+  const element = useOutlet();
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -32,5 +32,5 @@ export default function AnimatedOutlet(): ReactNode {
         {element ?? <Outlet />}
       </motion.div>
     </AnimatePresence>
-  )
+  );
 }
