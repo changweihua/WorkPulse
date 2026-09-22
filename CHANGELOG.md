@@ -20,6 +20,10 @@
 - 🐞 fix: Toast Context.Provider 迁移 — `<ToastContext.Provider>` 改为 React 19 推荐的 `<Context value={}>` 写法
 - 🐞 fix: 移除导航链接 `hover:scale` 违反动画禁令的代码
 
+### 依赖更新
+
+- 📦 deps: 批量升级依赖 — `drizzle-orm` 0.45.2→0.45.3、`drizzle-kit` 0.31.10→0.31.11、`openai` 7.19.0→7.21.0、`electron-context-menu` 5.0.0→5.1.0、`oxlint` 1.83.0→1.85.0、`tsx` 4.23.13→4.23.15、`@commitlint/cli` 21.2.2→21.2.3、`@iconify-json/thesvg-color` 1.2.11→1.2.12、`@types/node` 26.6.1→26.6.2、`@iconify-json/lucide` 1.2.134→1.2.135、`javascript-obfuscator` 5.7.0→5.8.0
+
 ### 变更
 
 - 🦄 refactor: 引入 Drizzle ORM — 新增 `schema.ts`（12 张表声明）、`db/index.ts`（基础设施）、`drizzle.config.ts`；db.ts/aiUsage.ts/attachments.ts 迁移至 Drizzle ORM + raw SQL 混合模式，保留所有导出接口
