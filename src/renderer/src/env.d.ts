@@ -32,9 +32,40 @@ interface RadialApi {
   setConfig: (items: unknown) => Promise<boolean>
 }
 
+/** 选区矩形（绝对全局 DIP，w/h；crop 上报时转 width/height） */
+interface ScreenshotSelRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+interface ScreenshotCommitInfo {
+  rect: ScreenshotSelRect
+  /** 工具栏应显示的显示器 id（commit 时的光标所在屏） */
+  displayId: number
+}
+
 interface ScreenshotOverlayApi {
-  onReady: (cb: (info: { dataUrl?: string; width: number; height: number; scaleFactor: number }) => void) => void
-  crop: (rect: { x: number; y: number; width: number; height: number }, action?: 'copy' | 'save' | 'both', full?: boolean) => Promise<{ ok: boolean; file?: string; width?: number; height?: number }>
+  // 主进程 → 渲染层广播
+  onReady: (cb: (info: {
+    displayId: number
+    displayBounds: { x: number; y: number; width: number; height: number }
+    scaleFactor: number
+    unionBounds: { x: number; y: number; width: number; height: number }
+  }) => void) => void
+  onCursor: (cb: (p: { gx: number; gy: number }) => void) => void
+  onSelection: (cb: (rect: ScreenshotSelRect | null) => void) => void
+  onCommit: (cb: (info: ScreenshotCommitInfo | null) => void) => void
+  onCapturing: (cb: () => void) => void
+  onReset: (cb: () => void) => void
+  onResult: (cb: (r: { ok: boolean; message: string; displayId: number }) => void) => void
+  // 渲染层 → 主进程：鼠标事件单向上报（绝对全局 DIP 坐标）
+  down: (gx: number, gy: number, shiftKey: boolean) => void
+  move: (gx: number, gy: number, shiftKey: boolean) => void
+  up: (gx: number, gy: number) => void
+  dblClick: (gx: number, gy: number) => void
+  crop: (rect: { x: number; y: number; width: number; height: number }, action?: 'copy' | 'save' | 'both', full?: boolean) => Promise<{ ok: boolean; file?: string; width?: number; height?: number; error?: string }>
   cancel: () => Promise<boolean>
 }
 
