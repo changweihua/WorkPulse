@@ -249,22 +249,80 @@ interface VectorCacheEntry {
 let vectorCache: VectorCacheEntry | null = null;
 
 /**
+ * worklog_id → 平行数组下标 映射，仅服务于增量 upsert/remove。
+ * 与 vectorCache 同生共死：失效时同步置 null，全量重建时一并构建。
+ */
+let vectorIdIndex: Map<number, number> | null = null;
+
+/**
  * 使向量缓存失效（置 null，下次搜索时重新解析全表）。
- * 所有写入/删除 worklog_vectors 的路径末尾必须调用，宁可多失效不可漏失效。
+ *
+ * 写路径清单（全覆盖）：
+ * - autoIndexAll：每批写 DB 成功后逐条 upsertVectorCache（增量，不再失效）
+ * - indexSingleWorklog：成功分支 upsertVectorCache（增量）；catch 分支 invalidateVectorCache 兜底
+ * - rebuildIndex：全量 DELETE 后 invalidateVectorCache（置 null 全量重建）
+ * - deleteWorkLog（db.ts）：删除向量行后 removeVectorCache（增量）
  */
 function invalidateVectorCache(): void {
   vectorCache = null;
+  vectorIdIndex = null;
 }
 
 /**
- * 读取（或重建）向量缓存：首次搜索一次性解析全部向量为 Float32Array。
+ * 增量写入单条向量：已存在则覆盖，否则追加到平行数组末尾，并同步 id→下标映射。
+ *
+ * 缓存为 null（已失效）时 no-op——安全语义：调用方总是先写 DB，
+ * 此时下次 getVectorCache 全量重建会自然读到新行，无需额外处理。
+ */
+function upsertVectorCache(id: number, vec: number[] | Float32Array): void {
+  if (!vectorCache || !vectorIdIndex) return;
+  const parsed = vec instanceof Float32Array ? vec : Float32Array.from(vec);
+  const idx = vectorIdIndex.get(id);
+  if (idx !== undefined) {
+    // 已存在：内容变更后的重向量化，直接覆盖旧向量
+    vectorCache.vectors[idx] = parsed;
+    return;
+  }
+  // 新条目：追加到平行数组末尾并登记下标
+  vectorIdIndex.set(id, vectorCache.ids.length);
+  vectorCache.ids.push(id);
+  vectorCache.vectors.push(parsed);
+}
+
+/**
+ * 增量移除单条向量：swap-pop 用末尾元素填补被删位置，保持 ids/vectors 平行数组紧凑，
+ * 并同步更新被移动元素的下标映射。
+ * 缓存为 null（已失效）时 no-op，安全理由同 upsertVectorCache。
+ * 导出供 db.ts 的 deleteWorkLog 调用（修复孤儿向量）。
+ */
+export function removeVectorCache(id: number): void {
+  if (!vectorCache || !vectorIdIndex) return;
+  const idx = vectorIdIndex.get(id);
+  if (idx === undefined) return;
+  const lastIdx = vectorCache.ids.length - 1;
+  if (idx !== lastIdx) {
+    // swap-pop：末尾元素搬到空位，被移动元素的下标必须同步更新
+    const movedId = vectorCache.ids[lastIdx];
+    vectorCache.ids[idx] = movedId;
+    vectorCache.vectors[idx] = vectorCache.vectors[lastIdx];
+    vectorIdIndex.set(movedId, idx);
+  }
+  vectorCache.ids.pop();
+  vectorCache.vectors.pop();
+  vectorIdIndex.delete(id);
+}
+
+/**
+ * 读取（或重建）向量缓存：首次搜索一次性解析全部向量为 Float32Array，
+ * 并构建 id→下标映射以支持后续增量维护。
  * 0 条数据或表不存在时优雅返回空缓存，不抛错。
  */
 function getVectorCache(): VectorCacheEntry {
-  if (vectorCache) return vectorCache;
+  if (vectorCache && vectorIdIndex) return vectorCache;
 
   const ids: number[] = [];
   const vectors: Float32Array[] = [];
+  const idIndex = new Map<number, number>();
   try {
     const db = getDatabase();
     const rows = db.prepare('SELECT worklog_id, embedding FROM worklog_vectors').all() as Array<{
@@ -274,6 +332,7 @@ function getVectorCache(): VectorCacheEntry {
     for (const row of rows) {
       try {
         const parsed = JSON.parse(row.embedding) as number[];
+        idIndex.set(row.worklog_id, ids.length);
         ids.push(row.worklog_id);
         vectors.push(Float32Array.from(parsed));
       } catch {
@@ -286,6 +345,7 @@ function getVectorCache(): VectorCacheEntry {
   }
 
   vectorCache = { ids, vectors };
+  vectorIdIndex = idIndex;
   return vectorCache;
 }
 
@@ -396,8 +456,10 @@ class VectorSearchService {
           }
         });
         tx();
-        // 写入 worklog_vectors 后使缓存失效，下次搜索重建
-        invalidateVectorCache();
+        // DB 已写入，逐条增量更新缓存（缓存为 null 时 no-op，下次全量重建自然读到新行）
+        for (let j = 0; j < batch.length; j++) {
+          upsertVectorCache(batch[j].id, embeddings[j]);
+        }
         indexed += batch.length;
       } catch (e) {
         log.error(`[VectorSearch] 批量向量化失败 (batch ${i / BATCH_SIZE + 1}):`, e);
@@ -572,8 +634,8 @@ class VectorSearchService {
       db.prepare(
         'INSERT OR REPLACE INTO worklog_vectors (worklog_id, embedding, content_hash) VALUES (?, ?, ?)',
       ).run(id, JSON.stringify(embedding), hash);
-      // 单条向量写入后使缓存失效，下次搜索重建
-      invalidateVectorCache();
+      // 单条向量写入后增量更新缓存（缓存为 null 时 no-op，下次全量重建自然读到新行）
+      upsertVectorCache(id, embedding);
 
       // 标记已向量化
       db.prepare(
@@ -583,7 +645,7 @@ class VectorSearchService {
       log.info(`[VectorSearch] worklog #${id} 向量化完成`);
       return true;
     } catch (e) {
-      // 写入可能已部分落库，保险起见同样失效缓存
+      // 写入可能已部分落库且无法确定失败位置，保守起见整体失效缓存兜底
       invalidateVectorCache();
       log.warn(`[VectorSearch] worklog #${id} 向量化失败:`, e);
       return false;

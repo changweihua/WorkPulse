@@ -9,6 +9,9 @@ import { eq, and, sql } from 'drizzle-orm';
 import type { Attachment } from './attachments';
 import { getDatabase, getDrizzleDb } from './db/index';
 import * as schema from './db/schema';
+// 与 vector-search.ts 存在模块循环引用，但双方仅在函数体内使用对方的导出，
+// 不在模块顶层求值，加载顺序安全
+import { removeVectorCache } from './vector-search';
 
 // ==================== 重导出（保持向后兼容） ====================
 
@@ -72,6 +75,22 @@ function resolveWorkLogTaskId(taskId: number | null): number | null {
   return exists ? taskId : null;
 }
 
+/** 查询任务 due_date（用于计算 work_logs.sort_key 冗余排序列） */
+function getTaskDueDate(taskId: number | null): string | null {
+  if (taskId === null) return null;
+  const row = getDatabase().prepare('SELECT due_date FROM tasks WHERE id = ?').get(taskId) as
+    | { due_date: string | null }
+    | undefined;
+  return row?.due_date ?? null;
+}
+
+/** 生成与 SQLite datetime('now','localtime') 同格式的本地时间字符串（YYYY-MM-DD HH:MM:SS） */
+function nowLocalSqlite(): string {
+  const d = new Date();
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${formatLocalDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 // ==================== Work Logs CRUD ====================
 
 export interface WorkLog {
@@ -89,27 +108,28 @@ export function addWorkLog(
   createdAt?: string,
 ): WorkLog {
   const resolvedTaskId = resolveWorkLogTaskId(taskId);
+  // H1 写路径 1/3：sort_key = 关联任务 due_date ?? created_at（保持 due_date 置顶语义）
+  const dueDate = getTaskDueDate(resolvedTaskId);
+
   if (createdAt) {
+    const sortKey = dueDate ?? createdAt;
     const stmt = getDatabase().prepare(
-      'INSERT INTO work_logs (content, category, task_id, created_at) VALUES (?, ?, ?, ?) RETURNING *',
+      'INSERT INTO work_logs (content, category, task_id, created_at, sort_key) VALUES (?, ?, ?, ?, ?) RETURNING *',
     );
-    return stmt.get(content, category, resolvedTaskId, createdAt) as WorkLog;
+    return stmt.get(content, category, resolvedTaskId, createdAt, sortKey) as WorkLog;
   }
 
+  // 无显式 created_at：JS 生成一次本地时间，保证 created_at 与 sort_key 回退值完全一致
+  const now = nowLocalSqlite();
   const stmt = getDatabase().prepare(
-    'INSERT INTO work_logs (content, category, task_id) VALUES (?, ?, ?) RETURNING *',
+    'INSERT INTO work_logs (content, category, task_id, created_at, sort_key) VALUES (?, ?, ?, ?, ?) RETURNING *',
   );
-  return stmt.get(content, category, resolvedTaskId) as WorkLog;
+  return stmt.get(content, category, resolvedTaskId, now, dueDate ?? now) as WorkLog;
 }
 
 export function getWorkLogs(limit = 200, offset = 0): WorkLog[] {
-  const stmt = getDatabase().prepare(
-    `SELECT wl.*, t.due_date AS task_due_date
-     FROM work_logs wl
-     LEFT JOIN tasks t ON wl.task_id = t.id
-     ORDER BY COALESCE(t.due_date, wl.created_at) DESC
-     LIMIT ? OFFSET ?`,
-  );
+  // H1：直接按冗余列 sort_key 排序，去掉 LEFT JOIN（原 COALESCE 语义已冗余化，可走索引）
+  const stmt = getDatabase().prepare('SELECT * FROM work_logs ORDER BY sort_key DESC LIMIT ? OFFSET ?');
   return stmt.all(limit, offset) as WorkLog[];
 }
 
@@ -121,13 +141,9 @@ export function getWorkLogsByDateRange(from: string, to: string): WorkLog[] {
 }
 
 export function searchWorkLogs(keyword: string, limit = 200): WorkLog[] {
+  // H1：直接按冗余列 sort_key 排序，去掉 LEFT JOIN（原 COALESCE 语义已冗余化，可走索引）
   const stmt = getDatabase().prepare(
-    `SELECT wl.*, t.due_date AS task_due_date
-     FROM work_logs wl
-     LEFT JOIN tasks t ON wl.task_id = t.id
-     WHERE wl.content LIKE ?
-     ORDER BY COALESCE(t.due_date, wl.created_at) DESC
-     LIMIT ?`,
+    'SELECT * FROM work_logs WHERE content LIKE ? ORDER BY sort_key DESC LIMIT ?',
   );
   return stmt.all(`%${keyword}%`, limit) as WorkLog[];
 }
@@ -147,6 +163,13 @@ export function workLogExists(content: string, category: string, dateStr?: strin
 
 export function deleteWorkLog(id: number): boolean {
   const result = getDrizzleDb().delete(schema.workLogs).where(eq(schema.workLogs.id, id)).run();
+  if (result.changes > 0) {
+    // 修复孤儿向量 bug：worklog_vectors.worklog_id 没有外键约束，
+    // 删除 worklog 时必须手动删除对应向量行，否则残留孤儿向量继续参与搜索
+    getDatabase().prepare('DELETE FROM worklog_vectors WHERE worklog_id = ?').run(id);
+    // 同步增量移除内存缓存（缓存为 null 时 no-op，下次全量重建自然读到）
+    removeVectorCache(id);
+  }
   return result.changes > 0;
 }
 
@@ -157,10 +180,15 @@ export function updateWorkLog(
   created_at?: string,
 ): WorkLog | null {
   if (created_at) {
+    // H1 回写（审计发现）：created_at 变更后 sort_key 需同步为 due_date ?? 新 created_at
+    // （无关联任务或任务无 due_date 时，sort_key 必须跟随 created_at）
     const stmt = getDatabase().prepare(
-      'UPDATE work_logs SET content = ?, category = ?, created_at = ?, vector_synced_at = NULL WHERE id = ? RETURNING *',
+      `UPDATE work_logs
+       SET content = ?, category = ?, created_at = ?, vector_synced_at = NULL,
+           sort_key = COALESCE((SELECT t.due_date FROM tasks t WHERE t.id = work_logs.task_id), ?)
+       WHERE id = ? RETURNING *`,
     );
-    return stmt.get(content, category, created_at, id) as WorkLog | null;
+    return stmt.get(content, category, created_at, created_at, id) as WorkLog | null;
   }
   const stmt = getDatabase().prepare(
     'UPDATE work_logs SET content = ?, category = ?, vector_synced_at = NULL WHERE id = ? RETURNING *',
@@ -329,10 +357,22 @@ export function updateTask(
   const stmt = getDatabase().prepare(
     `UPDATE tasks SET ${fields.join(', ')} WHERE id = ? RETURNING *`,
   );
-  return stmt.get(...values) as Task | null;
+  const task = stmt.get(...values) as Task | null;
+
+  // H1 写路径 2/3：任务 due_date 变更后回写关联 worklog 的 sort_key；
+  // 传入空 due_date 时回填 created_at（保持 due_date 置顶语义的逆操作）
+  if (task !== null && updates.due_date !== undefined) {
+    getDatabase()
+      .prepare('UPDATE work_logs SET sort_key = COALESCE(?, created_at) WHERE task_id = ?')
+      .run(updates.due_date, id);
+  }
+  return task;
 }
 
 export function deleteTask(id: number): boolean {
+  // H1 写路径 3/3：FK ON DELETE SET NULL 只把 task_id 置空、不清 sort_key，
+  // 删除前先把关联 worklog 的 sort_key 回填为 created_at（此刻 task_id 尚未被置空，才能按 task_id 命中）
+  getDatabase().prepare('UPDATE work_logs SET sort_key = created_at WHERE task_id = ?').run(id);
   const result = getDrizzleDb().delete(schema.tasks).where(eq(schema.tasks.id, id)).run();
   return result.changes > 0;
 }
@@ -551,14 +591,9 @@ export function generateWeeklyReport(startDate: string, endDate: string): Weekly
 }
 
 export function getAllWorkLogs(): WorkLog[] {
+  // H1：直接按冗余列 sort_key 排序，去掉 LEFT JOIN（原 COALESCE 语义已冗余化，可走索引）
   return getDatabase()
-    .prepare(
-      `SELECT wl.*, t.due_date AS task_due_date
-     FROM work_logs wl
-     LEFT JOIN tasks t ON wl.task_id = t.id
-     ORDER BY COALESCE(t.due_date, wl.created_at) DESC
-     LIMIT 50000`,
-    )
+    .prepare('SELECT * FROM work_logs ORDER BY sort_key DESC LIMIT 50000')
     .all() as WorkLog[];
 }
 

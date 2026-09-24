@@ -102,6 +102,7 @@ function createTables(): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
       task_id INTEGER,
       vector_synced_at TEXT DEFAULT NULL,
+      sort_key TEXT DEFAULT NULL,
       FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
     );
 
@@ -147,6 +148,7 @@ function createTables(): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_work_logs_created_at ON work_logs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_work_logs_sort_key ON work_logs(sort_key);
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_reports_dates ON reports(date_from, date_to);
     CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
@@ -274,6 +276,29 @@ function createTables(): void {
 
 // ==================== 迁移（保留原有逻辑，渐进替换） ====================
 
+/**
+ * H1：work_logs.sort_key 冗余排序列迁移（加列 + 存量回填 + 索引）。
+ * 幂等：ALTER 有列检测、回填只补 NULL 行、索引 IF NOT EXISTS，可重复调用。
+ * 必须在 tasks.due_date 列就绪之后调用（回填子查询依赖该列）。
+ */
+function migrateWorkLogSortKey(): void {
+  const wlInfo = sqlite.prepare("PRAGMA table_info('work_logs')").all() as { name: string }[];
+  if (!wlInfo.some((c) => c.name === 'sort_key')) {
+    // 格式同 created_at：YYYY-MM-DD HH:MM:SS
+    sqlite.exec('ALTER TABLE work_logs ADD COLUMN sort_key TEXT DEFAULT NULL');
+  }
+  // 存量回填：语义等价于原 ORDER BY COALESCE(t.due_date, wl.created_at)
+  sqlite.exec(`
+    UPDATE work_logs
+    SET sort_key = COALESCE(
+          (SELECT due_date FROM tasks WHERE tasks.id = work_logs.task_id),
+          created_at
+        )
+    WHERE sort_key IS NULL
+  `);
+  sqlite.exec('CREATE INDEX IF NOT EXISTS idx_work_logs_sort_key ON work_logs(sort_key)');
+}
+
 function runMigrations(): void {
   const colInfo = sqlite.prepare("PRAGMA table_info('tasks')").all() as { name: string }[];
   const hasDueDate = colInfo.some((c) => c.name === 'due_date');
@@ -309,6 +334,9 @@ function runMigrations(): void {
       ALTER TABLE tasks_new RENAME TO tasks;
       CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     `);
+    // 重建分支提前退出，须在此同步执行 sort_key 迁移（此时 due_date 列已就绪），
+    // 否则本启动周期内 sort_key 列缺失会导致 work_logs INSERT 报错
+    migrateWorkLogSortKey();
     return;
   }
 
@@ -325,6 +353,9 @@ function runMigrations(): void {
   if (!wlInfo.some((c) => c.name === 'vector_synced_at')) {
     sqlite.exec('ALTER TABLE work_logs ADD COLUMN vector_synced_at TEXT DEFAULT NULL');
   }
+
+  // H1：sort_key 列迁移（放在 tasks.due_date 就绪之后，见函数内注释）
+  migrateWorkLogSortKey();
 
   const mcInfo = sqlite.prepare("PRAGMA table_info('model_configs')").all() as { name: string }[];
   if (!mcInfo.some((c) => c.name === 'daily_limit')) {
