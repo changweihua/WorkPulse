@@ -52,12 +52,11 @@ export function registerWorklogIpc(): void {
         if (ids.length > 0) {
           const db = getDatabase()
           const placeholders = ids.map(() => '?').join(',')
+          // H1：二次排序改用冗余列 sort_key，去掉 LEFT JOIN（原 COALESCE 语义已冗余化）
           const rows = db.prepare(
-            `SELECT wl.*, t.due_date AS task_due_date
-             FROM work_logs wl
-             LEFT JOIN tasks t ON wl.task_id = t.id
-             WHERE wl.id IN (${placeholders})
-             ORDER BY COALESCE(t.due_date, wl.created_at) DESC`
+            `SELECT * FROM work_logs
+             WHERE id IN (${placeholders})
+             ORDER BY sort_key DESC`
           ).all(...ids)
           return ok(rows)
         }

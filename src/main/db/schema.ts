@@ -19,8 +19,14 @@ export const workLogs = sqliteTable(
       .$defaultFn(() => new Date().toISOString()),
     taskId: int('task_id'),
     vectorSyncedAt: text('vector_synced_at'),
+    // 冗余排序列：COALESCE(关联任务 due_date, created_at)，格式同 created_at
+    // 用于替代查询时 LEFT JOIN tasks + COALESCE 计算，让 ORDER BY 可走索引
+    sortKey: text('sort_key'),
   },
-  (t) => [index('idx_work_logs_created_at').on(t.createdAt)],
+  (t) => [
+    index('idx_work_logs_created_at').on(t.createdAt),
+    index('idx_work_logs_sort_key').on(t.sortKey),
+  ],
 );
 
 // ==================== 任务 ====================
