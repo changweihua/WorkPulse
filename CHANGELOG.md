@@ -36,6 +36,9 @@
 - 🦄 refactor: 引入 Drizzle ORM — 新增 `schema.ts`（12 张表声明）、`db/index.ts`（基础设施）、`drizzle.config.ts`；db.ts/aiUsage.ts/attachments.ts 迁移至 Drizzle ORM + raw SQL 混合模式，保留所有导出接口
 - ✨ feat: 新增 `scripts/release.ts` 一键发布脚本，自动完成版本更新→文件同步→提交→打 tag→推送，支持 `patch/minor/major/精确版本号` 参数
 - ✨ feat: AIChatPanel 无限滚动 — 使用 `@reactuses/core` 的 `useInfiniteScroll`，初始显示最近 50 条消息，向上滚动自动加载更多，保持滚动位置不变
+- 🎈 perf: 启动 Splash 快速启动跳过 1.5s 最短显示下限 — 主窗 ready-to-show 早到即提前关闭，下限仅作 splash 未显示时的兜底
+- 🎈 perf: 完整性校验失败警告弹窗改为异步 — 消除启动关键路径上的主进程同步冻结
+- 🎈 perf: 截图 both 模式 PNG 单次编码 — 剪贴板与存档复用同一 Buffer，避免重复 toPNG 编码
 
 ### 变更
 

@@ -49,12 +49,17 @@ export function verifyIntegrity(): void {
         log.error(`[Integrity] Actual   : ${currentHash}`)
 
         // Non-blocking warning — the app keeps running
-        dialog.showMessageBoxSync({
-          type: 'warning',
-          title: '安全警告',
-          message: '应用完整性校验失败，文件可能被篡改。',
-          detail: `Expected: ${storedHash.slice(0, 16)}…\nGot:      ${currentHash.slice(0, 16)}…`
-        })
+        // 改为异步弹窗：不阻塞启动关键路径（主进程不再同步冻结等待用户点击），日志与语义不变
+        void dialog
+          .showMessageBox({
+            type: 'warning',
+            title: '安全警告',
+            message: '应用完整性校验失败，文件可能被篡改。',
+            detail: `Expected: ${storedHash.slice(0, 16)}…\nGot:      ${currentHash.slice(0, 16)}…`
+          })
+          .catch((err) => {
+            log.error('[Integrity] 警告弹窗显示失败:', err)
+          })
       } else {
         log.info('[Integrity] Hash verified OK')
       }

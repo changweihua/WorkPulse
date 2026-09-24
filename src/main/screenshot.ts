@@ -491,8 +491,12 @@ async function cropScreenshot(
     }
     const cropped = image.crop({ x: cx, y: cy, width: cw, height: ch })
 
+    // PNG 单次编码：action 只可能是 copy/save/both 之一，统一编码一次，
+    // both 模式下剪贴板与存档复用同一 Buffer，避免重复 toPNG 编码开销
+    const pngBuffer = cropped.toPNG()
+
     if (action === 'copy' || action === 'both') {
-      const pngData = new Uint8Array(cropped.toPNG())
+      const pngData = new Uint8Array(pngBuffer)
       await clipboard.write([
         new ClipboardItem({
           'image/png': new Blob([pngData], { type: 'image/png' })
@@ -503,7 +507,6 @@ async function cropScreenshot(
       const dir = join(homedir(), 'Pictures', 'WorkPulse')
       mkdirSync(dir, { recursive: true })
       const f = join(dir, `screenshot-${Date.now()}.png`)
-      const pngBuffer = cropped.toPNG()
       await fs.writeFile(f, pngBuffer)
       file = f
     }
