@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo, Fragment, ReactNode } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, memo, ReactNode } from 'react';
 import { runWhenIdle } from '../hooks/useIdleCallback';
 import {
   Trash2,
@@ -285,6 +285,12 @@ function MasonryLayout({
                 key={dateKey}
                 ref={registerRef(dateKey)}
                 className="surface-card p-4 break-inside-avoid"
+                style={{
+                  // 屏外日期卡片跳过渲染/布局，contain-intrinsic-size 提供占位高度
+                  // （auto 关键字会记住已渲染的真实尺寸，滚动回时无闪烁）
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: `auto ${estimateCardHeight(dateLogs.length)}px`,
+                }}
               >
                 {renderCard(dateKey, dateLogs, cardIdx)}
               </div>
@@ -295,6 +301,215 @@ function MasonryLayout({
     </div>
   );
 }
+
+/** 附件列表未加载时的共享空数组，避免每次渲染新建引用导致 memo 失效 */
+const EMPTY_ATTS: Attachment[] = [];
+
+interface LogEntryProps {
+  log: DateEntry[1][number];
+  atts: Attachment[];
+  expanded: boolean;
+  editing: boolean;
+  deleting: boolean;
+  editContent: string;
+  editCategory: string;
+  editDate: string;
+  setEditContent: (v: string) => void;
+  setEditCategory: (v: string) => void;
+  setEditDate: (v: string) => void;
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string;
+  onToggleExpand: (id: number) => void;
+  onStartEdit: (log: DateEntry[1][number]) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onDelete: (id: number) => void;
+  onSetDeleting: (id: number | null) => void;
+  onDeleteAttachment: (logId: number, attId: number) => void;
+}
+
+/**
+ * 单条日志条目（React.memo 化）：
+ * 输入、搜索等页面级状态变化时，属性未变的条目跳过重渲染。
+ */
+const LogEntry = memo(function LogEntry({
+  log,
+  atts,
+  expanded,
+  editing,
+  deleting,
+  editContent,
+  editCategory,
+  editDate,
+  setEditContent,
+  setEditCategory,
+  setEditDate,
+  t,
+  onToggleExpand,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onDelete,
+  onSetDeleting,
+  onDeleteAttachment,
+}: LogEntryProps): ReactNode {
+  const attCount = atts.length;
+  return (
+    <>
+      <motion.div
+        variants={{
+          hidden: { opacity: 0, y: 8 },
+          show: { opacity: 1, y: 0, transition: { duration: 0.25 } },
+        }}
+        className="group flex items-center justify-between py-2 px-3 rounded-lg surface-card transition-all hover:shadow-md"
+      >
+        {editing ? (
+          <>
+            <div className="flex-1 mr-2 flex items-center gap-2">
+              <input
+                type="text"
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onSaveEdit();
+                  if (e.key === 'Escape') onCancelEdit();
+                }}
+                className="flex-1 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
+                autoFocus
+              />
+              <input
+                type="text"
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onSaveEdit();
+                  if (e.key === 'Escape') onCancelEdit();
+                }}
+                placeholder="#tag"
+                className="w-24 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
+              />
+              <input
+                type="date"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                className="w-32 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
+              />
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={onSaveEdit}
+                className="p-1 text-green-500 hover:text-green-600"
+                title={t('worklog.editSave')}
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={onCancelEdit}
+                className="p-1 text-zinc-400 hover:text-zinc-600"
+                title={t('worklog.editCancel')}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex-1 mr-4 flex items-start gap-2 min-w-0">
+              <span className="text-zinc-800 dark:text-zinc-200 break-all leading-relaxed">
+                {log.content}
+              </span>
+              {log.category && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 woitespace-nowrap shrink-0">
+                  {log.category}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {attCount > 0 && (
+                <button
+                  onClick={() => onToggleExpand(log.id)}
+                  className={`flex items-center gap-0.5 text-xs transition-colors ${
+                    expanded ? 'text-blue-500' : 'text-zinc-400 hover:text-blue-500'
+                  }`}
+                  title={t('worklog.viewAttachments')}
+                  aria-label={t('worklog.viewAttachments')}
+                >
+                  <Paperclip className="w-3.5 h-3.5" />
+                  <span>{attCount}</span>
+                </button>
+              )}
+              <span className="text-xs text-zinc-400">
+                {formatTime(log.created_at)}
+              </span>
+              {deleting ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onDelete(log.id)}
+                    className="text-xs text-red-500 hover:text-red-700 px-1"
+                  >
+                    {t('common.confirm')}
+                  </button>
+                  <button
+                    onClick={() => onSetDeleting(null)}
+                    className="text-xs text-zinc-400 hover:text-zinc-600 px-1"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={() => onStartEdit(log)}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-blue-500 transition-all"
+                    aria-label={t('worklog.editAria')}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => onSetDeleting(log.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 transition-all"
+                    aria-label={t('worklog.deleteAria')}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </motion.div>
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="ml-3 mt-1 mb-2 pl-3 border-l-2 border-[var(--color-border)]">
+              {atts.length === 0 ? (
+                <p className="text-xs text-zinc-400 py-1">
+                  {t('worklog.noAttachments')}
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2 py-1">
+                  {atts.map((att) => (
+                    <AttachmentItem
+                      key={att.id}
+                      att={att}
+                      t={t}
+                      onDelete={() => onDeleteAttachment(log.id, att.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+});
 
 function WorkLogPage(): ReactNode {
   const {
@@ -347,6 +562,17 @@ function WorkLogPage(): ReactNode {
   const fetchedIdsRef = useRef<Set<number>>(new Set());
   const toast = useToast();
   const { resolvedLanguage, t } = useI18n();
+  // useI18n 的 t 每次渲染返回新函数；包装为引用稳定的版本，
+  // 供 memo 化的日志条目与 useCallback 依赖使用，避免每次渲染失效所有条目
+  const tRef = useRef(t);
+  tRef.current = t;
+  const stableT = useCallback(
+    (key: TranslationKey, values?: Record<string, string | number>) => tRef.current(key, values),
+    [],
+  );
+  // 编辑/展开相关状态的最新值引用：让 handleEditSave、toggleExpand 保持引用稳定
+  const latestRef = useRef({ editingId, editContent, editCategory, editDate, expandedLogId, attachmentsByLog });
+  latestRef.current = { editingId, editContent, editCategory, editDate, expandedLogId, attachmentsByLog };
 
   // 每日摘要弹窗状态
   const [showDailySummary, setShowDailySummary] = useState(false);
@@ -489,13 +715,15 @@ function WorkLogPage(): ReactNode {
     }
   };
 
-  const toggleExpand = async (id: number): Promise<void> => {
-    if (expandedLogId === id) {
+  const toggleExpand = useCallback(async (id: number): Promise<void> => {
+    // 通过 latestRef 读取最新状态，保持回调引用稳定（memo 条目依赖）
+    const { expandedLogId: currentExpanded, attachmentsByLog: attsMap } = latestRef.current;
+    if (currentExpanded === id) {
       setExpandedLogId(null);
       return;
     }
     setExpandedLogId(id);
-    if (!attachmentsByLog[id]) {
+    if (!attsMap[id]) {
       try {
         const atts = await window.api.attachment.list(id);
         setAttachmentsByLog((prev) => ({ ...prev, [id]: atts }));
@@ -504,19 +732,22 @@ function WorkLogPage(): ReactNode {
         // ignore
       }
     }
-  };
+  }, []);
 
-  const handleDeleteAttachment = async (logId: number, attId: number): Promise<void> => {
-    try {
-      await window.api.attachment.delete(attId);
-      setAttachmentsByLog((prev) => ({
-        ...prev,
-        [logId]: (prev[logId] || []).filter((a) => a.id !== attId),
-      }));
-    } catch {
-      toast.error(t('worklog.attachmentDeleteError'));
-    }
-  };
+  const handleDeleteAttachment = useCallback(
+    async (logId: number, attId: number): Promise<void> => {
+      try {
+        await window.api.attachment.delete(attId);
+        setAttachmentsByLog((prev) => ({
+          ...prev,
+          [logId]: (prev[logId] || []).filter((a) => a.id !== attId),
+        }));
+      } catch {
+        toast.error(stableT('worklog.attachmentDeleteError'));
+      }
+    },
+    [stableT, toast],
+  );
 
   const handleSearchChange = (value: string): void => {
     setSearch(value);
@@ -535,32 +766,50 @@ function WorkLogPage(): ReactNode {
     clearSearch();
   };
 
-  const handleDelete = async (id: number): Promise<void> => {
-    await deleteLog(id);
-    setDeletingId(null);
-    toast.success(t('worklog.deleted'));
-  };
+  const handleDelete = useCallback(
+    async (id: number): Promise<void> => {
+      await deleteLog(id);
+      setDeletingId(null);
+      toast.success(stableT('worklog.deleted'));
+    },
+    [deleteLog, stableT, toast],
+  );
 
   const handleUndo = async (): Promise<void> => {
     await undoDelete();
     toast.success(t('worklog.restored'));
   };
 
-  const handleEditSave = async (): Promise<void> => {
-    if (!editingId) return;
-    const trimmedContent = editContent.trim();
+  const handleEditSave = useCallback(async (): Promise<void> => {
+    // 编辑状态从 latestRef 读取最新值，保持回调引用稳定
+    const {
+      editingId: id,
+      editContent: content,
+      editCategory: category,
+      editDate: date,
+    } = latestRef.current;
+    if (!id) return;
+    const trimmedContent = content.trim();
     if (!trimmedContent) return;
-    const log = logs.find((l) => l.id === editingId);
+    const log = useWorkLogStore.getState().logs.find((l) => l.id === id);
     const timePart = log ? log.created_at.slice(10) : '';
-    const newCreatedAt = editDate ? editDate + timePart : undefined;
-    await updateLog(editingId, trimmedContent, editCategory.trim(), newCreatedAt);
+    const newCreatedAt = date ? date + timePart : undefined;
+    await updateLog(id, trimmedContent, category.trim(), newCreatedAt);
     setEditingId(null);
-    toast.success(t('worklog.editSave'));
-  };
+    toast.success(stableT('worklog.editSave'));
+  }, [updateLog, stableT, toast]);
 
-  const handleEditCancel = (): void => {
+  const handleEditCancel = useCallback((): void => {
     setEditingId(null);
-  };
+  }, []);
+
+  // 开始编辑：初始化编辑表单状态（引用稳定，供 memo 条目使用）
+  const handleStartEdit = useCallback((log: DateEntry[1][number]): void => {
+    setEditingId(log.id);
+    setEditContent(log.content);
+    setEditCategory(log.category);
+    setEditDate(log.created_at.slice(0, 10));
+  }, []);
 
   const grouped = groupLogsByDate(logs);
 
@@ -772,173 +1021,31 @@ function WorkLogPage(): ReactNode {
                     show: { transition: { staggerChildren: 0.04, delayChildren: cardIdx * 0.06 } },
                   }}
                 >
-                  {dateLogs.map((log) => {
-                    const atts = attachmentsByLog[log.id] || [];
-                    const attCount = atts.length;
-                    return (
-                      <Fragment key={log.id}>
-                        <motion.div
-                          variants={{
-                            hidden: { opacity: 0, y: 8 },
-                            show: { opacity: 1, y: 0, transition: { duration: 0.25 } },
-                          }}
-                          className="group flex items-center justify-between py-2 px-3 rounded-lg surface-card transition-all hover:shadow-md"
-                        >
-                          {editingId === log.id ? (
-                            <>
-                              <div className="flex-1 mr-2 flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  value={editContent}
-                                  onChange={(e) => setEditContent(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleEditSave();
-                                    if (e.key === 'Escape') handleEditCancel();
-                                  }}
-                                  className="flex-1 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
-                                  autoFocus
-                                />
-                                <input
-                                  type="text"
-                                  value={editCategory}
-                                  onChange={(e) => setEditCategory(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleEditSave();
-                                    if (e.key === 'Escape') handleEditCancel();
-                                  }}
-                                  placeholder="#tag"
-                                  className="w-24 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
-                                />
-                                <input
-                                  type="date"
-                                  value={editDate}
-                                  onChange={(e) => setEditDate(e.target.value)}
-                                  className="w-32 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
-                                />
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <button
-                                  onClick={handleEditSave}
-                                  className="p-1 text-green-500 hover:text-green-600"
-                                  title={t('worklog.editSave')}
-                                >
-                                  <Check className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={handleEditCancel}
-                                  className="p-1 text-zinc-400 hover:text-zinc-600"
-                                  title={t('worklog.editCancel')}
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="flex-1 mr-4 flex items-start gap-2 min-w-0">
-                                <span className="text-zinc-800 dark:text-zinc-200 break-all leading-relaxed">
-                                  {log.content}
-                                </span>
-                                {log.category && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 woitespace-nowrap shrink-0">
-                                    {log.category}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                {attCount > 0 && (
-                                  <button
-                                    onClick={() => toggleExpand(log.id)}
-                                    className={`flex items-center gap-0.5 text-xs transition-colors ${
-                                      expandedLogId === log.id
-                                        ? 'text-blue-500'
-                                        : 'text-zinc-400 hover:text-blue-500'
-                                    }`}
-                                    title={t('worklog.viewAttachments')}
-                                    aria-label={t('worklog.viewAttachments')}
-                                  >
-                                    <Paperclip className="w-3.5 h-3.5" />
-                                    <span>{attCount}</span>
-                                  </button>
-                                )}
-                                <span className="text-xs text-zinc-400">
-                                  {formatTime(log.created_at)}
-                                </span>
-                                {deletingId === log.id ? (
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      onClick={() => handleDelete(log.id)}
-                                      className="text-xs text-red-500 hover:text-red-700 px-1"
-                                    >
-                                      {t('common.confirm')}
-                                    </button>
-                                    <button
-                                      onClick={() => setDeletingId(null)}
-                                      className="text-xs text-zinc-400 hover:text-zinc-600 px-1"
-                                    >
-                                      {t('common.cancel')}
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <button
-                                      onClick={() => {
-                                        setEditingId(log.id);
-                                        setEditContent(log.content);
-                                        setEditCategory(log.category);
-                                        setEditDate(log.created_at.slice(0, 10));
-                                      }}
-                                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-blue-500 transition-all"
-                                      aria-label={t('worklog.editAria')}
-                                    >
-                                      <Pencil className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      onClick={() => setDeletingId(log.id)}
-                                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 transition-all"
-                                      aria-label={t('worklog.deleteAria')}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </motion.div>
-                        <AnimatePresence initial={false}>
-                          {expandedLogId === log.id && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="ml-3 mt-1 mb-2 pl-3 border-l-2 border-[var(--color-border)]">
-                                {atts.length === 0 ? (
-                                  <p className="text-xs text-zinc-400 py-1">
-                                    {t('worklog.noAttachments')}
-                                  </p>
-                                ) : (
-                                  <div className="flex flex-wrap gap-2 py-1">
-                                    {atts.map((att) => (
-                                      <AttachmentItem
-                                        key={att.id}
-                                        att={att}
-                                        t={t}
-                                        onDelete={() => handleDeleteAttachment(log.id, att.id)}
-                                      />
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </Fragment>
-                    );
-                  })}
+                  {dateLogs.map((log) => (
+                    <LogEntry
+                      key={`${log.id}-${resolvedLanguage}`}
+                      log={log}
+                      atts={attachmentsByLog[log.id] ?? EMPTY_ATTS}
+                      expanded={expandedLogId === log.id}
+                      editing={editingId === log.id}
+                      deleting={deletingId === log.id}
+                      // 仅编辑中的行传真值，其余传空串，避免每次按键使所有行 memo 失效
+                      editContent={editingId === log.id ? editContent : ''}
+                      editCategory={editingId === log.id ? editCategory : ''}
+                      editDate={editingId === log.id ? editDate : ''}
+                      setEditContent={setEditContent}
+                      setEditCategory={setEditCategory}
+                      setEditDate={setEditDate}
+                      t={stableT}
+                      onToggleExpand={toggleExpand}
+                      onStartEdit={handleStartEdit}
+                      onSaveEdit={handleEditSave}
+                      onCancelEdit={handleEditCancel}
+                      onDelete={handleDelete}
+                      onSetDeleting={setDeletingId}
+                      onDeleteAttachment={handleDeleteAttachment}
+                    />
+                  ))}
                 </motion.div>
               </>
             )}

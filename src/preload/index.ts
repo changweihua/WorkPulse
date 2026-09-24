@@ -62,6 +62,27 @@ async function invoke<T>(promise: Promise<IpcResult<T>>): Promise<T> {
   throw err;
 }
 
+// ─── AI 流式监听去重 ──────────────────────────────────────────────────────────
+// streamChat 每次调用都会开启新流；onChunk/onDone/onError 重复注册时
+// 先移除该通道上一次注册的旧监听，避免未清理的 ipcRenderer 监听器无限累积泄漏
+const activeStreamHandlers: Record<string, ((...args: any[]) => void) | undefined> = {};
+
+/** 注册流式监听：替换该通道的旧监听并返回取消函数（最小防泄漏方案） */
+function onStream(
+  type: 'chunk' | 'done' | 'error',
+  channel: string,
+  handler: (...args: any[]) => void,
+): () => void {
+  const prev = activeStreamHandlers[type];
+  if (prev) ipcRenderer.removeListener(channel, prev);
+  activeStreamHandlers[type] = handler;
+  ipcRenderer.on(channel, handler);
+  return () => {
+    ipcRenderer.removeListener(channel, handler);
+    if (activeStreamHandlers[type] === handler) activeStreamHandlers[type] = undefined;
+  };
+}
+
 const api = {
   // 新增：发送 IPC 消息到主进程
   send: (channel: string, ...args: any[]) => {
@@ -156,21 +177,11 @@ const api = {
       // 流式聊天：invoke 返回 void，通过事件监听接收数据
       ipcRenderer.invoke('ai-chat-stream', { userMessage: prompt, history: [] });
       return {
-        onChunk: (cb: (text: string) => void) => {
-          const handler = (_e: any, text: string) => cb(text);
-          ipcRenderer.on('ai-stream-chunk', handler);
-          return () => ipcRenderer.removeListener('ai-stream-chunk', handler);
-        },
-        onDone: (cb: () => void) => {
-          const handler = () => cb();
-          ipcRenderer.on('ai-stream-done', handler);
-          return () => ipcRenderer.removeListener('ai-stream-done', handler);
-        },
-        onError: (cb: (err: string) => void) => {
-          const handler = (_e: any, err: string) => cb(err);
-          ipcRenderer.on('ai-stream-error', handler);
-          return () => ipcRenderer.removeListener('ai-stream-error', handler);
-        },
+        onChunk: (cb: (text: string) => void) =>
+          onStream('chunk', 'ai-stream-chunk', (_e: any, text: string) => cb(text)),
+        onDone: (cb: () => void) => onStream('done', 'ai-stream-done', () => cb()),
+        onError: (cb: (err: string) => void) =>
+          onStream('error', 'ai-stream-error', (_e: any, err: string) => cb(err)),
       };
     },
   },
