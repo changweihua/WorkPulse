@@ -13,6 +13,12 @@
 - 🦄 refactor: Zustand v5 规范对齐 — 6 个 store 改为 `create<T>()(...)` 双调用，12 个消费组件添加 `useShallow` 防止不必要重渲染
 - 🦄 refactor: CSS 设计规范对齐 — `surface-card` 毛玻璃参数统一为 `blur(16px) saturate(180%)`，新增 `chrome-bg`/`panel-dark`/`surface-subtle-dark` token 替代硬编码 hex
 
+### 变更
+
+- 📦 deps: 依赖分类瘦身 — 22 个仅渲染进程使用的依赖（echarts、three、@react-three/*、motion、lucide-react、zustand、onnxruntime-web、@huggingface/transformers 等）从 dependencies 移至 devDependencies，`@types/three` 同步归位 devDependencies
+- 🐳 chore: 移除无用依赖 — 删除 `vectra`；`react-icons` 的 3 个硅基图标（SiOnnx/SiPaddle/SiPaddlepaddle）内联为本地 `SiliconIcons` 组件后移除依赖
+- 🔧 build: 打包体积排除 — build.files 新增排除 `onnxruntime-node`、`@img`、`sharp`、`*.tsbuildinfo`；extraResources 模型过滤收窄为仅打包 `ppocrv6-tiny/**` 与 `ppocrv6-small/**`（medium 约 132MB 不再随包分发）
+
 ### 修复
 
 - 🐞 fix: 扩展屏无法勾选截图区域与截错屏 — 改为每块显示器独立 overlay 窗口（选区状态主进程维护、跨屏渲染求交集、光标轮询焦点跟随），捕获源四级兜底匹配且失败时中止（不再回退主屏），裁剪按目标屏 scaleFactor 与缩略图实际尺寸比例换算并 clamp

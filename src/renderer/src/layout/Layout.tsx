@@ -10,7 +10,7 @@ import {
   Bot,
   Zap,
 } from 'lucide-react';
-import { SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
+import { SiOnnx, SiPaddle, SiPaddlepaddle } from '../components/icons/SiliconIcons';
 import { TitleBar } from '../components/TitleBar';
 import { useToast } from '../components/Toast';
 import { useI18n } from '../stores/languageStore';

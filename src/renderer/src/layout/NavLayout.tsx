@@ -5,7 +5,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AnimatePresence, motion } from 'motion/react';
 import { Icon } from '@iconify/react';
 import { BarChart3, CalendarRange, Zap, Rss } from 'lucide-react';
-import { SiOnnx, SiPaddle, SiPaddlepaddle } from 'react-icons/si';
+import { SiOnnx, SiPaddle, SiPaddlepaddle } from '../components/icons/SiliconIcons';
 import { useI18n } from '../stores/languageStore';
 import { useClickAway } from 'react-use';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
