@@ -10,6 +10,8 @@ const MAX_SPLASH_DISPLAY = 5000
 
 let splashWindow: BrowserWindow | null = null
 let splashCreatedAt = 0
+// splash 是否已真正显示过（自身 ready-to-show 触发 show 后置为 true）
+let splashShown = false
 
 function getSplashPath(): string {
   if (app.isPackaged) {
@@ -22,6 +24,7 @@ function getSplashPath(): string {
 export function createSplashWindow(): void {
   log.info('[Splash] 🟢 开始创建启动窗口...')
   splashCreatedAt = Date.now()
+  splashShown = false
   splashWindow = new BrowserWindow({
     width: 380,
     height: 280,
@@ -70,6 +73,7 @@ export function createSplashWindow(): void {
   splashWindow.once('ready-to-show', () => {
     if (splashWindow) {
       log.info('[Splash] 🟢 窗口已准备显示')
+      splashShown = true
       splashWindow.show()
       splashWindow.setOpacity(0)
       let opacity = 0
@@ -96,7 +100,12 @@ export function createSplashWindow(): void {
 export function closeSplashWindow(): void {
   if (!splashWindow) return
   const elapsed = Date.now() - splashCreatedAt
-  const remaining = Math.max(0, MIN_SPLASH_DISPLAY - elapsed)
+  // 快速启动：splash 已显示过 → 主窗 ready-to-show 早到就立即关闭，跳过 1.5s 剩余下限
+  // 兜底：splash 尚未真正显示（HTML 加载慢/淡入未开始）→ 仍等满最短显示下限再关，
+  //       避免"创建即销毁"的闪没；慢启动时 elapsed 本就 ≥ 下限，remaining 自然为 0
+  const remaining = splashShown ? 0 : Math.max(0, MIN_SPLASH_DISPLAY - elapsed)
+  // 保持 setTimeout 延迟关闭：主窗 ready-to-show 回调（maximize/hide/SHOW_RADIAL）先执行完，
+  // splash 消失与主界面出现之间不留空窗
   setTimeout(() => {
     if (splashWindow) {
       splashWindow.close()
