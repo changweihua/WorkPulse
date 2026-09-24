@@ -18,9 +18,12 @@
 - 📦 deps: 依赖分类瘦身 — 22 个仅渲染进程使用的依赖（echarts、three、@react-three/*、motion、lucide-react、zustand、onnxruntime-web、@huggingface/transformers 等）从 dependencies 移至 devDependencies，`@types/three` 同步归位 devDependencies
 - 🐳 chore: 移除无用依赖 — 删除 `vectra`；`react-icons` 的 3 个硅基图标（SiOnnx/SiPaddle/SiPaddlepaddle）内联为本地 `SiliconIcons` 组件后移除依赖
 - 🔧 build: 打包体积排除 — build.files 新增排除 `onnxruntime-node`、`@img`、`sharp`、`*.tsbuildinfo`；extraResources 模型过滤收窄为仅打包 `ppocrv6-tiny/**` 与 `ppocrv6-small/**`（medium 约 132MB 不再随包分发）
+- 🎈 perf: AnimatedBackground 鼠标跟随去掉每帧 setState — 改为 useRef + rAF 直写 DOM transform，并将 blur 光斑静态化到内层元素以便合成层缓存
+- 🎈 perf: 工作日志列表渲染优化 — 日志条目组件 React.memo 化，日期卡片启用 `content-visibility: auto` 屏外跳过渲染
 
 ### 修复
 
+- 🐞 fix: preload AI 流式监听泄漏 — `streamChat` 的 onChunk/onDone/onError 同通道重复注册时替换旧监听，避免 ipcRenderer 监听器无限累积
 - 🐞 fix: 扩展屏无法勾选截图区域与截错屏 — 改为每块显示器独立 overlay 窗口（选区状态主进程维护、跨屏渲染求交集、光标轮询焦点跟随），捕获源四级兜底匹配且失败时中止（不再回退主屏），裁剪按目标屏 scaleFactor 与缩略图实际尺寸比例换算并 clamp
 - 🐞 fix: 全局 `focus-visible` 焦点环 — 新增 CSS 基础规则，40+ 可交互元素获得键盘导航支持（可访问性修复）
 - 🐞 fix: 焦点环颜色纠正 — NavLayout 和 AIChatPanel 中 `ring-sky-500`/`ring-violet-500` 统一改为 `ring-blue-400`
