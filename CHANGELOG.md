@@ -15,6 +15,7 @@
 
 ### 变更
 
+- 🎈 perf: 启动性能优化 — 启动全库 `PRAGMA integrity_check`（settings KV 24h 门控）、每日备份（`copyFileSync` 改为 `fs.promises.copyFile`）与 `autoIndexAll` 向量索引统一延迟到 app ready 后约 15s 执行，electron-log 记录校验结果与耗时
 - 📦 deps: 依赖分类瘦身 — 22 个仅渲染进程使用的依赖（echarts、three、@react-three/*、motion、lucide-react、zustand、onnxruntime-web、@huggingface/transformers 等）从 dependencies 移至 devDependencies，`@types/three` 同步归位 devDependencies
 - 🐳 chore: 移除无用依赖 — 删除 `vectra`；`react-icons` 的 3 个硅基图标（SiOnnx/SiPaddle/SiPaddlepaddle）内联为本地 `SiliconIcons` 组件后移除依赖
 - 🔧 build: 打包体积排除 — build.files 新增排除 `onnxruntime-node`、`@img`、`sharp`、`*.tsbuildinfo`；extraResources 模型过滤收窄为仅打包 `ppocrv6-tiny/**` 与 `ppocrv6-small/**`（medium 约 132MB 不再随包分发）

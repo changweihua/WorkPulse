@@ -14,7 +14,7 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { app } from 'electron';
 import { join } from 'path';
-import { existsSync, copyFileSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, promises as fsp } from 'fs';
 import log from 'electron-log/main';
 import * as schema from './schema';
 
@@ -77,12 +77,12 @@ function runIntegrityCheck(): boolean {
   }
 }
 
-function createBackup(): void {
+async function createBackup(): Promise<void> {
   const backupPath = getBackupPath();
   if (!existsSync(backupPath)) {
     try {
       sqlite.pragma('wal_checkpoint(TRUNCATE)');
-      copyFileSync(getDbPath(), backupPath);
+      await fsp.copyFile(getDbPath(), backupPath);
     } catch {
       // 备份失败不阻塞启动
     }
@@ -346,6 +346,57 @@ function runMigrations(): void {
 
 // ==================== 初始化 ====================
 
+/**
+ * 启动延迟窗口（毫秒）：app ready 后延迟该时长再执行
+ * 完整性校验 / 每日备份 / 自动向量索引等重任务，避免阻塞启动
+ */
+export const STARTUP_DEFER_MS = 15_000;
+
+/** 读取 settings KV（复用现有 settings 表，不新建表） */
+function readSettingValue(key: string): string | null {
+  const row = sqlite
+    .prepare('SELECT value FROM settings WHERE key = ?')
+    .get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+/** 写入 settings KV（upsert） */
+function writeSettingValue(key: string, value: string): void {
+  sqlite
+    .prepare(
+      'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+    )
+    .run(key, value);
+}
+
+/**
+ * 延迟窗口内执行的启动检查：
+ * 1. 全库 PRAGMA integrity_check（settings KV 做 24h 门控，electron-log 记录结果与耗时）
+ * 2. 每日备份（文件名按日期天然门控）
+ */
+function runDeferredStartupChecks(): void {
+  // 完整性校验 24h 门控：未到间隔则跳过，校验本身与失败语义不变
+  const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+  const lastRun = Number(readSettingValue('integrity_check_last_run') ?? 0);
+  const now = Date.now();
+  if (!Number.isFinite(lastRun) || now - lastRun >= CHECK_INTERVAL_MS) {
+    const start = Date.now();
+    const ok = runIntegrityCheck();
+    const elapsed = Date.now() - start;
+    if (ok) {
+      log.info(`Database integrity check ok in ${elapsed}ms`);
+      // 仅成功才记录门控时间：失败时下次启动重跑，保持与原“每次启动都校验”一致的失败语义
+      writeSettingValue('integrity_check_last_run', String(now));
+    } else {
+      // 保持原有失败语义
+      log.error('Database integrity check failed!');
+    }
+  }
+
+  // 每日备份（异步拷贝，失败不阻塞）
+  void createBackup();
+}
+
 export function initDatabase(): void {
   const dbPath = getDbPath();
   sqlite = new Database(dbPath);
@@ -357,11 +408,10 @@ export function initDatabase(): void {
   createTables();
   runMigrations();
 
-  if (!runIntegrityCheck()) {
-    log.error('Database integrity check failed!');
-  }
-
-  createBackup();
+  // 完整性校验 + 每日备份移到 app ready 后约 15s 的延迟窗口执行，不阻塞启动
+  setTimeout(() => {
+    runDeferredStartupChecks();
+  }, STARTUP_DEFER_MS);
 }
 
 /** 获取底层 better-sqlite3 实例（用于 PRAGMA、备份、原始 SQL） */

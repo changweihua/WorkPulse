@@ -13,6 +13,7 @@ import { Readable } from 'stream'
 import { getModelsDir } from './model-files'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase, getSetting, setSetting, getDatabase } from './db'
+import { STARTUP_DEFER_MS } from './db/index'
 import { registerAttachmentProtocol } from './attachments'
 import { startScheduler, stopScheduler } from './scheduler'
 import { registerIpcHandlers } from './ipc'
@@ -343,8 +344,10 @@ app.whenReady().then(async () => {
   registerAutoLaunchIpc()
   setAutoLaunchDeps(getMainWindow, APP_ICON_PATH)
 
-  // 启动后异步增量向量化所有未索引的日志（不阻塞启动）
-  vectorSearch.autoIndexAll().catch(() => {})
+  // 启动后异步增量向量化所有未索引的日志：与完整性校验/备份共用同一延迟窗口（ready 后约 15s）
+  setTimeout(() => {
+    vectorSearch.autoIndexAll().catch(log.error)
+  }, STARTUP_DEFER_MS)
 
   if (process.platform === 'win32') {
     electronApp.setAppUserModelId('cmono.workpulse.app')
