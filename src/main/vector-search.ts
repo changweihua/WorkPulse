@@ -237,9 +237,61 @@ function contentHash(content: string): string {
   return `${content.length}-${start}-${end}`;
 }
 
+// ==================== 向量缓存（模块级，避免每次搜索全表 JSON.parse） ====================
+
+/** 缓存条目：ids 与 vectors 为平行数组，下标一一对应 */
+interface VectorCacheEntry {
+  ids: number[];
+  vectors: Float32Array[];
+}
+
+/** 模块级缓存：null 表示失效，下次搜索时重建 */
+let vectorCache: VectorCacheEntry | null = null;
+
+/**
+ * 使向量缓存失效（置 null，下次搜索时重新解析全表）。
+ * 所有写入/删除 worklog_vectors 的路径末尾必须调用，宁可多失效不可漏失效。
+ */
+function invalidateVectorCache(): void {
+  vectorCache = null;
+}
+
+/**
+ * 读取（或重建）向量缓存：首次搜索一次性解析全部向量为 Float32Array。
+ * 0 条数据或表不存在时优雅返回空缓存，不抛错。
+ */
+function getVectorCache(): VectorCacheEntry {
+  if (vectorCache) return vectorCache;
+
+  const ids: number[] = [];
+  const vectors: Float32Array[] = [];
+  try {
+    const db = getDatabase();
+    const rows = db.prepare('SELECT worklog_id, embedding FROM worklog_vectors').all() as Array<{
+      worklog_id: number;
+      embedding: string;
+    }>;
+    for (const row of rows) {
+      try {
+        const parsed = JSON.parse(row.embedding) as number[];
+        ids.push(row.worklog_id);
+        vectors.push(Float32Array.from(parsed));
+      } catch {
+        // 单条向量解析失败：跳过该条，不影响整体缓存
+      }
+    }
+  } catch (e) {
+    // 表不存在 / 数据库异常：返回空缓存，搜索时自然得到空结果
+    log.warn('[VectorSearch] 向量缓存重建失败，按空缓存处理:', e);
+  }
+
+  vectorCache = { ids, vectors };
+  return vectorCache;
+}
+
 // ==================== 余弦相似度 ====================
 
-function cosineSimilarity(a: number[], b: number[]): number {
+function cosineSimilarity(a: ArrayLike<number>, b: ArrayLike<number>): number {
   if (a.length !== b.length) return 0;
   let dot = 0;
   let normA = 0;
@@ -344,6 +396,8 @@ class VectorSearchService {
           }
         });
         tx();
+        // 写入 worklog_vectors 后使缓存失效，下次搜索重建
+        invalidateVectorCache();
         indexed += batch.length;
       } catch (e) {
         log.error(`[VectorSearch] 批量向量化失败 (batch ${i / BATCH_SIZE + 1}):`, e);
@@ -413,23 +467,18 @@ class VectorSearchService {
       }
     }
 
-    const rows = db.prepare('SELECT worklog_id, embedding FROM worklog_vectors').all() as Array<{
-      worklog_id: number;
-      embedding: string;
-    }>;
+    // 读取模块级向量缓存（首次搜索解析全表，后续直接复用，不再重复 JSON.parse）
+    const cache = getVectorCache();
 
-    if (rows.length === 0) return [];
+    if (cache.ids.length === 0) return [];
 
     // 计算相似度并排序，过滤低于阈值的结果
     const MIN_SCORE = 0.3;
-    const scored = rows
-      .map((row) => {
-        const vec = JSON.parse(row.embedding) as number[];
-        return {
-          worklog_id: row.worklog_id,
-          score: cosineSimilarity(queryEmbedding, vec),
-        };
-      })
+    const scored = cache.ids
+      .map((worklog_id, i) => ({
+        worklog_id,
+        score: cosineSimilarity(queryEmbedding, cache.vectors[i]),
+      }))
       .filter((s) => s.score >= MIN_SCORE)
       .sort((a, b) => b.score - a.score)
       .slice(0, options?.topK ?? 10);
@@ -523,6 +572,8 @@ class VectorSearchService {
       db.prepare(
         'INSERT OR REPLACE INTO worklog_vectors (worklog_id, embedding, content_hash) VALUES (?, ?, ?)',
       ).run(id, JSON.stringify(embedding), hash);
+      // 单条向量写入后使缓存失效，下次搜索重建
+      invalidateVectorCache();
 
       // 标记已向量化
       db.prepare(
@@ -532,6 +583,8 @@ class VectorSearchService {
       log.info(`[VectorSearch] worklog #${id} 向量化完成`);
       return true;
     } catch (e) {
+      // 写入可能已部分落库，保险起见同样失效缓存
+      invalidateVectorCache();
       log.warn(`[VectorSearch] worklog #${id} 向量化失败:`, e);
       return false;
     }
@@ -544,6 +597,8 @@ class VectorSearchService {
     this.initialize();
     const db = getDatabase();
     db.exec('DELETE FROM worklog_vectors');
+    // 清空向量后使缓存失效，下次搜索重建为空缓存
+    invalidateVectorCache();
     // 重置所有 worklog 的同步标记
     db.exec('UPDATE work_logs SET vector_synced_at = NULL');
     log.info('[VectorSearch] 向量索引已重建');

@@ -16,6 +16,7 @@
 ### 变更
 
 - 🎈 perf: OCR 吞吐优化 — ImageData 以 transferable 方式发送给 Worker（消除 4K 图约 33MB 的结构化克隆），识别循环内改为累积到局部数组、循环结束后一次性提交状态（去掉每框 postProgress 与 box-recognized 双提交）
+- 🎈 perf: 向量检索模块级缓存 — 首次搜索一次性解析全部 worklog 向量为 `Float32Array`（id 平行数组），后续搜索免重复 `JSON.parse`；autoIndexAll/indexSingleWorklog/rebuildIndex 写路径末尾统一失效缓存，0 条数据或表缺失时优雅返回空结果
 - 🎈 perf: 启动性能优化 — 启动全库 `PRAGMA integrity_check`（settings KV 24h 门控）、每日备份（`copyFileSync` 改为 `fs.promises.copyFile`）与 `autoIndexAll` 向量索引统一延迟到 app ready 后约 15s 执行，electron-log 记录校验结果与耗时
 - 🎈 perf: 截图光标 IPC 瘦身 — 16ms 轮询保留，坐标相对上次已发送值去重（静止零 IPC）、发送节流至约 30Hz，且仅发给鼠标所在屏的 overlay（选区广播逻辑不变）
 - 📦 deps: 依赖分类瘦身 — 22 个仅渲染进程使用的依赖（echarts、three、@react-three/*、motion、lucide-react、zustand、onnxruntime-web、@huggingface/transformers 等）从 dependencies 移至 devDependencies，`@types/three` 同步归位 devDependencies
