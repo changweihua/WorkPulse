@@ -15,6 +15,7 @@
 
 ### 变更
 
+- 🎈 perf: 截图光标 IPC 瘦身 — 16ms 轮询保留，坐标相对上次已发送值去重（静止零 IPC）、发送节流至约 30Hz，且仅发给鼠标所在屏的 overlay（选区广播逻辑不变）
 - 📦 deps: 依赖分类瘦身 — 22 个仅渲染进程使用的依赖（echarts、three、@react-three/*、motion、lucide-react、zustand、onnxruntime-web、@huggingface/transformers 等）从 dependencies 移至 devDependencies，`@types/three` 同步归位 devDependencies
 - 🐳 chore: 移除无用依赖 — 删除 `vectra`；`react-icons` 的 3 个硅基图标（SiOnnx/SiPaddle/SiPaddlepaddle）内联为本地 `SiliconIcons` 组件后移除依赖
 - 🔧 build: 打包体积排除 — build.files 新增排除 `onnxruntime-node`、`@img`、`sharp`、`*.tsbuildinfo`；extraResources 模型过滤收窄为仅打包 `ppocrv6-tiny/**` 与 `ppocrv6-small/**`（medium 约 132MB 不再随包分发）
