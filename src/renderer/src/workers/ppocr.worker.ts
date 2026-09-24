@@ -303,7 +303,9 @@ async function runPipeline(imageData: ImageData, taskId: string, version: number
 
     const total = boxes.length;
     const results: (RecognitionResult | null)[] = new Array(total).fill(null);
-    let completed = 0;
+    // 吞吐优化：识别阶段不在循环内逐框提交状态（每框 postProgress + box-recognized 会造成双次
+    // setState 提交），改为只写入局部数组 results，循环结束后一次性提交（done 消息携带全部结果）。
+    postProgress('步骤 2/3: 识别中...', 30);
 
     // 逐框识别（onnxruntime WASM 不支持同一 session 并发 run）
     for (const { b, i } of boxes.map((b, i) => ({ b, i }))) {
@@ -327,15 +329,13 @@ async function runPipeline(imageData: ImageData, taskId: string, version: number
         const cw = b.x1 - b.x0;
         const ch = b.y1 - b.y0;
         if (cw < 2 || ch < 2) {
-            completed++;
-            postProgress('步骤 2/3: 识别中...', 30 + Math.round((completed / total) * 60));
+            // 过小的框直接跳过，进度统一在循环结束后提交
             continue;
         }
 
         const cropped = cropImageData(imageData, b.x0, b.y0, cw, ch);
         if (!cropped) {
-            completed++;
-            postProgress('步骤 2/3: 识别中...', 30 + Math.round((completed / total) * 60));
+            // 裁剪失败直接跳过，进度统一在循环结束后提交
             continue;
         }
 
@@ -359,25 +359,14 @@ async function runPipeline(imageData: ImageData, taskId: string, version: number
         const decoded = ctcDecode(recOutput.data as Float32Array, T, C, charList);
         const text = decoded.text.trim();
 
-        completed++;
-        postProgress('步骤 2/3: 识别中...', 30 + Math.round((completed / total) * 60));
-
         if (text) {
-            const res: RecognitionResult = {
+            // 只写入局部数组，不在此处逐框 postMessage，循环结束后由 done 消息一次性提交
+            results[i] = {
                 box: b,
                 text,
                 confidence: decoded.confidence,
                 charCount: decoded.charCount,
             };
-            results[i] = res;
-            post({
-                type: 'box-recognized',
-                index: i,
-                text,
-                confidence: decoded.confidence,
-                charCount: decoded.charCount,
-                box: b,
-            });
         }
     }
 

@@ -241,13 +241,18 @@ export function usePPOCR(initialVariant: ModelVariant = 'tiny') {
             return new Promise<RecognitionResult[]>((resolve, reject) => {
                 runResolveRef.current = resolve;
                 runRejectRef.current = reject;
-                // 不转移 buffer，保留渲染线程的 imgData 供 Canvas 绘制使用
-                worker.postMessage({
-                    type: 'run',
-                    imageData: imgData,
-                    taskId,
-                    version: 0, // 版本号由 worker 内部管理，此处占位
-                } as WorkerRequest);
+                // 以 transferable 方式发送：转移 ImageData 的 buffer，避免 4K 图（约 33MB）被结构化克隆。
+                // 发送后渲染线程不再读取该 buffer（调用方 Canvas 持有独立像素数据，runOCR 内部也无后续读取），
+                // 因此可以安全转移；postMessage 之后 imgData.data 将被置空不可用。
+                worker.postMessage(
+                    {
+                        type: 'run',
+                        imageData: imgData,
+                        taskId,
+                        version: 0, // 版本号由 worker 内部管理，此处占位
+                    } as WorkerRequest,
+                    [imgData.data.buffer]
+                );
             });
         },
         [status, cancel]
