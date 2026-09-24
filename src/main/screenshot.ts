@@ -33,9 +33,13 @@ const overlayWindows = new Map<number, BrowserWindow>()
 let screenshotOverlayOrigin = { x: 0, y: 0 }
 let screenshotBusy = false
 let screenshotDestroyTimer: ReturnType<typeof setTimeout> | null = null
-/** 光标轮询定时器：会话期间 ~16ms 广播全局光标坐标 */
+/** 光标轮询定时器：会话期间 ~16ms 轮询，发送按去重+30Hz 节流收口 */
 let cursorPollTimer: ReturnType<typeof setInterval> | null = null
 let lastCursorDisplayId: number | null = null
+/** 上次已发送的光标坐标与时间戳：坐标未变则零 IPC，发送节流至约 33ms（30Hz） */
+let lastSentCursor: { x: number; y: number } | null = null
+let lastSentCursorAt = 0
+const CURSOR_SEND_INTERVAL_MS = 33
 /** 无效选区延迟取消（220ms 等待 dblclick）/ 双击全屏后的自动收尾，共用一个定时器 */
 let pendingCloseTimer: ReturnType<typeof setTimeout> | null = null
 /** 拖拽会话状态（选区真值只存主进程，跨屏拖拽时 down/up 可能落在不同窗口） */
@@ -199,17 +203,28 @@ function focusCursorDisplay(): void {
   if (win && !win.isDestroyed() && win.isVisible()) win.focus()
 }
 
-/** 会话期间 ~16ms 轮询光标：广播全局坐标 + 光标换屏时 focus 该窗口 */
+/** 会话期间 ~16ms 轮询光标：坐标去重 + 30Hz 节流后仅发给鼠标所在屏 overlay，光标换屏时 focus 该窗口 */
 function startCursorPolling(): void {
   stopCursorPolling()
   cursorPollTimer = setInterval(() => {
     const p = screen.getCursorScreenPoint()
-    broadcast('screenshot:cursor', { gx: p.x, gy: p.y })
     const disp = screen.getDisplayNearestPoint(p)
     if (disp.id !== lastCursorDisplayId) {
       lastCursorDisplayId = disp.id
       const win = overlayWindows.get(disp.id)
       if (win && !win.isDestroyed() && win.isVisible()) win.focus()
+    }
+    // 去重：坐标相对上次已发送值无变化 → 零 IPC
+    if (lastSentCursor && lastSentCursor.x === p.x && lastSentCursor.y === p.y) return
+    // 节流：轮询保持 16ms，但发送不超过约 30Hz，避免高频 IPC
+    const now = Date.now()
+    if (now - lastSentCursorAt < CURSOR_SEND_INTERVAL_MS) return
+    lastSentCursor = { x: p.x, y: p.y }
+    lastSentCursorAt = now
+    // 只发给鼠标所在屏的 overlay；选区仍走 broadcast 求交集，逻辑不变
+    const win = overlayWindows.get(disp.id)
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('screenshot:cursor', { gx: p.x, gy: p.y })
     }
   }, 16)
 }
@@ -220,6 +235,9 @@ function stopCursorPolling(): void {
     cursorPollTimer = null
   }
   lastCursorDisplayId = null
+  // 重置去重/节流状态，保证下次会话首帧必发当前光标位置
+  lastSentCursor = null
+  lastSentCursorAt = 0
 }
 
 function clearPendingClose(): void {
