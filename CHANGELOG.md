@@ -24,9 +24,16 @@
 - 🔧 build: 打包体积排除 — build.files 新增排除 `onnxruntime-node`、`@img`、`sharp`、`*.tsbuildinfo`；extraResources 模型过滤收窄为仅打包 `ppocrv6-tiny/**` 与 `ppocrv6-small/**`（medium 约 132MB 不再随包分发）
 - 🎈 perf: AnimatedBackground 鼠标跟随去掉每帧 setState — 改为 useRef + rAF 直写 DOM transform，并将 blur 光斑静态化到内层元素以便合成层缓存
 - 🎈 perf: 工作日志列表渲染优化 — 日志条目组件 React.memo 化，日期卡片启用 `content-visibility: auto` 屏外跳过渲染
+- 🎈 perf: 模型配置内存缓存 — `getGlobalConfig` 结果模块级缓存，失效钩子覆盖 `setGlobalConfig`/`setActiveChatConfig`/`secureSettings` 的 token 写入（消除单次向量搜索 50+ 次查询与 30 次 DPAPI 解密）
+- 🎈 perf: 向量缓存增量更新 — 索引写入改为按条 upsert（id→下标 Map），不再任意写入即全表重建；删除 worklog 时同步清理向量行（修复孤儿向量）
+- 🎈 perf: 工作日志列表排序走索引 — 新增 `sort_key` 冗余列物化 `COALESCE(due_date, created_at)`（含存量回填与四处写路径回写），列表/搜索/导出改按 `sort_key` 排序，消除全表 join+sort
+- 🎈 perf: 背景模糊开销降低 — AnimatedBackground 静止 30 帧后完全停止 rAF 循环（鼠标移动重启）；卡片 `backdrop-filter` 模糊半径 16→12px、输入框 20→15px（饱和度与玻璃质感参数保留）
+- 🎈 perf: OCR 模型加载绕开 IPC 克隆 — `usePPOCR` 优先经 `appmodel://` 协议流式读取模型（模块级 ArrayBuffer 缓存 + content-length 分段进度），失败回退原 `read-model-file` IPC；消除 medium 变体约 138MB 的结构化克隆
 
 ### 修复
 
+- 🐞 fix: dotnet:invoke 正确 await Bridge 返回值 — handler 改为 `await Promise.resolve(...)`；`ComputeFileHash` 改为 `Task<string>` + `Task.Run` 阻塞移出主线程（重编 Bridge.dll，方法名保持 JSExport 映射不变）
+- 🐞 fix: AI 流式监听互杀 — `window.ai.on` 改为返回 unsubscribe（按通道 Set 去重），ChatPage 与常驻 AIChatPanel 各自精确清理，不再用 `removeAllListeners` 全清导致切会话时杀掉对方监听、流式中断
 - 🐞 fix: preload AI 流式监听泄漏 — `streamChat` 的 onChunk/onDone/onError 同通道重复注册时替换旧监听，避免 ipcRenderer 监听器无限累积
 - 🐞 fix: 扩展屏无法勾选截图区域与截错屏 — 改为每块显示器独立 overlay 窗口（选区状态主进程维护、跨屏渲染求交集、光标轮询焦点跟随），捕获源四级兜底匹配且失败时中止（不再回退主屏），裁剪按目标屏 scaleFactor 与缩略图实际尺寸比例换算并 clamp
 - 🐞 fix: 全局 `focus-visible` 焦点环 — 新增 CSS 基础规则，40+ 可交互元素获得键盘导航支持（可访问性修复）
