@@ -235,6 +235,44 @@ function rowToEmbedConfig(row: ModelConfigRow): EmbeddingModelConfig {
   };
 }
 
+// ==================== 模块级缓存 ====================
+
+/**
+ * 全局配置模块级缓存（单缓存 + 写路径显式失效，不以 version 作缓存 key——
+ * 每次读都查 version 会打回一半收益）。
+ *
+ * 背景：getGlobalConfig 每次调用约 10 次 SQLite 查询 + 6-8 次 safeStorage DPAPI
+ * 解密（逐行 loadToken），vector-search 单次 search 会调用 5-6 次。缓存命中后
+ * 读路径零 DB、零解密。
+ *
+ * ⚠ 安全说明：token 明文会驻留主进程内存。与现状相比不构成新的暴露等级——
+ * 原本每次解密后 token 同样短暂驻留内存，且 `model:get-global-config` IPC
+ * 一直以明文把含 token 的配置发送给渲染进程。
+ *
+ * 失效面（写路径收口，缺一不可）：
+ * 1. setGlobalConfig —— 全量重写 model_configs 表，函数末尾显式失效；
+ * 2. setActiveChatConfig —— 直接 UPDATE is_active，不经 setGlobalConfig，需手动失效；
+ * 3. secureSettings.saveLLMToken / deleteLLMToken —— token 属于配置组成部分
+ *    （loadToken 参与 config 构建），且 settings.ipc.ts 的 llm-tokens:* IPC
+ *    绕过 modelConfig.saveToken 直连 secureSettings，故失效钩子下沉到其内部。
+ */
+let cachedGlobalConfig: GlobalModelConfig | null = null;
+
+/** 失效全局配置缓存（所有写 model_configs / llm_token 的路径必须调用） */
+export function invalidateGlobalConfigCache(): void {
+  cachedGlobalConfig = null;
+}
+
+/** 浅拷贝缓存对象，防止调用方就地修改污染缓存（字段均为原始值，浅拷贝足够） */
+function cloneGlobalConfig(config: GlobalModelConfig): GlobalModelConfig {
+  return {
+    chatConfigs: config.chatConfigs.map((c) => ({ ...c })),
+    activeChatConfigId: config.activeChatConfigId,
+    embeddingConfigs: config.embeddingConfigs.map((e) => ({ ...e })),
+    activeEmbeddingConfigId: config.activeEmbeddingConfigId,
+  };
+}
+
 // ==================== 核心读写 ====================
 
 /** model_configs 表数据版本号，用于自动清理旧迁移脏数据 */
@@ -244,27 +282,39 @@ const MODEL_CONFIGS_VERSION = 2;
  * 获取完整模型配置（含 token 解密）
  */
 export function getGlobalConfig(): GlobalModelConfig {
+  // 缓存命中直接返回（拷贝一层，避免调用方篡改缓存本体）
+  if (cachedGlobalConfig) {
+    return cloneGlobalConfig(cachedGlobalConfig);
+  }
+
   const db = getDatabase();
 
   // 检查数据版本，清理旧迁移写入的脏数据
   const storedVersion = parseInt(getSetting('model_configs_version') || '0', 10);
   if (storedVersion < MODEL_CONFIGS_VERSION) {
     // 旧版本数据可能包含 localStorage 迁移的错误配置，清除后重建默认配置
+    // 先写 DB、后置缓存：setGlobalConfig 内部只做写入+失效，写完再建立缓存，
+    // 避免缓存旧值；此处直接读表，不递归回调 getGlobalConfig
     db.prepare('DELETE FROM model_configs').run();
     setGlobalConfig(DEFAULT_CONFIG);
     setSetting('model_configs_version', String(MODEL_CONFIGS_VERSION));
-    return { ...DEFAULT_CONFIG };
+    cachedGlobalConfig = readConfigFromTable();
+    return cloneGlobalConfig(cachedGlobalConfig);
   }
 
   // 检查表是否有数据
   const count = db.prepare('SELECT COUNT(*) as c FROM model_configs').get() as { c: number };
   if (count.c === 0) {
-    // 表为空（首次启动或用户清空），写入默认配置并返回
+    // 表为空（首次启动或用户清空），写入默认配置；同样先写 DB、后置缓存
     setGlobalConfig(DEFAULT_CONFIG);
-    return { ...DEFAULT_CONFIG };
+    cachedGlobalConfig = readConfigFromTable();
+    return cloneGlobalConfig(cachedGlobalConfig);
   }
 
-  return readConfigFromTable();
+  // 正常路径：读表构建配置后置入缓存
+  const config = readConfigFromTable();
+  cachedGlobalConfig = config;
+  return cloneGlobalConfig(config);
 }
 
 /** 从 model_configs 表读取配置 */
@@ -368,6 +418,9 @@ export function setGlobalConfig(config: GlobalModelConfig): void {
     }
   });
   tx();
+  // 先写 DB、后失效缓存（token 写入时 secureSettings 已失效过一次，这里再失效
+  // 一次以覆盖 token 字段未变化、仅表数据变化的场景）
+  invalidateGlobalConfigCache();
 }
 
 // ==================== 便捷方法 ====================
@@ -392,6 +445,8 @@ export function setActiveChatConfig(configId: string): void {
   db.prepare("UPDATE model_configs SET is_active = 1 WHERE id = ? AND config_type = 'chat'").run(
     configId,
   );
+  // 直接 UPDATE is_active，不经 setGlobalConfig，必须手动失效缓存
+  invalidateGlobalConfigCache();
 }
 
 // ==================== 每日调用限额管理 ====================
