@@ -8,7 +8,7 @@ declare global {
   interface Window {
     ai: {
       invoke: (channel: string, ...args: any[]) => Promise<any>;
-      on: (channel: string, listener: (...args: any[]) => void) => void;
+      on: (channel: string, listener: (...args: any[]) => void) => () => void;
       removeAllListeners: (channel: string) => void;
       cancel: (requestId: string) => Promise<void>;
       saveLLMToken: (modelId: string, token: string) => Promise<boolean>;

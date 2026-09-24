@@ -614,10 +614,14 @@ export default function AIChatPanel() {
       );
     };
 
-    window.ai.on('ai-stream-reasoning', onReasoning);
-    window.ai.on('ai-stream-chunk', onChunk);
-    window.ai.on('ai-stream-done', onDone);
-    window.ai.on('ai-stream-error', onError);
+    // 收集各通道的 unsubscribe，cleanup 时只移除本 effect 注册的监听，
+    // 不再用 removeAllListeners 全清，避免误杀 ChatPage 的同通道监听；
+    // 依赖 [currentConvId, open] 变化重注册时由 preload 的去重逻辑保证不叠加
+    const unsubscribes: Array<() => void> = [];
+    unsubscribes.push(window.ai.on('ai-stream-reasoning', onReasoning));
+    unsubscribes.push(window.ai.on('ai-stream-chunk', onChunk));
+    unsubscribes.push(window.ai.on('ai-stream-done', onDone));
+    unsubscribes.push(window.ai.on('ai-stream-error', onError));
 
     const onRetry = (_: any, info: { attempt: number; maxRetries: number; waitMs: number }) => {
       setRetryInfo(info);
@@ -625,16 +629,12 @@ export default function AIChatPanel() {
     const onRequestId = (_: any, requestId: string) => {
       currentRequestIdRef.current = requestId;
     };
-    window.ai.on('ai-stream-retry', onRetry);
-    window.ai.on('ai-stream-request-id', onRequestId);
+    unsubscribes.push(window.ai.on('ai-stream-retry', onRetry));
+    unsubscribes.push(window.ai.on('ai-stream-request-id', onRequestId));
 
     return () => {
-      window.ai.removeAllListeners('ai-stream-reasoning');
-      window.ai.removeAllListeners('ai-stream-chunk');
-      window.ai.removeAllListeners('ai-stream-done');
-      window.ai.removeAllListeners('ai-stream-error');
-      window.ai.removeAllListeners('ai-stream-retry');
-      window.ai.removeAllListeners('ai-stream-request-id');
+      // 依次取消本 effect 注册的监听，与其他组件的同通道监听互不影响
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
     };
   }, [currentConvId, open]);
 
