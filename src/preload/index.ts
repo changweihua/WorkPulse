@@ -67,6 +67,13 @@ async function invoke<T>(promise: Promise<IpcResult<T>>): Promise<T> {
 // 先移除该通道上一次注册的旧监听，避免未清理的 ipcRenderer 监听器无限累积泄漏
 const activeStreamHandlers: Record<string, ((...args: any[]) => void) | undefined> = {};
 
+// ─── ai-stream 通道监听注册表 ─────────────────────────────────────────────────
+// ChatPage 与常驻 AIChatPanel（TitleBarLayout 挂载）会同时监听同一组 ai-stream-* 通道，
+// 因此不能像 activeStreamHandlers 那样按通道只保留一个 handler（会顶掉另一个组件的监听），
+// 这里按通道记录多个 handler：同一 handler 引用重复注册时先移除旧的再注册（去重、防叠加消费），
+// 注册返回的 unsubscribe 只移除自己那一个，互不影响
+const activeAiListeners: Record<string, Set<(...args: any[]) => void>> = {};
+
 /** 注册流式监听：替换该通道的旧监听并返回取消函数（最小防泄漏方案） */
 function onStream(
   type: 'chunk' | 'done' | 'error',
@@ -435,7 +442,7 @@ if (process.contextIsolated) {
         }
         throw new Error(`Invalid channel: ${channel}`);
       },
-      on: (channel: string, listener: (...args: any[]) => void) => {
+      on: (channel: string, listener: (...args: any[]) => void): (() => void) => {
         const validChannels = [
           'ai-stream-chunk',
           'ai-stream-done',
@@ -444,9 +451,31 @@ if (process.contextIsolated) {
           'ai-stream-retry',
           'ai-stream-request-id',
         ];
-        if (validChannels.includes(channel)) {
-          ipcRenderer.on(channel, listener);
+        if (!validChannels.includes(channel)) {
+          // 非法通道不注册，返回空取消函数保证返回类型一致
+          return () => {};
         }
+        let listeners = activeAiListeners[channel];
+        if (!listeners) {
+          listeners = new Set();
+          activeAiListeners[channel] = listeners;
+        }
+        // 去重：同一 handler 引用重复注册时先移除旧监听再注册，避免叠加消费
+        if (listeners.has(listener)) {
+          ipcRenderer.removeListener(channel, listener);
+          listeners.delete(listener);
+        }
+        listeners.add(listener);
+        ipcRenderer.on(channel, listener);
+        // 返回 unsubscribe：只移除本 handler，不影响同通道上其他组件的监听
+        return () => {
+          ipcRenderer.removeListener(channel, listener);
+          const current = activeAiListeners[channel];
+          if (current) {
+            current.delete(listener);
+            if (current.size === 0) delete activeAiListeners[channel];
+          }
+        };
       },
       removeAllListeners: (channel: string) => {
         const validChannels = [
