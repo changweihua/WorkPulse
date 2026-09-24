@@ -68,26 +68,30 @@ public static class NativeBridge
         }
     }
 
-    // 文件哈希计算
+    // 文件哈希计算（文件流 IO 属于重活，放到线程池执行，避免阻塞 JS 调用线程）
+    // 注意：方法名保持 ComputeFileHash，不加 Async 后缀（[JSExport] camelCase 映射，渲染层调用 computeFileHash）
     [JSExport]
-    public static string ComputeFileHash(string filePath, string algorithm = "SHA256")
+    public static Task<string> ComputeFileHash(string filePath, string algorithm = "SHA256")
     {
-        if (!File.Exists(filePath))
-            throw new FileNotFoundException($"File not found: {filePath}");
-        
-        HashAlgorithm hasher = algorithm.ToUpper() switch
+        return Task.Run(() =>
         {
-            "MD5" => MD5.Create(),
-            "SHA1" => SHA1.Create(),
-            "SHA384" => SHA384.Create(),
-            "SHA512" => SHA512.Create(),
-            _ => SHA256.Create()
-        };
-        using (hasher)
-        {
-            using var stream = File.OpenRead(filePath);
-            var hash = hasher.ComputeHash(stream);
-            return Convert.ToHexString(hash).ToLowerInvariant();
-        }
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException($"File not found: {filePath}");
+
+            HashAlgorithm hasher = algorithm.ToUpper() switch
+            {
+                "MD5" => MD5.Create(),
+                "SHA1" => SHA1.Create(),
+                "SHA384" => SHA384.Create(),
+                "SHA512" => SHA512.Create(),
+                _ => SHA256.Create()
+            };
+            using (hasher)
+            {
+                using var stream = File.OpenRead(filePath);
+                var hash = hasher.ComputeHash(stream);
+                return Convert.ToHexString(hash).ToLowerInvariant();
+            }
+        });
     }
 }

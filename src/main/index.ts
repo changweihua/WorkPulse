@@ -227,7 +227,8 @@ function registerDotnetIpc(): void {
     if (!dotnetLib?.NativeBridge) return fail('BUSINESS_ERROR', '.NET Bridge not loaded')
     const fn = dotnetLib.NativeBridge[data.method]
     if (typeof fn !== 'function') return fail('NOT_FOUND', `Unknown method: ${data.method}`)
-    return ok(fn(...(data.args || [])))
+    // 统一 await：同步返回值行为不变；若 Bridge 方法返回 Promise，await 可避免结构化克隆失败，且 async reject 能走 fail 通道
+    return ok(await Promise.resolve(fn(...(data.args || []))))
   })
 }
 
