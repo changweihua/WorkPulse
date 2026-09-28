@@ -148,7 +148,6 @@ function createTables(): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_work_logs_created_at ON work_logs(created_at);
-    CREATE INDEX IF NOT EXISTS idx_work_logs_sort_key ON work_logs(sort_key);
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_reports_dates ON reports(date_from, date_to);
     CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
@@ -385,9 +384,9 @@ export const STARTUP_DEFER_MS = 15_000;
 
 /** 读取 settings KV（复用现有 settings 表，不新建表） */
 function readSettingValue(key: string): string | null {
-  const row = sqlite
-    .prepare('SELECT value FROM settings WHERE key = ?')
-    .get(key) as { value: string } | undefined;
+  const row = sqlite.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
+    | { value: string }
+    | undefined;
   return row?.value ?? null;
 }
 
@@ -395,7 +394,7 @@ function readSettingValue(key: string): string | null {
 function writeSettingValue(key: string, value: string): void {
   sqlite
     .prepare(
-      'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+      'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
     )
     .run(key, value);
 }
