@@ -42,10 +42,12 @@
 - 🐞 fix: 移除导航链接 `hover:scale` 违反动画禁令的代码
 - 🐞 fix: 修复 14 个存量 web 类型错误 — `npm run typecheck:web` 首次归零（segmentClick/RadialApi 签名对齐 preload、ArticleReader 守卫 url 回调、rssStore.updateFeed 补 url 可选参数、i18n 补 apiKeySaved/apiKeyDeleted 词条、SettingsPage 遗留无引用处理器注释化）
 - 🐞 fix: 启动崩溃 `no such column: sort_key` — `createTables` 不再提前创建 sort_key 索引（存量库该列由 migrateWorkLogSortKey 加列后才存在），索引统一在迁移内创建
+- 🐞 fix: feedsmith v3 类型适配 — `domParseItems` 参数从 `ReturnType<typeof parseFeed>` 改为显式 `AnyFeed<string>`（v3 泛型 TDate 默认 string，ReturnType 实例化为 unknown 导致不匹配）
 
 ### 依赖更新
 
 - 📦 deps: 批量升级依赖 — `drizzle-orm` 0.45.2→0.45.3、`drizzle-kit` 0.31.10→0.31.11、`openai` 7.19.0→7.21.0、`electron-context-menu` 5.0.0→5.1.0、`oxlint` 1.83.0→1.85.0、`tsx` 4.23.13→4.23.15、`@commitlint/cli` 21.2.2→21.2.3、`@iconify-json/thesvg-color` 1.2.11→1.2.12、`@types/node` 26.6.1→26.6.2、`@iconify-json/lucide` 1.2.134→1.2.135、`javascript-obfuscator` 5.7.0→5.8.0
+- 📦 deps: 依赖升级到最新版 — `dotenv` 17.4.2→18.0.4、`feedsmith` 2.9.6→3.0.1、`oxfmt` 0.68.0→0.70.0（major），另含范围内升级 `vite` 8.3.1、`motion` 13.4.4、`three` 0.186.1、`lint-staged` 17.6.0、`sharp` 0.35.5、`koffi` 3.3.2、`@types/node` 26.6.3 等（`npm update` 同步 wanted 版本）
 
 ### 变更
 
