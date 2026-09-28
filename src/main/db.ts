@@ -9,9 +9,8 @@ import { eq, and, sql } from 'drizzle-orm';
 import type { Attachment } from './attachments';
 import { getDatabase, getDrizzleDb } from './db/index';
 import * as schema from './db/schema';
-// 与 vector-search.ts 存在模块循环引用，但双方仅在函数体内使用对方的导出，
-// 不在模块顶层求值，加载顺序安全
-import { removeVectorCache } from './vector-search';
+// 与 vector-search.ts 存在模块循环引用（db → vector-search → aiUsage → db），
+// 顶层 import 会触发 oxlint no-cycle，改为在 deleteWorkLog 函数体内延迟 require
 
 // ==================== 重导出（保持向后兼容） ====================
 
@@ -129,7 +128,9 @@ export function addWorkLog(
 
 export function getWorkLogs(limit = 200, offset = 0): WorkLog[] {
   // H1：直接按冗余列 sort_key 排序，去掉 LEFT JOIN（原 COALESCE 语义已冗余化，可走索引）
-  const stmt = getDatabase().prepare('SELECT * FROM work_logs ORDER BY sort_key DESC LIMIT ? OFFSET ?');
+  const stmt = getDatabase().prepare(
+    'SELECT * FROM work_logs ORDER BY sort_key DESC LIMIT ? OFFSET ?',
+  );
   return stmt.all(limit, offset) as WorkLog[];
 }
 
@@ -167,7 +168,9 @@ export function deleteWorkLog(id: number): boolean {
     // 修复孤儿向量 bug：worklog_vectors.worklog_id 没有外键约束，
     // 删除 worklog 时必须手动删除对应向量行，否则残留孤儿向量继续参与搜索
     getDatabase().prepare('DELETE FROM worklog_vectors WHERE worklog_id = ?').run(id);
-    // 同步增量移除内存缓存（缓存为 null 时 no-op，下次全量重建自然读到）
+    // 同步增量移除内存缓存（缓存为 null 时 no-op，下次全量重建自然读到）；
+    // 延迟 require 打破 db → vector-search → aiUsage → db 的模块循环引用
+    const { removeVectorCache } = require('./vector-search') as typeof import('./vector-search');
     removeVectorCache(id);
   }
   return result.changes > 0;
