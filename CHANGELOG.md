@@ -40,6 +40,8 @@
 - 🐞 fix: 焦点环颜色纠正 — NavLayout 和 AIChatPanel 中 `ring-sky-500`/`ring-violet-500` 统一改为 `ring-blue-400`
 - 🐞 fix: Toast Context.Provider 迁移 — `<ToastContext.Provider>` 改为 React 19 推荐的 `<Context value={}>` 写法
 - 🐞 fix: 移除导航链接 `hover:scale` 违反动画禁令的代码
+- 🐞 fix: 修复 14 个存量 web 类型错误 — `npm run typecheck:web` 首次归零（segmentClick/RadialApi 签名对齐 preload、ArticleReader 守卫 url 回调、rssStore.updateFeed 补 url 可选参数、i18n 补 apiKeySaved/apiKeyDeleted 词条、SettingsPage 遗留无引用处理器注释化）
+- 🐞 fix: 启动崩溃 `no such column: sort_key` — `createTables` 不再提前创建 sort_key 索引（存量库该列由 migrateWorkLogSortKey 加列后才存在），索引统一在迁移内创建
 
 ### 依赖更新
 
