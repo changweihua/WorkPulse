@@ -16,7 +16,7 @@ interface RadialApi {
   onCursor: (cb: (info: { x: number; y: number; dist: number; isOverCenter: boolean }) => void) => void
   // 交互动作（renderer → main）
   centerClick: () => void
-  segmentClick: (key: string) => void
+  segmentClick: (key: string, item?: unknown) => void
   // 拖拽
   dragStart: () => void
   dragMove: (dx: number, dy: number) => void
@@ -30,6 +30,8 @@ interface RadialApi {
   // 配置
   getConfig: () => Promise<unknown[]>
   setConfig: (items: unknown) => Promise<boolean>
+  // 配置变更监听（与 preload/radial.ts 暴露的实现对齐），返回取消订阅函数
+  onConfigChanged?: (cb: (items?: unknown) => void) => () => void
 }
 
 /** 选区矩形（绝对全局 DIP，w/h；crop 上报时转 width/height） */
