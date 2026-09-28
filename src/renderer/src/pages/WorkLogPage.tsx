@@ -413,12 +413,12 @@ const LogEntry = memo(function LogEntry({
           </>
         ) : (
           <>
-            <div className="flex-1 mr-4 flex items-start gap-2 min-w-0">
+            <div className="flex-1 mr-4 flex items-center gap-2 min-w-0">
               <span className="text-zinc-800 dark:text-zinc-200 break-all leading-relaxed">
                 {log.content}
               </span>
               {log.category && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 woitespace-nowrap shrink-0">
+                <span className="text-[10px] leading-4 px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 whitespace-nowrap shrink-0 self-center">
                   {log.category}
                 </span>
               )}
@@ -437,9 +437,7 @@ const LogEntry = memo(function LogEntry({
                   <span>{attCount}</span>
                 </button>
               )}
-              <span className="text-xs text-zinc-400">
-                {formatTime(log.created_at)}
-              </span>
+              <span className="text-xs text-zinc-400">{formatTime(log.created_at)}</span>
               {deleting ? (
                 <div className="flex items-center gap-1">
                   <button
@@ -459,14 +457,14 @@ const LogEntry = memo(function LogEntry({
                 <>
                   <button
                     onClick={() => onStartEdit(log)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-blue-500 transition-all"
+                    className="p-1 text-zinc-400 hover:text-blue-500 transition-colors"
                     aria-label={t('worklog.editAria')}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => onSetDeleting(log.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 transition-all"
+                    className="p-1 text-zinc-400 hover:text-red-500 transition-colors"
                     aria-label={t('worklog.deleteAria')}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -488,9 +486,7 @@ const LogEntry = memo(function LogEntry({
           >
             <div className="ml-3 mt-1 mb-2 pl-3 border-l-2 border-[var(--color-border)]">
               {atts.length === 0 ? (
-                <p className="text-xs text-zinc-400 py-1">
-                  {t('worklog.noAttachments')}
-                </p>
+                <p className="text-xs text-zinc-400 py-1">{t('worklog.noAttachments')}</p>
               ) : (
                 <div className="flex flex-wrap gap-2 py-1">
                   {atts.map((att) => (
@@ -571,8 +567,22 @@ function WorkLogPage(): ReactNode {
     [],
   );
   // 编辑/展开相关状态的最新值引用：让 handleEditSave、toggleExpand 保持引用稳定
-  const latestRef = useRef({ editingId, editContent, editCategory, editDate, expandedLogId, attachmentsByLog });
-  latestRef.current = { editingId, editContent, editCategory, editDate, expandedLogId, attachmentsByLog };
+  const latestRef = useRef({
+    editingId,
+    editContent,
+    editCategory,
+    editDate,
+    expandedLogId,
+    attachmentsByLog,
+  });
+  latestRef.current = {
+    editingId,
+    editContent,
+    editCategory,
+    editDate,
+    expandedLogId,
+    attachmentsByLog,
+  };
 
   // 每日摘要弹窗状态
   const [showDailySummary, setShowDailySummary] = useState(false);
