@@ -103,7 +103,7 @@ function main(): void {
 
   // 7. 提交（使用 Node.js 写入临时文件避免 Windows 编码问题）
   console.log('\n💾 提交...');
-  const commitMsg = `🐳 chore: release v${targetVersion}`;
+  const commitMsg = `🐳 chore: 发布 v${targetVersion}`;
   writeFileSync(TMP_MSG, commitMsg, 'utf-8');
   runLive(`git commit -F "${TMP_MSG}"`);
   console.log(`  ✅ ${commitMsg}`);

@@ -3,8 +3,8 @@
  * 接收 type 和 subject，自动匹配 emoji 并提交
  *
  * 用法：
- *   npx tsx scripts/commit.ts fix "add legacy-peer-deps to resolve peer conflict"
- *   npx tsx scripts/commit.ts feat "add idle chart component"
+ *   npx tsx scripts/commit.ts fix "添加 legacy-peer-deps 解决依赖冲突"
+ *   npx tsx scripts/commit.ts feat "新增待机图表组件"
  */
 import { execSync } from 'child_process';
 import { writeFileSync } from 'fs';

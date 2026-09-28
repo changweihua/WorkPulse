@@ -114,18 +114,18 @@ function inferSubject(files: string[], type: string): string {
 
   // 根据 type 和主要变更目录生成 subject
   const subjectMap: Record<string, (dir: string) => string> = {
-    feat: (dir) => `add ${dir.split('/').pop()} feature`,
-    fix: (dir) => `resolve ${dir.split('/').pop()} issue`,
-    docs: () => 'update documentation',
-    style: (dir) => `adjust ${dir.split('/').pop()} styles`,
-    refactor: (dir) => `refactor ${dir.split('/').pop()} module`,
-    perf: () => 'optimize performance',
-    test: () => 'add tests',
-    build: (dir) => `update ${dir.split('/').pop()} configuration`,
-    ci: () => 'update CI/CD pipeline',
-    chore: () => 'update dependencies',
-    revert: () => 'revert changes',
-    init: () => 'initialize project',
+    feat: (dir) => `新增${dir.split('/').pop()}功能`,
+    fix: (dir) => `修复${dir.split('/').pop()}问题`,
+    docs: () => '更新文档',
+    style: (dir) => `调整${dir.split('/').pop()}样式`,
+    refactor: (dir) => `重构${dir.split('/').pop()}模块`,
+    perf: () => '性能优化',
+    test: () => '补充测试',
+    build: (dir) => `更新${dir.split('/').pop()}配置`,
+    ci: () => '更新 CI/CD 流程',
+    chore: () => '更新依赖',
+    revert: () => '回滚更改',
+    init: () => '初始化项目',
   };
 
   return (subjectMap[type] || subjectMap.chore)(topDir);
@@ -154,7 +154,7 @@ function main(): void {
   console.log('\n🤖 建议的 commit message：');
   console.log(`   ${commitMsg}`);
   console.log('\n💡 使用方式：');
-  console.log(`   git commit -m "${commitMsg}"`);
+  console.log(`   npx tsx scripts/commit.ts ${type} "${subject}"`);
   console.log('   或 npm run commit 进入交互式提交\n');
 }
 

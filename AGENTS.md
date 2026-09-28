@@ -1,11 +1,36 @@
 # WorkPulse 项目规范
 
-## 语言规范
+## 语言规范（强制，优先于其它写作约定）
 
-- **所有对话、注释、提交信息、文档必须使用中文**
-- AI Agent 与用户的交互一律使用中文，包括代码注释和变量命名说明
-- 唯一例外：代码本身（变量名、函数名、类型名等）保持英文
-- **记录规范**：所有变更记录、日志、文档必须使用中文撰写，确保团队成员可读性
+> **中文是本项目的唯一工作语言。** 任何写给用户、队友或仓库的文字，默认必须是中文。
+> 本节与文档其它示例冲突时，一律以本节为准。
+
+### 必须使用中文的场景
+
+| 场景         | 要求                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------ |
+| **对话**     | Orchestrator 与子 Agent 给用户的一切回复、提问、方案说明、错误解释、进度汇报         |
+| **任务下发** | Orchestrator 写给子 Agent 的 prompt、任务描述、验收标准                              |
+| **回传结果** | 子 Agent 返回的结论、报告、TODO 条目、审查意见、工作摘要                             |
+| **代码注释** | 单行 `//`、块注释 `/* */`、JSDoc、`TODO` / `FIXME` / `XXX`，以及对变量含义的中文说明 |
+| **文档**     | README、DESIGN、CHANGELOG、TODOS、RULES、FIX-PLAN 及 `docs/` 下全部文档              |
+| **提交信息** | commit 的 subject 与 body，如 `✨ feat: 新增径向菜单导航`                            |
+| **记录**     | 变更记录、运行日志、PR / Issue 描述、发布说明                                        |
+
+### 允许使用英文的例外（仅限以下情况）
+
+- 代码标识符：变量名、函数名、类型名、文件名、目录名
+- 不可翻译的技术名词与 API：`useShallow`、`contextIsolation`、`vite.config.ts`、React、Tailwind
+- 引用第三方库的原始错误信息、堆栈、日志原文（需另附中文解释）
+- 命令、配置值、版本号、URL、代码块内可执行内容
+- 用户明确要求改用英文时，以用户指令为准
+
+### 强制约束
+
+1. **全链路生效**：主 Agent、Orchestrator 与所有子 Agent 一律受本节约束。子 Agent 输出英文即视为任务未完成，Orchestrator 必须退回重写，不得代为翻译后放行。
+2. **示例不得反向示范英文**：文档中的示例 subject、示例命令必须写成中文；发现示例与本节冲突，修正示例而不是放宽规则。
+3. **提交信息 subject 用中文**：`npx tsx scripts/commit.ts feat "新增径向菜单图表"`。`npm run ai-commit` 生成的英文建议必须改写为中文后再提交。
+4. **违规处理**：任何环节发现英文输出，直接改写为中文，不解释、不保留英文原文。
 
 ## Commitlint 规则
 
@@ -17,7 +42,7 @@
 
 - **emoji**：必须使用下方对照表中的 emoji，不可替换
 - **type**：必须使用对照表中的类型，不可自创
-- **subject**：小写开头，简洁描述变更内容，不加句号
+- **subject**：使用中文，简洁描述变更内容，不加句号
 - **header**：最长 72 字符（含 emoji 和空格），超出会被拒绝。⚠️ `✨ feat: ` 前缀占 9 字符，实际 subject 仅剩 63 字符，务必精简
 - **body**：每行最长 200 字符（可选）
 
@@ -25,7 +50,7 @@
 
 1. `npm run commit` — 交互式菜单选择（推荐）
 2. `npx tsx scripts/commit.ts <type> "<subject>"` — AI Agent 专用提交脚本（**AI Agent 必须使用此方式**）
-3. `npm run ai-commit` — 自动推断并生成 commit message
+3. `npm run ai-commit` — 自动推断并生成 commit message（模板为英文，**提交前必须改写为中文 subject**）
 4. 如果必须手动写，**必须逐字复制下方对照表中的 emoji 和 type 组合**，禁止凭记忆拼写
 
 **emoji → type 速查（按 emoji 排序，用于复制）：**
@@ -56,27 +81,29 @@
 | 📦    | deps     | 依赖更新                   |
 | 🗑️    | remove   | 代码/功能移除              |
 
-**正确示例：**
+**正确示例（subject 必须中文）：**
 
-- `✨ feat: add radial menu navigation`
-- `🐞 fix: screenshot overlay transparency`
-- `🎈 perf: onnx/ocr webworker thread separation`
-- `🐳 chore: release v0.2.22`
-- `📃 docs: update README installation steps`
+- `✨ feat: 新增径向菜单导航`
+- `🐞 fix: 修复截图蒙版透明度`
+- `🎈 perf: onnx/ocr webworker 线程分离`
+- `📃 docs: 更新 README 安装步骤`
+- `🦄 refactor: 拆分截图选区组件`
 
 **错误示例（禁止）：**
 
-- `chore: release v0.2.23` ← 缺少 emoji
+- `🐞 fix: add radial menu navigation` ← subject 用了英文，必须中文
+- `chore: 发布 v0.2.23` ← 缺少 emoji
 - `🐠 chore: xxx` ← emoji 错误（热带鱼不是鲸鱼）
-- `fix: Add radial menu` ← 首字母大写
-- `fix: add radial menu.` ← 尾部句号
+- `✨ feat: 新增径向菜单导航.` ← 尾部句号
+- `🐞 fix:修复截图蒙版透明度` ← 冒号后缺空格
+- `✨ feat: 新增截图选区在多显示器场景下边框偏移与十字线不同步导致用户无法准确框选目标区域的问题` ← header 超过 72 字符，subject 需精简
 
 ### ⚠️ Windows 下写 commit message 的正确方式
 
 Shell 工具在 Windows 上默认使用 GBK 编码，emoji 字符会丢失或乱码。**必须**使用 Node.js 写入临时文件（无 BOM）：
 
 ```bash
-node -e "require('fs').writeFileSync('C:\\Users\\Changweihua\\AppData\\Local\\Temp\\opencode\\COMMIT_MSG','\u{1F41B} fix: resolve camera permission crash','utf8')" && git commit -F "C:\Users\Changweihua\AppData\Local\Temp\opencode\COMMIT_MSG"
+node -e "require('fs').writeFileSync('C:\\Users\\Changweihua\\AppData\\Local\\Temp\\opencode\\COMMIT_MSG','\u{1F41B} fix: 修复相机权限崩溃','utf8')" && git commit -F "C:\Users\Changweihua\AppData\Local\Temp\opencode\COMMIT_MSG"
 ```
 
 **关键点：**
@@ -88,10 +115,10 @@ node -e "require('fs').writeFileSync('C:\\Users\\Changweihua\\AppData\\Local\\Te
 
 ### 常见错误
 
-1. **缺少 emoji 前缀**：`chore: release v0.2.23` ← 错误（没有 emoji）
+1. **缺少 emoji 前缀**：`chore: 发布 v0.2.23` ← 错误（没有 emoji）
 2. **emoji 错误**：`🐠 chore:` ← 错误（热带鱼不是鲸鱼；🐳 = whale = chore）
-3. **首字母大写**：`fix: Add radial menu` ← 错误（应为 `add`）
-4. **尾部句号**：`fix: add radial menu.` ← 错误
+3. **subject 用了英文**：`fix: resolve camera permission crash` ← 错误（应写 `fix: 修复相机权限崩溃`）
+4. **尾部句号**：`✨ feat: 新增径向菜单导航。` ← 错误
 
 ## 提交前必须更新 CHANGELOG.md
 
@@ -141,13 +168,13 @@ npx tsx scripts/release.ts 1.0.0    # 指定精确版本号
 
 **手动发布方式（备用，顺序不可调换）：**
 
-| 步骤  | 操作                                                                | 说明                                                     |
-| ----- | ------------------------------------------------------------------- | -------------------------------------------------------- |
-| **1** | `npx bumpp X.Y.Z --no-git-checks`                                   | 升 package.json 版本，自动生成 git tag                   |
-| **2** | `npx tsx scripts/sync-version.ts`                                   | 同步 .env、splash.html 到新版本（必须在 step 1 之后）    |
-| **3** | `git add package.json package-lock.json .env resources/splash.html` | 暂存所有版本相关文件                                     |
-| **4** | `npx tsx scripts/commit.ts chore "release vX.Y.Z"`                  | 用 🐳 chore: release vX.Y.Z 提交（Windows 必须用此方式） |
-| **5** | `git tag vX.Y.Z && git push && git push --tags`                     | 手动创建 tag + 推送                                      |
+| 步骤  | 操作                                                                | 说明                                                  |
+| ----- | ------------------------------------------------------------------- | ----------------------------------------------------- |
+| **1** | `npx bumpp X.Y.Z --no-git-checks`                                   | 升 package.json 版本，自动生成 git tag                |
+| **2** | `npx tsx scripts/sync-version.ts`                                   | 同步 .env、splash.html 到新版本（必须在 step 1 之后） |
+| **3** | `git add package.json package-lock.json .env resources/splash.html` | 暂存所有版本相关文件                                  |
+| **4** | `npx tsx scripts/commit.ts chore "发布 vX.Y.Z"`                     | 用 🐳 chore: 发布 vX.Y.Z 提交（Windows 必须用此方式） |
+| **5** | `git tag vX.Y.Z && git push && git push --tags`                     | 手动创建 tag + 推送                                   |
 
 **⚠️ 常见错误（已犯过，禁止再犯）：**
 

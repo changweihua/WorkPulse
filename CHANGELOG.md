@@ -15,6 +15,8 @@
 
 ### 变更
 
+- 📃 docs: 语言规范强制化 — AGENTS.md 语言章节重写为强制规则（必须中文的 7 类场景表、允许英文的 5 类例外、全链路生效的强制约束），commit 正误示例与 Windows 提交示例全部改为中文 subject，消除「规则要求中文、示例却是英文」的矛盾
+- 🐳 chore: 工具脚本输出中文化 — 12 个脚本（release、ai-commit、generate-changelog、check-signing、read-config、commit、win-sign、generate-integrity、brand-dev-exe 双份）的提交信息模板、分类映射、日志输出与注释改为中文；CHANGELOG 分类补齐 🔒 安全 / 📦 依赖更新 / 🗑️ 移除 / 🧪 测试 并新增 type 名兜底映射，避免产出英文分类头
 - 🎈 perf: OCR 吞吐优化 — ImageData 以 transferable 方式发送给 Worker（消除 4K 图约 33MB 的结构化克隆），识别循环内改为累积到局部数组、循环结束后一次性提交状态（去掉每框 postProgress 与 box-recognized 双提交）
 - 🎈 perf: 向量检索模块级缓存 — 首次搜索一次性解析全部 worklog 向量为 `Float32Array`（id 平行数组），后续搜索免重复 `JSON.parse`；autoIndexAll/indexSingleWorklog/rebuildIndex 写路径末尾统一失效缓存，0 条数据或表缺失时优雅返回空结果
 - 🎈 perf: 启动性能优化 — 启动全库 `PRAGMA integrity_check`（settings KV 24h 门控）、每日备份（`copyFileSync` 改为 `fs.promises.copyFile`）与 `autoIndexAll` 向量索引统一延迟到 app ready 后约 15s 执行，electron-log 记录校验结果与耗时
