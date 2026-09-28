@@ -7,7 +7,7 @@ const SCROLL_THRESHOLD = 300;
 export function ScrollToTopButton({
   scrollRef,
 }: {
-  scrollRef: React.RefObject<HTMLDivElement>;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
 }): ReactNode {
   const [show, setShow] = useState(false);
   const [hovered, setHovered] = useState(false);

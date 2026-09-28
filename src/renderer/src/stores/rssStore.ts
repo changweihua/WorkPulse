@@ -69,7 +69,7 @@ interface RssState {
   addFeed: (url: string, categoryId?: number | null) => Promise<void>;
   updateFeed: (
     id: number,
-    updates: { title?: string; category_id?: number | null },
+    updates: { title?: string; url?: string; category_id?: number | null },
   ) => Promise<void>;
   deleteFeed: (id: number) => Promise<void>;
   refreshFeed: (id: number) => Promise<void>;

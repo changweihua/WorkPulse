@@ -412,40 +412,45 @@ function SettingsPage(): ReactNode {
     toast.success(t('settings.apiKeyDeleted'));
   };
 
-  const saveSetting = async (key: string, value: string): Promise<void> => {
-    if (value.trim()) {
-      await window.api.settings.set(key, value.trim());
-    } else {
-      await window.api.settings.delete(key);
-    }
-  };
-
-  const handleProviderChange = async (value: string): Promise<void> => {
-    setProvider(value);
-    await window.api.settings.set('ai_provider', value);
-  };
-
-  const handleBaseUrlBlur = async (): Promise<void> => {
-    await saveSetting('ai_base_url', baseUrl);
-  };
-
-  const handleModelBlur = async (): Promise<void> => {
-    await saveSetting('ai_model', model);
-  };
-
-  // Embedding 配置处理器
-  const handleEmbeddingProviderChange = async (value: string): Promise<void> => {
-    setEmbeddingProvider(value);
-    await window.api.settings.set('ai_embedding_provider', value);
-  };
-
-  const handleEmbeddingBaseUrlBlur = async (): Promise<void> => {
-    await saveSetting('ai_embedding_baseUrl', embeddingBaseUrl);
-  };
-
-  const handleEmbeddingModelBlur = async (): Promise<void> => {
-    await saveSetting('ai_embedding_model', embeddingModel);
-  };
+  // ── 半成品遗留代码（本次 typecheck 清理时注释保留）──
+  // 以下处理器引用的 state（provider / baseUrl / model / embeddingBaseUrl / embeddingModel /
+  // setProvider / setEmbeddingProvider）在本组件中并不存在，也没有可对应的 store selector；
+  // 且这些处理器未被任何 JSX 引用（AI 模型配置已由 ModelConfigPage 承载）。
+  // 为避免臆造业务逻辑，先整块注释保留，待产品/开发确认是删除还是补全 state 后再处理。
+  // const saveSetting = async (key: string, value: string): Promise<void> => {
+  //   if (value.trim()) {
+  //     await window.api.settings.set(key, value.trim());
+  //   } else {
+  //     await window.api.settings.delete(key);
+  //   }
+  // };
+  //
+  // const handleProviderChange = async (value: string): Promise<void> => {
+  //   setProvider(value);
+  //   await window.api.settings.set('ai_provider', value);
+  // };
+  //
+  // const handleBaseUrlBlur = async (): Promise<void> => {
+  //   await saveSetting('ai_base_url', baseUrl);
+  // };
+  //
+  // const handleModelBlur = async (): Promise<void> => {
+  //   await saveSetting('ai_model', model);
+  // };
+  //
+  // // Embedding 配置处理器
+  // const handleEmbeddingProviderChange = async (value: string): Promise<void> => {
+  //   setEmbeddingProvider(value);
+  //   await window.api.settings.set('ai_embedding_provider', value);
+  // };
+  //
+  // const handleEmbeddingBaseUrlBlur = async (): Promise<void> => {
+  //   await saveSetting('ai_embedding_baseUrl', embeddingBaseUrl);
+  // };
+  //
+  // const handleEmbeddingModelBlur = async (): Promise<void> => {
+  //   await saveSetting('ai_embedding_model', embeddingModel);
+  // };
 
   // 全局模型配置
   const handleLanguageChange = async (value: string): Promise<void> => {

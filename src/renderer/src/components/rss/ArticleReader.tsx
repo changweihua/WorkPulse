@@ -67,7 +67,8 @@ function MermaidDiagram({ code }: { code: string }) {
 }
 
 // ── Custom Code Block (with language label + copy button) ──
-function CodeBlock({ children, className, ...props }: { children: ReactNode; className?: string }) {
+// children 可选：对齐 react-markdown 的 Components 类型（其 props 中 children 为可选）
+function CodeBlock({ children, className, ...props }: { children?: ReactNode; className?: string }) {
   const [copied, setCopied] = useState(false);
 
   const match = /language-(\w+)/.exec(className || '');
@@ -415,7 +416,10 @@ export default function ArticleReader() {
           </button>
           {article.url && (
             <button
-              onClick={() => window.open(article.url, '_blank')}
+              onClick={() => {
+                // article.url 为 string | null，箭头回调内不会保留外层 JSX 的收窄，此处再判空
+                if (article.url) window.open(article.url, '_blank');
+              }}
               className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-inset)] transition-colors"
             >
               <ExternalLink className="w-3.5 h-3.5" />
