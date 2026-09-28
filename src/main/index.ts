@@ -254,6 +254,17 @@ function registerModelFileIpc(): void {
   })
 }
 
+/**
+ * 安装资源内的模型根目录（PPOCR 等随包模型，即 read-model-file IPC 的 basePath）：
+ * 打包版 → process.resourcesPath/models；dev → 仓库 resources/models
+ * （dev 下 process.resourcesPath 指向 electron dist，不可用）。
+ */
+function getInstallModelsDir(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'models')
+    : path.join(app.getAppPath(), 'resources', 'models')
+}
+
 // ── 协议注册（必须在 app.ready 之前） ──
 initNotifications()
 
@@ -321,18 +332,35 @@ app.whenReady().then(async () => {
   }
 
   // 模型本地缓存协议
+  // 根目录 fallback 链（依次尝试，全部不存在才 404）：
+  //   1. userData/models —— HF 镜像下载缓存（hf-pipeline.worker.ts / useHuggingFaceModel 在用，保持可用）
+  //   2. 安装资源 models 目录 —— 打包版 process.resourcesPath/models；dev 下
+  //      process.resourcesPath 指向 node_modules/electron/dist/resources，因此解析仓库 resources/models
+  //      （与 read-model-file IPC 的 basePath 解析保持一致）
+  // 两个根目录都做同样的路径穿越防护；mime / content-length / 流式响应行为不变。
   protocol.handle('appmodel', async (request) => {
     try {
       const u = new URL(request.url)
       const rel = decodeURIComponent(u.pathname).replace(/^\/+/, '')
-      const modelsDir = path.normalize(getModelsDir())
-      const target = path.normalize(path.join(modelsDir, rel))
-      if (!target.startsWith(modelsDir)) return new Response('Forbidden', { status: 403 })
-      const st = await fs.stat(target)
-      if (!st.isFile()) throw new Error('not a file')
-      const webStream = Readable.toWeb(createReadStream(target)) as unknown as ReadableStream
+      const roots = [
+        path.normalize(getModelsDir()),
+        path.normalize(getInstallModelsDir()),
+      ]
+      // 在根目录链中定位第一个真实存在的普通文件
+      let hit: { target: string; size: number } | null = null
+      for (const root of roots) {
+        const target = path.normalize(path.join(root, rel))
+        if (!target.startsWith(root)) return new Response('Forbidden', { status: 403 })
+        let st: Awaited<ReturnType<typeof fs.stat>>
+        try {
+          st = await fs.stat(target)
+        } catch { continue /* 该根目录无此文件 → 尝试下一个根 */ }
+        if (st.isFile()) { hit = { target, size: st.size }; break }
+      }
+      if (!hit) return new Response('Not Found', { status: 404 })
+      const webStream = Readable.toWeb(createReadStream(hit.target)) as unknown as ReadableStream
       return new Response(webStream, {
-        headers: { 'content-type': 'application/octet-stream', 'content-length': String(st.size), 'access-control-allow-origin': '*' }
+        headers: { 'content-type': 'application/octet-stream', 'content-length': String(hit.size), 'access-control-allow-origin': '*' }
       })
     } catch { return new Response('Not Found', { status: 404 }) }
   })
