@@ -9,8 +9,18 @@ import { eq, and, sql } from 'drizzle-orm';
 import type { Attachment } from './attachments';
 import { getDatabase, getDrizzleDb } from './db/index';
 import * as schema from './db/schema';
-// 与 vector-search.ts 存在模块循环引用（db → vector-search → aiUsage → db），
-// 顶层 import 会触发 oxlint no-cycle，改为在 deleteWorkLog 函数体内延迟 require
+// 与 vector-search.ts 存在模块循环引用（db → vector-search → aiUsage → db，
+// 以及 db → vector-search → modelConfig → db）。此前在 deleteWorkLog 内用
+// require('./vector-search') 规避 oxlint import/no-cycle（该项仅 warn），
+// 但打包产物是单文件 bundle，裸 require 不会被 rolldown 改写成 bundle 内部引用，
+// 运行时会报 Cannot find module './vector-search'。
+// 静态环在打包后是安全的：本模块只在 deleteWorkLog **函数体内**调用 removeVectorCache，
+// 模块初始化阶段不读取 vector-search 的任何导出；vector-search 侧初始化只做字面量常量、
+// null 缓存与 new VectorSearchService()（构造函数仅置 initialized=false），
+// 其对 db 的读取（getDatabase 等）同样全部在函数体内，不存在初始化阶段的跨界读取 / TDZ 风险。
+// removeVectorCache 是 function 声明会被提升，即便两侧初始化顺序互换也能正常引用。
+// oxlint-disable-next-line import/no-cycle -- 有意保留的静态环，安全性依据见上方注释
+import { removeVectorCache } from './vector-search';
 
 // ==================== 重导出（保持向后兼容） ====================
 
@@ -169,8 +179,7 @@ export function deleteWorkLog(id: number): boolean {
     // 删除 worklog 时必须手动删除对应向量行，否则残留孤儿向量继续参与搜索
     getDatabase().prepare('DELETE FROM worklog_vectors WHERE worklog_id = ?').run(id);
     // 同步增量移除内存缓存（缓存为 null 时 no-op，下次全量重建自然读到）；
-    // 延迟 require 打破 db → vector-search → aiUsage → db 的模块循环引用
-    const { removeVectorCache } = require('./vector-search') as typeof import('./vector-search');
+    // removeVectorCache 已改为顶部静态 import（见文件头环说明），此处仅在函数体内调用
     removeVectorCache(id);
   }
   return result.changes > 0;

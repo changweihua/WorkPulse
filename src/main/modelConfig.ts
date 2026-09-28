@@ -9,7 +9,15 @@
  *
  * 存储：model_configs 表（由 db.ts createTables 创建）
  */
+// oxlint-disable-next-line import/no-cycle -- 有意保留的静态环：db 仅在函数体内被读取
 import { getDatabase, getSetting, setSetting } from './db';
+// 静态引入 secureSettings：打包产物是单文件 bundle，裸 require('./secureSettings')
+// 不会被 rolldown 改写成 bundle 内部引用，运行时会报 Cannot find module。
+// 本模块与 secureSettings 互引成环，但两侧只在**函数体内**访问对方，
+// 且被访问的都是 function 声明（提升到 chunk 顶层），初始化阶段不存在跨界读取，
+// 因此静态环在打包后是安全的（参考 settings.ipc.ts / ai.ipc.ts 的静态引入同样无问题）。
+// oxlint-disable-next-line import/no-cycle -- 有意保留的静态环：仅函数体内访问，理由见上方注释
+import { deleteLLMToken, getLLMToken, saveLLMToken } from './secureSettings';
 
 // ==================== 类型定义 ====================
 
@@ -155,17 +163,14 @@ function saveToken(configId: string, token: string): void {
     deleteToken(configId);
     return;
   }
-  const { saveLLMToken } = require('./secureSettings');
   saveLLMToken(configId, token);
 }
 
 function loadToken(configId: string): string {
-  const { getLLMToken } = require('./secureSettings');
   return getLLMToken(configId) || '';
 }
 
 function deleteToken(configId: string): void {
-  const { deleteLLMToken } = require('./secureSettings');
   deleteLLMToken(configId);
 }
 
@@ -468,7 +473,6 @@ function getCounterKey(modelId: string, quotaGroup: string): string {
 /** 检查指定模型是否超出每日调用限额（返回 true = 超限，应阻止调用） */
 export function isOverDailyLimit(modelId: string, dailyLimit: number, quotaGroup: string): boolean {
   if (dailyLimit <= 0) return false;
-  const { getSetting } = require('./db');
   const today = getTodayKey();
   const raw = getSetting(getCounterKey(modelId, quotaGroup));
   if (!raw) return false;
@@ -482,7 +486,6 @@ export function isOverDailyLimit(modelId: string, dailyLimit: number, quotaGroup
 
 /** 记录一次 API 调用（成功时调用） */
 export function incrementDailyCallCount(modelId: string, quotaGroup: string): void {
-  const { getSetting, setSetting } = require('./db');
   const today = getTodayKey();
   const countKey = getCounterKey(modelId, quotaGroup);
   const raw = getSetting(countKey);
@@ -500,7 +503,6 @@ export function incrementDailyCallCount(modelId: string, quotaGroup: string): vo
 
 /** 获取指定模型的今日已调用次数 */
 export function getDailyCallCount(modelId: string, quotaGroup: string): number {
-  const { getSetting } = require('./db');
   const today = getTodayKey();
   const raw = getSetting(getCounterKey(modelId, quotaGroup));
   if (!raw) return 0;
@@ -526,7 +528,6 @@ export function isOverMonthlyTokenQuota(
   quotaGroup: string,
 ): boolean {
   if (tokenQuota <= 0) return false;
-  const { getSetting } = require('./db');
   const month = getMonthKey();
   const raw = getSetting(getTokenCounterKey(modelId, quotaGroup));
   if (!raw) return false;
@@ -544,7 +545,6 @@ export function incrementMonthlyTokenCount(
   quotaGroup: string,
   tokens: number,
 ): void {
-  const { getSetting, setSetting } = require('./db');
   const month = getMonthKey();
   const key = getTokenCounterKey(modelId, quotaGroup);
   const raw = getSetting(key);
@@ -562,7 +562,6 @@ export function incrementMonthlyTokenCount(
 
 /** 获取指定模型的当月已消耗 Token 数 */
 export function getMonthlyTokenCount(modelId: string, quotaGroup: string): number {
-  const { getSetting } = require('./db');
   const month = getMonthKey();
   const raw = getSetting(getTokenCounterKey(modelId, quotaGroup));
   if (!raw) return 0;

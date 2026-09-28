@@ -32,8 +32,17 @@
 - 🎈 perf: 背景模糊开销降低 — AnimatedBackground 静止 30 帧后完全停止 rAF 循环（鼠标移动重启）；卡片 `backdrop-filter` 模糊半径 16→12px、输入框 20→15px（饱和度与玻璃质感参数保留）
 - 🎈 perf: OCR 模型加载绕开 IPC 克隆 — `usePPOCR` 优先经 `appmodel://` 协议流式读取模型（模块级 ArrayBuffer 缓存 + content-length 分段进度），失败回退原 `read-model-file` IPC；消除 medium 变体约 138MB 的结构化克隆
 
+### 新增
+
+- ✨ feat: 开发模式独立 userData（`-dev` 后缀目录），与已安装版隔离日志、数据库、附件与缓存，避免双实例争抢磁盘缓存与数据污染
+
 ### 修复
 
+- 🐞 fix: 打包后启动崩溃 Cannot find module trousse — feedsmith 打进 main bundle（`externalizeDeps.exclude`），绕开 electron-builder 不收集依赖包内嵌套 `node_modules` 的限制
+- 🐞 fix: 打包后设置与模型配置报 `Cannot find module './secureSettings'` — 将 modelConfig ↔ secureSettings 的运行时 require 懒加载改为静态 import（仅函数体内访问，规避初始化顺序），失效钩子链路不变
+- 🐞 fix: 打包后删除带向量日志、每日限额检查报 `Cannot find module` — `db.ts`/`ai.ts` 内残留的相对路径裸 require 同样改为静态 import（函数体内调用，环分析安全）
+- 🐞 fix: 完整性校验同版本重建被误报为篡改 — 基准记录引入构建 ID（`__BUILD_ID__` 构建期注入），构建 ID/版本变化视为重新构建或升级并刷新基准，仅同构建哈希不一致才判定篡改
+- 🐞 fix: 打包环境完整性校验失效 — 改用 `original-fs` 读取 app.asar（Electron 补丁 fs 会把 asar 路径当归档内路径解析致 ENOENT），基准记录同时存入应用版本，版本变动判定为升级并刷新基准（不再把升级误报成篡改），同版本哈希不一致才弹警告
 - 🐞 fix: dotnet:invoke 正确 await Bridge 返回值 — handler 改为 `await Promise.resolve(...)`；`ComputeFileHash` 改为 `Task<string>` + `Task.Run` 阻塞移出主线程（重编 Bridge.dll，方法名保持 JSExport 映射不变）
 - 🐞 fix: AI 流式监听互杀 — `window.ai.on` 改为返回 unsubscribe（按通道 Set 去重），ChatPage 与常驻 AIChatPanel 各自精确清理，不再用 `removeAllListeners` 全清导致切会话时杀掉对方监听、流式中断
 - 🐞 fix: preload AI 流式监听泄漏 — `streamChat` 的 onChunk/onDone/onError 同通道重复注册时替换旧监听，避免 ipcRenderer 监听器无限累积

@@ -1,7 +1,12 @@
 import { net } from 'electron';
 import { getSetting } from './db';
 import { getResolvedLanguage, tMain } from './i18n';
-import { getActiveChatConfig, getActiveProviderInfo } from './modelConfig';
+import {
+  getActiveChatConfig,
+  getActiveProviderInfo,
+  isOverDailyLimit,
+  incrementDailyCallCount,
+} from './modelConfig';
 import type { ChatModelConfig } from './modelConfig';
 import { logAiUsage } from './aiUsage';
 import { countTokens } from './tokenCounter';
@@ -284,7 +289,9 @@ export async function streamChat(
   }
 
   // 检查每日调用限额
-  const { isOverDailyLimit, incrementDailyCallCount } = require('./modelConfig');
+  // 每日限额 API 改为顶部静态 import：打包产物是单文件 bundle，裸 require('./modelConfig')
+  // 不会被 rolldown 改写，运行时会报 Cannot find module './modelConfig'。
+  // 本模块与 modelConfig 无初始化阶段跨界读取（只在函数体内调用），静态引用安全。
   if (isOverDailyLimit(info.model, info.dailyLimit || 0, info.quotaGroup || '')) {
     onError(`已达到每日调用限额 (${info.dailyLimit} 次)，请明天再试`);
     return;

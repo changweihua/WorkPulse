@@ -4,6 +4,7 @@
  * 存储：ai_usage_logs 表（由 db.ts createTables 创建）
  * 写入使用 Drizzle ORM 类型安全插入，聚合查询使用 Drizzle sql 模板原始 SQL
  */
+// oxlint-disable-next-line import/no-cycle -- 有意保留的静态环：db → vector-search → aiUsage → db，各侧读取均在函数体内，无 TDZ 风险
 import { getDrizzleDb, aiUsageLogs } from './db';
 import { sql } from 'drizzle-orm';
 

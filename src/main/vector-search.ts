@@ -8,12 +8,15 @@
  */
 import { app } from 'electron';
 import log from 'electron-log/main';
-import { getDatabase } from './db';
+// oxlint-disable-next-line import/no-cycle -- 有意保留的静态环：跨模块调用只发生在函数体内，打包为单文件 bundle 后安全
+import { getDatabase, getUnindexedWorkLogs, markWorkLogsIndexed } from './db';
+// oxlint-disable-next-line import/no-cycle -- 同上（db → vector-search 环在函数体内访问）
 import { logAiUsage } from './aiUsage';
 import {
   getGlobalConfig,
   getDailyCallCount as modelGetDailyCallCount,
   incrementDailyCallCount as modelIncrementDailyCallCount,
+  // oxlint-disable-next-line import/no-cycle -- 同上（modelConfig 环仅函数体内访问）
 } from './modelConfig';
 
 const DAILY_API_LIMIT_FALLBACK = 100;
@@ -383,7 +386,6 @@ class VectorSearchService {
   async autoIndexAll(): Promise<{ indexed: number; errors: number; skipped: number }> {
     this.initialize();
 
-    const { getUnindexedWorkLogs, markWorkLogsIndexed } = await import('./db');
     const unindexed = getUnindexedWorkLogs();
 
     if (unindexed.length === 0) {
