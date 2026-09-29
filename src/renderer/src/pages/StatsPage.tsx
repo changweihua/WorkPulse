@@ -27,6 +27,7 @@ echarts.use([
   CanvasRenderer,
 ]);
 import type { TranslationKey } from '../lib/i18n';
+import { FONT_FAMILY, CHART_THEME } from '../lib/chartTheme';
 import ContributionGrid3D from '../components/ContributionGrid3D';
 
 interface DailyStats {
@@ -201,7 +202,7 @@ function DonutChart({
 
   useEffect(() => {
     if (!enabled || !chartRef.current) return;
-    chartInstance.current = echarts.init(chartRef.current);
+    chartInstance.current = echarts.init(chartRef.current, CHART_THEME);
     return () => {
       chartInstance.current?.dispose();
       chartInstance.current = null;
@@ -250,13 +251,19 @@ function DonutChart({
                   fontWeight: 'bold',
                   color: isDark ? '#e5e7eb' : '#111827',
                   lineHeight: 34,
+                  fontFamily: FONT_FAMILY,
                 },
-                label: { fontSize: 11, color: isDark ? '#71717a' : '#a1a1aa', lineHeight: 18 },
+                label: {
+                  fontSize: 11,
+                  color: isDark ? '#71717a' : '#a1a1aa',
+                  lineHeight: 18,
+                  fontFamily: FONT_FAMILY,
+                },
               },
             },
             emphasis: {
               scaleSize: 6,
-              label: { fontSize: 14 },
+              label: { fontSize: 14, fontFamily: FONT_FAMILY },
             },
             data: [
               {
@@ -394,7 +401,7 @@ function CategoryBreakdown({ range, enabled }: { range: number; enabled: boolean
 
   useEffect(() => {
     if (!enabled || !chartRef.current) return;
-    chartInstance.current = echarts.init(chartRef.current);
+    chartInstance.current = echarts.init(chartRef.current, CHART_THEME);
     return () => {
       chartInstance.current?.dispose();
       chartInstance.current = null;
@@ -522,9 +529,6 @@ function CategoryBreakdown({ range, enabled }: { range: number; enabled: boolean
   );
 }
 
-const FONT_FAMILY =
-  '"JetBrains Maple Mono", "Maple Mono NF CN", "Source Han Serif SC", "思源宋体", sans-serif';
-
 function AISummary({ stats }: { stats: Stats }): ReactNode {
   const { t } = useI18n();
   const today = formatLocalDate(new Date());
@@ -591,7 +595,7 @@ function BarChart({ data, enabled }: { data: DailyStats[]; enabled: boolean }): 
   // Init chart ONCE
   useEffect(() => {
     if (!enabled || !chartRef.current) return;
-    chartInstance.current = echarts.init(chartRef.current);
+    chartInstance.current = echarts.init(chartRef.current, CHART_THEME);
     return () => {
       chartInstance.current?.dispose();
       chartInstance.current = null;

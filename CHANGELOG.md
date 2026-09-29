@@ -38,6 +38,7 @@
 
 ### 修复
 
+- 🐞 fix: 统一 ECharts 图表字体为全局字体，新增公共图表主题模块
 - 🐞 fix: 工作日志记录 tag 未垂直居中、编辑与删除按钮仅悬停显示 — 内容行改 `items-center` 并修正 `whitespace-nowrap` 拼写，编辑/删除按钮常驻显示
 - 🐞 fix: 打包后启动崩溃 Cannot find module trousse — feedsmith 打进 main bundle（`externalizeDeps.exclude`），绕开 electron-builder 不收集依赖包内嵌套 `node_modules` 的限制
 - 🐞 fix: 打包后设置与模型配置报 `Cannot find module './secureSettings'` — 将 modelConfig ↔ secureSettings 的运行时 require 懒加载改为静态 import（仅函数体内访问，规避初始化顺序），失效钩子链路不变

@@ -20,6 +20,7 @@ import { CanvasRenderer } from 'echarts/renderers';
 import type { ECharts } from 'echarts/core';
 import { useI18n } from '../stores/languageStore';
 import { useIdleCallback } from '../hooks/useIdleCallback';
+import { FONT_FAMILY, CHART_THEME } from '../lib/chartTheme';
 
 echarts.use([
   EChartsBarChart,
@@ -196,7 +197,7 @@ export default function AiStatsPage() {
   useIdleCallback(() => {
     if (!trendRef.current) return;
     if (!trendInstance.current) {
-      trendInstance.current = echarts.init(trendRef.current, undefined, { renderer: 'canvas' });
+      trendInstance.current = echarts.init(trendRef.current, CHART_THEME, { renderer: 'canvas' });
     }
     const chart = trendInstance.current;
 
@@ -314,20 +315,34 @@ export default function AiStatsPage() {
         },
         legend: {
           show: modelMap.size > 1,
-          textStyle: { color: isDark ? '#d4d4d8' : '#52525b', fontSize: 11 },
+          textStyle: {
+            color: isDark ? '#d4d4d8' : '#52525b',
+            fontSize: 11,
+            fontFamily: FONT_FAMILY,
+          },
         },
         grid: { left: 60, right: 20, top: 40, bottom: 30 },
         xAxis: {
           type: 'category',
           data: allDates,
-          axisLabel: { color: isDark ? '#a1a1aa' : '#71717a', fontSize: 10, rotate: 30 },
+          axisLabel: {
+            color: isDark ? '#a1a1aa' : '#71717a',
+            fontSize: 10,
+            rotate: 30,
+            fontFamily: FONT_FAMILY,
+          },
           // 预测区域分隔线
           markLine: forecastDates.length > 0 ? undefined : undefined,
         },
         yAxis: {
           type: 'value',
           name: 'Tokens',
-          axisLabel: { color: isDark ? '#a1a1aa' : '#71717a', fontSize: 10 },
+          nameTextStyle: { fontFamily: FONT_FAMILY },
+          axisLabel: {
+            color: isDark ? '#a1a1aa' : '#71717a',
+            fontSize: 10,
+            fontFamily: FONT_FAMILY,
+          },
           splitLine: {
             lineStyle: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
           },
@@ -342,7 +357,7 @@ export default function AiStatsPage() {
   useIdleCallback(() => {
     if (!modelPieRef.current) return;
     if (!modelPieInstance.current) {
-      modelPieInstance.current = echarts.init(modelPieRef.current, undefined, {
+      modelPieInstance.current = echarts.init(modelPieRef.current, CHART_THEME, {
         renderer: 'canvas',
       });
     }
@@ -366,7 +381,12 @@ export default function AiStatsPage() {
               borderColor: isDark ? '#27272a' : '#ffffff',
               borderWidth: 2,
             },
-            label: { show: true, color: isDark ? '#d4d4d8' : '#52525b', fontSize: 11 },
+            label: {
+              show: true,
+              color: isDark ? '#d4d4d8' : '#52525b',
+              fontSize: 11,
+              fontFamily: FONT_FAMILY,
+            },
             data,
           },
         ],
@@ -379,7 +399,9 @@ export default function AiStatsPage() {
   useIdleCallback(() => {
     if (!typeBarRef.current) return;
     if (!typeBarInstance.current) {
-      typeBarInstance.current = echarts.init(typeBarRef.current, undefined, { renderer: 'canvas' });
+      typeBarInstance.current = echarts.init(typeBarRef.current, CHART_THEME, {
+        renderer: 'canvas',
+      });
     }
     const chart = typeBarInstance.current;
     const cats = typeStats.map((s) => USAGE_TYPE_LABELS[s.usage_type] || s.usage_type);
@@ -392,11 +414,19 @@ export default function AiStatsPage() {
         xAxis: {
           type: 'category',
           data: cats,
-          axisLabel: { color: isDark ? '#a1a1aa' : '#71717a', fontSize: 11 },
+          axisLabel: {
+            color: isDark ? '#a1a1aa' : '#71717a',
+            fontSize: 11,
+            fontFamily: FONT_FAMILY,
+          },
         },
         yAxis: {
           type: 'value',
-          axisLabel: { color: isDark ? '#a1a1aa' : '#71717a', fontSize: 10 },
+          axisLabel: {
+            color: isDark ? '#a1a1aa' : '#71717a',
+            fontSize: 10,
+            fontFamily: FONT_FAMILY,
+          },
           splitLine: {
             lineStyle: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
           },
