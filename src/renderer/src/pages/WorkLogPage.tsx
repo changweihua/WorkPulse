@@ -157,18 +157,17 @@ function distributeToColumns(
 function MasonryLayout({
   entries,
   renderCard,
-  /** 当外部状态变化导致卡片高度变化时（如展开附件），传入此值触发重新测量 */
-  heightTrigger,
 }: {
   entries: DateEntry[];
   renderCard: (dateKey: string, logs: DateEntry[1], index: number) => ReactNode;
-  heightTrigger?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(1);
   // 记录每个日期组的实际渲染高度
   const [heightMap, setHeightMap] = useState<Map<string, number>>(new Map());
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  // 每张卡片的 ResizeObserver（与 cardRefs 同键）：注册时 observe，注销时 disconnect
+  const cardObservers = useRef<Map<string, ResizeObserver>>(new Map());
 
   // 通过 ResizeObserver 检测容器宽度，决定列数
   useEffect(() => {
@@ -193,63 +192,17 @@ function MasonryLayout({
     return () => observer.disconnect();
   }, []);
 
-  // 测量每个卡片的实际高度并更新 heightMap
-  const measureAll = useCallback((): void => {
-    const newMap = new Map<string, number>();
-    cardRefs.current.forEach((el, dateKey) => {
-      if (el) {
-        newMap.set(dateKey, el.getBoundingClientRect().height);
-      }
+  // 单张卡片高度变化回调：增量写入 heightMap。
+  // 仅在高度值实际变化时才产生新状态（跨列移动后重挂载测得相同高度时直接返回原引用），
+  // 防止 测量 → 重排 → 再测量 的震荡循环
+  const applyCardHeight = useCallback((dateKey: string, height: number): void => {
+    setHeightMap((prev) => {
+      if (prev.get(dateKey) === height) return prev;
+      const next = new Map(prev);
+      next.set(dateKey, height);
+      return next;
     });
-    if (newMap.size > 0) {
-      setHeightMap((prev) => {
-        // 仅在有变化时更新，避免不必要的重渲染
-        let changed = false;
-        if (prev.size !== newMap.size) {
-          changed = true;
-        } else {
-          for (const [k, v] of newMap) {
-            if (prev.get(k) !== v) {
-              changed = true;
-              break;
-            }
-          }
-        }
-        return changed ? newMap : prev;
-      });
-    }
   }, []);
-
-  // 首次渲染后测量一次，然后在动画结束后再测量
-  useEffect(() => {
-    // 初始测量（短延迟确保 DOM 已渲染）
-    const timer = setTimeout(measureAll, 50);
-    // 第二次测量：等待可能的动画完成
-    const timer2 = setTimeout(measureAll, 600);
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(timer2);
-    };
-  }, [entries, heightTrigger, measureAll]);
-
-  // 监听卡片内容变化（如附件展开/收起动画），触发重新测量
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const observer = new MutationObserver(() => {
-      requestAnimationFrame(measureAll);
-    });
-
-    observer.observe(container, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['style', 'class'],
-    });
-
-    return () => observer.disconnect();
-  }, [measureAll]);
 
   // 分配卡片到各列
   const columns = useMemo(
@@ -257,15 +210,48 @@ function MasonryLayout({
     [entries, columnCount, heightMap],
   );
 
-  const registerRef = useCallback(
-    (dateKey: string) => (el: HTMLDivElement | null) => {
+  // 注册卡片：对所有卡片使用同一份稳定的 ref 回调（避免父级每次渲染都触发 ref 注销/重建观察器），
+  // 日期组通过 data-date-key 属性识别。
+  // 挂载时创建并 observe 该卡片的 ResizeObserver（初始回调即完成首屏测量，无需定时器；
+  // 展开日志、附件变化等引起的高度变化也会触发回调，覆盖原 heightTrigger 场景）。
+  // 跨列移动时 React 会先以 null 注销、再以新元素重新注册：重新注册时把同一观察器换挂到
+  // 新元素（先 unobserve 旧元素）；真正卸载时在微任务中统一清扫已脱离文档的卡片
+  const handleCardRef = useCallback(
+    (el: HTMLDivElement | null) => {
       if (el) {
+        const dateKey = el.dataset.dateKey;
+        if (!dateKey) return;
+        const prev = cardRefs.current.get(dateKey);
         cardRefs.current.set(dateKey, el);
+        let observer = cardObservers.current.get(dateKey);
+        if (!observer) {
+          observer = new ResizeObserver(() => {
+            const target = cardRefs.current.get(dateKey);
+            if (!target) return;
+            applyCardHeight(dateKey, target.getBoundingClientRect().height);
+          });
+          cardObservers.current.set(dateKey, observer);
+        } else if (prev && prev !== el) {
+          // 跨列移动：解除旧元素，观察器只保留新元素
+          observer.unobserve(prev);
+        }
+        // 同一元素重复 observe 为幂等操作，不会重复触发回调
+        observer.observe(el);
       } else {
-        cardRefs.current.delete(dateKey);
+        // 共用回调在注销时拿不到具体元素，且 null 可能发生在 DOM 移除之前；
+        // 延迟到微任务（本次提交的 DOM 增删已全部完成）统一断开并移除
+        // 已脱离文档的卡片观察器。幂等：重复清扫或已被重新注册的卡片不受影响
+        queueMicrotask(() => {
+          cardRefs.current.forEach((node, key) => {
+            if (node.isConnected) return;
+            cardRefs.current.delete(key);
+            cardObservers.current.get(key)?.disconnect();
+            cardObservers.current.delete(key);
+          });
+        });
       }
     },
-    [],
+    [applyCardHeight],
   );
 
   return (
@@ -283,7 +269,8 @@ function MasonryLayout({
             {colEntries.map(([dateKey, dateLogs], cardIdx) => (
               <div
                 key={dateKey}
-                ref={registerRef(dateKey)}
+                ref={handleCardRef}
+                data-date-key={dateKey}
                 className="surface-card p-4 break-inside-avoid"
                 style={{
                   // 屏外日期卡片跳过渲染/布局，contain-intrinsic-size 提供占位高度
@@ -611,6 +598,23 @@ function WorkLogPage(): ReactNode {
     );
     return cancel;
   }, [logs.length, hasMore, searchKeyword, loading]);
+
+  // 触底自动加载：观察列表尾部的哨兵元素，进入视口即加载下一页。
+  // 依赖变化（hasMore/loading 等）时重建 observer，保证条件满足后仍能触发；
+  // 条件不满足或组件卸载时 disconnect，防重复请求由 loading 守卫兜底
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!hasMore || searchKeyword) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((obsEntries) => {
+      if (obsEntries.some((entry) => entry.isIntersecting) && !loading) {
+        loadMore();
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, searchKeyword, loading, loadMore]);
 
   // Load attachment lists for all visible logs so counts/indicators are available.
   useEffect(() => {
@@ -1015,7 +1019,6 @@ function WorkLogPage(): ReactNode {
       ) : (
         <>
           <MasonryLayout
-            heightTrigger={expandedLogId ?? undefined}
             entries={Array.from(grouped.entries())}
             renderCard={(dateKey, dateLogs, cardIdx) => (
               <>
@@ -1062,6 +1065,8 @@ function WorkLogPage(): ReactNode {
           />
           {hasMore && !searchKeyword && (
             <div className="text-center py-4">
+              {/* 触底自动加载哨兵：进入视口时触发 loadMore，下方按钮保留作兜底 */}
+              <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />
               <button
                 onClick={loadMore}
                 disabled={loading}
