@@ -1,5 +1,3 @@
-/* eslint-disable react/no-unknown-property */
-
 /**
  * LiquidGlassSurface — A lightweight accent layer combining CSS glassmorphism
  * with a small animated canvas for dynamic light effects (caustics/refractions).
@@ -7,28 +5,28 @@
  * DOM content and adds a "liquid glass" feel without heavy GPU cost.
  */
 
-import { memo, useRef, useMemo } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import * as THREE from 'three'
-import type { CSSProperties, ReactNode } from 'react'
+import { memo, useRef, useMemo } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+import type { CSSProperties, ReactNode } from 'react';
 
 /* ─── Props ──────────────────────────────────────────────────── */
 
 export interface LiquidGlassSurfaceProps {
   /** Content to render inside the glass surface */
-  children: ReactNode
+  children: ReactNode;
   /** Additional CSS classes */
-  className?: string
+  className?: string;
   /** Additional inline styles */
-  style?: CSSProperties
+  style?: CSSProperties;
   /** Light intensity 0-1 (default: 0.5) */
-  intensity?: number
+  intensity?: number;
   /** Tint color (default: 'rgba(180,210,255,0.08)') */
-  tintColor?: string
+  tintColor?: string;
   /** Whether to animate the caustic pattern (default: true) */
-  animated?: boolean
+  animated?: boolean;
   /** Whether to show the CSS frosted glass background (default: true) */
-  frosted?: boolean
+  frosted?: boolean;
 }
 
 /* ─── Caustic shader ──────────────────────────────────────────── */
@@ -39,7 +37,7 @@ const vertexShader = /* glsl */ `
     vUv = uv;
     gl_Position = vec4(position, 1.0);
   }
-`
+`;
 
 const fragmentShader = /* glsl */ `
   uniform float uTime;
@@ -78,12 +76,12 @@ const fragmentShader = /* glsl */ `
 
     gl_FragColor = vec4(color, alpha);
   }
-`
+`;
 
 /* ─── Inner R3F scene ─────────────────────────────────────────── */
 
 function CausticPlane({ intensity }: { intensity: number }) {
-  const matRef = useRef<THREE.ShaderMaterial>(null!)
+  const matRef = useRef<THREE.ShaderMaterial>(null!);
 
   const uniforms = useMemo(
     () => ({
@@ -92,13 +90,13 @@ function CausticPlane({ intensity }: { intensity: number }) {
       uResolution: { value: new THREE.Vector2(1, 1) },
     }),
     [intensity],
-  )
+  );
 
   useFrame((_, delta) => {
     if (matRef.current) {
-      matRef.current.uniforms.uTime.value += delta
+      matRef.current.uniforms.uTime.value += delta;
     }
-  })
+  });
 
   return (
     <mesh>
@@ -113,7 +111,7 @@ function CausticPlane({ intensity }: { intensity: number }) {
         depthWrite={false}
       />
     </mesh>
-  )
+  );
 }
 
 /* ─── Main component ──────────────────────────────────────────── */
@@ -161,7 +159,7 @@ export const LiquidGlassSurface = memo(function LiquidGlassSurface({
         </div>
       )}
     </div>
-  )
-})
+  );
+});
 
-export default LiquidGlassSurface
+export default LiquidGlassSurface;

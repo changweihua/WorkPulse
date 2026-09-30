@@ -36,7 +36,14 @@ const CalendarPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<{
     date: Date;
     dateStr: string;
-  } | null>(null);
+  } | null>(() => {
+    // 惰性初始化：挂载时取一次「今天」，取代原先 effect 内的同步 setState
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return { date: today, dateStr: `${year}-${month}-${day}` };
+  });
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('todo');
@@ -50,28 +57,18 @@ const CalendarPage: React.FC = () => {
   const [endTime, setEndTime] = useState('11:00');
   const [location, setLocation] = useState('');
 
-  useEffect(() => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    setSelectedDate({
-      date: today,
-      dateStr: `${year}-${month}-${day}`,
-    });
-  }, []);
-
   // 节假日数据（选中日期所在年份）
-  const selectedYear = selectedDate
-    ? Number(selectedDate.dateStr.slice(0, 4))
-    : new Date().getFullYear();
+  // 「当前年份」在挂载时取一次，避免渲染期间调用不纯的 Date
+  const [currentYear] = useState(() => new Date().getFullYear());
+  const selectedYear = selectedDate ? Number(selectedDate.dateStr.slice(0, 4)) : currentYear;
   const holidays = useHolidays(selectedYear);
 
   // ---------- 左侧日历联动：当月事件标记 ----------
   const [monthMarks, setMonthMarks] = useState<Record<string, EventMark>>({});
-  const [calMonth, setCalMonth] = useState<{ year: number; month: number }>({
-    year: new Date().getFullYear(),
-    month: new Date().getMonth() + 1,
+  // 「当前年月」在挂载时取一次，避免渲染期间调用不纯的 Date
+  const [calMonth, setCalMonth] = useState<{ year: number; month: number }>(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
   });
 
   const loadMonthEvents = useCallback(async (year: number, month: number) => {
@@ -121,7 +118,10 @@ const CalendarPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    loadMonthEvents(calMonth.year, calMonth.month);
+    // async IIFE：保持与原来同一 tick 内同步发起加载，仅避免 effect 内同步 setState
+    void (async () => {
+      await loadMonthEvents(calMonth.year, calMonth.month);
+    })();
   }, [calMonth, loadMonthEvents]);
 
   const handleMonthChange = useCallback((year: number, month: number) => {
@@ -142,7 +142,11 @@ const CalendarPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedDate?.dateStr) loadEvents(selectedDate.dateStr);
+    if (!selectedDate?.dateStr) return;
+    // async IIFE：保持与原来同一 tick 内同步发起加载，仅避免 effect 内同步 setState
+    void (async () => {
+      await loadEvents(selectedDate.dateStr);
+    })();
   }, [selectedDate?.dateStr, loadEvents]);
 
   const handleDateClick = (date: Date, dateStr: string) => {

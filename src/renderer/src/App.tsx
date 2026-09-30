@@ -14,7 +14,7 @@ function App() {
   useEffect(() => {
     initTheme();
     initLanguage();
-  }, []);
+  }, [initTheme, initLanguage]);
 
   return (
     <ErrorBoundary>

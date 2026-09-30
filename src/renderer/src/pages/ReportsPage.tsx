@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, ReactNode } from 'react';
 import {
   CalendarRange,
   Sparkles,
@@ -63,16 +63,12 @@ function SummaryCard({
 
 function ReportsPage(): ReactNode {
   const [preset, setPreset] = useState<DatePreset>('this_week');
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
+  // 初始日期直接由默认预设派生，省去挂载 effect 里的同步 setState
+  const [start, setStart] = useState(() => getDateRange('this_week').from);
+  const [end, setEnd] = useState(() => getDateRange('this_week').to);
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<WeeklyReport | null>(null);
   const { t } = useI18n();
-
-  useEffect(() => {
-    applyPreset('this_week');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const applyPreset = (p: DatePreset): void => {
     setPreset(p);

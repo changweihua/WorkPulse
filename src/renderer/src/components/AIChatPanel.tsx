@@ -461,9 +461,12 @@ export default function AIChatPanel() {
   }, [currentConvId, isHydrated]);
 
   // ── Reset visible count when conversation changes ──
-  useEffect(() => {
+  // 在 render 期间根据会话变化派生重置，避免 effect 内同步 setState 触发级联渲染
+  const [prevCountConvId, setPrevCountConvId] = useState(currentConvId);
+  if (prevCountConvId !== currentConvId) {
+    setPrevCountConvId(currentConvId);
     setVisibleCount(INITIAL_MESSAGE_COUNT);
-  }, [currentConvId]);
+  }
 
   // ── Auto-scroll — 仅在用户已接近底部时平滑滚动，避免流式输出时的抖动 ──
   useEffect(() => {
@@ -1011,11 +1014,13 @@ export default function AIChatPanel() {
                     }}
                   />
                   <button
-                    onClick={
-                      isStreaming && currentRequestIdRef.current
-                        ? () => (window.ai as any).cancel?.(currentRequestIdRef.current)
-                        : handleSend
-                    }
+                    onClick={() => {
+                      if (isStreaming && currentRequestIdRef.current) {
+                        (window.ai as any).cancel?.(currentRequestIdRef.current);
+                      } else {
+                        handleSend();
+                      }
+                    }}
                     disabled={!isStreaming && !input.trim()}
                     className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-full transition-all duration-300 ${
                       isStreaming

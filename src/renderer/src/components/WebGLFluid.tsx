@@ -1,9 +1,9 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback } from 'react';
 
 interface WebGLFluidProps {
-  className?: string
-  opacity?: number
-  speed?: number
+  className?: string;
+  opacity?: number;
+  speed?: number;
 }
 
 // ── Vertex Shader ───────────────────────────────────────────────────────────
@@ -12,7 +12,7 @@ attribute vec2 a_position;
 void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
 }
-`
+`;
 
 // ── Fragment Shader ─────────────────────────────────────────────────────────
 // Noise-based fluid: hash → value noise → FBM → organic slow flow
@@ -94,7 +94,7 @@ void main() {
 
   gl_FragColor = vec4(col * brightness, alpha);
 }
-`
+`;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -103,16 +103,16 @@ function compileShader(
   type: number,
   source: string,
 ): WebGLShader | null {
-  const shader = gl.createShader(type)
-  if (!shader) return null
-  gl.shaderSource(shader, source)
-  gl.compileShader(shader)
+  const shader = gl.createShader(type);
+  if (!shader) return null;
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error('WebGLFluid: shader compile error', gl.getShaderInfoLog(shader))
-    gl.deleteShader(shader)
-    return null
+    console.error('WebGLFluid: shader compile error', gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
   }
-  return shader
+  return shader;
 }
 
 function createProgram(
@@ -120,36 +120,32 @@ function createProgram(
   vertSrc: string,
   fragSrc: string,
 ): WebGLProgram | null {
-  const vs = compileShader(gl, gl.VERTEX_SHADER, vertSrc)
-  const fs = compileShader(gl, gl.FRAGMENT_SHADER, fragSrc)
-  if (!vs || !fs) return null
+  const vs = compileShader(gl, gl.VERTEX_SHADER, vertSrc);
+  const fs = compileShader(gl, gl.FRAGMENT_SHADER, fragSrc);
+  if (!vs || !fs) return null;
 
-  const prog = gl.createProgram()
-  if (!prog) return null
-  gl.attachShader(prog, vs)
-  gl.attachShader(prog, fs)
-  gl.linkProgram(prog)
+  const prog = gl.createProgram();
+  if (!prog) return null;
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
 
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    console.error('WebGLFluid: link error', gl.getProgramInfoLog(prog))
-    gl.deleteProgram(prog)
-    return null
+    console.error('WebGLFluid: link error', gl.getProgramInfoLog(prog));
+    gl.deleteProgram(prog);
+    return null;
   }
 
   // Shaders are linked into the program; originals can be released
-  gl.deleteShader(vs)
-  gl.deleteShader(fs)
-  return prog
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
+  return prog;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
 
-export default function WebGLFluid({
-  className,
-  opacity = 0.05,
-  speed = 0.3,
-}: WebGLFluidProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+export default function WebGLFluid({ className, opacity = 0.05, speed = 0.3 }: WebGLFluidProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const stateRef = useRef({
     gl: null as WebGLRenderingContext | null,
@@ -161,66 +157,69 @@ export default function WebGLFluid({
       u_opacity: null as WebGLUniformLocation | null,
       u_speed: null as WebGLUniformLocation | null,
     },
-    hoverT: 0,          // current hover intensity 0→1
-    hoverDir: 0,        // +1 entering, -1 leaving
+    hoverT: 0, // current hover intensity 0→1
+    hoverDir: 0, // +1 entering, -1 leaving
     running: false,
     rafId: 0,
     startTime: 0,
     propsRef: { opacity, speed },
-  })
+  });
 
   // Keep props accessible inside the rAF loop without re-creating it
-  stateRef.current.propsRef = { opacity, speed }
+  // 渲染期间禁止写 ref，改为在提交后的 effect 中同步
+  useEffect(() => {
+    stateRef.current.propsRef = { opacity, speed };
+  }, [opacity, speed]);
 
   const resize = useCallback(() => {
-    const s = stateRef.current
-    const canvas = canvasRef.current
-    const gl = s.gl
-    if (!canvas || !gl) return
+    const s = stateRef.current;
+    const canvas = canvasRef.current;
+    const gl = s.gl;
+    if (!canvas || !gl) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 1) // cap at 1× for perf
-    const w = window.innerWidth
-    const h = window.innerHeight
+    const dpr = Math.min(window.devicePixelRatio || 1, 1); // cap at 1× for perf
+    const w = window.innerWidth;
+    const h = window.innerHeight;
 
-    canvas.width = w * dpr
-    canvas.height = h * dpr
-    canvas.style.width = `${w}px`
-    canvas.style.height = `${h}px`
-    gl.viewport(0, 0, canvas.width, canvas.height)
-  }, [])
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     // ── WebGL init ──
     const gl = canvas.getContext('webgl', {
       alpha: true,
       premultipliedAlpha: false,
       // preserveDrawingBuffer intentionally omitted (false = default, better perf)
-    })
+    });
     if (!gl) {
-      console.warn('WebGLFluid: WebGL not available')
-      return
+      console.warn('WebGLFluid: WebGL not available');
+      return;
     }
 
-    const program = createProgram(gl, VERT, FRAG)
-    if (!program) return
+    const program = createProgram(gl, VERT, FRAG);
+    if (!program) return;
 
-    gl.useProgram(program)
+    gl.useProgram(program);
 
     // Full-screen quad (two triangles)
-    const posBuffer = gl.createBuffer()
-    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer)
+    const posBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
     // Two triangles covering clip space
     gl.bufferData(
       gl.ARRAY_BUFFER,
       new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
       gl.STATIC_DRAW,
-    )
-    const aPos = gl.getAttribLocation(program, 'a_position')
-    gl.enableVertexAttribArray(aPos)
-    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
+    );
+    const aPos = gl.getAttribLocation(program, 'a_position');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
     // Uniforms
     const uniforms = {
@@ -229,75 +228,79 @@ export default function WebGLFluid({
       u_hover: gl.getUniformLocation(program, 'u_hover'),
       u_opacity: gl.getUniformLocation(program, 'u_opacity'),
       u_speed: gl.getUniformLocation(program, 'u_speed'),
-    }
+    };
 
-    const s = stateRef.current
-    s.gl = gl
-    s.program = program
-    s.uniforms = uniforms
-    s.startTime = performance.now() / 1000
+    const s = stateRef.current;
+    s.gl = gl;
+    s.program = program;
+    s.uniforms = uniforms;
+    s.startTime = performance.now() / 1000;
 
-    resize()
-    window.addEventListener('resize', resize)
+    resize();
+    window.addEventListener('resize', resize);
 
     // ── Hover tracking ──
-    const onEnter = () => { s.hoverDir = 1 }
-    const onLeave = () => { s.hoverDir = -1 }
+    const onEnter = () => {
+      s.hoverDir = 1;
+    };
+    const onLeave = () => {
+      s.hoverDir = -1;
+    };
 
     // Attach to window so we don't need a wrapper div capturing events
-    window.addEventListener('mouseenter', onEnter)
-    window.addEventListener('mouseleave', onLeave)
+    window.addEventListener('mouseenter', onEnter);
+    window.addEventListener('mouseleave', onLeave);
 
     // ── Render loop (only runs when hovered or easing out) ──
     const tick = () => {
-      const now = performance.now() / 1000
-      const { gl: g, uniforms: u, propsRef } = s
-      if (!g) return
+      const now = performance.now() / 1000;
+      const { gl: g, uniforms: u, propsRef } = s;
+      if (!g) return;
 
       // Ease hoverT toward target
-      const target = s.hoverDir > 0 ? 1 : 0
-      s.hoverT += (target - s.hoverT) * 0.04
-      if (s.hoverT < 0.001) s.hoverT = 0
+      const target = s.hoverDir > 0 ? 1 : 0;
+      s.hoverT += (target - s.hoverT) * 0.04;
+      if (s.hoverT < 0.001) s.hoverT = 0;
 
-      g.clearColor(0, 0, 0, 0)
-      g.clear(g.COLOR_BUFFER_BIT)
+      g.clearColor(0, 0, 0, 0);
+      g.clear(g.COLOR_BUFFER_BIT);
 
-      g.uniform2f(u.u_resolution, g.canvas.width, g.canvas.height)
-      g.uniform1f(u.u_time, now - s.startTime)
-      g.uniform1f(u.u_hover, s.hoverT)
-      g.uniform1f(u.u_opacity, propsRef.opacity)
-      g.uniform1f(u.u_speed, propsRef.speed)
+      g.uniform2f(u.u_resolution, g.canvas.width, g.canvas.height);
+      g.uniform1f(u.u_time, now - s.startTime);
+      g.uniform1f(u.u_hover, s.hoverT);
+      g.uniform1f(u.u_opacity, propsRef.opacity);
+      g.uniform1f(u.u_speed, propsRef.speed);
 
-      g.drawArrays(g.TRIANGLES, 0, 6)
+      g.drawArrays(g.TRIANGLES, 0, 6);
 
       // Keep rAF alive while hoverT > 0 (entering, fully in, or easing out)
       if (s.hoverT > 0.001) {
-        s.rafId = requestAnimationFrame(tick)
-        s.running = true
+        s.rafId = requestAnimationFrame(tick);
+        s.running = true;
       } else {
-        s.running = false
+        s.running = false;
       }
-    }
+    };
 
     // Start idle — no rAF yet. Kick off on first hover.
     // But render one frame so there's a baseline image ready.
-    s.running = true
-    s.hoverT = 0
-    s.rafId = requestAnimationFrame(tick)
+    s.running = true;
+    s.hoverT = 0;
+    s.rafId = requestAnimationFrame(tick);
 
     // ── Cleanup ──
     return () => {
-      cancelAnimationFrame(s.rafId)
-      s.running = false
-      window.removeEventListener('resize', resize)
-      window.removeEventListener('mouseenter', onEnter)
-      window.removeEventListener('mouseleave', onLeave)
+      cancelAnimationFrame(s.rafId);
+      s.running = false;
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('mouseenter', onEnter);
+      window.removeEventListener('mouseleave', onLeave);
       if (s.program) {
-        gl.deleteProgram(s.program)
-        s.program = null
+        gl.deleteProgram(s.program);
+        s.program = null;
       }
-    }
-  }, [resize])
+    };
+  }, [resize]);
 
   return (
     <canvas
@@ -313,5 +316,5 @@ export default function WebGLFluid({
       }}
       aria-hidden="true"
     />
-  )
+  );
 }

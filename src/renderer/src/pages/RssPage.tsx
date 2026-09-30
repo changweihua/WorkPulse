@@ -73,7 +73,7 @@ export default function RssPage() {
     loadFeeds();
     loadCategories();
     loadArticles();
-  }, []);
+  }, [loadFeeds, loadCategories, loadArticles]);
 
   useEffect(() => {
     if (error && error !== prevErrorRef.current) {
@@ -81,7 +81,7 @@ export default function RssPage() {
       prevErrorRef.current = error;
       clearError();
     }
-  }, [error]);
+  }, [error, toast, clearError]);
 
   if (loading) {
     return (

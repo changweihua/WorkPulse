@@ -2,64 +2,78 @@
  * 每日工作摘要弹窗 — 融合应用主题
  * 使用 surface-card / 毛玻璃 / 语义色，支持 light + dark
  */
-import { useEffect, useState, useRef, useCallback, type ReactNode } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
-import { FadeIn, MOTION_EASE } from './Motion'
-import { X } from 'lucide-react'
+import { useEffect, useState, useRef, useCallback, type ReactNode } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { FadeIn, MOTION_EASE } from './Motion';
+import { X } from 'lucide-react';
 
 // ── 类型 ──
 
 interface DailyStats {
-  daily: Array<{ date: string; log_count: number; task_completed: number }>
-  totalLogs: number
-  totalTasksDone: number
-  totalTasksActive: number
-  streak: number
+  daily: Array<{ date: string; log_count: number; task_completed: number }>;
+  totalLogs: number;
+  totalTasksDone: number;
+  totalTasksActive: number;
+  streak: number;
 }
 
 interface Props {
-  onClose: () => void
+  onClose: () => void;
 }
 
 // ── Hooks ──
 
 function useCountUp(target: number, duration = 1200): number {
-  const [value, setValue] = useState(0)
-  const startTimeRef = useRef<number | null>(null)
-  const frameRef = useRef<number>(0)
+  const [value, setValue] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
+  const frameRef = useRef<number>(0);
 
   useEffect(() => {
-    if (target === 0) { setValue(0); return }
-    startTimeRef.current = null
-    const animate = (time: number): void => {
-      if (!startTimeRef.current) startTimeRef.current = time
-      const progress = Math.min((time - startTimeRef.current) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setValue(Math.round(eased * target))
-      if (progress < 1) frameRef.current = requestAnimationFrame(animate)
+    // target 为 0 时不再于 effect 内同步 setState（避免级联渲染），
+    // 由下方 return 处直接派生为 0，展示结果一致
+    if (target === 0) {
+      return;
     }
-    frameRef.current = requestAnimationFrame(animate)
-    return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current) }
-  }, [target, duration])
+    startTimeRef.current = null;
+    const animate = (time: number): void => {
+      if (!startTimeRef.current) startTimeRef.current = time;
+      const progress = Math.min((time - startTimeRef.current) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(eased * target));
+      if (progress < 1) frameRef.current = requestAnimationFrame(animate);
+    };
+    frameRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    };
+  }, [target, duration]);
 
-  return value
+  return target === 0 ? 0 : value;
 }
 
 // ── 子组件 ──
 
-function StatBlock({ emoji, label, value, accentClass, delay }: {
-  emoji: string
-  label: string
-  value: number
-  accentClass: string
-  delay: number
+function StatBlock({
+  emoji,
+  label,
+  value,
+  accentClass,
+  delay,
+}: {
+  emoji: string;
+  label: string;
+  value: number;
+  accentClass: string;
+  delay: number;
 }): ReactNode {
-  const display = useCountUp(value, 1400)
+  const display = useCountUp(value, 1400);
 
   return (
     <FadeIn delay={delay}>
       <div className="surface-card rounded-2xl p-4 flex items-center gap-4">
-        <div className={`shrink-0 w-12 h-12 flex items-center justify-center rounded-2xl text-2xl ${accentClass}`}>
+        <div
+          className={`shrink-0 w-12 h-12 flex items-center justify-center rounded-2xl text-2xl ${accentClass}`}
+        >
           {emoji}
         </div>
         <div className="flex-1 min-w-0">
@@ -70,13 +84,15 @@ function StatBlock({ emoji, label, value, accentClass, delay }: {
         </div>
       </div>
     </FadeIn>
-  )
+  );
 }
 
 function MiniBarChart({ data }: { data: DailyStats['daily'] }): ReactNode {
-  if (!data || data.length === 0) return null
-  const maxVal = Math.max(...data.map(d => d.log_count + d.task_completed), 1)
-  const weekDayNames = ['日', '一', '二', '三', '四', '五', '六']
+  // 「今天」日期在挂载时取一次，避免渲染期间调用不纯的 Date
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  if (!data || data.length === 0) return null;
+  const maxVal = Math.max(...data.map((d) => d.log_count + d.task_completed), 1);
+  const weekDayNames = ['日', '一', '二', '三', '四', '五', '六'];
 
   return (
     <FadeIn delay={0.5}>
@@ -84,10 +100,10 @@ function MiniBarChart({ data }: { data: DailyStats['daily'] }): ReactNode {
         <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500 mb-3">本周活动</p>
         <div className="flex items-end gap-1.5 h-[60px]">
           {data.map((day, i) => {
-            const total = day.log_count + day.task_completed
-            const height = total > 0 ? Math.max((total / maxVal) * 52, 4) : 2
-            const isToday = day.date === new Date().toISOString().slice(0, 10)
-            const dayOfWeek = new Date(day.date + 'T00:00:00').getDay()
+            const total = day.log_count + day.task_completed;
+            const height = total > 0 ? Math.max((total / maxVal) * 52, 4) : 2;
+            const isToday = day.date === today;
+            const dayOfWeek = new Date(day.date + 'T00:00:00').getDay();
             return (
               <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
                 <motion.div
@@ -111,55 +127,59 @@ function MiniBarChart({ data }: { data: DailyStats['daily'] }): ReactNode {
                   {weekDayNames[dayOfWeek]}
                 </span>
               </div>
-            )
+            );
           })}
         </div>
       </div>
     </FadeIn>
-  )
+  );
 }
 
 function getEncouragement(streak: number, todayLogs: number, todayTasks: number): string {
-  const total = todayLogs + todayTasks
-  if (streak >= 30) return '🏆 连续记录超过一个月，你是真正的坚持者！'
-  if (streak >= 7) return '🔥 连续打卡一周以上，习惯正在养成！'
-  if (total >= 5) return '💪 今天效率很高，继续保持！'
-  if (total >= 1) return '✨ 今天有记录就是进步，继续加油！'
-  return '📝 还没有今天的记录，开始记录你的工作吧！'
+  const total = todayLogs + todayTasks;
+  if (streak >= 30) return '🏆 连续记录超过一个月，你是真正的坚持者！';
+  if (streak >= 7) return '🔥 连续打卡一周以上，习惯正在养成！';
+  if (total >= 5) return '💪 今天效率很高，继续保持！';
+  if (total >= 1) return '✨ 今天有记录就是进步，继续加油！';
+  return '📝 还没有今天的记录，开始记录你的工作吧！';
 }
 
 // ── 主组件 ──
 
 export function DailySummaryModal({ onClose }: Props): ReactNode {
-  const [stats, setStats] = useState<DailyStats | null>(null)
+  const [stats, setStats] = useState<DailyStats | null>(null);
+  // 「今天」日期在挂载时取一次，避免渲染期间调用不纯的 Date
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
-    window.api.stats.get(7).then((data) => {
-      setStats(data as DailyStats)
-    }).catch(() => {})
-  }, [])
+    window.api.stats
+      .get(7)
+      .then((data) => {
+        setStats(data as DailyStats);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleClose = useCallback(() => {
-    const today = new Date().toISOString().slice(0, 10)
-    localStorage.setItem('daily_summary_last_shown', today)
-    onClose()
-  }, [onClose])
+    const today = new Date().toISOString().slice(0, 10);
+    localStorage.setItem('daily_summary_last_shown', today);
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') handleClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [handleClose])
+      if (e.key === 'Escape') handleClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [handleClose]);
 
-  if (!stats) return null
+  if (!stats) return null;
 
-  const today = new Date().toISOString().slice(0, 10)
-  const todayEntry = stats.daily.find(d => d.date === today)
-  const todayLogs = todayEntry?.log_count ?? 0
-  const todayTasks = todayEntry?.task_completed ?? 0
-  const encouragement = getEncouragement(stats.streak, todayLogs, todayTasks)
+  const todayEntry = stats.daily.find((d) => d.date === today);
+  const todayLogs = todayEntry?.log_count ?? 0;
+  const todayTasks = todayEntry?.task_completed ?? 0;
+  const encouragement = getEncouragement(stats.streak, todayLogs, todayTasks);
 
   return (
     <AnimatePresence>
@@ -202,16 +222,40 @@ export function DailySummaryModal({ onClose }: Props): ReactNode {
 
           {/* 统计卡片 */}
           <div className="flex flex-col gap-2.5">
-            <StatBlock emoji="🔥" label="连续打卡" value={stats.streak} accentClass="bg-orange-100 dark:bg-orange-900/30" delay={0.15} />
+            <StatBlock
+              emoji="🔥"
+              label="连续打卡"
+              value={stats.streak}
+              accentClass="bg-orange-100 dark:bg-orange-900/30"
+              delay={0.15}
+            />
             <div className="flex gap-2.5">
               <div className="flex-1">
-                <StatBlock emoji="📝" label="今日日志" value={todayLogs} accentClass="bg-blue-100 dark:bg-blue-900/30" delay={0.25} />
+                <StatBlock
+                  emoji="📝"
+                  label="今日日志"
+                  value={todayLogs}
+                  accentClass="bg-blue-100 dark:bg-blue-900/30"
+                  delay={0.25}
+                />
               </div>
               <div className="flex-1">
-                <StatBlock emoji="✅" label="完成任务" value={todayTasks} accentClass="bg-emerald-100 dark:bg-emerald-900/30" delay={0.35} />
+                <StatBlock
+                  emoji="✅"
+                  label="完成任务"
+                  value={todayTasks}
+                  accentClass="bg-emerald-100 dark:bg-emerald-900/30"
+                  delay={0.35}
+                />
               </div>
             </div>
-            <StatBlock emoji="📋" label="待处理任务" value={stats.totalTasksActive} accentClass="bg-violet-100 dark:bg-violet-900/30" delay={0.45} />
+            <StatBlock
+              emoji="📋"
+              label="待处理任务"
+              value={stats.totalTasksActive}
+              accentClass="bg-violet-100 dark:bg-violet-900/30"
+              delay={0.45}
+            />
           </div>
 
           {/* 周活动图 */}
@@ -222,7 +266,9 @@ export function DailySummaryModal({ onClose }: Props): ReactNode {
           {/* 鼓励语 */}
           <FadeIn delay={0.6}>
             <div className="text-center mt-4 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30">
-              <p className="text-[13px] text-zinc-600 dark:text-zinc-300 leading-relaxed">{encouragement}</p>
+              <p className="text-[13px] text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                {encouragement}
+              </p>
             </div>
           </FadeIn>
 
@@ -235,5 +281,5 @@ export function DailySummaryModal({ onClose }: Props): ReactNode {
         </motion.div>
       </motion.div>
     </AnimatePresence>
-  )
+  );
 }

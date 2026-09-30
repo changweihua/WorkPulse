@@ -6,7 +6,6 @@ import { z } from 'zod';
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function validate(schema: z.ZodTypeAny, data: unknown): any {
   const result = schema.safeParse(data);
   if (!result.success) {
@@ -22,7 +21,6 @@ export function validate(schema: z.ZodTypeAny, data: unknown): any {
 
 export function extractAiErrorMessage(error: unknown): string {
   if (error instanceof Error) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const anyErr = error as any;
     if (anyErr?.error?.message) return String(anyErr.error.message);
     if (anyErr?.response?.data?.error?.message) return String(anyErr.response.data.error.message);

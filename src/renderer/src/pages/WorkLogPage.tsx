@@ -548,7 +548,11 @@ function WorkLogPage(): ReactNode {
   // useI18n 的 t 每次渲染返回新函数；包装为引用稳定的版本，
   // 供 memo 化的日志条目与 useCallback 依赖使用，避免每次渲染失效所有条目
   const tRef = useRef(t);
-  tRef.current = t;
+  // 渲染期不写 ref：提交后再同步最新 t（stableT 仅在事件回调与子组件渲染中读取，
+  // 读取时机均晚于本次提交，故行为一致）
+  useEffect(() => {
+    tRef.current = t;
+  });
   const stableT = useCallback(
     (key: TranslationKey, values?: Record<string, string | number>) => tRef.current(key, values),
     [],
@@ -562,14 +566,17 @@ function WorkLogPage(): ReactNode {
     expandedLogId,
     attachmentsByLog,
   });
-  latestRef.current = {
-    editingId,
-    editContent,
-    editCategory,
-    editDate,
-    expandedLogId,
-    attachmentsByLog,
-  };
+  // 同上：latestRef 只被事件回调读取，提交后同步即可拿到最新值
+  useEffect(() => {
+    latestRef.current = {
+      editingId,
+      editContent,
+      editCategory,
+      editDate,
+      expandedLogId,
+      attachmentsByLog,
+    };
+  });
 
   // 每日摘要弹窗状态
   const [showDailySummary, setShowDailySummary] = useState(false);
@@ -587,7 +594,7 @@ function WorkLogPage(): ReactNode {
       const timer = setTimeout(() => setShowDailySummary(true), 800);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [fetchLogs]);
 
   // Prefetch next page during browser idle time
   useEffect(() => {

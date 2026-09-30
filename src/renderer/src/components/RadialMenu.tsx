@@ -93,8 +93,10 @@ export function RadialMenu(): ReactNode {
   const visibleCount = visibleItems.length;
   const segAngle = visibleCount > 0 ? 360 / visibleCount : 72;
 
-  // 保持 ref 同步
-  visibleItemsRef.current = visibleItems;
+  // 保持 ref 同步（渲染期间禁止写 ref，改为在提交后的 effect 中同步）
+  useEffect(() => {
+    visibleItemsRef.current = visibleItems;
+  }, [visibleItems]);
 
   // ─── 加载配置（控制扇区可见性 + 合并自定义程序项目） ───
   useEffect(() => {

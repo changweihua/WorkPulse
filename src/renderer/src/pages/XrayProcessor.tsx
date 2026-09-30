@@ -410,29 +410,6 @@ function ProcessorCore() {
     drawPreview();
   }, [drawPreview]);
 
-  // ---- 图片加载 ----
-  const handleFileSelect = useCallback((file: File) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, img.width, img.height);
-        setOriginalImageData(imageData);
-        setImageLoaded(true);
-        setMaterials([]);
-        clearPreviews();
-      };
-      img.src = e.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  }, []);
-
   // ---- 清空预览 ----
   const clearPreviews = useCallback(() => {
     [brightPreviewRef, darkPreviewRef].forEach((ref) => {
@@ -442,6 +419,32 @@ function ProcessorCore() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     });
   }, []);
+
+  // ---- 图片加载 ----
+  const handleFileSelect = useCallback(
+    (file: File) => {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, img.width, img.height);
+          setOriginalImageData(imageData);
+          setImageLoaded(true);
+          setMaterials([]);
+          clearPreviews();
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    },
+    [clearPreviews],
+  );
 
   // ---- 重置编辑（仅清除素材，不重置原图） ----
   const handleResetEditor = useCallback(() => {
@@ -475,7 +478,8 @@ function ProcessorCore() {
     const composite = getCompositeImageData();
     if (!composite) return;
     const { width, height, data } = composite;
-    setIsPreviewing(true);
+    // 预览绘制为同步批处理：原先的 setIsPreviewing(true/false) 在同一批次内提交，
+    // 中间态从未渲染，删除后对外表现一致（isPreviewing 恒为 false），也避免 effect 内同步 setState
 
     const brightCanvas = brightPreviewRef.current;
     if (brightCanvas) {
@@ -508,7 +512,6 @@ function ProcessorCore() {
       );
       ctx.putImageData(new ImageData(Uint8ClampedArray.from(result), width, height), 0, 0);
     }
-    setIsPreviewing(false);
   }, [getCompositeImageData, brightStrength, darkStrength, saturationBoost, detailBoost]);
 
   useEffect(() => {

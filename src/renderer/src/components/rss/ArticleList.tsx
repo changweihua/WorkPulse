@@ -103,7 +103,7 @@ export default function ArticleList() {
         markRead(selectedArticleId);
       }
     }
-  }, [selectedArticleId]);
+  }, [selectedArticleId, articles, markRead]);
 
   return (
     <div className="w-80 h-full flex flex-col surface-card rounded-xl overflow-hidden">

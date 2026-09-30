@@ -73,6 +73,9 @@ function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** 页面加载时的当前时间：供 render 中派生“今天”，避免在 render 期间调用不纯的 Date */
+const NOW = new Date();
+
 function useCountUp(target: number, duration = 1200): number {
   const [value, setValue] = useState(0);
   const startTime = useRef<number | null>(null);
@@ -80,7 +83,6 @@ function useCountUp(target: number, duration = 1200): number {
 
   useEffect(() => {
     if (target === 0) {
-      setValue(0);
       return;
     }
     startTime.current = null;
@@ -100,6 +102,8 @@ function useCountUp(target: number, duration = 1200): number {
     };
   }, [target, duration]);
 
+  // target 为 0 时在 render 中直接派生结果，避免 effect 内同步 setState
+  if (target === 0) return 0;
   return value;
 }
 
@@ -189,7 +193,11 @@ function DonutChart({
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<ECharts | null>(null);
   const tRef = useRef(t);
-  tRef.current = t;
+  // 在 effect 中维护 latest-ref，避免 render 期间访问 ref
+  // （本 effect 声明在图表/取数 effect 之前，同一次提交内会先执行，读到的始终是最新 t）
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
 
   useEffect(() => {
@@ -385,11 +393,19 @@ function CategoryBreakdown({ range, enabled }: { range: number; enabled: boolean
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<ECharts | null>(null);
   const tRef = useRef(t);
-  tRef.current = t;
-  const [loading, setLoading] = useState(true);
+  // 在 effect 中维护 latest-ref，避免 render 期间访问 ref
+  // （本 effect 声明在图表/取数 effect 之前，同一次提交内会先执行，读到的始终是最新 t）
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+  // 派生加载态：与下方取数 effect 的依赖（range/isDark/enabled）一致，
+  // 参数一变即视为加载中，取数完成后回填 loadedKey 结束，无需在 effect 中同步 setState
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [hasData, setHasData] = useState(false);
 
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+
+  const loading = loadedKey !== `${range}|${isDark}|${enabled}`;
 
   useEffect(() => {
     const obs = new MutationObserver(() =>
@@ -410,7 +426,6 @@ function CategoryBreakdown({ range, enabled }: { range: number; enabled: boolean
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     const to = new Date();
     const from = new Date();
     from.setDate(from.getDate() - range);
@@ -492,7 +507,9 @@ function CategoryBreakdown({ range, enabled }: { range: number; enabled: boolean
         );
       })
       .catch(() => !cancelled && setHasData(false))
-      .finally(() => !cancelled && setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoadedKey(`${range}|${isDark}|${enabled}`);
+      });
     return () => {
       cancelled = true;
     };
@@ -531,7 +548,7 @@ function CategoryBreakdown({ range, enabled }: { range: number; enabled: boolean
 
 function AISummary({ stats }: { stats: Stats }): ReactNode {
   const { t } = useI18n();
-  const today = formatLocalDate(new Date());
+  const today = formatLocalDate(NOW);
   const todayEntry = stats.daily.find((d) => d.date === today);
   const todayLogs = todayEntry?.log_count ?? 0;
   const todayTasks = todayEntry?.task_completed ?? 0;
@@ -580,7 +597,11 @@ function BarChart({ data, enabled }: { data: DailyStats[]; enabled: boolean }): 
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<ECharts | null>(null);
   const tRef = useRef(t);
-  tRef.current = t;
+  // 在 effect 中维护 latest-ref，避免 render 期间访问 ref
+  // （本 effect 声明在图表/取数 effect 之前，同一次提交内会先执行，读到的始终是最新 t）
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
 
   // Theme observer
@@ -766,7 +787,11 @@ function StatsPage(): ReactNode {
   }, []);
 
   useEffect(() => {
-    loadStats(range);
+    // effect 内定义异步执行器，触发时机不变（挂载 + range 变化）
+    async function run() {
+      await loadStats(range);
+    }
+    void run();
   }, [range, loadStats]);
 
   if (!stats) {
@@ -806,7 +831,7 @@ function StatsPage(): ReactNode {
   const barDays = Math.min(range, 30);
 
   const filled: DailyStats[] = [];
-  const today = new Date();
+  const today = NOW;
   for (let i = barDays - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);

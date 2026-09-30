@@ -614,7 +614,9 @@ export default function ChatPage() {
 
   const currentConfig = configs.find((c) => c.id === currentConfigId) || configs[0];
   const currentConv = conversations.find((c) => c.id === currentConvId);
-  const messages = currentConv?.messages || [];
+  // 用 useMemo 稳定引用：避免 `|| []` 在每次渲染产生新数组，
+  // 从而导致下游 useMemo/useEffect 的 messages 依赖每渲染必变
+  const messages = useMemo(() => currentConv?.messages || [], [currentConv]);
 
   // Token 统计
   const tokenStats = useMemo<TokenStats>(() => {
@@ -1105,11 +1107,13 @@ export default function ChatPage() {
                   />
                 </div>
                 <button
-                  onClick={
-                    isStreaming && currentRequestIdRef.current
-                      ? () => (window.ai as any).cancel?.(currentRequestIdRef.current)
-                      : handleSend
-                  }
+                  onClick={() => {
+                    if (isStreaming && currentRequestIdRef.current) {
+                      (window.ai as any).cancel?.(currentRequestIdRef.current);
+                    } else {
+                      handleSend();
+                    }
+                  }}
                   disabled={!isStreaming && !input.trim()}
                   className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition shadow-sm"
                   style={

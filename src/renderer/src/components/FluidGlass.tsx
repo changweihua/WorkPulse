@@ -1,7 +1,6 @@
-/* eslint-disable react/no-unknown-property */
-import * as THREE from 'three'
-import { useRef, useMemo, memo, Suspense, type ReactNode } from 'react'
-import { Canvas, createPortal, useFrame, useThree } from '@react-three/fiber'
+import * as THREE from 'three';
+import { useRef, useMemo, memo, Suspense, type ReactNode } from 'react';
+import { Canvas, createPortal, useFrame, useThree } from '@react-three/fiber';
 import {
   useFBO,
   useGLTF,
@@ -9,34 +8,34 @@ import {
   Scroll,
   Preload,
   ScrollControls,
-  MeshTransmissionMaterial
-} from '@react-three/drei'
-import { easing } from 'maath'
+  MeshTransmissionMaterial,
+} from '@react-three/drei';
+import { easing } from 'maath';
 
 /* ───────────────────────────────────────────────────────────────
  *  Types
  * ─────────────────────────────────────────────────────────────── */
 
-type Mode = 'lens' | 'bar' | 'cube'
+type Mode = 'lens' | 'bar' | 'cube';
 
 interface NavItem {
-  label: string
-  link: string
+  label: string;
+  link: string;
 }
 
-type ModeProps = Record<string, unknown>
+type ModeProps = Record<string, unknown>;
 
 export interface FluidGlassProps {
   /** Glass shape mode — 'lens' (cylinder), 'cube', or 'bar' (fixed bottom bar) */
-  mode?: Mode
-  lensProps?: ModeProps
-  barProps?: ModeProps
-  cubeProps?: ModeProps
-  backgroundColor?: string
-  textColor?: string
-  children?: ReactNode
-  className?: string
-  style?: React.CSSProperties
+  mode?: Mode;
+  lensProps?: ModeProps;
+  barProps?: ModeProps;
+  cubeProps?: ModeProps;
+  backgroundColor?: string;
+  textColor?: string;
+  children?: ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
 /* ───────────────────────────────────────────────────────────────
@@ -48,14 +47,14 @@ const IMAGE_URLS = [
   'https://images.unsplash.com/photo-1782977389500-dd7adad33ebe?w=900&auto=format&fit=crop&q=60',
   'https://images.unsplash.com/photo-1782094002386-7d9ae1f49f50?w=900&auto=format&fit=crop&q=60',
   'https://images.unsplash.com/photo-1781242629922-6f39cc3671cd?w=900&auto=format&fit=crop&q=60',
-  'https://images.unsplash.com/photo-1779684474703-5c0519bcf7e8?w=900&auto=format&fit=crop&q=60'
-]
+  'https://images.unsplash.com/photo-1779684474703-5c0519bcf7e8?w=900&auto=format&fit=crop&q=60',
+];
 
 const GLB_PATHS: Record<Mode, string> = {
   lens: '/assets/3d/lens.glb',
   cube: '/assets/3d/cube.glb',
-  bar: '/assets/3d/bar.glb'
-}
+  bar: '/assets/3d/bar.glb',
+};
 
 const GLASS_MATERIAL_PROPS = {
   backside: true,
@@ -73,8 +72,8 @@ const GLASS_MATERIAL_PROPS = {
   clearcoat: 1,
   attenuationDistance: 0.5,
   attenuationColor: '#ffffff',
-  color: '#ffffff'
-} as const
+  color: '#ffffff',
+} as const;
 
 /* ───────────────────────────────────────────────────────────────
  *  Helpers
@@ -82,13 +81,13 @@ const GLASS_MATERIAL_PROPS = {
 
 /** Extract the first mesh geometry from a GLB scene */
 function extractGeometry(scene: THREE.Group): THREE.BufferGeometry | null {
-  let found: THREE.BufferGeometry | null = null
+  let found: THREE.BufferGeometry | null = null;
   scene.traverse((child) => {
     if (!found && child instanceof THREE.Mesh) {
-      found = child.geometry.clone()
+      found = child.geometry.clone();
     }
-  })
-  return found
+  });
+  return found;
 }
 
 /* ───────────────────────────────────────────────────────────────
@@ -99,21 +98,14 @@ function Content() {
   return (
     <group position={[0, 0, 0]}>
       {IMAGE_URLS.map((url, i) => {
-        const row = Math.floor(i / 2)
-        const col = i % 2
-        const x = (col - 0.5) * 3.2
-        const y = -row * 4.2
-        return (
-          <Image
-            key={url}
-            url={url}
-            position={[x, y, i * 0.3]}
-            scale={2.8}
-          />
-        )
+        const row = Math.floor(i / 2);
+        const col = i % 2;
+        const x = (col - 0.5) * 3.2;
+        const y = -row * 4.2;
+        return <Image key={url} url={url} position={[x, y, i * 0.3]} scale={2.8} />;
       })}
     </group>
-  )
+  );
 }
 
 /* ───────────────────────────────────────────────────────────────
@@ -122,9 +114,9 @@ function Content() {
 
 /** Fallback geometry when GLB is still loading or unavailable */
 function GlassFallbackGeometry({ mode }: { mode: Mode }) {
-  if (mode === 'lens') return <cylinderGeometry args={[1.2, 1.2, 0.5, 64]} />
-  if (mode === 'cube') return <boxGeometry args={[2, 2, 2]} />
-  return <boxGeometry args={[8, 0.8, 0.3]} />
+  if (mode === 'lens') return <cylinderGeometry args={[1.2, 1.2, 0.5, 64]} />;
+  if (mode === 'cube') return <boxGeometry args={[2, 2, 2]} />;
+  return <boxGeometry args={[8, 0.8, 0.3]} />;
 }
 
 /**
@@ -134,28 +126,28 @@ function GlassFallbackGeometry({ mode }: { mode: Mode }) {
  * Wrapped in Suspense by the parent so fallback geometry is shown during loading.
  */
 function GlassGLBInner({ mode }: { mode: Mode }) {
-  const lensGltf = useGLTF(GLB_PATHS.lens)
-  const cubeGltf = useGLTF(GLB_PATHS.cube)
-  const barGltf = useGLTF(GLB_PATHS.bar)
+  const lensGltf = useGLTF(GLB_PATHS.lens);
+  const cubeGltf = useGLTF(GLB_PATHS.cube);
+  const barGltf = useGLTF(GLB_PATHS.bar);
 
   const geometries = useMemo(
     () => ({
       lens: extractGeometry(lensGltf.scene),
       cube: extractGeometry(cubeGltf.scene),
-      bar: extractGeometry(barGltf.scene)
+      bar: extractGeometry(barGltf.scene),
     }),
-    [lensGltf.scene, cubeGltf.scene, barGltf.scene]
-  )
+    [lensGltf.scene, cubeGltf.scene, barGltf.scene],
+  );
 
-  const geometry = geometries[mode]
+  const geometry = geometries[mode];
 
-  if (!geometry) return <GlassFallbackGeometry mode={mode} />
+  if (!geometry) return <GlassFallbackGeometry mode={mode} />;
 
   return (
     <mesh geometry={geometry}>
       <MeshTransmissionMaterial {...GLASS_MATERIAL_PROPS} />
     </mesh>
-  )
+  );
 }
 
 /**
@@ -164,36 +156,43 @@ function GlassGLBInner({ mode }: { mode: Mode }) {
  */
 const GlassMesh = memo(function GlassMesh({
   mode,
-  pointer
+  pointer,
 }: {
-  mode: Mode
-  pointer: React.RefObject<THREE.Vector2>
+  mode: Mode;
+  pointer: React.RefObject<THREE.Vector2>;
 }) {
-  const groupRef = useRef<THREE.Group>(null!)
+  const groupRef = useRef<THREE.Group>(null!);
 
   useFrame((_, delta) => {
-    if (!groupRef.current) return
+    if (!groupRef.current) return;
 
     if (mode === 'bar') {
       // Bar stays fixed at the bottom of the viewport
-      groupRef.current.position.set(0, -7, 15)
-      return
+      groupRef.current.position.set(0, -7, 15);
+      return;
     }
 
     // Lens and cube follow the pointer with smooth damping
-    const targetX = pointer.current.x * 8
-    const targetY = pointer.current.y * 5
-    easing.damp3(groupRef.current.position, [targetX, targetY, 15], 0.4, delta)
-  })
+    const targetX = pointer.current.x * 8;
+    const targetY = pointer.current.y * 5;
+    easing.damp3(groupRef.current.position, [targetX, targetY, 15], 0.4, delta);
+  });
 
   return (
     <group ref={groupRef}>
-      <Suspense fallback={<mesh><GlassFallbackGeometry mode={mode} /><MeshTransmissionMaterial {...GLASS_MATERIAL_PROPS} /></mesh>}>
+      <Suspense
+        fallback={
+          <mesh>
+            <GlassFallbackGeometry mode={mode} />
+            <MeshTransmissionMaterial {...GLASS_MATERIAL_PROPS} />
+          </mesh>
+        }
+      >
         <GlassGLBInner mode={mode} />
       </Suspense>
     </group>
-  )
-})
+  );
+});
 
 /* ───────────────────────────────────────────────────────────────
  *  ModeWrapper — FBO rendering + glass overlay (memo'd)
@@ -208,18 +207,18 @@ const GlassMesh = memo(function GlassMesh({
 const ModeWrapper = memo(function ModeWrapper({
   mode,
   children,
-  backgroundColor
+  backgroundColor,
 }: {
-  mode: Mode
-  children: ReactNode
-  backgroundColor?: string
+  mode: Mode;
+  children: ReactNode;
+  backgroundColor?: string;
 }) {
-  const { viewport } = useThree()
-  const fbo = useFBO()
-  const pointer = useRef(new THREE.Vector2(0, 0))
+  const { viewport } = useThree();
+  const fbo = useFBO();
+  const pointer = useRef(new THREE.Vector2(0, 0));
 
   // Isolated scene + orthographic camera for FBO capture
-  const isolatedScene = useMemo(() => new THREE.Scene(), [])
+  const isolatedScene = useMemo(() => new THREE.Scene(), []);
   const orthoCamera = useMemo(() => {
     const cam = new THREE.OrthographicCamera(
       -viewport.width / 2,
@@ -227,23 +226,23 @@ const ModeWrapper = memo(function ModeWrapper({
       viewport.height / 2,
       -viewport.height / 2,
       0.1,
-      100
-    )
-    cam.position.z = 10
-    return cam
-  }, [viewport.width, viewport.height])
+      100,
+    );
+    cam.position.z = 10;
+    return cam;
+  }, [viewport.width, viewport.height]);
 
   // Track pointer in normalized device coords for glass following
   useFrame((state) => {
-    pointer.current.copy(state.pointer)
-  })
+    pointer.current.copy(state.pointer);
+  });
 
   // Render the isolated content scene to FBO every frame
   useFrame(({ gl }) => {
-    gl.setRenderTarget(fbo)
-    gl.render(isolatedScene, orthoCamera)
-    gl.setRenderTarget(null)
-  })
+    gl.setRenderTarget(fbo);
+    gl.render(isolatedScene, orthoCamera);
+    gl.setRenderTarget(null);
+  });
 
   return (
     <>
@@ -253,17 +252,14 @@ const ModeWrapper = memo(function ModeWrapper({
       {/* FBO texture displayed as a full-viewport plane */}
       <mesh position={[0, 0, 14]}>
         <planeGeometry args={[viewport.width, viewport.height]} />
-        <meshBasicMaterial
-          map={fbo.texture}
-          toneMapped={false}
-        />
+        <meshBasicMaterial map={fbo.texture} toneMapped={false} />
       </mesh>
 
       {/* Glass overlay mesh at Z = 15 */}
       <GlassMesh mode={mode} pointer={pointer} />
     </>
-  )
-})
+  );
+});
 
 /* ───────────────────────────────────────────────────────────────
  *  FluidGlass — default export
@@ -290,7 +286,7 @@ export default function FluidGlass({
   backgroundColor = 'transparent',
   textColor = '#ffffff',
   className,
-  style
+  style,
 }: FluidGlassProps) {
   return (
     <div
@@ -300,13 +296,13 @@ export default function FluidGlass({
       <Canvas
         gl={{
           alpha: true,
-          toneMapping: THREE.NoToneMapping
+          toneMapping: THREE.NoToneMapping,
         }}
         camera={{
           position: [0, 0, 20],
           fov: 15,
           near: 0.1,
-          far: 100
+          far: 100,
         }}
         style={{ background: backgroundColor }}
       >
@@ -314,12 +310,10 @@ export default function FluidGlass({
           <ModeWrapper mode={mode} backgroundColor={backgroundColor}>
             <Content />
           </ModeWrapper>
-          <Scroll html>
-            {/* Scrollable HTML layer — content passes through the glass */}
-          </Scroll>
+          <Scroll html>{/* Scrollable HTML layer — content passes through the glass */}</Scroll>
         </ScrollControls>
         <Preload all />
       </Canvas>
     </div>
-  )
+  );
 }

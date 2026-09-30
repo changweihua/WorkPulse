@@ -62,7 +62,8 @@ export function useStreamingReveal(
   // 流式进行中：按固定节奏从 buffer 揭示文字
   useEffect(() => {
     if (!isStreaming) {
-      setRevealed(fullContent);
+      // 非流式时返回值直接由下方 return 派生为 fullContent，
+      // 这里只需停止动画，无需在 effect 中同步 setRevealed
       cancelAnimationFrame(rafRef.current);
       return;
     }

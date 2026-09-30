@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import {
   Copy,
   RefreshCw,
@@ -32,8 +32,9 @@ type Status = 'idle' | 'generating' | 'streaming' | 'success' | 'error' | 'no_da
 
 function ReportPage(): ReactNode {
   const [preset, setPreset] = useState<DatePreset>('this_week');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  // 初始日期直接由默认预派派生，避免挂载 effect 里同步 setState
+  const [dateFrom, setDateFrom] = useState(() => getDateRange('this_week').from);
+  const [dateTo, setDateTo] = useState(() => getDateRange('this_week').to);
   const [status, setStatus] = useState<Status>('idle');
   const [reportContent, setReportContent] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -53,37 +54,13 @@ function ReportPage(): ReactNode {
     reset: resetStream,
   } = useStreamChat();
 
-  useEffect(() => {
-    applyPreset('this_week');
-    loadHistory();
-  }, []);
+  const saveLockRef = useRef(false);
 
-  useEffect(() => {
-    if (status === 'streaming' && streamedContent) {
-      setReportContent(streamedContent);
-    }
-  }, [streamedContent, status]);
-
-  useEffect(() => {
-    if (status === 'streaming' && !isStreaming && streamedContent) {
-      setReportContent(streamedContent);
-      setStatus('success');
-      void handleSaveNewReport(streamedContent);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStreaming, status, streamedContent]);
-
-  useEffect(() => {
-    if ((status === 'streaming' || status === 'generating') && streamError) {
-      setErrorMsg(streamError);
-      setStatus('error');
-    }
-  }, [streamError, status]);
-
-  const loadHistory = async (): Promise<void> => {
+  // 历史列表加载：稳定引用，供挂载 effect 与保存流程复用
+  const loadHistory = useCallback(async (): Promise<void> => {
     const reports = await window.api.report.list(50);
     setHistory(reports);
-  };
+  }, []);
 
   const applyPreset = (p: DatePreset): void => {
     setPreset(p);
@@ -91,6 +68,95 @@ function ReportPage(): ReactNode {
     setDateFrom(range.from);
     setDateTo(range.to);
   };
+
+  const getReportType = useCallback((): string => {
+    if (preset === 'this_week' || preset === 'last_week') return 'weekly';
+    if (preset === 'this_month' || preset === 'last_month') return 'monthly';
+    if (preset === 'this_quarter') return 'quarterly';
+    return 'custom';
+  }, [preset]);
+
+  const handleSaveNewReport = useCallback(
+    async (content: string): Promise<void> => {
+      if (saveLockRef.current) return;
+      if (!content.trim()) return;
+      saveLockRef.current = true;
+      try {
+        const type = getReportType();
+        const saved = await window.api.report.create(type, dateFrom, dateTo, content);
+        if (saved) {
+          // 关联刚创建的记录：后续编辑可直接更新这条报告
+          setActiveReport(saved);
+          toast.success(t('report.saved'));
+          await loadHistory();
+        } else {
+          toast.error(t('report.saveFailed'));
+        }
+      } catch (err) {
+        console.error('Failed to save report:', err);
+        toast.error(t('report.saveFailed'));
+      } finally {
+        saveLockRef.current = false;
+      }
+    },
+    [getReportType, dateFrom, dateTo, toast, t, loadHistory],
+  );
+
+  // 以下辅助函数把 setState 收敛到组件作用域，effect 只负责在正确时机调度
+  const syncStreamingContent = useCallback((content: string): void => {
+    setReportContent(content);
+  }, []);
+
+  const finishStreaming = useCallback(
+    (content: string): void => {
+      setReportContent(content);
+      setStatus('success');
+      void handleSaveNewReport(content);
+    },
+    [handleSaveNewReport],
+  );
+
+  const applyStreamError = useCallback((msg: string): void => {
+    setErrorMsg(msg);
+    setStatus('error');
+  }, []);
+
+  useEffect(() => {
+    // 挂载时拉取历史：effect 内异步执行器，避免同步 setState
+    async function run(): Promise<void> {
+      await loadHistory();
+    }
+    void run();
+  }, [loadHistory]);
+
+  useEffect(() => {
+    async function run(): Promise<void> {
+      if (status === 'streaming' && streamedContent) {
+        syncStreamingContent(streamedContent);
+      }
+    }
+    void run();
+  }, [streamedContent, status, syncStreamingContent]);
+
+  useEffect(() => {
+    // 流结束后的提交与自动保存：effect 内异步执行器，避免同步 setState
+    async function run(): Promise<void> {
+      if (status === 'streaming' && !isStreaming && streamedContent) {
+        finishStreaming(streamedContent);
+      }
+    }
+    void run();
+  }, [isStreaming, status, streamedContent, finishStreaming]);
+
+  useEffect(() => {
+    // 流式错误同步为错误态：effect 内异步执行器，避免同步 setState
+    async function run(): Promise<void> {
+      if ((status === 'streaming' || status === 'generating') && streamError) {
+        applyStreamError(streamError);
+      }
+    }
+    void run();
+  }, [streamError, status, applyStreamError]);
 
   const handleGenerate = async (): Promise<void> => {
     if (!dateFrom || !dateTo) return;
@@ -135,38 +201,6 @@ function ReportPage(): ReactNode {
         setErrorMsg(msg);
         setStatus('error');
       }
-    }
-  };
-
-  const getReportType = (): string => {
-    if (preset === 'this_week' || preset === 'last_week') return 'weekly';
-    if (preset === 'this_month' || preset === 'last_month') return 'monthly';
-    if (preset === 'this_quarter') return 'quarterly';
-    return 'custom';
-  };
-
-  const saveLockRef = useRef(false);
-
-  const handleSaveNewReport = async (content: string): Promise<void> => {
-    if (saveLockRef.current) return;
-    if (!content.trim()) return;
-    saveLockRef.current = true;
-    try {
-      const type = getReportType();
-      const saved = await window.api.report.create(type, dateFrom, dateTo, content);
-      if (saved) {
-        // 关联刚创建的记录：后续编辑可直接更新这条报告
-        setActiveReport(saved);
-        toast.success(t('report.saved'));
-        await loadHistory();
-      } else {
-        toast.error(t('report.saveFailed'));
-      }
-    } catch (err) {
-      console.error('Failed to save report:', err);
-      toast.error(t('report.saveFailed'));
-    } finally {
-      saveLockRef.current = false;
     }
   };
 

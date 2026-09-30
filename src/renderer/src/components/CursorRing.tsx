@@ -13,11 +13,7 @@ interface CursorRingProps {
  * Only renders on devices with fine pointer (no touch).
  * All DOM updates are direct via refs — zero React re-renders.
  */
-export default function CursorRing({
-  size = 32,
-  borderWidth = 1.5,
-  className,
-}: CursorRingProps) {
+export default function CursorRing({ size = 32, borderWidth = 1.5, className }: CursorRingProps) {
   const ringRef = useRef<HTMLDivElement>(null);
 
   // ─── Mutable state — all in refs, never triggers React re-render ──
@@ -57,41 +53,45 @@ export default function CursorRing({
   }, []);
 
   // ─── Animation loop — exponential easing ─────────────────────
-  const EASE_POS = 0.12;  // position lag (lower = more trailing)
+  const EASE_POS = 0.12; // position lag (lower = more trailing)
   const EASE_SCALE = 0.18; // scale lag (slightly snappier than position)
-  const EASE_FADE = 0.08;  // opacity fade-in speed
+  const EASE_FADE = 0.08; // opacity fade-in speed
 
-  const tick = useCallback(() => {
-    const ring = ringRef.current;
-    if (!ring) {
-      rafId.current = requestAnimationFrame(tick);
-      return;
-    }
+  // 命名函数表达式：避免回调在初始化时自捕获 `tick`
+  const tick = useCallback(
+    function tickFrame() {
+      const ring = ringRef.current;
+      if (!ring) {
+        rafId.current = requestAnimationFrame(tickFrame);
+        return;
+      }
 
-    // ── Position lerp ──
-    pos.current.x += (target.current.x - pos.current.x) * EASE_POS;
-    pos.current.y += (target.current.y - pos.current.y) * EASE_POS;
+      // ── Position lerp ──
+      pos.current.x += (target.current.x - pos.current.x) * EASE_POS;
+      pos.current.y += (target.current.y - pos.current.y) * EASE_POS;
 
-    // ── Scale lerp ──
-    currentScale.current += (targetScale.current - currentScale.current) * EASE_SCALE;
-    // Snap to avoid sub-pixel drift
-    if (Math.abs(currentScale.current - targetScale.current) < 0.005) {
-      currentScale.current = targetScale.current;
-    }
+      // ── Scale lerp ──
+      currentScale.current += (targetScale.current - currentScale.current) * EASE_SCALE;
+      // Snap to avoid sub-pixel drift
+      if (Math.abs(currentScale.current - targetScale.current) < 0.005) {
+        currentScale.current = targetScale.current;
+      }
 
-    // ── Opacity fade-in ──
-    if (currentOpacity.current < 1) {
-      currentOpacity.current = Math.min(1, currentOpacity.current + EASE_FADE);
-      ring.style.opacity = String(currentOpacity.current);
-    }
+      // ── Opacity fade-in ──
+      if (currentOpacity.current < 1) {
+        currentOpacity.current = Math.min(1, currentOpacity.current + EASE_FADE);
+        ring.style.opacity = String(currentOpacity.current);
+      }
 
-    // ── Compose transform ──
-    const tx = pos.current.x - size / 2;
-    const ty = pos.current.y - size / 2;
-    ring.style.transform = `translate3d(${tx.toFixed(1)}px, ${ty.toFixed(1)}px, 0) scale(${currentScale.current.toFixed(3)})`;
+      // ── Compose transform ──
+      const tx = pos.current.x - size / 2;
+      const ty = pos.current.y - size / 2;
+      ring.style.transform = `translate3d(${tx.toFixed(1)}px, ${ty.toFixed(1)}px, 0) scale(${currentScale.current.toFixed(3)})`;
 
-    rafId.current = requestAnimationFrame(tick);
-  }, [size]);
+      rafId.current = requestAnimationFrame(tickFrame);
+    },
+    [size],
+  );
 
   // ─── Mount / unmount ─────────────────────────────────────────
   useEffect(() => {

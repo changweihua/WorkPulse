@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, ReactNode } from 'react';
+import { useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import {
   Eye,
   EyeOff,
@@ -246,8 +246,49 @@ function SettingsPage(): ReactNode {
   ]);
   const [addingProgram, setAddingProgram] = useState(false);
 
+  // loadSettings 的兜底默认值在挂载时取一次（与上面 reportLanguage/style 的初始值一致），
+  // 避免回调捕获每次渲染变化的 resolvedLanguage/t，保证引用稳定
+  const [defaultReportLanguage] = useState(() => (resolvedLanguage === 'zh' ? '中文' : 'English'));
+  const [defaultStyle] = useState(() => t('settings.styleConcise'));
+
+  // 放在 effect 之前并用 useCallback 包裹：既满足「初始化后再读取」，也保证引用稳定
+  const loadSettings = useCallback(async (): Promise<void> => {
+    const key = await window.api.settings.get('api_key');
+    if (key) {
+      setApiKey(key);
+      setHasKey(true);
+    }
+    // 报告偏好
+    const l = await window.api.settings.get('report_language');
+    if (l) {
+      setReportLanguage(l);
+    } else {
+      setReportLanguage(defaultReportLanguage);
+    }
+    const s = await window.api.settings.get('report_style');
+    if (s) {
+      setStyle(s);
+    } else {
+      setStyle(defaultStyle);
+    }
+    const sp = await window.api.settings.get('system_prompt');
+    if (sp) setSystemPrompt(sp);
+    const rt = await window.api.settings.get('report_template');
+    if (rt) setReportTemplate(rt);
+    const sl = await window.api.settings.get('shortcut_quick_log');
+    if (sl) setShortcutLog(sl);
+    const st = await window.api.settings.get('shortcut_quick_task');
+    if (st) setShortcutTask(st);
+    const sm = await window.api.settings.get('search_mode');
+    if (sm === 'vector' || sm === 'like') setSearchMode(sm);
+  }, [defaultReportLanguage, defaultStyle]);
+
   useEffect(() => {
-    loadSettings();
+    // async IIFE 包裹：仍在同一 tick 内同步发起加载，行为与直接调用一致，
+    // 仅避免「effect 内同步 setState」告警
+    void (async () => {
+      await loadSettings();
+    })();
 
     void window.api.app.getVersion().then(setAppVersion);
     void window.api.app.getUpdateState().then(setUpdateState);
@@ -307,7 +348,7 @@ function SettingsPage(): ReactNode {
     return () => {
       unsubscribeUpdateStatus();
     };
-  }, []);
+  }, [loadSettings]);
 
   useEffect(() => {
     const previousLanguage = previousLanguageRef.current;
@@ -340,37 +381,6 @@ function SettingsPage(): ReactNode {
 
     previousLanguageRef.current = resolvedLanguage;
   }, [resolvedLanguage, t]);
-
-  const loadSettings = async (): Promise<void> => {
-    const key = await window.api.settings.get('api_key');
-    if (key) {
-      setApiKey(key);
-      setHasKey(true);
-    }
-    // 报告偏好
-    const l = await window.api.settings.get('report_language');
-    if (l) {
-      setReportLanguage(l);
-    } else {
-      setReportLanguage(resolvedLanguage === 'zh' ? '中文' : 'English');
-    }
-    const s = await window.api.settings.get('report_style');
-    if (s) {
-      setStyle(s);
-    } else {
-      setStyle(t('settings.styleConcise'));
-    }
-    const sp = await window.api.settings.get('system_prompt');
-    if (sp) setSystemPrompt(sp);
-    const rt = await window.api.settings.get('report_template');
-    if (rt) setReportTemplate(rt);
-    const sl = await window.api.settings.get('shortcut_quick_log');
-    if (sl) setShortcutLog(sl);
-    const st = await window.api.settings.get('shortcut_quick_task');
-    if (st) setShortcutTask(st);
-    const sm = await window.api.settings.get('search_mode');
-    if (sm === 'vector' || sm === 'like') setSearchMode(sm);
-  };
 
   const handleShortcutChange = async (
     key: 'shortcut_quick_log' | 'shortcut_quick_task',

@@ -75,7 +75,10 @@ function trimMessages(messages: ChatMessage[]): ChatMessage[] {
 }
 
 // ─── Multi-Tab Sync (BroadcastChannel) ────────────────────────────────────
-type SyncEvent = { type: 'conversation-updated' | 'conversation-deleted' | 'config-updated'; id: string };
+type SyncEvent = {
+  type: 'conversation-updated' | 'conversation-deleted' | 'config-updated';
+  id: string;
+};
 let syncChannel: BroadcastChannel | null = null;
 let syncListeners: Array<(event: SyncEvent) => void> = [];
 
@@ -92,7 +95,9 @@ function getSyncChannel(): BroadcastChannel {
 function broadcastSync(event: SyncEvent): void {
   try {
     getSyncChannel().postMessage(event);
-  } catch { /* BroadcastChannel not supported */ }
+  } catch {
+    /* BroadcastChannel not supported */
+  }
 }
 
 export function onSyncEvent(listener: (event: SyncEvent) => void): () => void {
@@ -214,7 +219,12 @@ export async function saveConversationSafe(conversation: Conversation): Promise<
       const currentRevision = existing?.revision ?? 0;
 
       // Reject if existing is newer (another tab wrote first)
-      if (existing?.revision != null && existing.revision > (conversation.revision ?? 0)) {
+      if (
+        existing &&
+        existing.revision !== undefined &&
+        existing.revision !== null &&
+        existing.revision > (conversation.revision ?? 0)
+      ) {
         resolve(false);
         return;
       }

@@ -1,5 +1,3 @@
-/* eslint-disable react/no-unknown-property */
-
 /**
  * MouseReactiveTitle — A spotlight-effect title component where a flowing
  * rainbow gradient follows the cursor. Uses CSS mask-image for soft-edge
@@ -9,24 +7,24 @@
  * gradient mask driven by mouse position + hue rotation over time.
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 /* ─── Props ──────────────────────────────────────────────────── */
 
 export interface MouseReactiveTitleProps {
   /** Text or elements to render as the title */
-  children: ReactNode
+  children: ReactNode;
   /** Rainbow hue rotation speed multiplier (default: 1) */
-  timeScale?: number
+  timeScale?: number;
   /** Spotlight radius in px (default: 160) */
-  spotlightRadius?: number
+  spotlightRadius?: number;
   /** Rainbow gradient alpha when hovered (default: 0.88) */
-  rainbowAlpha?: number
+  rainbowAlpha?: number;
   /** Additional CSS classes applied to the outermost container */
-  className?: string
+  className?: string;
   /** Additional inline styles applied to the outermost container */
-  style?: CSSProperties
+  style?: CSSProperties;
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
@@ -35,21 +33,23 @@ export interface MouseReactiveTitleProps {
 function buildRainbowGradient(hueOffset: number, alpha: number): string {
   const stops = [0, 72, 144, 216, 288, 360]
     .map((offset) => {
-      const hue = (hueOffset + offset) % 360
-      return `hsla(${hue}, 88%, 62%, ${alpha})`
+      const hue = (hueOffset + offset) % 360;
+      return `hsla(${hue}, 88%, 62%, ${alpha})`;
     })
-    .join(', ')
-  return `linear-gradient(105deg, ${stops})`
+    .join(', ');
+  return `linear-gradient(105deg, ${stops})`;
 }
 
 /** Build a radial-gradient mask centred at (x, y) with soft falloff. */
 function buildSpotlightMask(x: number, y: number, radius: number): string {
-  return `radial-gradient(circle ${radius}px at ${x}px ${y}px, ` +
+  return (
+    `radial-gradient(circle ${radius}px at ${x}px ${y}px, ` +
     `rgba(0,0,0,1) 0%, ` +
     `rgba(0,0,0,0.78) 32%, ` +
     `rgba(0,0,0,0.45) 58%, ` +
     `rgba(0,0,0,0.15) 78%, ` +
     `transparent 100%)`
+  );
 }
 
 /* ─── Component ───────────────────────────────────────────────── */
@@ -62,39 +62,39 @@ export function MouseReactiveTitle({
   className = '',
   style,
 }: MouseReactiveTitleProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [isHovering, setIsHovering] = useState(false)
-  const [mouse, setMouse] = useState({ x: 0, y: 0 })
-  const [hueOffset, setHueOffset] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const [mouse, setMouse] = useState({ x: 0, y: 0 });
+  const [hueOffset, setHueOffset] = useState(0);
 
   /* ── Mouse position (relative to container) ── */
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect()
-    if (!rect) return
-    setMouse({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-  }, [])
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMouse({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  }, []);
 
   /* ── Animation loop: rotates hue over time via rAF ── */
   useEffect(() => {
-    if (!isHovering) return
-    let frameId = 0
+    if (!isHovering) return;
+    let frameId = 0;
     const tick = (time: number) => {
-      setHueOffset((time / 1000) * timeScale * 120)
-      frameId = requestAnimationFrame(tick)
-    }
-    frameId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frameId)
-  }, [isHovering, timeScale])
+      setHueOffset((time / 1000) * timeScale * 120);
+      frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [isHovering, timeScale]);
 
   /* ── Derived CSS strings (stable between renders unless deps change) ── */
   const rainbow = useMemo(
     () => buildRainbowGradient(hueOffset, rainbowAlpha),
     [hueOffset, rainbowAlpha],
-  )
+  );
   const mask = useMemo(
     () => buildSpotlightMask(mouse.x, mouse.y, spotlightRadius),
     [mouse.x, mouse.y, spotlightRadius],
-  )
+  );
 
   /* ── Shared text layer style ── */
   const baseTextStyle: CSSProperties = useMemo(
@@ -105,7 +105,7 @@ export function MouseReactiveTitle({
       color: 'transparent',
     }),
     [],
-  )
+  );
 
   return (
     <div
@@ -170,7 +170,7 @@ export function MouseReactiveTitle({
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default MouseReactiveTitle
+export default MouseReactiveTitle;

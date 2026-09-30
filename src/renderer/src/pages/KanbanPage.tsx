@@ -504,11 +504,14 @@ function KanbanPage(): ReactNode {
 
   useEffect(() => {
     fetchTasks().finally(() => setLoading(false));
-  }, []);
+  }, [fetchTasks]);
 
-  useEffect(() => {
+  // 渲染期派生：store 中的 tasks 变化时同步本地副本（原为 useEffect 内同步 setState）
+  const [prevTasks, setPrevTasks] = useState<Task[]>(tasks);
+  if (prevTasks !== tasks) {
+    setPrevTasks(tasks);
     setLocalTasks(tasks);
-  }, [tasks]);
+  }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 

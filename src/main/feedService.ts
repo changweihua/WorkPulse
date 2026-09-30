@@ -105,7 +105,7 @@ function stripFrontmatter(raw: string | null): string | null {
 
 /** Coerce any value to string|null. Feedsmith may return objects like { type, value }. */
 function toStr(v: unknown): string | null {
-  if (v == null) return null;
+  if (v === null || v === undefined) return null;
   if (typeof v === 'string') return v;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (typeof v === 'object') {

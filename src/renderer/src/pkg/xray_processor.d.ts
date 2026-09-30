@@ -1,20 +1,49 @@
 /* tslint:disable */
-/* eslint-disable */
 
-export function apply_dark_advanced(rgba: Uint8Array, width: number, height: number, strength: number, saturation_boost: number, detail_boost: number): Uint8Array;
+export function apply_dark_advanced(
+  rgba: Uint8Array,
+  width: number,
+  height: number,
+  strength: number,
+  saturation_boost: number,
+  detail_boost: number,
+): Uint8Array;
 
-export function apply_light_advanced(rgba: Uint8Array, width: number, height: number, strength: number, saturation_boost: number, detail_boost: number): Uint8Array;
+export function apply_light_advanced(
+  rgba: Uint8Array,
+  width: number,
+  height: number,
+  strength: number,
+  saturation_boost: number,
+  detail_boost: number,
+): Uint8Array;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
-    readonly memory: WebAssembly.Memory;
-    readonly apply_dark_advanced: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number];
-    readonly apply_light_advanced: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number];
-    readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __wbindgen_malloc: (a: number, b: number) => number;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-    readonly __wbindgen_start: () => void;
+  readonly memory: WebAssembly.Memory;
+  readonly apply_dark_advanced: (
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    e: number,
+    f: number,
+    g: number,
+  ) => [number, number];
+  readonly apply_light_advanced: (
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    e: number,
+    f: number,
+    g: number,
+  ) => [number, number];
+  readonly __wbindgen_externrefs: WebAssembly.Table;
+  readonly __wbindgen_malloc: (a: number, b: number) => number;
+  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+  readonly __wbindgen_start: () => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;
@@ -37,4 +66,9 @@ export function initSync(module: { module: SyncInitInput } | SyncInitInput): Ini
  *
  * @returns {Promise<InitOutput>}
  */
-export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
+export default function __wbg_init(
+  module_or_path?:
+    | { module_or_path: InitInput | Promise<InitInput> }
+    | InitInput
+    | Promise<InitInput>,
+): Promise<InitOutput>;

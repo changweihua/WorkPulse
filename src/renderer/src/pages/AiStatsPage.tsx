@@ -149,7 +149,6 @@ export default function AiStatsPage() {
 
   const loadData = useCallback(async () => {
     const { from, to } = getDateRange(days);
-    setLoading(true);
     try {
       const [daily, model, type, trendData, recent, costSummary] = await Promise.all([
         window.api.aiUsage.getDailyStats(from, to),
@@ -178,7 +177,12 @@ export default function AiStatsPage() {
   }, [days]);
 
   useEffect(() => {
-    loadData();
+    // 在 effect 内定义异步执行器：保持触发时机不变（挂载 + days 变化），
+    // 同时避免 effect 直接同步调用含 setState 的外部函数
+    async function run() {
+      await loadData();
+    }
+    void run();
   }, [loadData]);
 
   // loading 时销毁 echarts 实例，确保重新挂载后能重建
@@ -307,7 +311,7 @@ export default function AiStatsPage() {
               `<b>${date}</b>${isForecast ? ' <span style="color:#f59e0b">预测</span>' : ''}`,
             ];
             for (const p of params) {
-              if (p.value == null) continue;
+              if (p.value === null || p.value === undefined) continue;
               lines.push(`${p.marker} ${p.seriesName}: ${Number(p.value).toLocaleString()} tokens`);
             }
             return lines.join('<br/>');
@@ -472,6 +476,7 @@ export default function AiStatsPage() {
       trendInstance.current = null;
       modelPieInstance.current = null;
       typeBarInstance.current = null;
+      setLoading(true);
       loadData();
     });
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
@@ -538,7 +543,10 @@ export default function AiStatsPage() {
               {daysOptions.map((d) => (
                 <button
                   key={d}
-                  onClick={() => setDays(d)}
+                  onClick={() => {
+                    setDays(d);
+                    setLoading(true);
+                  }}
                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                     days === d
                       ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm'

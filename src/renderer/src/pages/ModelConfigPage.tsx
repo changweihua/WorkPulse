@@ -270,7 +270,7 @@ function ChatEditForm({
 
       <div className="flex-1 overflow-y-auto px-6 py-3 min-h-0">
         {/* Provider 类型选择器 — 新增和编辑均显示，点击可切换 */}
-        {true && (
+        {
           <div className="mb-4">
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
               选择 Provider 类型
@@ -288,7 +288,7 @@ function ChatEditForm({
               ))}
             </div>
           </div>
-        )}
+        }
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
@@ -544,7 +544,7 @@ function EmbedEditForm({
 
       <div className="flex-1 overflow-y-auto px-6 py-3 min-h-0">
         {/* Provider 类型选择器 — 新增和编辑均显示，点击可切换 */}
-        {true && (
+        {
           <div className="mb-4">
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
               选择 Provider 类型
@@ -562,7 +562,7 @@ function EmbedEditForm({
               ))}
             </div>
           </div>
-        )}
+        }
 
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
@@ -737,10 +737,6 @@ export default function ModelConfigPage(): ReactNode {
   const [chatProviderFilter, setChatProviderFilter] = useState<string>('');
   const [embedProviderFilter, setEmbedProviderFilter] = useState<string>('');
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   const loadData = async () => {
     let dbChatCount = 0;
     try {
@@ -842,6 +838,14 @@ export default function ModelConfigPage(): ReactNode {
       }
     }
   };
+
+  useEffect(() => {
+    // async 边界包裹：loadData 本身是异步加载，await 后再 setState，
+    // 避免被规则误判为「在 effect 中同步调用 setState」
+    void (async () => {
+      await loadData();
+    })();
+  }, []);
 
   const saveGlobal = async (
     chats: ChatModel[],

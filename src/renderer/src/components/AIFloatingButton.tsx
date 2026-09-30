@@ -81,7 +81,9 @@ export default function AIFloatingButton() {
   );
   const [hovered, setHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth < MOBILE_BREAKPOINT : false,
+    typeof window !== 'undefined'
+      ? window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches
+      : false,
   );
 
   // ── Drag state ──
@@ -105,7 +107,7 @@ export default function AIFloatingButton() {
 
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    setIsMobile(mq.matches);
+    // 初始值已在 useState 初始化器中按同一媒体查询求得，这里只监听后续变化
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
