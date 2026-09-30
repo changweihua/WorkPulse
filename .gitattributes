@@ -1,3 +1,9 @@
+# 默认规则：所有文本文件统一使用 LF，避免跨平台 CRLF 抖动
+# text=auto 会自动识别并跳过二进制文件（png/ico/dll/onnx 等不受影响）
+* text=auto eol=lf
+
+# Git LFS 规则必须写在通配规则之后（同一文件内后写的属性覆盖先写的），
+# 保持既有 LFS 设置不被上面的 text=auto 覆盖
 resources/models/**/*.onnx filter=lfs diff=lfs merge=lfs -text
 resources/models/**/*.json filter=lfs diff=lfs merge=lfs -text
 resources/models/**/*.part.* filter=lfs diff=lfs merge=lfs -text
