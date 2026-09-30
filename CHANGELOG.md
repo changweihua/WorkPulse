@@ -33,6 +33,12 @@
 - 🎈 perf: 背景模糊开销降低 — AnimatedBackground 静止 30 帧后完全停止 rAF 循环（鼠标移动重启）；卡片 `backdrop-filter` 模糊半径 16→12px、输入框 20→15px（饱和度与玻璃质感参数保留）
 - 🎈 perf: OCR 模型加载绕开 IPC 克隆 — `usePPOCR` 优先经 `appmodel://` 协议流式读取模型（模块级 ArrayBuffer 缓存 + content-length 分段进度），失败回退原 `read-model-file` IPC；消除 medium 变体约 138MB 的结构化克隆
 - 🦄 refactor: worklog 瀑布流卡片高度测量改为 ResizeObserver 事件驱动，移除定时器与 MutationObserver
+- 📦 deps: 升级全部过时依赖（18 项，均为小版本/补丁）— electron 44.5.0、electron-vite 6.0.0-beta.5、vite 8.3.1、openai 7.25.0、oxlint 1.86.0、oxfmt 0.71.0、motion 13.4.6、lucide-react 1.49.0 等；typecheck / lint / build 验证通过
+- 🐳 chore: 真实接入 oxfmt/oxlint — lint-staged 从「全仓 oxlint 恒红致 oxfmt 从不执行」修为仅检查 staged 文件、全部文件类型统一走 oxfmt；完全移除 prettier（依赖、.prettierrc、脚本引用）；新增 CI workflow（typecheck + oxlint 警告棘轮 ≤50 + format:check + build，push/PR 触发）；新增 .gitattributes（LF 归一且保留 LFS 规则）；.editorconfig 补 max_line_length 与 oxfmt 对齐
+- 🦄 refactor: oxlint 全仓 57 条警告清零 — 覆盖 react(set-state-in-effect)、react(refs)、react(purity)、react-hooks(exhaustive-deps)、react(immutability) 五类规则，修复均保持行为不变（派生加载态、effect 内同步 ref、Date 外提等最小模式），未使用任何 disable 注释
+- 🌈 style: 全量 oxfmt 格式化 — 137 个存量文件按 .oxfmtrc.json（分号、2 空格缩进、宽度 100）统一格式，format:check 转绿（此前 132 文件为升级前既有债务）
+- 🗑️ remove: 移除 18 处失效的 eslint-disable 注释 — 仓库从未接入 eslint，注释已全部失效；同步修复其暴露出的 14 条 oxlint 警告（ReportPage、ReportsPage、screenshot-overlay、useIdleCallback、useHuggingFaceModel），全仓警告保持 0
+- 🌈 style: 行尾统一为 LF — package-lock.json 及 10 个 CRLF 残留文件转换（.env、.gitignore、.npmrc、Bridge 源码、resources 配置等），配合 .gitattributes 彻底消除行尾混用
 
 ### 新增
 

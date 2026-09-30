@@ -36,7 +36,7 @@ const FILE_RULES: Array<{ pattern: RegExp; type: string }> = [
   { pattern: /^docs?\//, type: 'docs' },
   // 配置文件
   {
-    pattern: /^(package|tsconfig|oxlint|oxfmt|prettier|commitlint|vite|electron-builder)\b/,
+    pattern: /^(package|tsconfig|oxlint|oxfmt|commitlint|vite|electron-builder)\b/,
     type: 'build',
   },
   { pattern: /^(\.husky|\.github|\.gitlab-ci)/, type: 'ci' },
