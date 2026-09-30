@@ -372,9 +372,7 @@ interface API {
         calls: number;
       }>
     >;
-    getRecentLogs: (
-      limit: number,
-    ) => Promise<
+    getRecentLogs: (limit: number) => Promise<
       Array<{
         id: number;
         model_id: string;

@@ -6,33 +6,33 @@
  *
  * API: Notification.show({ title, body, group?, tag?, urgency?, silent?, onClick? })
  */
-import { Notification, Tray, app, nativeImage, BrowserWindow } from 'electron'
-import path from 'path'
-import log from 'electron-log/main'
+import { Notification, Tray, app, nativeImage, BrowserWindow } from 'electron';
+import path from 'path';
+import log from 'electron-log/main';
 
-const APP_PROTOCOL = 'workpulse'
+const APP_PROTOCOL = 'workpulse';
 
 /** 自定义协议激活处理器（由 main/index.ts 注入） */
-let onProtocolAction: ((url: string) => void) | null = null
+let onProtocolAction: ((url: string) => void) | null = null;
 
 /** Tray 引用（用于 Windows 气泡通知） */
-let trayRef: Tray | null = null
+let trayRef: Tray | null = null;
 
 /**
  * 设置 Tray 引用（必须在 createTray() 之后调用）
  * 用于 Windows 平台 displayBalloon() 气泡通知
  */
 export function setTray(tray: Tray): void {
-  trayRef = tray
+  trayRef = tray;
   // 注册 balloon 事件
   tray.on('balloon-click', () => {
-    log.info('[Notification] Balloon clicked')
-    onProtocolAction?.(`${APP_PROTOCOL}://notify?action=balloon-click`)
-  })
+    log.info('[Notification] Balloon clicked');
+    onProtocolAction?.(`${APP_PROTOCOL}://notify?action=balloon-click`);
+  });
   tray.on('balloon-closed', () => {
-    log.info('[Notification] Balloon closed')
-  })
-  log.info('[Notification] Tray reference set for balloon notifications')
+    log.info('[Notification] Balloon closed');
+  });
+  log.info('[Notification] Tray reference set for balloon notifications');
 }
 
 /**
@@ -41,22 +41,18 @@ export function setTray(tray: Tray): void {
  */
 export function registerProtocol(): void {
   if (process.defaultApp && process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient(
-      APP_PROTOCOL,
-      process.execPath,
-      [path.resolve(process.argv[1])]
-    )
+    app.setAsDefaultProtocolClient(APP_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
   } else {
-    app.setAsDefaultProtocolClient(APP_PROTOCOL)
+    app.setAsDefaultProtocolClient(APP_PROTOCOL);
   }
-  log.info('[Notification] Protocol registered:', APP_PROTOCOL)
+  log.info('[Notification] Protocol registered:', APP_PROTOCOL);
 }
 
 /**
  * 设置 Action Center 点击回调
  */
 export function setProtocolHandler(handler: (url: string) => void): void {
-  onProtocolAction = handler
+  onProtocolAction = handler;
 }
 
 /**
@@ -64,12 +60,12 @@ export function setProtocolHandler(handler: (url: string) => void): void {
  */
 function handleProtocolUrl(url: string): void {
   try {
-    const u = new URL(url)
-    const action = u.searchParams.get('action')
-    log.info('[Notification] Protocol activation:', { url, action })
-    onProtocolAction?.(url)
+    const u = new URL(url);
+    const action = u.searchParams.get('action');
+    log.info('[Notification] Protocol activation:', { url, action });
+    onProtocolAction?.(url);
   } catch (e) {
-    log.warn('[Notification] Invalid protocol URL:', url, e)
+    log.warn('[Notification] Invalid protocol URL:', url, e);
   }
 }
 
@@ -80,10 +76,8 @@ function handleProtocolUrl(url: string): void {
  */
 export function handleProtocolArgv(): void {
   // 冷启动检查
-  const url = process.argv.find((a) =>
-    a.toLowerCase().startsWith(`${APP_PROTOCOL}://`)
-  )
-  if (url) handleProtocolUrl(url)
+  const url = process.argv.find((a) => a.toLowerCase().startsWith(`${APP_PROTOCOL}://`));
+  if (url) handleProtocolUrl(url);
 }
 
 /**
@@ -91,11 +85,9 @@ export function handleProtocolArgv(): void {
  */
 export function setupSecondInstanceHandler(): void {
   app.on('second-instance', (_event, argv) => {
-    const url = argv.find((a) =>
-      a.toLowerCase().startsWith(`${APP_PROTOCOL}://`)
-    )
-    if (url) handleProtocolUrl(url)
-  })
+    const url = argv.find((a) => a.toLowerCase().startsWith(`${APP_PROTOCOL}://`));
+    if (url) handleProtocolUrl(url);
+  });
 }
 
 /**
@@ -107,25 +99,25 @@ function escapeXml(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
+    .replace(/'/g, '&apos;');
 }
 
 /** 通知选项 */
 export interface NotifyOptions {
-  title: string
-  body: string
+  title: string;
+  body: string;
   /** 通知分组（Action Center 中堆叠） */
-  group?: string
+  group?: string;
   /** 通知标签（替换同 tag 的已有通知） */
-  tag?: string
+  tag?: string;
   /** 紧急程度: 'normal' | 'low' | 'critical' */
-  urgency?: 'normal' | 'low' | 'critical'
+  urgency?: 'normal' | 'low' | 'critical';
   /** 静音通知 */
-  silent?: boolean
+  silent?: boolean;
   /** 点击通知回调 */
-  onClick?: () => void
+  onClick?: () => void;
   /** 图标路径（Windows 限制 <1024×1024px, <200kb） */
-  icon?: string
+  icon?: string;
 }
 
 /**
@@ -140,39 +132,39 @@ export function showNotification(options: NotifyOptions): Notification | null {
     urgency = 'normal',
     silent = false,
     onClick,
-    icon
-  } = options
+    icon,
+  } = options;
 
   // Windows: 优先使用 Tray 气泡通知（靠近托盘图标，体验更好）
   if (process.platform === 'win32') {
     // 有 Tray 引用 → 气泡通知
     if (trayRef) {
-      log.info(`[Notification] Balloon: ${title} / ${body}`)
+      log.info(`[Notification] Balloon: ${title} / ${body}`);
       trayRef.displayBalloon({
         iconType: 'info',
         title,
         content: body,
         noSound: silent,
-        respectQuietTime: true
-      })
+        respectQuietTime: true,
+      });
       // 气泡点击回调通过 balloon-click 事件触发
       if (onClick) {
-        trayRef.once('balloon-click', onClick)
+        trayRef.once('balloon-click', onClick);
       }
-      return null
+      return null;
     }
 
     // 无 Tray 引用 → 回退 toastXml
-    const tagAttr = tag ? ` tag="${escapeXml(tag)}"` : ''
-    const groupAttr = group ? ` group="${escapeXml(group)}"` : ''
-    const scenario = urgency === 'critical' ? ' scenario="alarm"' : ''
+    const tagAttr = tag ? ` tag="${escapeXml(tag)}"` : '';
+    const groupAttr = group ? ` group="${escapeXml(group)}"` : '';
+    const scenario = urgency === 'critical' ? ' scenario="alarm"' : '';
 
-    const launchUrl = `${APP_PROTOCOL}://notify?action=click&tag=${encodeURIComponent(tag || '')}`
+    const launchUrl = `${APP_PROTOCOL}://notify?action=click&tag=${encodeURIComponent(tag || '')}`;
 
-    let iconXml = ''
+    let iconXml = '';
     if (icon) {
-      const iconPath = icon.startsWith('file://') ? icon : `file:///${icon.replace(/\\/g, '/')}`
-      iconXml = `<image placement="appLogoOverride" hint-crop="circle" src="${iconPath}"/>`
+      const iconPath = icon.startsWith('file://') ? icon : `file:///${icon.replace(/\\/g, '/')}`;
+      iconXml = `<image placement="appLogoOverride" hint-crop="circle" src="${iconPath}"/>`;
     }
 
     const toastXml = `
@@ -184,12 +176,12 @@ export function showNotification(options: NotifyOptions): Notification | null {
       <text id="2">${escapeXml(body)}</text>
     </binding>
   </visual>
-</toast>`.trim()
+</toast>`.trim();
 
-    const notification = new Notification({ toastXml, silent })
-    if (onClick) notification.on('click', onClick)
-    notification.show()
-    return notification
+    const notification = new Notification({ toastXml, silent });
+    if (onClick) notification.on('click', onClick);
+    notification.show();
+    return notification;
   }
 
   // macOS / Linux: 标准 API
@@ -197,15 +189,15 @@ export function showNotification(options: NotifyOptions): Notification | null {
     title,
     body,
     silent,
-    icon: icon ? nativeImage.createFromPath(icon) : undefined
-  })
+    icon: icon ? nativeImage.createFromPath(icon) : undefined,
+  });
 
   if (onClick) {
-    notification.on('click', onClick)
+    notification.on('click', onClick);
   }
 
-  notification.show()
-  return notification
+  notification.show();
+  return notification;
 }
 
 /**
@@ -215,10 +207,10 @@ export function showNotification(options: NotifyOptions): Notification | null {
 export function initNotifications(): void {
   // Windows AppUserModelId（必须匹配 electron-builder appId）
   if (process.platform === 'win32') {
-    app.setAppUserModelId('cmono.workpulse.app')
-    log.info('[Notification] AppUserModelId set: cmono.workpulse.app')
+    app.setAppUserModelId('cmono.workpulse.app');
+    log.info('[Notification] AppUserModelId set: cmono.workpulse.app');
   }
 
-  registerProtocol()
-  setupSecondInstanceHandler()
+  registerProtocol();
+  setupSecondInstanceHandler();
 }

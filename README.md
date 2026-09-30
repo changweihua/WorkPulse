@@ -10,12 +10,12 @@ Built for individual contributors who want a frictionless way to remember what t
 
 ## Screenshots
 
-| Work Log | Kanban |
-|----------|--------|
+| Work Log                                            | Kanban                                           |
+| --------------------------------------------------- | ------------------------------------------------ |
 | ![Work Log](docs/screenshots/workpulse-worklog.png) | ![Kanban](docs/screenshots/workpulse-kanban.png) |
 
-| AI Report | Statistics |
-|-----------|------------|
+| AI Report                                           | Statistics                                          |
+| --------------------------------------------------- | --------------------------------------------------- |
 | ![AI Report](docs/screenshots/workpulse-report.png) | ![Statistics](docs/screenshots/workpulse-stats.png) |
 
 ## Features
@@ -105,15 +105,15 @@ Packaged apps use the same GitHub Release metadata (`latest.yml`, `latest-mac.ym
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `⌘1` / `Ctrl+1` | Switch to Work Log |
-| `⌘2` / `Ctrl+2` | Switch to Kanban |
-| `⌘3` / `Ctrl+3` | Switch to Reports |
-| `⌘4` / `Ctrl+4` | Switch to Stats |
-| `⌘,` / `Ctrl+,` | Settings |
-| `Ctrl+Shift+L` | Quick log (global) |
-| `Ctrl+Shift+T` | Quick task (global) |
+| Shortcut        | Action              |
+| --------------- | ------------------- |
+| `⌘1` / `Ctrl+1` | Switch to Work Log  |
+| `⌘2` / `Ctrl+2` | Switch to Kanban    |
+| `⌘3` / `Ctrl+3` | Switch to Reports   |
+| `⌘4` / `Ctrl+4` | Switch to Stats     |
+| `⌘,` / `Ctrl+,` | Settings            |
+| `Ctrl+Shift+L`  | Quick log (global)  |
+| `Ctrl+Shift+T`  | Quick task (global) |
 
 ## Data & Security
 

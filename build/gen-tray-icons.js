@@ -62,14 +62,12 @@ async function genTrayIcons() {
 
   for (const size of sizes) {
     const svg = genTrayIconSVG(size);
-    const outFile = size === 256
-      ? path.join(resourcesDir, 'tray-icon.png')
-      : path.join(resourcesDir, `tray-icon-${size}.png`);
+    const outFile =
+      size === 256
+        ? path.join(resourcesDir, 'tray-icon.png')
+        : path.join(resourcesDir, `tray-icon-${size}.png`);
 
-    await sharp(Buffer.from(svg))
-      .resize(size, size)
-      .png()
-      .toFile(outFile);
+    await sharp(Buffer.from(svg)).resize(size, size).png().toFile(outFile);
 
     console.log(`tray-icon-${size}.png done`);
   }

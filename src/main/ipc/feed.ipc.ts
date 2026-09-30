@@ -2,123 +2,147 @@
  * IPC 领域：RSS 订阅源 + 文章 + 分类
  * 迁移至 guardedHandle 模式
  */
-import { dialog, BrowserWindow } from 'electron'
-import { writeFileSync } from 'fs'
+import { dialog, BrowserWindow } from 'electron';
+import { writeFileSync } from 'fs';
 import {
-  getFeeds, updateFeed, deleteFeed,
-  getFeedCategories, addFeedCategory, updateFeedCategory, deleteFeedCategory,
-  getArticles, markArticleRead, markArticleUnread, toggleArticleStar, markAllRead
-} from '../db'
-import { subscribeFeed, refreshFeed, refreshAllFeeds, importOpmlData, generateOpmlData } from '../feedService'
-import { showNotification } from '../notification'
-import { guardedHandle, guardedQuery } from '../ipc-guard'
-import { ok } from '../../shared/ipc-result'
+  getFeeds,
+  updateFeed,
+  deleteFeed,
+  getFeedCategories,
+  addFeedCategory,
+  updateFeedCategory,
+  deleteFeedCategory,
+  getArticles,
+  markArticleRead,
+  markArticleUnread,
+  toggleArticleStar,
+  markAllRead,
+} from '../db';
 import {
-  FeedAddSchema, FeedUpdateSchema, FeedDeleteSchema, FeedRefreshSchema,
+  subscribeFeed,
+  refreshFeed,
+  refreshAllFeeds,
+  importOpmlData,
+  generateOpmlData,
+} from '../feedService';
+import { showNotification } from '../notification';
+import { guardedHandle, guardedQuery } from '../ipc-guard';
+import { ok } from '../../shared/ipc-result';
+import {
+  FeedAddSchema,
+  FeedUpdateSchema,
+  FeedDeleteSchema,
+  FeedRefreshSchema,
   FeedImportOpmlSchema,
-  FeedCategoryAddSchema, FeedCategoryUpdateSchema, FeedCategoryDeleteSchema,
-  FeedArticlesListSchema, FeedArticleActionSchema, FeedArticlesReadAllSchema,
+  FeedCategoryAddSchema,
+  FeedCategoryUpdateSchema,
+  FeedCategoryDeleteSchema,
+  FeedArticlesListSchema,
+  FeedArticleActionSchema,
+  FeedArticlesReadAllSchema,
   FeedExportPdfSchema,
-} from '../ipc-schemas'
+} from '../ipc-schemas';
 
 export function registerFeedIpc(): void {
   guardedHandle('feed:add', FeedAddSchema, async (data) => {
-    return ok(await subscribeFeed(data.url, data.categoryId ?? null))
-  })
+    return ok(await subscribeFeed(data.url, data.categoryId ?? null));
+  });
 
   guardedQuery('feed:list', () => {
-    return ok(getFeeds())
-  })
+    return ok(getFeeds());
+  });
 
   guardedHandle('feed:update', FeedUpdateSchema, (data) => {
-    return ok(updateFeed(data.id, data.updates as any))
-  })
+    return ok(updateFeed(data.id, data.updates as any));
+  });
 
   guardedHandle('feed:delete', FeedDeleteSchema, (data) => {
-    return ok(deleteFeed(data.id))
-  })
+    return ok(deleteFeed(data.id));
+  });
 
   guardedHandle('feed:refresh', FeedRefreshSchema, async (data) => {
-    const result = await refreshFeed(data.id)
+    const result = await refreshFeed(data.id);
     showNotification({
       title: '订阅源已刷新',
       body: result.newArticles > 0 ? `获取 ${result.newArticles} 篇新文章` : '无新文章',
       tag: 'feed-refresh',
       group: 'workpulse',
-    })
-    return ok(result)
-  })
+    });
+    return ok(result);
+  });
 
   guardedQuery('feed:refreshAll', async () => {
-    const results = await refreshAllFeeds()
-    const totalNew = results.reduce((sum, r) => sum + r.result.newArticles, 0)
+    const results = await refreshAllFeeds();
+    const totalNew = results.reduce((sum, r) => sum + r.result.newArticles, 0);
     showNotification({
       title: '全部订阅源已刷新',
       body: totalNew > 0 ? `获取 ${totalNew} 篇新文章` : '无新文章',
       tag: 'feed-refresh-all',
       group: 'workpulse',
-    })
-    return ok(results)
-  })
+    });
+    return ok(results);
+  });
 
   guardedHandle('feed:importOpml', FeedImportOpmlSchema, (data) => {
-    const result = importOpmlData(data.xml)
+    const result = importOpmlData(data.xml);
     showNotification({
       title: 'OPML 已导入',
       body: `导入 ${result.feeds.length} 个订阅源，${result.categories.length} 个分类`,
       tag: 'feed-import-opml',
       group: 'workpulse',
-    })
-    return ok(result)
-  })
+    });
+    return ok(result);
+  });
 
   guardedQuery('feed:exportOpml', () => {
-    const opml = generateOpmlData()
+    const opml = generateOpmlData();
     showNotification({
       title: 'OPML 已生成',
       body: '订阅源数据已准备就绪',
       tag: 'feed-export-opml',
       group: 'workpulse',
-    })
-    return ok(opml)
-  })
+    });
+    return ok(opml);
+  });
 
   guardedQuery('feed:categories:list', () => {
-    return ok(getFeedCategories())
-  })
+    return ok(getFeedCategories());
+  });
 
   guardedHandle('feed:categories:add', FeedCategoryAddSchema, (data) => {
-    return ok(addFeedCategory(data.name))
-  })
+    return ok(addFeedCategory(data.name));
+  });
 
   guardedHandle('feed:categories:update', FeedCategoryUpdateSchema, (data) => {
-    return ok(updateFeedCategory(data.id, data.name))
-  })
+    return ok(updateFeedCategory(data.id, data.name));
+  });
 
   guardedHandle('feed:categories:delete', FeedCategoryDeleteSchema, (data) => {
-    return ok(deleteFeedCategory(data.id))
-  })
+    return ok(deleteFeedCategory(data.id));
+  });
 
   guardedHandle('feed:articles:list', FeedArticlesListSchema, (data) => {
-    return ok(getArticles(data.feedId, (data.filter as any) ?? 'all', data.limit ?? 100, data.offset ?? 0))
-  })
+    return ok(
+      getArticles(data.feedId, (data.filter as any) ?? 'all', data.limit ?? 100, data.offset ?? 0),
+    );
+  });
 
   guardedHandle('feed:articles:read', FeedArticleActionSchema, (data) => {
-    return ok(markArticleRead(data.id))
-  })
+    return ok(markArticleRead(data.id));
+  });
 
   guardedHandle('feed:articles:unread', FeedArticleActionSchema, (data) => {
-    return ok(markArticleUnread(data.id))
-  })
+    return ok(markArticleUnread(data.id));
+  });
 
   guardedHandle('feed:articles:star', FeedArticleActionSchema, (data) => {
-    return ok(toggleArticleStar(data.id))
-  })
+    return ok(toggleArticleStar(data.id));
+  });
 
   guardedHandle('feed:articles:readAll', FeedArticlesReadAllSchema, (data) => {
-    markAllRead(data.feedId)
-    return ok(undefined)
-  })
+    markAllRead(data.feedId);
+    return ok(undefined);
+  });
 
   guardedHandle('feed:exportPdf', FeedExportPdfSchema, async (data) => {
     const sendProgress = (stage: string, percent: number) => {
@@ -126,30 +150,37 @@ export function registerFeedIpc(): void {
       // 这里通过 BrowserWindow 获取发送者
       for (const win of BrowserWindow.getAllWindows()) {
         if (!win.isDestroyed()) {
-          win.webContents.send('feed:exportPdf-progress', { stage, percent })
+          win.webContents.send('feed:exportPdf-progress', { stage, percent });
         }
       }
-    }
+    };
 
-    sendProgress('preparing', 10)
+    sendProgress('preparing', 10);
 
     const { canceled, filePath } = await dialog.showSaveDialog({
       defaultPath: `${data.title.replace(/[<>:"/\\|?*]/g, '_')}.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }],
-    })
+    });
     if (canceled || !filePath) {
-      sendProgress('done', 100)
-      return ok({ success: false })
+      sendProgress('done', 100);
+      return ok({ success: false });
     }
 
-    sendProgress('rendering', 30)
+    sendProgress('rendering', 30);
 
-    const metaParts: string[] = []
-    if (data.metadata?.feedTitle) metaParts.push(`<span class="meta-source">${data.metadata.feedTitle}</span>`)
-    if (data.metadata?.author) metaParts.push(`<span class="meta-author">作者：${data.metadata.author}</span>`)
-    if (data.metadata?.publishedAt) metaParts.push(`<span class="meta-date">${new Date(data.metadata.publishedAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>`)
-    if (data.metadata?.url) metaParts.push(`<a class="meta-link" href="${data.metadata.url}">原文链接</a>`)
-    const metaHtml = metaParts.length > 0 ? `<div class="article-meta">${metaParts.join('')}</div>` : ''
+    const metaParts: string[] = [];
+    if (data.metadata?.feedTitle)
+      metaParts.push(`<span class="meta-source">${data.metadata.feedTitle}</span>`);
+    if (data.metadata?.author)
+      metaParts.push(`<span class="meta-author">作者：${data.metadata.author}</span>`);
+    if (data.metadata?.publishedAt)
+      metaParts.push(
+        `<span class="meta-date">${new Date(data.metadata.publishedAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</span>`,
+      );
+    if (data.metadata?.url)
+      metaParts.push(`<a class="meta-link" href="${data.metadata.url}">原文链接</a>`);
+    const metaHtml =
+      metaParts.length > 0 ? `<div class="article-meta">${metaParts.join('')}</div>` : '';
 
     const wrappedHtml = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>${data.title}</title>
@@ -211,30 +242,30 @@ export function registerFeedIpc(): void {
   <h1 class="article-title">${data.title}</h1>
   ${metaHtml}
   <article>${data.html}</article>
-</body></html>`
+</body></html>`;
 
     const win = new BrowserWindow({
       show: false,
       width: 800,
       webPreferences: { offscreen: true },
-    })
+    });
 
-    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(wrappedHtml)}`)
-    sendProgress('rendering', 50)
-    await new Promise(resolve => setTimeout(resolve, 300))
+    await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(wrappedHtml)}`);
+    sendProgress('rendering', 50);
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
-    sendProgress('generating', 70)
+    sendProgress('generating', 70);
     const pdfData = await win.webContents.printToPDF({
       printBackground: true,
       pageSize: 'A4',
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
-    } as any)
+    } as any);
 
-    sendProgress('saving', 90)
-    writeFileSync(filePath, pdfData)
-    win.destroy()
+    sendProgress('saving', 90);
+    writeFileSync(filePath, pdfData);
+    win.destroy();
 
-    sendProgress('done', 100)
-    return ok({ success: true, filePath })
-  })
+    sendProgress('done', 100);
+    return ok({ success: true, filePath });
+  });
 }

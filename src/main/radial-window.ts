@@ -1,24 +1,24 @@
-import { BrowserWindow, screen, ipcMain, shell } from 'electron'
-import { join } from 'path'
-import { is } from '@electron-toolkit/utils'
-import { getSetting, setSetting } from './db'
-import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus'
-import { setMoveCursor, restoreCursor } from './cursor'
-import log from 'electron-log/main'
+import { BrowserWindow, screen, ipcMain, shell } from 'electron';
+import { join } from 'path';
+import { is } from '@electron-toolkit/utils';
+import { getSetting, setSetting } from './db';
+import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus';
+import { setMoveCursor, restoreCursor } from './cursor';
+import log from 'electron-log/main';
 
-let radialWindow: BrowserWindow | null = null
-let mainWin: BrowserWindow | null = null
+let radialWindow: BrowserWindow | null = null;
+let mainWin: BrowserWindow | null = null;
 
 /* ── 尺寸常量（与 renderer 严格一致） ── */
-const WIDGET_SIZE = 206
-const CX = WIDGET_SIZE / 2
-const CY = WIDGET_SIZE / 2
-const INNER_R = 38
-const OUTER_R = 94
-const CENTER_R = 24
-const EXPANDED_R = 103 // 展开态可点击半径（= INNER_R + gap + (OUTER_R - INNER_R)/2）
-const SEG_ANGLE = 72
-const POLL_INTERVAL_MS = 30
+const WIDGET_SIZE = 206;
+const CX = WIDGET_SIZE / 2;
+const CY = WIDGET_SIZE / 2;
+const INNER_R = 38;
+const OUTER_R = 94;
+const CENTER_R = 24;
+const EXPANDED_R = 103; // 展开态可点击半径（= INNER_R + gap + (OUTER_R - INNER_R)/2）
+const SEG_ANGLE = 72;
+const POLL_INTERVAL_MS = 30;
 
 // 径向菜单扇区定义（角度与 renderer 严格保持一致）
 const RADIAL_ITEMS = [
@@ -27,71 +27,77 @@ const RADIAL_ITEMS = [
   { key: 'meeting', label: 'Meeting', angle: 54, route: 'calendar' },
   { key: 'ai', label: 'AI Chat', angle: 126, route: 'chat' },
   { key: 'screenshot', label: 'Screenshot', angle: 198, route: '' },
-]
+];
 
 export function setMainWindow(win: BrowserWindow): void {
-  mainWin = win
+  mainWin = win;
 }
 
 function getMainWindow(): BrowserWindow | null {
-  return mainWin && !mainWin.isDestroyed() ? mainWin : null
+  return mainWin && !mainWin.isDestroyed() ? mainWin : null;
 }
 
 // ─── 混合方案：Meel 原则 + DOM 交互 ───
 // Meel 原则：窗口创建一次复用、focusable:false、alwaysOnTop re-assert、光标轮询
 // 区别：show:true（默认显示）、setShape 点击穿透、DOM 点击/拖拽
-let expanded = false
+let expanded = false;
 
 // ─── 光标轮询（Meel 原则） ───
-let cursorPollTimer: ReturnType<typeof setInterval> | null = null
+let cursorPollTimer: ReturnType<typeof setInterval> | null = null;
 
 function startCursorPolling(win: BrowserWindow): void {
-  stopCursorPolling()
+  stopCursorPolling();
   cursorPollTimer = setInterval(() => {
-    if (win.isDestroyed()) { stopCursorPolling(); return }
-    const cursor = screen.getCursorScreenPoint()
-    const [wx, wy] = win.getPosition()
-    const localX = cursor.x - wx
-    const localY = cursor.y - wy
-    const dx = localX - CX
-    const dy = localY - CY
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    const isOverCenter = dist <= CENTER_R
+    if (win.isDestroyed()) {
+      stopCursorPolling();
+      return;
+    }
+    const cursor = screen.getCursorScreenPoint();
+    const [wx, wy] = win.getPosition();
+    const localX = cursor.x - wx;
+    const localY = cursor.y - wy;
+    const dx = localX - CX;
+    const dy = localY - CY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const isOverCenter = dist <= CENTER_R;
     // Skip IPC send when window is hidden and not expanded (no cursor tracking needed)
-    if (!win.isVisible() && !expanded) return
-    win.webContents.send('radial:cursor', { x: localX, y: localY, dist, isOverCenter })
-  }, POLL_INTERVAL_MS)
+    if (!win.isVisible() && !expanded) return;
+    win.webContents.send('radial:cursor', { x: localX, y: localY, dist, isOverCenter });
+  }, POLL_INTERVAL_MS);
 }
 
 function stopCursorPolling(): void {
-  if (cursorPollTimer) { clearInterval(cursorPollTimer); cursorPollTimer = null }
+  if (cursorPollTimer) {
+    clearInterval(cursorPollTimer);
+    cursorPollTimer = null;
+  }
 }
 
 // ─── setShape: OS 级点击穿透 ───
 // Windows: setShape 定义可点击区域，区域外的鼠标事件穿透到下层窗口
 function applyShape(win: BrowserWindow, radius: number): void {
-  const x = Math.round(CX - radius)
-  const y = Math.round(CY - radius)
-  const size = Math.round(radius * 2)
-  win.setShape([{ x, y, width: size, height: size }])
+  const x = Math.round(CX - radius);
+  const y = Math.round(CY - radius);
+  const size = Math.round(radius * 2);
+  win.setShape([{ x, y, width: size, height: size }]);
 }
 
 // ─── 展开 / 收起 ───
 
 function expandRadial(): void {
-  const win = radialWindow
-  if (!win || win.isDestroyed()) return
-  expanded = true
-  applyShape(win, EXPANDED_R)
-  win.webContents.send('radial:state', { expanded: true })
+  const win = radialWindow;
+  if (!win || win.isDestroyed()) return;
+  expanded = true;
+  applyShape(win, EXPANDED_R);
+  win.webContents.send('radial:state', { expanded: true });
 }
 
 function collapseRadial(): void {
-  const win = radialWindow
-  if (!win || win.isDestroyed()) return
-  expanded = false
-  applyShape(win, CENTER_R)
-  win.webContents.send('radial:state', { expanded: false })
+  const win = radialWindow;
+  if (!win || win.isDestroyed()) return;
+  expanded = false;
+  applyShape(win, CENTER_R);
+  win.webContents.send('radial:state', { expanded: false });
 }
 
 function fireRadialAction(key: string, item?: any): void {
@@ -100,23 +106,23 @@ function fireRadialAction(key: string, item?: any): void {
     // .lnk 快捷方式：解析 TargetPath 后启动
     if (item.programPath.toLowerCase().endsWith('.lnk')) {
       resolveLnkTargetPath(item.programPath).then((target) => {
-        shell.openPath(target || item.programPath)
-      })
+        shell.openPath(target || item.programPath);
+      });
     } else {
-      shell.openPath(item.programPath)
+      shell.openPath(item.programPath);
     }
-    return
+    return;
   }
   if (key === 'screenshot') {
-    appBus.emit(RADIAL_SCREENSHOT)
-    return
+    appBus.emit(RADIAL_SCREENSHOT);
+    return;
   }
-  const builtin = RADIAL_ITEMS.find((i) => i.key === key)
+  const builtin = RADIAL_ITEMS.find((i) => i.key === key);
   if (builtin?.route) {
-    appBus.emit(SHOW_MAIN)
-    const main = getMainWindow()
+    appBus.emit(SHOW_MAIN);
+    const main = getMainWindow();
     if (main) {
-      main.webContents.send(`navigate:${builtin.route}`)
+      main.webContents.send(`navigate:${builtin.route}`);
     }
   }
 }
@@ -131,50 +137,53 @@ function fireRadialAction(key: string, item?: any): void {
  * - focusable:false + alwaysOnTop re-assert → 与 Meel 一致
  */
 function savePosition(): void {
-  if (!radialWindow || radialWindow.isDestroyed()) return
-  const [x, y] = radialWindow.getPosition()
-  setSetting('radial_position', JSON.stringify({ x, y }))
+  if (!radialWindow || radialWindow.isDestroyed()) return;
+  const [x, y] = radialWindow.getPosition();
+  setSetting('radial_position', JSON.stringify({ x, y }));
 }
 
 function getSavedPosition(): { x: number; y: number } | null {
-  const raw = getSetting('radial_position')
-  if (!raw) return null
+  const raw = getSetting('radial_position');
+  if (!raw) return null;
   try {
-    const pos = JSON.parse(raw) as { x: number; y: number }
-    if (typeof pos.x === 'number' && typeof pos.y === 'number') return pos
-  } catch { /* ignore */ }
-  return null
+    const pos = JSON.parse(raw) as { x: number; y: number };
+    if (typeof pos.x === 'number' && typeof pos.y === 'number') return pos;
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
-  const display = screen.getPrimaryDisplay()
-  const b = display.workArea
+  const display = screen.getPrimaryDisplay();
+  const b = display.workArea;
   // 优先恢复上次位置，否则居中
-  const saved = getSavedPosition()
-  let x = b.x + Math.floor((b.width - WIDGET_SIZE) / 2)
-  let y = b.y + Math.floor((b.height - WIDGET_SIZE) / 2)
+  const saved = getSavedPosition();
+  let x = b.x + Math.floor((b.width - WIDGET_SIZE) / 2);
+  let y = b.y + Math.floor((b.height - WIDGET_SIZE) / 2);
   if (saved) {
     // 确保仍在屏幕内
-    x = Math.max(b.x, Math.min(saved.x, b.x + b.width - WIDGET_SIZE))
-    y = Math.max(b.y, Math.min(saved.y, b.y + b.height - WIDGET_SIZE))
+    x = Math.max(b.x, Math.min(saved.x, b.x + b.width - WIDGET_SIZE));
+    y = Math.max(b.y, Math.min(saved.y, b.y + b.height - WIDGET_SIZE));
   }
 
   radialWindow = new BrowserWindow({
-    x, y,
+    x,
+    y,
     width: WIDGET_SIZE,
     height: WIDGET_SIZE,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     resizable: false,
-    movable: false,       // 拖拽通过 IPC 控制（Meel 原则）
+    movable: false, // 拖拽通过 IPC 控制（Meel 原则）
     minimizable: false,
     maximizable: false,
     skipTaskbar: true,
-    focusable: false,     // 永不抢焦点（Meel 原则）
+    focusable: false, // 永不抢焦点（Meel 原则）
     hasShadow: false,
     backgroundColor: '#00000000',
-    show: true,           // 默认显示（与 Meel 的区别）
+    show: true, // 默认显示（与 Meel 的区别）
     webPreferences: {
       preload: join(__dirname, '../preload/radial.js'),
       contextIsolation: true,
@@ -185,98 +194,98 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
       allowRunningInsecureContent: false,
       // v8CacheOptions: 'none', // 已启用全局 V8 编译缓存，不再禁用
     },
-  })
+  });
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    radialWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/radial.html`)
+    radialWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/radial.html`);
   } else {
-    radialWindow.loadFile(join(__dirname, '../renderer/radial.html'))
+    radialWindow.loadFile(join(__dirname, '../renderer/radial.html'));
   }
 
   // Meel 原则：alwaysOnTop + re-assert on show/blur
-  radialWindow.setAlwaysOnTop(true, 'screen-saver')
-  radialWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  radialWindow.setAlwaysOnTop(true, 'screen-saver');
+  radialWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   // 光标轮询（Meel 原则）
-  startCursorPolling(radialWindow)
+  startCursorPolling(radialWindow);
 
   // Re-assert alwaysOnTop（Meel 原则 + 周期性强制置顶）
   // 主窗口可见时隐藏悬浮窗，主窗口隐藏时才置顶
-  let lastMainVisible: boolean | null = null
+  let lastMainVisible: boolean | null = null;
   const enforceOnTop = (): void => {
-    if (isRadialEnabled() === false) return
-    if (!radialWindow || radialWindow.isDestroyed() || !radialWindow.isVisible()) return
+    if (isRadialEnabled() === false) return;
+    if (!radialWindow || radialWindow.isDestroyed() || !radialWindow.isVisible()) return;
     if (radialWindow && !radialWindow.isDestroyed()) {
-      const main = getMainWindow()
-      const mainVisible = !!(main && !main.isDestroyed() && main.isVisible())
-      if (mainVisible === lastMainVisible) return
-      lastMainVisible = mainVisible
+      const main = getMainWindow();
+      const mainVisible = !!(main && !main.isDestroyed() && main.isVisible());
+      if (mainVisible === lastMainVisible) return;
+      lastMainVisible = mainVisible;
       if (mainVisible) {
         // 主窗口可见 → 隐藏悬浮窗
-        radialWindow.hide()
+        radialWindow.hide();
       } else {
         // 主窗口隐藏 → 置顶悬浮窗
-        radialWindow.setAlwaysOnTop(true, 'screen-saver')
-        radialWindow.moveTop()
+        radialWindow.setAlwaysOnTop(true, 'screen-saver');
+        radialWindow.moveTop();
       }
     }
-  }
-  radialWindow.on('show', enforceOnTop)
-  radialWindow.on('blur', () => setTimeout(enforceOnTop, 100))
-  radialWindow.on('focus', enforceOnTop)
+  };
+  radialWindow.on('show', enforceOnTop);
+  radialWindow.on('blur', () => setTimeout(enforceOnTop, 100));
+  radialWindow.on('focus', enforceOnTop);
   // 周期性强制置顶（防止其他窗口抢占 z-order）
-  const topInterval = setInterval(enforceOnTop, 3000)
+  const topInterval = setInterval(enforceOnTop, 3000);
   radialWindow.on('closed', () => {
-    clearInterval(topInterval)
-    stopCursorPolling()
-    if (saveTimer) clearTimeout(saveTimer)
-    isDragging = false
-  })
+    clearInterval(topInterval);
+    stopCursorPolling();
+    if (saveTimer) clearTimeout(saveTimer);
+    isDragging = false;
+  });
 
   // 位置记忆：拖拽结束后保存
-  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
   const debouncedSave = (): void => {
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(savePosition, 500)
-  }
-  radialWindow.on('move', debouncedSave)
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(savePosition, 500);
+  };
+  radialWindow.on('move', debouncedSave);
 
   // 内容加载完成后，应用收起态 setShape 并通知 renderer
   radialWindow.webContents.on('did-finish-load', () => {
     if (radialWindow && !radialWindow.isDestroyed()) {
-      applyShape(radialWindow, CENTER_R) // 收起态：仅中心圆可点击
-      radialWindow.webContents.send('radial:state', { expanded: false })
+      applyShape(radialWindow, CENTER_R); // 收起态：仅中心圆可点击
+      radialWindow.webContents.send('radial:state', { expanded: false });
     }
-  })
+  });
 
-  return radialWindow
+  return radialWindow;
 }
 
 // ─── 公开 API ───
 
 export function showRadialWindow(): void {
-  if (isRadialEnabled() === false) return
-  const win = radialWindow
-  if (!win || win.isDestroyed()) return
-  win.setAlwaysOnTop(true, 'screen-saver')
-  win.show()
-  win.moveTop()
-  startCursorPolling(win)
+  if (isRadialEnabled() === false) return;
+  const win = radialWindow;
+  if (!win || win.isDestroyed()) return;
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.show();
+  win.moveTop();
+  startCursorPolling(win);
 }
 
 export function hideRadialWindow(): void {
   if (radialWindow && !radialWindow.isDestroyed()) {
-    radialWindow.hide()
+    radialWindow.hide();
   }
-  stopCursorPolling()
+  stopCursorPolling();
 }
 
 export function getRadialWindow(): BrowserWindow | null {
-  return radialWindow && !radialWindow.isDestroyed() ? radialWindow : null
+  return radialWindow && !radialWindow.isDestroyed() ? radialWindow : null;
 }
 
 export function isRadialEnabled(): boolean {
-  return getSetting('radial_enabled') !== '0'
+  return getSetting('radial_enabled') !== '0';
 }
 
 // ─── IPC: renderer → main ───
@@ -284,61 +293,66 @@ export function isRadialEnabled(): boolean {
 // 中心按钮点击：展开 / 收起
 ipcMain.on('radial:center-click', () => {
   if (!expanded) {
-    expandRadial()
+    expandRadial();
   } else {
-    collapseRadial()
+    collapseRadial();
   }
-})
+});
 
 // 扇区点击：执行动作 + 收起
 ipcMain.on('radial:segment-click', (_event, key: string, item?: any) => {
-  collapseRadial()
-  fireRadialAction(key, item)
-})
+  collapseRadial();
+  fireRadialAction(key, item);
+});
 
 // 拖拽（center button mousedown → document mousemove → mouseup）
-let isDragging = false
+let isDragging = false;
 
 ipcMain.on('radial:drag-start', () => {
-  isDragging = true
+  isDragging = true;
   if (radialWindow && !radialWindow.isDestroyed()) {
-    applyShape(radialWindow, WIDGET_SIZE / 2)
-    setMoveCursor()
+    applyShape(radialWindow, WIDGET_SIZE / 2);
+    setMoveCursor();
   }
-})
+});
 
 ipcMain.on('radial:drag-move', (_event, dx: number, dy: number) => {
-  if (!isDragging || !radialWindow || radialWindow.isDestroyed()) return
-  const [x, y] = radialWindow.getPosition()
-  const displays = screen.getAllDisplays()
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  if (!isDragging || !radialWindow || radialWindow.isDestroyed()) return;
+  const [x, y] = radialWindow.getPosition();
+  const displays = screen.getAllDisplays();
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
   for (const d of displays) {
-    minX = Math.min(minX, d.bounds.x)
-    minY = Math.min(minY, d.bounds.y)
-    maxX = Math.max(maxX, d.bounds.x + d.bounds.width)
-    maxY = Math.max(maxY, d.bounds.y + d.bounds.height)
+    minX = Math.min(minX, d.bounds.x);
+    minY = Math.min(minY, d.bounds.y);
+    maxX = Math.max(maxX, d.bounds.x + d.bounds.width);
+    maxY = Math.max(maxY, d.bounds.y + d.bounds.height);
   }
-  const clampedX = Math.max(minX, Math.min(x + dx, maxX - 206))
-  const clampedY = Math.max(minY, Math.min(y + dy, maxY - 206))
-  radialWindow.setPosition(clampedX, clampedY)
-})
+  const clampedX = Math.max(minX, Math.min(x + dx, maxX - 206));
+  const clampedY = Math.max(minY, Math.min(y + dy, maxY - 206));
+  radialWindow.setPosition(clampedX, clampedY);
+});
 
 ipcMain.on('radial:drag-end', () => {
-  isDragging = false
+  isDragging = false;
   // 恢复 setShape 并重新启用 mouse events
   if (radialWindow && !radialWindow.isDestroyed()) {
-    applyShape(radialWindow, expanded ? EXPANDED_R : CENTER_R)
-    restoreCursor()
+    applyShape(radialWindow, expanded ? EXPANDED_R : CENTER_R);
+    restoreCursor();
   }
-})
+});
 
-import { guardedHandle, guardedQuery } from './ipc-guard'
-import { ok } from '../shared/ipc-result'
+import { guardedHandle, guardedQuery } from './ipc-guard';
+import { ok } from '../shared/ipc-result';
 import {
-  RadialSetConfigSchema, RadialSetEnabledSchema,
-  RadialGetFileIconSchema, RadialLaunchProgramSchema,
+  RadialSetConfigSchema,
+  RadialSetEnabledSchema,
+  RadialGetFileIconSchema,
+  RadialLaunchProgramSchema,
   RadialNavigateToSchema,
-} from './ipc-schemas'
+} from './ipc-schemas';
 
 // ─── 配置 IPC ───
 
@@ -347,72 +361,84 @@ const DEFAULT_RADIAL_ITEMS = [
   { id: 'task', label: 'Tasks', route: '/kanban' },
   { id: 'meeting', label: 'Meetings', route: '/calendar' },
   { id: 'ai', label: 'AI Chat', route: '/chat' },
-]
+];
 
 guardedQuery('radial:get-config', () => {
-  const saved = getSetting('radial_items')
-  if (saved === null) return ok(DEFAULT_RADIAL_ITEMS)
-  try { return ok(JSON.parse(saved)) } catch { return ok(DEFAULT_RADIAL_ITEMS) }
-})
+  const saved = getSetting('radial_items');
+  if (saved === null) return ok(DEFAULT_RADIAL_ITEMS);
+  try {
+    return ok(JSON.parse(saved));
+  } catch {
+    return ok(DEFAULT_RADIAL_ITEMS);
+  }
+});
 
 guardedHandle('radial:set-config', RadialSetConfigSchema, (data) => {
-  setSetting('radial_items', JSON.stringify(data.items))
-  const win = radialWindow
+  setSetting('radial_items', JSON.stringify(data.items));
+  const win = radialWindow;
   if (win && !win.isDestroyed()) {
-    win.webContents.send('radial:config-changed', data.items)
+    win.webContents.send('radial:config-changed', data.items);
   }
-  return ok(true)
-})
+  return ok(true);
+});
 
 guardedHandle('radial:navigate-to', RadialNavigateToSchema, (data) => {
-  appBus.emit(SHOW_MAIN)
-  const win = getMainWindow()
-  if (win) win.webContents.send(`navigate:${data.page}`)
-  collapseRadial()
-  return ok(true)
-})
+  appBus.emit(SHOW_MAIN);
+  const win = getMainWindow();
+  if (win) win.webContents.send(`navigate:${data.page}`);
+  collapseRadial();
+  return ok(true);
+});
 
 // ─── 悬浮窗开关（设置页实时切换） ───
 
 guardedHandle('radial:set-enabled', RadialSetEnabledSchema, (data) => {
-  setSetting('radial_enabled', data.enabled ? '1' : '0')
+  setSetting('radial_enabled', data.enabled ? '1' : '0');
   if (data.enabled) {
     if (!radialWindow || radialWindow.isDestroyed()) {
-      const main = getMainWindow()
-      if (main) createRadialWindow(main)
+      const main = getMainWindow();
+      if (main) createRadialWindow(main);
     } else {
-      showRadialWindow()
+      showRadialWindow();
     }
   } else {
     if (radialWindow && !radialWindow.isDestroyed()) {
-      if (expanded) collapseRadial()
-      hideRadialWindow()
+      if (expanded) collapseRadial();
+      hideRadialWindow();
     }
   }
-  return ok(true)
-})
+  return ok(true);
+});
 
 guardedQuery('radial:close', () => {
-  hideRadialWindow()
-  return ok(true)
-})
+  hideRadialWindow();
+  return ok(true);
+});
 
 // ─── 程序配置 IPC ───
 
 /** 解析 .lnk 快捷方式的 TargetPath（用于启动） */
 async function resolveLnkTargetPath(lnkPath: string): Promise<string | null> {
   try {
-    const { execFile } = require('child_process') as typeof import('child_process')
-    const ps = `$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${lnkPath.replace(/'/g, "''")}')\nWrite-Output $s.TargetPath`
+    const { execFile } = require('child_process') as typeof import('child_process');
+    const ps = `$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${lnkPath.replace(/'/g, "''")}')\nWrite-Output $s.TargetPath`;
     return await new Promise<string | null>((resolve) => {
-      execFile('powershell.exe', ['-NoProfile', '-Command', ps], { timeout: 5000 }, (err, stdout) => {
-        if (err || !stdout) { resolve(null); return }
-        const target = stdout.trim()
-        resolve(target || null)
-      })
-    })
+      execFile(
+        'powershell.exe',
+        ['-NoProfile', '-Command', ps],
+        { timeout: 5000 },
+        (err, stdout) => {
+          if (err || !stdout) {
+            resolve(null);
+            return;
+          }
+          const target = stdout.trim();
+          resolve(target || null);
+        },
+      );
+    });
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -423,7 +449,7 @@ async function resolveLnkTargetPath(lnkPath: string): Promise<string | null> {
  */
 async function resolveLnkIconSource(lnkPath: string): Promise<string | null> {
   try {
-    const { execFile } = require('child_process') as typeof import('child_process')
+    const { execFile } = require('child_process') as typeof import('child_process');
     const ps = [
       `$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${lnkPath.replace(/'/g, "''")}')`,
       `$i = $s.IconLocation`,
@@ -431,17 +457,25 @@ async function resolveLnkIconSource(lnkPath: string): Promise<string | null> {
       `# IconLocation 格式: "path,index" 或 "path," 或 ",index" 或空`,
       `if ($i) { $parts = $i -split ','; if ($parts[0] -ne '') { Write-Output $parts[0]; exit } }`,
       `if ($t) { Write-Output $t; exit }`,
-      `Write-Output ''`
-    ].join('\n')
+      `Write-Output ''`,
+    ].join('\n');
     return await new Promise<string | null>((resolve) => {
-      execFile('powershell.exe', ['-NoProfile', '-Command', ps], { timeout: 5000 }, (err, stdout) => {
-        if (err || !stdout) { resolve(null); return }
-        const result = stdout.trim()
-        resolve(result || null)
-      })
-    })
+      execFile(
+        'powershell.exe',
+        ['-NoProfile', '-Command', ps],
+        { timeout: 5000 },
+        (err, stdout) => {
+          if (err || !stdout) {
+            resolve(null);
+            return;
+          }
+          const result = stdout.trim();
+          resolve(result || null);
+        },
+      );
+    });
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -454,50 +488,55 @@ async function getFileIconBase64(filePath: string): Promise<string | null> {
   try {
     // .lnk 快捷方式：extract-file-icon 底层调用 SHGetFileInfo，能直接从 .lnk 提取真实程序图标
     if (filePath.toLowerCase().endsWith('.lnk')) {
-      const extractIcon = require('extract-file-icon')
-      const buffer: Buffer = extractIcon(filePath, 64) as Buffer
+      const extractIcon = require('extract-file-icon');
+      const buffer: Buffer = extractIcon(filePath, 64) as Buffer;
       if (buffer && buffer.length > 0) {
-        return `data:image/png;base64,${buffer.toString('base64')}`
+        return `data:image/png;base64,${buffer.toString('base64')}`;
       }
     }
 
     // .exe 等其他文件：app.getFileIcon 足够
-    const { app } = require('electron')
-    const icon = await app.getFileIcon(filePath, { size: 'normal' })
-    const buffer = icon.toPNG()
-    return `data:image/png;base64,${buffer.toString('base64')}`
+    const { app } = require('electron');
+    const icon = await app.getFileIcon(filePath, { size: 'normal' });
+    const buffer = icon.toPNG();
+    return `data:image/png;base64,${buffer.toString('base64')}`;
   } catch (err) {
-    log.error('Failed to get file icon:', err)
-    return null
+    log.error('Failed to get file icon:', err);
+    return null;
   }
 }
 
 guardedQuery('radial:pick-program', async () => {
-  const { dialog } = require('electron')
+  const { dialog } = require('electron');
   const result = await dialog.showOpenDialog({
     title: '选择程序',
     filters: [
       { name: '可执行文件', extensions: ['exe', 'lnk', 'bat', 'cmd', 'ps1'] },
-      { name: '所有文件', extensions: ['*'] }
+      { name: '所有文件', extensions: ['*'] },
     ],
-    properties: ['openFile']
-  })
-  if (result.canceled || !result.filePaths.length) return ok(null)
-  const filePath = result.filePaths[0]
-  const name = filePath.replace(/\\/g, '/').split('/').pop()?.replace(/\.[^.]+$/, '') ?? ''
-  return ok({ path: filePath, name })
-})
+    properties: ['openFile'],
+  });
+  if (result.canceled || !result.filePaths.length) return ok(null);
+  const filePath = result.filePaths[0];
+  const name =
+    filePath
+      .replace(/\\/g, '/')
+      .split('/')
+      .pop()
+      ?.replace(/\.[^.]+$/, '') ?? '';
+  return ok({ path: filePath, name });
+});
 
 guardedHandle('radial:get-file-icon', RadialGetFileIconSchema, async (data) => {
-  return ok(await getFileIconBase64(data.filePath))
-})
+  return ok(await getFileIconBase64(data.filePath));
+});
 
 guardedHandle('radial:launch-program', RadialLaunchProgramSchema, async (data) => {
-  let launchPath = data.programPath
+  let launchPath = data.programPath;
   if (data.programPath.toLowerCase().endsWith('.lnk')) {
-    const target = await resolveLnkTargetPath(data.programPath)
-    if (target) launchPath = target
+    const target = await resolveLnkTargetPath(data.programPath);
+    if (target) launchPath = target;
   }
-  await shell.openPath(launchPath)
-  return ok(true)
-})
+  await shell.openPath(launchPath);
+  return ok(true);
+});

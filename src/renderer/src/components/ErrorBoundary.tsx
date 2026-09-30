@@ -1,29 +1,29 @@
-import { Component, ReactNode } from 'react'
+import { Component, ReactNode } from 'react';
 
 interface Props {
-  children: ReactNode
-  fallback?: ReactNode
+  children: ReactNode;
+  fallback?: ReactNode;
 }
 
 interface State {
-  hasError: boolean
-  error: Error | null
-  errorInfo: string | null
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: string | null;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
-    super(props)
-    this.state = { hasError: false, error: null, errorInfo: null }
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error, errorInfo: null }
+    return { hasError: true, error, errorInfo: null };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ErrorBoundary caught:', error, errorInfo)
-    this.setState({ errorInfo: errorInfo.componentStack || null })
+    console.error('ErrorBoundary caught:', error, errorInfo);
+    this.setState({ errorInfo: errorInfo.componentStack || null });
   }
 
   render() {
@@ -34,8 +34,18 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="w-full max-w-lg">
               <div className="surface-card rounded-2xl p-8 text-center">
                 <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0zm-9 3.75h.008v.008H12v-.008z" />
+                  <svg
+                    className="w-8 h-8 text-red-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0zm-9 3.75h.008v.008H12v-.008z"
+                    />
                   </svg>
                 </div>
                 <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
@@ -72,8 +82,8 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
           </div>
         )
-      )
+      );
     }
-    return this.props.children
+    return this.props.children;
   }
 }

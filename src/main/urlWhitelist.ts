@@ -1,5 +1,5 @@
-import { URL } from 'url'
-import log from 'electron-log/main'
+import { URL } from 'url';
+import log from 'electron-log/main';
 
 // Allowed domains for shell.openExternal.
 // Subdomains are automatically included (e.g. 'docs.github.com' matches 'github.com').
@@ -22,9 +22,9 @@ const ALLOWED_DOMAINS: readonly string[] = [
   'baidu.com',
   'stackoverflow.com',
   'stackexchange.com',
-]
+];
 
-const ALLOWED_PROTOCOLS: readonly string[] = ['https:', 'http:', 'mailto:']
+const ALLOWED_PROTOCOLS: readonly string[] = ['https:', 'http:', 'mailto:'];
 
 /**
  * Check whether a URL is allowed to be opened externally.
@@ -39,25 +39,23 @@ const ALLOWED_PROTOCOLS: readonly string[] = ['https:', 'http:', 'mailto:']
  */
 export function isUrlAllowed(urlString: string): boolean {
   if (!urlString || typeof urlString !== 'string') {
-    return false
+    return false;
   }
 
   try {
-    const url = new URL(urlString)
+    const url = new URL(urlString);
 
     // Protocol check
     if (!ALLOWED_PROTOCOLS.includes(url.protocol)) {
-      return false
+      return false;
     }
 
     // Domain whitelist check (case-insensitive, supports subdomains)
-    const hostname = url.hostname.toLowerCase()
-    return ALLOWED_DOMAINS.some(
-      (domain) => hostname === domain || hostname.endsWith('.' + domain)
-    )
+    const hostname = url.hostname.toLowerCase();
+    return ALLOWED_DOMAINS.some((domain) => hostname === domain || hostname.endsWith('.' + domain));
   } catch {
     // Malformed / unparseable URL
-    return false
+    return false;
   }
 }
 
@@ -68,12 +66,12 @@ export function isUrlAllowed(urlString: string): boolean {
  */
 export async function safeOpenExternal(
   url: string,
-  shellModule: typeof import('electron').shell
+  shellModule: typeof import('electron').shell,
 ): Promise<boolean> {
   if (!isUrlAllowed(url)) {
-    log.warn(`[Security] Blocked openExternal for non-whitelisted URL: ${url}`)
-    return false
+    log.warn(`[Security] Blocked openExternal for non-whitelisted URL: ${url}`);
+    return false;
   }
-  await shellModule.openExternal(url)
-  return true
+  await shellModule.openExternal(url);
+  return true;
 }

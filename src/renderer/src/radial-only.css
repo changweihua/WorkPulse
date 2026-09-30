@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @variant dark (&:where(.dark, .dark *));
 
@@ -12,6 +12,10 @@
 
 /* Expand animation */
 @keyframes expand {
-  from { clip-path: circle(24px at 50% 50%); }
-  to { clip-path: circle(103px at 50% 50%); }
+  from {
+    clip-path: circle(24px at 50% 50%);
+  }
+  to {
+    clip-path: circle(103px at 50% 50%);
+  }
 }

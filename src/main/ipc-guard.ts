@@ -6,11 +6,11 @@
  * 2. guardedHandle — sender 校验 + schema 校验 + try/catch → IpcResult
  * 3. guardedQuery — 无入参查询的快捷注册（仅 sender + try/catch）
  */
-import { ipcMain, BrowserWindow } from 'electron'
-import type { IpcMainInvokeEvent } from 'electron'
-import { z } from 'zod'
-import log from 'electron-log/main'
-import { ok, fail, type IpcResult } from '../shared/ipc-result'
+import { ipcMain, BrowserWindow } from 'electron';
+import type { IpcMainInvokeEvent } from 'electron';
+import { z } from 'zod';
+import log from 'electron-log/main';
+import { ok, fail, type IpcResult } from '../shared/ipc-result';
 
 // ─── Sender 校验 ─────────────────────────────────────────────────────────────
 
@@ -19,29 +19,29 @@ import { ok, fail, type IpcResult } from '../shared/ipc-result'
  * 返回 true 表示通过，false 表示拒绝。
  */
 export function assertValidSender(event: IpcMainInvokeEvent, channel: string): boolean {
-  const sender = event.sender
+  const sender = event.sender;
   if (sender.isDestroyed()) {
-    log.warn(`[IPC Guard] 🚫 ${channel}: sender 已销毁`)
-    return false
+    log.warn(`[IPC Guard] 🚫 ${channel}: sender 已销毁`);
+    return false;
   }
 
-  const win = BrowserWindow.fromWebContents(sender)
+  const win = BrowserWindow.fromWebContents(sender);
   if (!win || win.isDestroyed()) {
-    log.warn(`[IPC Guard] 🚫 ${channel}: sender 不属于任何窗口`)
-    return false
+    log.warn(`[IPC Guard] 🚫 ${channel}: sender 不属于任何窗口`);
+    return false;
   }
 
-  const url = sender.getURL()
+  const url = sender.getURL();
   const isLocal =
     url.startsWith('file:') ||
     url.startsWith('http://localhost:') ||
-    url.startsWith('http://127.0.0.1:')
+    url.startsWith('http://127.0.0.1:');
   if (!isLocal) {
-    log.warn(`[IPC Guard] 🚫 ${channel}: sender URL 非本地: ${url}`)
-    return false
+    log.warn(`[IPC Guard] 🚫 ${channel}: sender URL 非本地: ${url}`);
+    return false;
   }
 
-  return true
+  return true;
 }
 
 // ─── 声明式 Handler 注册器 ───────────────────────────────────────────────────
@@ -56,32 +56,32 @@ export function assertValidSender(event: IpcMainInvokeEvent, channel: string): b
 function packArgs<T>(schema: z.ZodType<T>, args: unknown[]): unknown {
   // 如果 schema 是 z.object，按属性名拆分传入的参数列表
   if (schema instanceof z.ZodObject) {
-    const shape = schema.shape
-    const keys = Object.keys(shape)
+    const shape = schema.shape;
+    const keys = Object.keys(shape);
 
     // 多参数：按 key 顺序打包
     if (args.length > 1) {
-      const packed: Record<string, unknown> = {}
+      const packed: Record<string, unknown> = {};
       for (let i = 0; i < args.length && i < keys.length; i++) {
-        packed[keys[i]] = args[i]
+        packed[keys[i]] = args[i];
       }
-      return packed
+      return packed;
     }
 
     // 单参数且 schema 有明确 key：如果参数不是对象，包装为 { key: value }
     if (args.length === 1 && keys.length >= 1) {
-      const first = args[0]
+      const first = args[0];
       if (first !== null && typeof first === 'object' && !Array.isArray(first)) {
         // 已经是对象，直接传
-        return first
+        return first;
       }
       // 原始值（string/number/boolean），包装为 { 第一个key: value }
-      return { [keys[0]]: first }
+      return { [keys[0]]: first };
     }
   }
 
   // 非 object schema 或无参数：直接传第一个
-  return args[0]
+  return args[0];
 }
 
 /**
@@ -108,34 +108,34 @@ function packArgs<T>(schema: z.ZodType<T>, args: unknown[]): unknown {
 export function guardedHandle<T>(
   channel: string,
   schema: z.ZodType<T>,
-  handler: (data: T, event: IpcMainInvokeEvent) => Promise<IpcResult> | IpcResult
+  handler: (data: T, event: IpcMainInvokeEvent) => Promise<IpcResult> | IpcResult,
 ): void {
   ipcMain.handle(channel, async (event, ...args: unknown[]) => {
     // Layer 0: sender 校验
     if (!assertValidSender(event, channel)) {
-      log.warn(`[IPC] 🚫 ${channel}: 非法调用方`)
-      return fail('SENDER_INVALID', '非法调用方')
+      log.warn(`[IPC] 🚫 ${channel}: 非法调用方`);
+      return fail('SENDER_INVALID', '非法调用方');
     }
 
     // 将多参数扁平调用打包为单对象
-    const raw = packArgs(schema, args)
+    const raw = packArgs(schema, args);
 
     // Layer 1: 入参 schema 校验
-    const parsed = schema.safeParse(raw)
+    const parsed = schema.safeParse(raw);
     if (!parsed.success) {
-      log.warn(`[IPC] ⚠️ ${channel}: 参数校验失败`, parsed.error.issues)
-      return fail('VALIDATION_FAILED', '参数校验失败', parsed.error.issues)
+      log.warn(`[IPC] ⚠️ ${channel}: 参数校验失败`, parsed.error.issues);
+      return fail('VALIDATION_FAILED', '参数校验失败', parsed.error.issues);
     }
 
     // Layer 2: 业务逻辑（统一 try/catch，永不 reject）
     try {
-      return await handler(parsed.data, event)
+      return await handler(parsed.data, event);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      log.error(`[IPC] 💥 ${channel}: ${msg}`)
-      return fail('UNKNOWN', msg)
+      const msg = e instanceof Error ? e.message : String(e);
+      log.error(`[IPC] 💥 ${channel}: ${msg}`);
+      return fail('UNKNOWN', msg);
     }
-  })
+  });
 }
 
 /**
@@ -149,18 +149,18 @@ export function guardedHandle<T>(
  */
 export function guardedQuery<T>(
   channel: string,
-  handler: (event: IpcMainInvokeEvent) => Promise<IpcResult<T>> | IpcResult<T>
+  handler: (event: IpcMainInvokeEvent) => Promise<IpcResult<T>> | IpcResult<T>,
 ): void {
   ipcMain.handle(channel, async (event) => {
     if (!assertValidSender(event, channel)) {
-      return fail('SENDER_INVALID', '非法调用方')
+      return fail('SENDER_INVALID', '非法调用方');
     }
     try {
-      return await handler(event)
+      return await handler(event);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      log.error(`[IPC] 💥 ${channel}: ${msg}`)
-      return fail('UNKNOWN', msg)
+      const msg = e instanceof Error ? e.message : String(e);
+      log.error(`[IPC] 💥 ${channel}: ${msg}`);
+      return fail('UNKNOWN', msg);
     }
-  })
+  });
 }

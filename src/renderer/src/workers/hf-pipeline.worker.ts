@@ -18,32 +18,32 @@ const LOCAL_HOST = 'appmodel://models/';
 const MAX_CACHED_MODELS = 2;
 const pipelineCache = new Map<string, any>();
 const cacheKey = (task: string, modelId: string, dtype: string, device: string) =>
-    `${task}|${modelId}|${dtype}|${device}`;
+  `${task}|${modelId}|${dtype}|${device}`;
 
 // 取缓存并把命中项移到末尾（最近使用）
 function getFromCache(key: string): any | undefined {
-    if (!pipelineCache.has(key)) return undefined;
-    const value = pipelineCache.get(key)!;
-    pipelineCache.delete(key);
-    pipelineCache.set(key, value);
-    return value;
+  if (!pipelineCache.has(key)) return undefined;
+  const value = pipelineCache.get(key)!;
+  pipelineCache.delete(key);
+  pipelineCache.set(key, value);
+  return value;
 }
 
 // 写入缓存，容量满时淘汰最旧（Map 首部）的模型并 dispose 释放显存/内存
 function putInCache(key: string, value: any): void {
-    if (pipelineCache.has(key)) pipelineCache.delete(key);
-    if (pipelineCache.size >= MAX_CACHED_MODELS) {
-        const oldest = pipelineCache.keys().next().value;
-        if (oldest) {
-            const oldPipeline = pipelineCache.get(oldest);
-            if (oldPipeline && typeof oldPipeline.dispose === 'function') {
-                oldPipeline.dispose();
-            }
-            pipelineCache.delete(oldest);
-            console.log(`[HF Worker] Evicted cached model: ${oldest}`);
-        }
+  if (pipelineCache.has(key)) pipelineCache.delete(key);
+  if (pipelineCache.size >= MAX_CACHED_MODELS) {
+    const oldest = pipelineCache.keys().next().value;
+    if (oldest) {
+      const oldPipeline = pipelineCache.get(oldest);
+      if (oldPipeline && typeof oldPipeline.dispose === 'function') {
+        oldPipeline.dispose();
+      }
+      pipelineCache.delete(oldest);
+      console.log(`[HF Worker] Evicted cached model: ${oldest}`);
     }
-    pipelineCache.set(key, value);
+  }
+  pipelineCache.set(key, value);
 }
 
 // ---------- 取消/版本控制状态 ----------
@@ -56,229 +56,229 @@ const ctx = self as unknown as Worker;
 
 // ---------- 消息类型 ----------
 interface LoadMsg {
-    type: 'load';
-    rid: number;
-    task: string;
-    modelId: string;
-    dtype: string;
-    device: string;
-    host: string; // REMOTE_HOST 或 LOCAL_HOST
+  type: 'load';
+  rid: number;
+  task: string;
+  modelId: string;
+  dtype: string;
+  device: string;
+  host: string; // REMOTE_HOST 或 LOCAL_HOST
 }
 interface GenerateMsg {
-    type: 'generate';
-    rid: number;
-    taskId: string;
-    version: number;
-    task: string;
-    modelId: string;
-    dtype: string;
-    device: string;
-    prompt: string;
-    options: Record<string, any>;
+  type: 'generate';
+  rid: number;
+  taskId: string;
+  version: number;
+  task: string;
+  modelId: string;
+  dtype: string;
+  device: string;
+  prompt: string;
+  options: Record<string, any>;
 }
 interface RecognizeMsg {
-    type: 'recognize';
-    rid: number;
-    taskId: string;
-    version: number;
-    task: string;
-    modelId: string;
-    dtype: string;
-    device: string;
-    imageData: string; // data URL 或远程 URL（可序列化）
-    options: Record<string, any>;
+  type: 'recognize';
+  rid: number;
+  taskId: string;
+  version: number;
+  task: string;
+  modelId: string;
+  dtype: string;
+  device: string;
+  imageData: string; // data URL 或远程 URL（可序列化）
+  options: Record<string, any>;
 }
 interface CancelMsg {
-    type: 'cancel';
-    taskId: string;
+  type: 'cancel';
+  taskId: string;
 }
 type InboundMsg = LoadMsg | GenerateMsg | RecognizeMsg | CancelMsg;
 
 // ---------- 加载 pipeline ----------
 async function handleLoad(msg: LoadMsg) {
-    const { rid, task, modelId, dtype, device, host } = msg;
-    const key = cacheKey(task, modelId, dtype, device);
+  const { rid, task, modelId, dtype, device, host } = msg;
+  const key = cacheKey(task, modelId, dtype, device);
 
-    // 缓存命中：直接复用已加载的模型，不重复拉取
-    if (getFromCache(key)) {
-        ctx.postMessage({ type: 'loaded', rid });
-        return;
-    }
+  // 缓存命中：直接复用已加载的模型，不重复拉取
+  if (getFromCache(key)) {
+    ctx.postMessage({ type: 'loaded', rid });
+    return;
+  }
 
-    env.remoteHost = host || REMOTE_HOST;
+  env.remoteHost = host || REMOTE_HOST;
 
-    try {
-        const pipe = await pipeline(task as any, modelId, {
-            dtype: dtype as any,
-            device: device as any,
-            progress_callback: (info: any) => {
-                if (info.status === 'progress_total') {
-                    ctx.postMessage({
-                        type: 'progress',
-                        rid,
-                        status: 'progress_total',
-                        progress: Math.round(info.progress || 0),
-                    });
-                } else if (info.status === 'progress' && info.file) {
-                    ctx.postMessage({
-                        type: 'progress',
-                        rid,
-                        status: 'progress',
-                        file: info.file,
-                        progress: Math.round(info.progress || 0),
-                    });
-                }
-            },
-        });
-        putInCache(key, pipe);
-        ctx.postMessage({ type: 'loaded', rid });
-    } catch (err) {
-        ctx.postMessage({ type: 'error', rid, message: (err as Error)?.message || String(err) });
-    }
+  try {
+    const pipe = await pipeline(task as any, modelId, {
+      dtype: dtype as any,
+      device: device as any,
+      progress_callback: (info: any) => {
+        if (info.status === 'progress_total') {
+          ctx.postMessage({
+            type: 'progress',
+            rid,
+            status: 'progress_total',
+            progress: Math.round(info.progress || 0),
+          });
+        } else if (info.status === 'progress' && info.file) {
+          ctx.postMessage({
+            type: 'progress',
+            rid,
+            status: 'progress',
+            file: info.file,
+            progress: Math.round(info.progress || 0),
+          });
+        }
+      },
+    });
+    putInCache(key, pipe);
+    ctx.postMessage({ type: 'loaded', rid });
+  } catch (err) {
+    ctx.postMessage({ type: 'error', rid, message: (err as Error)?.message || String(err) });
+  }
 }
 
 // ---------- 文本生成（流式 token） ----------
 async function handleGenerate(msg: GenerateMsg) {
-    const { rid, taskId, version, task, modelId, dtype, device, prompt, options } = msg;
-    const pipe = getFromCache(cacheKey(task, modelId, dtype, device));
-    if (!pipe) {
-        ctx.postMessage({ type: 'error', rid, message: '模型未加载' });
-        return;
-    }
+  const { rid, taskId, version, task, modelId, dtype, device, prompt, options } = msg;
+  const pipe = getFromCache(cacheKey(task, modelId, dtype, device));
+  if (!pipe) {
+    ctx.postMessage({ type: 'error', rid, message: '模型未加载' });
+    return;
+  }
 
-    // 更新活动任务状态
-    currentVersion++;
-    currentTaskId = taskId;
-    const myVersion = currentVersion;
+  // 更新活动任务状态
+  currentVersion++;
+  currentTaskId = taskId;
+  const myVersion = currentVersion;
 
-    // 版本检查：如果启动前就已过期，直接丢弃
-    if (myVersion !== currentVersion) {
-        ctx.postMessage({ type: 'cancelled', rid });
-        return;
-    }
+  // 版本检查：如果启动前就已过期，直接丢弃
+  if (myVersion !== currentVersion) {
+    ctx.postMessage({ type: 'cancelled', rid });
+    return;
+  }
 
-    let fullText = '';
-    const streamer = new TextStreamer(pipe.tokenizer, {
-        skip_prompt: true,
-        skip_special_tokens: true,
-        callback_function: (text: string) => {
-            // 在每个 token 回调中检查版本
-            if (myVersion !== currentVersion) {
-                throw new Error('__CANCELLED__');
-            }
-            fullText += text;
-            ctx.postMessage({ type: 'token', rid, text });
-        },
+  let fullText = '';
+  const streamer = new TextStreamer(pipe.tokenizer, {
+    skip_prompt: true,
+    skip_special_tokens: true,
+    callback_function: (text: string) => {
+      // 在每个 token 回调中检查版本
+      if (myVersion !== currentVersion) {
+        throw new Error('__CANCELLED__');
+      }
+      fullText += text;
+      ctx.postMessage({ type: 'token', rid, text });
+    },
+  });
+
+  try {
+    await pipe(prompt, {
+      ...options,
+      streamer,
     });
-
-    try {
-        await pipe(prompt, {
-            ...options,
-            streamer,
-        });
-        // 最终版本检查
-        if (myVersion !== currentVersion) {
-            ctx.postMessage({ type: 'cancelled', rid });
-            return;
-        }
-        ctx.postMessage({ type: 'done', rid, fullText });
-    } catch (err) {
-        // 如果是取消导致的异常，发送 cancelled 而不是 error
-        if ((err as Error)?.message === '__CANCELLED__') {
-            ctx.postMessage({ type: 'cancelled', rid });
-            return;
-        }
-        ctx.postMessage({ type: 'error', rid, message: (err as Error)?.message || String(err) });
+    // 最终版本检查
+    if (myVersion !== currentVersion) {
+      ctx.postMessage({ type: 'cancelled', rid });
+      return;
     }
+    ctx.postMessage({ type: 'done', rid, fullText });
+  } catch (err) {
+    // 如果是取消导致的异常，发送 cancelled 而不是 error
+    if ((err as Error)?.message === '__CANCELLED__') {
+      ctx.postMessage({ type: 'cancelled', rid });
+      return;
+    }
+    ctx.postMessage({ type: 'error', rid, message: (err as Error)?.message || String(err) });
+  }
 }
 
 // ---------- 图像识别（OCR，支持流式 token） ----------
 async function handleRecognize(msg: RecognizeMsg) {
-    const { rid, taskId, version, task, modelId, dtype, device, imageData, options } = msg;
-    const pipe = getFromCache(cacheKey(task, modelId, dtype, device));
-    if (!pipe) {
-        ctx.postMessage({ type: 'error', rid, message: '模型未加载' });
-        return;
-    }
+  const { rid, taskId, version, task, modelId, dtype, device, imageData, options } = msg;
+  const pipe = getFromCache(cacheKey(task, modelId, dtype, device));
+  if (!pipe) {
+    ctx.postMessage({ type: 'error', rid, message: '模型未加载' });
+    return;
+  }
 
-    // 更新活动任务状态
-    currentVersion++;
-    currentTaskId = taskId;
-    const myVersion = currentVersion;
+  // 更新活动任务状态
+  currentVersion++;
+  currentTaskId = taskId;
+  const myVersion = currentVersion;
 
-    // 版本检查
-    if (myVersion !== currentVersion) {
-        ctx.postMessage({ type: 'cancelled', rid });
-        return;
-    }
+  // 版本检查
+  if (myVersion !== currentVersion) {
+    ctx.postMessage({ type: 'cancelled', rid });
+    return;
+  }
 
-    try {
-        let fullText = '';
-        let usedStreamer = false;
-        const generateOptions: Record<string, any> = { ...options };
+  try {
+    let fullText = '';
+    let usedStreamer = false;
+    const generateOptions: Record<string, any> = { ...options };
 
-        // 若模型带 tokenizer（如 GLM-OCR 等自回归 OCR），用 TextStreamer 流式回传
-        if (pipe.tokenizer) {
-            try {
-                const streamer = new TextStreamer(pipe.tokenizer, {
-                    skip_special_tokens: true,
-                    callback_function: (text: string) => {
-                        // 在每个 token 回调中检查版本
-                        if (myVersion !== currentVersion) {
-                            throw new Error('__CANCELLED__');
-                        }
-                        fullText += text;
-                        ctx.postMessage({ type: 'token', rid, text });
-                    },
-                });
-                generateOptions.streamer = streamer;
-                usedStreamer = true;
-            } catch {
-                usedStreamer = false;
+    // 若模型带 tokenizer（如 GLM-OCR 等自回归 OCR），用 TextStreamer 流式回传
+    if (pipe.tokenizer) {
+      try {
+        const streamer = new TextStreamer(pipe.tokenizer, {
+          skip_special_tokens: true,
+          callback_function: (text: string) => {
+            // 在每个 token 回调中检查版本
+            if (myVersion !== currentVersion) {
+              throw new Error('__CANCELLED__');
             }
-        }
-
-        const output = await pipe(imageData, generateOptions);
-        // 最终版本检查
-        if (myVersion !== currentVersion) {
-            ctx.postMessage({ type: 'cancelled', rid });
-            return;
-        }
-        if (!usedStreamer || !fullText) {
-            fullText = output?.[0]?.generated_text ?? '';
-        }
-        ctx.postMessage({ type: 'result', rid, data: fullText });
-    } catch (err) {
-        // 如果是取消导致的异常，发送 cancelled 而不是 error
-        if ((err as Error)?.message === '__CANCELLED__') {
-            ctx.postMessage({ type: 'cancelled', rid });
-            return;
-        }
-        ctx.postMessage({ type: 'error', rid, message: (err as Error)?.message || String(err) });
+            fullText += text;
+            ctx.postMessage({ type: 'token', rid, text });
+          },
+        });
+        generateOptions.streamer = streamer;
+        usedStreamer = true;
+      } catch {
+        usedStreamer = false;
+      }
     }
+
+    const output = await pipe(imageData, generateOptions);
+    // 最终版本检查
+    if (myVersion !== currentVersion) {
+      ctx.postMessage({ type: 'cancelled', rid });
+      return;
+    }
+    if (!usedStreamer || !fullText) {
+      fullText = output?.[0]?.generated_text ?? '';
+    }
+    ctx.postMessage({ type: 'result', rid, data: fullText });
+  } catch (err) {
+    // 如果是取消导致的异常，发送 cancelled 而不是 error
+    if ((err as Error)?.message === '__CANCELLED__') {
+      ctx.postMessage({ type: 'cancelled', rid });
+      return;
+    }
+    ctx.postMessage({ type: 'error', rid, message: (err as Error)?.message || String(err) });
+  }
 }
 
 // ---------- 消息入口 ----------
 ctx.onmessage = (e: MessageEvent) => {
-    const msg = e.data as InboundMsg;
-    switch (msg.type) {
-        case 'load':
-            void handleLoad(msg);
-            break;
-        case 'generate':
-            void handleGenerate(msg);
-            break;
-        case 'recognize':
-            void handleRecognize(msg);
-            break;
-        case 'cancel':
-            // 取消：递增版本号，使正在运行的任务过期
-            if (msg.taskId === currentTaskId) {
-                console.log(`[HF Worker] 取消任务 taskId=${msg.taskId}`);
-                currentVersion++;
-            }
-            break;
-    }
+  const msg = e.data as InboundMsg;
+  switch (msg.type) {
+    case 'load':
+      void handleLoad(msg);
+      break;
+    case 'generate':
+      void handleGenerate(msg);
+      break;
+    case 'recognize':
+      void handleRecognize(msg);
+      break;
+    case 'cancel':
+      // 取消：递增版本号，使正在运行的任务过期
+      if (msg.taskId === currentTaskId) {
+        console.log(`[HF Worker] 取消任务 taskId=${msg.taskId}`);
+        currentVersion++;
+      }
+      break;
+  }
 };
 
 export {};

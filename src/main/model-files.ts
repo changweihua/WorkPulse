@@ -1,138 +1,138 @@
 // src/main/model-files.ts
 // 模型本地文件夹缓存：从 hf-mirror.com 下载到 userData/models/<modelId>/resolve/main/<file>
 // 通过 appmodel:// 自定义协议回放给渲染进程（见 src/main/index.ts 的 protocol.handle）
-import { app, net } from 'electron'
-import * as fs from 'fs'
-import * as path from 'path'
-import { Readable } from 'stream'
-import { pipeline } from 'stream/promises'
+import { app, net } from 'electron';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 
-const MIRROR_HOST = 'https://hf-mirror.com'
+const MIRROR_HOST = 'https://hf-mirror.com';
 
 // ---------- 网络优化配置 ----------
-const MAX_CONCURRENT = 3          // 最大并行下载数
-const FETCH_TIMEOUT_MS = 30_000   // 单次请求超时 30s
-const MAX_RETRIES = 2             // 最大重试次数
-const RETRY_DELAY_MS = 1000       // 重试基础延迟
+const MAX_CONCURRENT = 3; // 最大并行下载数
+const FETCH_TIMEOUT_MS = 30_000; // 单次请求超时 30s
+const MAX_RETRIES = 2; // 最大重试次数
+const RETRY_DELAY_MS = 1000; // 重试基础延迟
 
-let cachedDir = ''
+let cachedDir = '';
 export function getModelsDir(): string {
-  if (!cachedDir) cachedDir = path.join(app.getPath('userData'), 'models')
-  return cachedDir
+  if (!cachedDir) cachedDir = path.join(app.getPath('userData'), 'models');
+  return cachedDir;
 }
 
 /** 本地路径与 HF URL 布局一致：<dir>/<modelId>/resolve/main/<file> */
 export function localModelPath(modelId: string, file: string): string {
-  return path.join(getModelsDir(), modelId, 'resolve', 'main', ...file.split('/'))
+  return path.join(getModelsDir(), modelId, 'resolve', 'main', ...file.split('/'));
 }
 
 export interface ModelDownloadProgress {
-  modelId: string
-  file: string
-  loaded: number
-  total: number
-  percent: number // -1 = 总大小未知
+  modelId: string;
+  file: string;
+  loaded: number;
+  total: number;
+  percent: number; // -1 = 总大小未知
 }
 
-type ProgressSender = ((p: ModelDownloadProgress) => void) | null
-let progressSender: ProgressSender = null
+type ProgressSender = ((p: ModelDownloadProgress) => void) | null;
+let progressSender: ProgressSender = null;
 export function setModelProgressSender(fn: NonNullable<ProgressSender>): void {
-  progressSender = fn
+  progressSender = fn;
 }
 
 async function fileExistsNonEmpty(p: string): Promise<boolean> {
   try {
-    const st = await fs.promises.stat(p)
-    return st.isFile() && st.size > 0
+    const st = await fs.promises.stat(p);
+    return st.isFile() && st.size > 0;
   } catch {
-    return false
+    return false;
   }
 }
 
 /** 延迟指定毫秒 */
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** 带重试和超时的 fetch */
 async function fetchWithRetry(url: string, retries = MAX_RETRIES): Promise<Response> {
-  let lastError: Error | null = null
+  let lastError: Error | null = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       try {
-        const resp = await net.fetch(url, { signal: controller.signal as any })
-        clearTimeout(timer)
-        return resp
+        const resp = await net.fetch(url, { signal: controller.signal as any });
+        clearTimeout(timer);
+        return resp;
       } catch (e) {
-        clearTimeout(timer)
-        throw e
+        clearTimeout(timer);
+        throw e;
       }
     } catch (e) {
-      lastError = e as Error
+      lastError = e as Error;
       if (attempt < retries) {
-        await sleep(RETRY_DELAY_MS * Math.pow(2, attempt)) // 指数退避
+        await sleep(RETRY_DELAY_MS * Math.pow(2, attempt)); // 指数退避
       }
     }
   }
-  throw lastError!
+  throw lastError!;
 }
 
 /** 下载单个文件；已存在则跳过；支持并行 + 重试 */
 async function downloadOne(modelId: string, file: string): Promise<boolean> {
-  const target = localModelPath(modelId, file)
-  if (await fileExistsNonEmpty(target)) return true
+  const target = localModelPath(modelId, file);
+  if (await fileExistsNonEmpty(target)) return true;
 
-  const url = `${MIRROR_HOST}/${modelId}/resolve/main/${file}`
-  let resp: Response
+  const url = `${MIRROR_HOST}/${modelId}/resolve/main/${file}`;
+  let resp: Response;
   try {
-    resp = await fetchWithRetry(url)
+    resp = await fetchWithRetry(url);
   } catch {
-    return false
+    return false;
   }
-  if (!resp.ok || !resp.body) return false
+  if (!resp.ok || !resp.body) return false;
 
-  await fs.promises.mkdir(path.dirname(target), { recursive: true })
-  const tmp = `${target}.download`
-  const total = Number(resp.headers.get('content-length') || 0)
-  let loaded = 0
-  let lastEmit = 0
+  await fs.promises.mkdir(path.dirname(target), { recursive: true });
+  const tmp = `${target}.download`;
+  const total = Number(resp.headers.get('content-length') || 0);
+  let loaded = 0;
+  let lastEmit = 0;
 
-  const nodeStream = Readable.fromWeb(resp.body as import('stream/web').ReadableStream)
+  const nodeStream = Readable.fromWeb(resp.body as import('stream/web').ReadableStream);
   nodeStream.on('data', (chunk: Buffer) => {
-    loaded += chunk.length
-    const now = Date.now()
+    loaded += chunk.length;
+    const now = Date.now();
     if (now - lastEmit > 150) {
-      lastEmit = now
+      lastEmit = now;
       progressSender?.({
         modelId,
         file,
         loaded,
         total,
         percent: total > 0 ? Math.round((loaded / total) * 100) : -1,
-      })
+      });
     }
-  })
+  });
 
   try {
-    await pipeline(nodeStream, fs.createWriteStream(tmp))
+    await pipeline(nodeStream, fs.createWriteStream(tmp));
     progressSender?.({
       modelId,
       file,
       loaded,
       total: total > 0 ? total : loaded,
       percent: 100,
-    })
-    await fs.promises.rename(tmp, target)
-    return true
+    });
+    await fs.promises.rename(tmp, target);
+    return true;
   } catch {
     try {
-      await fs.promises.unlink(tmp)
+      await fs.promises.unlink(tmp);
     } catch {
       /* ignore */
     }
-    return false
+    return false;
   }
 }
 
@@ -140,34 +140,34 @@ async function downloadOne(modelId: string, file: string): Promise<boolean> {
 async function downloadParallel(
   modelId: string,
   files: string[],
-  maxConcurrent = MAX_CONCURRENT
+  maxConcurrent = MAX_CONCURRENT,
 ): Promise<{ ok: boolean; missing: string[] }> {
-  const missing: string[] = []
-  const queue = [...files]
-  const running: Promise<void>[] = []
+  const missing: string[] = [];
+  const queue = [...files];
+  const running: Promise<void>[] = [];
 
   async function runNext(): Promise<void> {
-    const file = queue.shift()
-    if (file === undefined) return
-    const success = await downloadOne(modelId, file)
+    const file = queue.shift();
+    if (file === undefined) return;
+    const success = await downloadOne(modelId, file);
     if (!success && files.includes(file)) {
-      missing.push(file)
+      missing.push(file);
     }
     if (queue.length > 0) {
-      await runNext()
+      await runNext();
     }
   }
 
   // 启动 maxConcurrent 个并行 worker
   for (let i = 0; i < Math.min(maxConcurrent, queue.length); i++) {
-    running.push(runNext())
+    running.push(runNext());
   }
-  await Promise.all(running)
+  await Promise.all(running);
 
-  return { ok: missing.length === 0, missing }
+  return { ok: missing.length === 0, missing };
 }
 
-const inflight = new Map<string, Promise<{ ok: boolean; missing: string[] }>>()
+const inflight = new Map<string, Promise<{ ok: boolean; missing: string[] }>>();
 
 /**
  * 确保模型文件就绪：required 全部成功才算 ok；optional 失败静默忽略。
@@ -177,43 +177,43 @@ const inflight = new Map<string, Promise<{ ok: boolean; missing: string[] }>>()
 export function ensureModelFiles(
   modelId: string,
   required: string[],
-  optional: string[]
+  optional: string[],
 ): Promise<{ ok: boolean; missing: string[] }> {
-  const existing = inflight.get(modelId)
-  if (existing) return existing
+  const existing = inflight.get(modelId);
+  if (existing) return existing;
 
   const task = (async () => {
     // 先检查哪些文件已缓存，只下载缺失的
-    const toDownload: string[] = []
-    const preMissing: string[] = []
+    const toDownload: string[] = [];
+    const preMissing: string[] = [];
 
     for (const file of required) {
-      if (await fileExistsNonEmpty(localModelPath(modelId, file))) continue
-      toDownload.push(file)
+      if (await fileExistsNonEmpty(localModelPath(modelId, file))) continue;
+      toDownload.push(file);
     }
     for (const file of optional) {
-      if (await fileExistsNonEmpty(localModelPath(modelId, file))) continue
-      toDownload.push(file)
+      if (await fileExistsNonEmpty(localModelPath(modelId, file))) continue;
+      toDownload.push(file);
     }
 
     if (toDownload.length === 0) {
-      return { ok: true, missing: [] }
+      return { ok: true, missing: [] };
     }
 
     // 并行下载缺失文件
-    const result = await downloadParallel(modelId, toDownload)
+    const result = await downloadParallel(modelId, toDownload);
 
     // 检查 required 文件是否都成功
     for (const file of required) {
-      if (!await fileExistsNonEmpty(localModelPath(modelId, file))) {
-        preMissing.push(file)
+      if (!(await fileExistsNonEmpty(localModelPath(modelId, file)))) {
+        preMissing.push(file);
       }
     }
 
-    return { ok: preMissing.length === 0, missing: preMissing }
-  })()
+    return { ok: preMissing.length === 0, missing: preMissing };
+  })();
 
-  inflight.set(modelId, task)
-  void task.finally(() => inflight.delete(modelId))
-  return task
+  inflight.set(modelId, task);
+  void task.finally(() => inflight.delete(modelId));
+  return task;
 }

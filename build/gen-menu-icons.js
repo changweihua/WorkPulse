@@ -4,11 +4,11 @@ const path = require('path');
 const OUTPUT_DIR = path.join(__dirname, '../resources');
 
 // 品牌色系：高饱和度，Windows 原生菜单 16px 下清晰可辨
-const INK = '#52525b';    // 主线条 zinc-600（比纯黑柔和，比原 #374151 醒目）
-const BLUE = '#3b82f6';   // 新建日志
-const CYAN = '#06b6d4';   // 新建任务
-const EMERALD = '#10b981';// 完成勾
-const ROSE = '#f43f5e';   // 退出
+const INK = '#52525b'; // 主线条 zinc-600（比纯黑柔和，比原 #374151 醒目）
+const BLUE = '#3b82f6'; // 新建日志
+const CYAN = '#06b6d4'; // 新建任务
+const EMERALD = '#10b981'; // 完成勾
+const ROSE = '#f43f5e'; // 退出
 
 // Menu item icons — 加粗线条（1.8px@16）、彩色徽标，16px 可读性优先
 const icons = {

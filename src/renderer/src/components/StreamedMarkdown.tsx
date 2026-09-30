@@ -1,33 +1,37 @@
-import { useEffect, useRef, useState, useMemo } from 'react'
-import { Streamdown } from 'streamdown'
-import { Brain } from 'lucide-react'
+import { useEffect, useRef, useState, useMemo } from 'react';
+import { Streamdown } from 'streamdown';
+import { Brain } from 'lucide-react';
 
 interface StreamedMarkdownProps {
-  content: string
-  isStreaming?: boolean
-  className?: string
+  content: string;
+  isStreaming?: boolean;
+  className?: string;
 }
 
 function parseThinkTags(content: string): { think: string; rest: string } {
-  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/)
-  const think = thinkMatch ? thinkMatch[1].trim() : ''
-  const rest = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
-  return { think, rest }
+  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
+  const think = thinkMatch ? thinkMatch[1].trim() : '';
+  const rest = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  return { think, rest };
 }
 
-export function StreamedMarkdown({ content, isStreaming = false, className }: StreamedMarkdownProps) {
-  const [thinkOpen, setThinkOpen] = useState(false)
-  const { think, rest } = useMemo(() => parseThinkTags(content), [content])
+export function StreamedMarkdown({
+  content,
+  isStreaming = false,
+  className,
+}: StreamedMarkdownProps) {
+  const [thinkOpen, setThinkOpen] = useState(false);
+  const { think, rest } = useMemo(() => parseThinkTags(content), [content]);
 
   // 跟随主题切换，让 Mermaid 图表用对应的深浅配色
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
   useEffect(() => {
     const obs = new MutationObserver(() =>
-      setIsDark(document.documentElement.classList.contains('dark'))
-    )
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
-    return () => obs.disconnect()
-  }, [])
+      setIsDark(document.documentElement.classList.contains('dark')),
+    );
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
 
   return (
     <div className={className || 'prose prose-zinc prose-sm max-w-none'} role="article">
@@ -42,7 +46,13 @@ export function StreamedMarkdown({ content, isStreaming = false, className }: St
             {isStreaming && !think && (
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
             )}
-            <svg className={`w-3 h-3 ml-auto transition-transform ${thinkOpen ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              className={`w-3 h-3 ml-auto transition-transform ${thinkOpen ? 'rotate-180' : ''}`}
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M2 4l4 4 4-4" />
             </svg>
           </button>
@@ -62,8 +72,8 @@ export function StreamedMarkdown({ content, isStreaming = false, className }: St
             config: {
               theme: isDark ? 'dark' : 'default',
               startOnLoad: false,
-              securityLevel: 'strict'
-            }
+              securityLevel: 'strict',
+            },
           }}
         >
           {rest}
@@ -75,70 +85,74 @@ export function StreamedMarkdown({ content, isStreaming = false, className }: St
         </div>
       ) : null}
     </div>
-  )
+  );
 }
 
 interface StreamChatState {
-  content: string
-  isStreaming: boolean
-  error: string | null
+  content: string;
+  isStreaming: boolean;
+  error: string | null;
 }
 
 export function useStreamChat(): StreamChatState & {
-  startStream: (prompt: string) => Promise<void>
-  reset: () => void
+  startStream: (prompt: string) => Promise<void>;
+  reset: () => void;
 } {
   const [state, setState] = useState<StreamChatState>({
     content: '',
     isStreaming: false,
-    error: null
-  })
-  const bufferRef = useRef('')
-  const cleanupRef = useRef<(() => void) | null>(null)
+    error: null,
+  });
+  const bufferRef = useRef('');
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   const startStream = async (prompt: string): Promise<void> => {
-    bufferRef.current = ''
-    setState({ content: '', isStreaming: true, error: null })
+    bufferRef.current = '';
+    setState({ content: '', isStreaming: true, error: null });
 
     try {
-      const api = (window.api as any).ai.streamChat(prompt)
+      const api = (window.api as any).ai.streamChat(prompt);
 
       const cleanupChunk = api.onChunk((text: string) => {
-        bufferRef.current += text
-        setState((prev) => ({ ...prev, content: bufferRef.current }))
-      })
+        bufferRef.current += text;
+        setState((prev) => ({ ...prev, content: bufferRef.current }));
+      });
       const cleanupDone = api.onDone(() => {
-        setState((prev) => ({ ...prev, isStreaming: false }))
-      })
+        setState((prev) => ({ ...prev, isStreaming: false }));
+      });
       const cleanupError = api.onError((error: string) => {
         setState((prev) => ({
           ...prev,
           isStreaming: false,
-          error: error || 'Unknown error'
-        }))
-      })
+          error: error || 'Unknown error',
+        }));
+      });
 
-      cleanupRef.current = () => { cleanupChunk(); cleanupDone(); cleanupError() }
+      cleanupRef.current = () => {
+        cleanupChunk();
+        cleanupDone();
+        cleanupError();
+      };
     } catch (err) {
       setState((prev) => ({
         ...prev,
         isStreaming: false,
-        error: err instanceof Error ? err.message : String(err)
-      }))
+        error: err instanceof Error ? err.message : String(err),
+      }));
     }
-  }
+  };
 
   const reset = (): void => {
-    cleanupRef.current?.()
-    bufferRef.current = ''
-    setState({ content: '', isStreaming: false, error: null })
-  }
+    cleanupRef.current?.();
+    bufferRef.current = '';
+    setState({ content: '', isStreaming: false, error: null });
+  };
 
   useEffect(() => {
     return () => {
-      cleanupRef.current?.()
-    }
-  }, [])
+      cleanupRef.current?.();
+    };
+  }, []);
 
-  return { ...state, startStream, reset }
+  return { ...state, startStream, reset };
 }

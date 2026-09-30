@@ -1,5 +1,5 @@
-export type AppLanguage = 'system' | 'zh' | 'en'
-export type ResolvedLanguage = 'zh' | 'en'
+export type AppLanguage = 'system' | 'zh' | 'en';
+export type ResolvedLanguage = 'zh' | 'en';
 
 export const translations = {
   zh: {
@@ -48,7 +48,6 @@ export const translations = {
     'dotnet.hashTextPlaceholder': '输入要计算哈希的文本...',
     'dotnet.hashFilePlaceholder': '输入文件路径...',
     'dotnet.run': '运行',
-
 
     'quick.log': '记录日志',
     'quick.task': '添加任务',
@@ -244,11 +243,13 @@ export const translations = {
     'settings.styleCasual': '轻松随意',
     'settings.systemPrompt': '系统提示词',
     'settings.restoreDefault': '恢复默认',
-    'settings.promptHelp': '控制 AI 生成报告的行为。支持变量：{{language}} {{style}} {{dateFrom}} {{dateTo}}',
+    'settings.promptHelp':
+      '控制 AI 生成报告的行为。支持变量：{{language}} {{style}} {{dateFrom}} {{dateTo}}',
     'settings.reportTemplate': '报告输出模板',
     'settings.templateHelp': '定义报告的输出格式，AI 会参考此模板生成内容。支持 Markdown 和变量',
     'settings.shortcuts': '全局快捷键',
-    'settings.shortcutsHelp': '点击快捷键框后按下新的组合键即可修改。快捷键在应用切换到后台后仍然有效。',
+    'settings.shortcutsHelp':
+      '点击快捷键框后按下新的组合键即可修改。快捷键在应用切换到后台后仍然有效。',
     'settings.shortcutLog': '快速记录日志',
     'settings.shortcutTask': '快速添加任务',
     'settings.shortcutTaken': '快捷键无效或已被系统占用',
@@ -262,21 +263,22 @@ export const translations = {
     'settings.appearance': '外观',
     'settings.theme': '主题色',
     'settings.themeHelp': '切换应用的浅色、深色或跟随系统主题。',
-  'settings.accent': '主题色',
-  'settings.accentHelp': '选择应用的强调色，即时生效',
-  'settings.accentBlue': '蓝色',
-  'settings.accentIndigo': '靛蓝',
-  'settings.accentViolet': '紫色',
-  'settings.accentCyan': '青色',
-  'settings.accentEmerald': '翠绿',
-  'settings.accentOrange': '橙色',
-  'settings.accentRose': '玫红',
+    'settings.accent': '主题色',
+    'settings.accentHelp': '选择应用的强调色，即时生效',
+    'settings.accentBlue': '蓝色',
+    'settings.accentIndigo': '靛蓝',
+    'settings.accentViolet': '紫色',
+    'settings.accentCyan': '青色',
+    'settings.accentEmerald': '翠绿',
+    'settings.accentOrange': '橙色',
+    'settings.accentRose': '玫红',
     'settings.themeLight': '浅色',
     'settings.themeDark': '深色',
     'settings.themeSystem': '跟随系统',
     'settings.themeChanged': '主题已切换',
     'settings.material': '窗口材质',
-    'settings.materialHelp': '切换 Windows 11 背景材质：Mica（标准）、Tabbed（更强染色）或 Acrylic（实时模糊）。',
+    'settings.materialHelp':
+      '切换 Windows 11 背景材质：Mica（标准）、Tabbed（更强染色）或 Acrylic（实时模糊）。',
     'settings.materialMica': 'Mica',
     'settings.materialTabbed': 'Tabbed',
     'settings.materialAcrylic': 'Acrylic',
@@ -310,7 +312,7 @@ export const translations = {
     'date.lastWeek': '上周',
     'date.thisMonth': '本月',
     'date.lastMonth': '上月',
-    'date.thisQuarter': '本季度'
+    'date.thisQuarter': '本季度',
   },
   en: {
     'common.add': 'Add',
@@ -475,7 +477,8 @@ export const translations = {
     'report.aiReportTitle': 'AI Generated Report',
     'report.noHistory': 'No report history yet',
     'report.emptyTitle': 'AI Work Report',
-    'report.emptyDesc': 'Automatically analyze your work logs and task progress to generate structured weekly and monthly reports',
+    'report.emptyDesc':
+      'Automatically analyze your work logs and task progress to generate structured weekly and monthly reports',
     'report.emptyFeat1': 'Smart summary of work logs and task progress',
     'report.emptyFeat2': 'Auto-detect key achievements and milestones',
     'report.emptyFeat3': 'Edit, export, and compare historical reports',
@@ -538,11 +541,14 @@ export const translations = {
     'settings.apiKeyDeleted': 'API key deleted',
     'settings.aiProvider': 'AI Provider',
     'settings.baseUrl': 'API Base URL',
-    'settings.baseUrlHelp': 'Custom API endpoint. Leave empty to use the official endpoint. Supports proxies and local models.',
+    'settings.baseUrlHelp':
+      'Custom API endpoint. Leave empty to use the official endpoint. Supports proxies and local models.',
     'settings.modelName': 'Model name',
-    'settings.modelHelp': 'Leave empty to use the default model, for example qwen-plus, gpt-4o, or claude-sonnet-4-20250514.',
+    'settings.modelHelp':
+      'Leave empty to use the default model, for example qwen-plus, gpt-4o, or claude-sonnet-4-20250514.',
     'settings.embeddingConfig': 'Embedding Model Config',
-    'settings.embeddingHelp': 'Configuration for text embedding models, used for semantic search and similar features',
+    'settings.embeddingHelp':
+      'Configuration for text embedding models, used for semantic search and similar features',
     'settings.embeddingProvider': 'Embedding Service',
     'settings.embeddingModelName': 'Embedding Model Name',
     'settings.customProvider': 'Custom',
@@ -554,11 +560,13 @@ export const translations = {
     'settings.styleCasual': 'Light and casual',
     'settings.systemPrompt': 'System prompt',
     'settings.restoreDefault': 'Restore default',
-    'settings.promptHelp': 'Controls report generation. Supports variables: {{language}} {{style}} {{dateFrom}} {{dateTo}}',
+    'settings.promptHelp':
+      'Controls report generation. Supports variables: {{language}} {{style}} {{dateFrom}} {{dateTo}}',
     'settings.reportTemplate': 'Report output template',
     'settings.templateHelp': 'Defines the report structure. Supports Markdown and variables.',
     'settings.shortcuts': 'Global Shortcuts',
-    'settings.shortcutsHelp': 'Click a shortcut field, then press a new key combination. Shortcuts work while the app is in the background.',
+    'settings.shortcutsHelp':
+      'Click a shortcut field, then press a new key combination. Shortcuts work while the app is in the background.',
     'settings.shortcutLog': 'Quick log',
     'settings.shortcutTask': 'Quick task',
     'settings.shortcutTaken': 'Shortcut is invalid or already used by the system',
@@ -572,27 +580,29 @@ export const translations = {
     'settings.appearance': 'Appearance',
     'settings.theme': 'Theme',
     'settings.themeHelp': 'Switch between light, dark, or system theme.',
-  'settings.accent': 'Accent Color',
-  'settings.accentHelp': 'Pick the app accent color. Applies instantly.',
-  'settings.accentBlue': 'Blue',
-  'settings.accentIndigo': 'Indigo',
-  'settings.accentViolet': 'Violet',
-  'settings.accentCyan': 'Cyan',
-  'settings.accentEmerald': 'Emerald',
-  'settings.accentOrange': 'Orange',
-  'settings.accentRose': 'Rose',
+    'settings.accent': 'Accent Color',
+    'settings.accentHelp': 'Pick the app accent color. Applies instantly.',
+    'settings.accentBlue': 'Blue',
+    'settings.accentIndigo': 'Indigo',
+    'settings.accentViolet': 'Violet',
+    'settings.accentCyan': 'Cyan',
+    'settings.accentEmerald': 'Emerald',
+    'settings.accentOrange': 'Orange',
+    'settings.accentRose': 'Rose',
     'settings.themeLight': 'Light',
     'settings.themeDark': 'Dark',
     'settings.themeSystem': 'System',
     'settings.themeChanged': 'Theme changed',
     'settings.material': 'Window Material',
-    'settings.materialHelp': 'Switch the Windows 11 backdrop: Mica (standard), Tabbed (stronger tint), or Acrylic (live blur).',
+    'settings.materialHelp':
+      'Switch the Windows 11 backdrop: Mica (standard), Tabbed (stronger tint), or Acrylic (live blur).',
     'settings.materialMica': 'Mica',
     'settings.materialTabbed': 'Tabbed',
     'settings.materialAcrylic': 'Acrylic',
     'settings.materialChanged': 'Window material changed',
     'settings.language': 'Interface language',
-    'settings.languageHelp': 'Defaults to the system language. Supports English and Chinese; Windows uses the system locale.',
+    'settings.languageHelp':
+      'Defaults to the system language. Supports English and Chinese; Windows uses the system locale.',
     'settings.languageSystem': 'System',
     'settings.languageZh': '中文',
     'settings.languageEn': 'English',
@@ -619,17 +629,20 @@ export const translations = {
     'date.lastWeek': 'Last week',
     'date.thisMonth': 'This month',
     'date.lastMonth': 'Last month',
-    'date.thisQuarter': 'This quarter'
-  }
-} as const
+    'date.thisQuarter': 'This quarter',
+  },
+} as const;
 
-export type TranslationKey = keyof typeof translations.zh
+export type TranslationKey = keyof typeof translations.zh;
 
-export function interpolate(template: string, values: Record<string, string | number> = {}): string {
-  if (typeof template !== 'string') return String(template ?? '')
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => String(values[key] ?? ''))
+export function interpolate(
+  template: string,
+  values: Record<string, string | number> = {},
+): string {
+  if (typeof template !== 'string') return String(template ?? '');
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => String(values[key] ?? ''));
 }
 
 export function resolveSystemLanguage(language: string): ResolvedLanguage {
-  return language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  return language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
 }

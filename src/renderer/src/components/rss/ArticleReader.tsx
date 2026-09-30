@@ -68,7 +68,14 @@ function MermaidDiagram({ code }: { code: string }) {
 
 // ── Custom Code Block (with language label + copy button) ──
 // children 可选：对齐 react-markdown 的 Components 类型（其 props 中 children 为可选）
-function CodeBlock({ children, className, ...props }: { children?: ReactNode; className?: string }) {
+function CodeBlock({
+  children,
+  className,
+  ...props
+}: {
+  children?: ReactNode;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   const match = /language-(\w+)/.exec(className || '');

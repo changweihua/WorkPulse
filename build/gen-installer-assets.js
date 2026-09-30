@@ -27,10 +27,7 @@ const TEXT_TERTIARY = '#9CA3AF';
 
 // Generate PNG files first (known working approach)
 async function genPNG(svg, width, height, pngFile) {
-  await sharp(Buffer.from(svg))
-    .resize(width, height)
-    .png()
-    .toFile(path.join(buildDir, pngFile));
+  await sharp(Buffer.from(svg)).resize(width, height).png().toFile(path.join(buildDir, pngFile));
   console.log(`  PNG: ${pngFile}`);
 }
 

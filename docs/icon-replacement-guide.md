@@ -2,12 +2,12 @@
 
 ## 需要的图标文件
 
-| 文件 | 用途 | 尺寸要求 | 格式 |
-|------|------|----------|------|
-| `resources/icon.png` | 应用主图标（源文件） | 1024×1024 px | PNG，透明背景 |
-| `resources/icon.icns` | macOS 应用图标 | 多尺寸包 | ICNS（从 icon.png 生成） |
-| `resources/icon.ico` | Windows 应用图标 | 多尺寸包 | ICO（从 icon.png 生成） |
-| `resources/tray-icon.png` | macOS 菜单栏图标 | 44×44 px | PNG，白色图形 + 透明背景 |
+| 文件                      | 用途                 | 尺寸要求     | 格式                     |
+| ------------------------- | -------------------- | ------------ | ------------------------ |
+| `resources/icon.png`      | 应用主图标（源文件） | 1024×1024 px | PNG，透明背景            |
+| `resources/icon.icns`     | macOS 应用图标       | 多尺寸包     | ICNS（从 icon.png 生成） |
+| `resources/icon.ico`      | Windows 应用图标     | 多尺寸包     | ICO（从 icon.png 生成）  |
+| `resources/tray-icon.png` | macOS 菜单栏图标     | 44×44 px     | PNG，白色图形 + 透明背景 |
 
 ---
 

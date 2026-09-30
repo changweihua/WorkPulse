@@ -1,6 +1,7 @@
 # TODOS
 
 ## Phase 2: 任务看板模块
+
 **What:** 实现 Todo/InProgress/Done 三列看板 + 拖拽 + 完成自动写入日志 + 月报/季度总结
 **Why:** 让任务管理和工作记录形成闭环，拖拽完成任务 = 自动产生工作日志
 **Depends on:** Phase 1 MVP 完成

@@ -1,75 +1,71 @@
-import { useState, type ReactNode } from 'react'
-import { Cpu, HardDrive, Hash, FileCode, Loader2, Play } from 'lucide-react'
-import { useToast } from '../components/Toast'
-import { useI18n } from '../stores/languageStore'
+import { useState, type ReactNode } from 'react';
+import { Cpu, HardDrive, Hash, FileCode, Loader2, Play } from 'lucide-react';
+import { useToast } from '../components/Toast';
+import { useI18n } from '../stores/languageStore';
 
-type TabKey = 'system' | 'performance' | 'hash'
+type TabKey = 'system' | 'performance' | 'hash';
 
 const TABS: { key: TabKey; icon: ReactNode; label: string }[] = [
   { key: 'system', icon: <Cpu className="w-4 h-4" />, label: 'System Info' },
   { key: 'performance', icon: <HardDrive className="w-4 h-4" />, label: 'Performance' },
   { key: 'hash', icon: <Hash className="w-4 h-4" />, label: 'Hash' },
-]
+];
 
-const HASH_ALGORITHMS = ['SHA256', 'SHA1', 'SHA384', 'SHA512', 'MD5']
+const HASH_ALGORITHMS = ['SHA256', 'SHA1', 'SHA384', 'SHA512', 'MD5'];
 
 function DotnetBridgePage(): ReactNode {
-  const [tab, setTab] = useState<TabKey>('system')
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<string | null>(null)
-  const [hashInput, setHashInput] = useState('')
-  const [hashMode, setHashMode] = useState<'text' | 'file'>('text')
-  const [hashAlgo, setHashAlgo] = useState('SHA256')
-  const toast = useToast()
-  const { t } = useI18n()
+  const [tab, setTab] = useState<TabKey>('system');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [hashInput, setHashInput] = useState('');
+  const [hashMode, setHashMode] = useState<'text' | 'file'>('text');
+  const [hashAlgo, setHashAlgo] = useState('SHA256');
+  const toast = useToast();
+  const { t } = useI18n();
 
   const invoke = async (method: string, ...args: unknown[]): Promise<void> => {
-    setLoading(true)
-    setResult(null)
+    setLoading(true);
+    setResult(null);
     try {
-      const res = await window.api.dotnet.invoke(method, ...args)
-      setResult(String(res))
+      const res = await window.api.dotnet.invoke(method, ...args);
+      setResult(String(res));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setResult(`Error: ${msg}`)
-      toast.error(msg)
+      const msg = err instanceof Error ? err.message : String(err);
+      setResult(`Error: ${msg}`);
+      toast.error(msg);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleRun = (): void => {
     switch (tab) {
       case 'system':
-        invoke('getSystemInfo')
-        break
+        invoke('getSystemInfo');
+        break;
       case 'performance':
-        invoke('getPerformanceInfo')
-        break
+        invoke('getPerformanceInfo');
+        break;
       case 'hash':
         if (!hashInput.trim()) {
-          toast.error('Please enter input')
-          return
+          toast.error('Please enter input');
+          return;
         }
         if (hashMode === 'text') {
-          invoke('computeHash', hashInput, hashAlgo)
+          invoke('computeHash', hashInput, hashAlgo);
         } else {
-          invoke('computeFileHash', hashInput, hashAlgo)
+          invoke('computeFileHash', hashInput, hashAlgo);
         }
-        break
+        break;
     }
-  }
+  };
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold text-zinc-800 dark:text-zinc-100">
-          .NET Bridge
-        </h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-          {t('dotnet.subtitle')}
-        </p>
+        <h1 className="text-xl font-semibold text-zinc-800 dark:text-zinc-100">.NET Bridge</h1>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{t('dotnet.subtitle')}</p>
       </div>
 
       {/* Tab bar */}
@@ -77,7 +73,10 @@ function DotnetBridgePage(): ReactNode {
         {TABS.map((item) => (
           <button
             key={item.key}
-            onClick={() => { setTab(item.key); setResult(null) }}
+            onClick={() => {
+              setTab(item.key);
+              setResult(null);
+            }}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 justify-center ${
               tab === item.key
                 ? 'bg-blue-500 text-white shadow-sm'
@@ -134,7 +133,11 @@ function DotnetBridgePage(): ReactNode {
               value={hashInput}
               onChange={(e) => setHashInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleRun()}
-              placeholder={hashMode === 'text' ? t('dotnet.hashTextPlaceholder') : t('dotnet.hashFilePlaceholder')}
+              placeholder={
+                hashMode === 'text'
+                  ? t('dotnet.hashTextPlaceholder')
+                  : t('dotnet.hashFilePlaceholder')
+              }
               className="w-full px-4 py-2.5 text-sm border border-[var(--color-border)] rounded-lg outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 dark:focus:ring-blue-800 surface-input dark:text-zinc-100"
             />
 
@@ -163,11 +166,7 @@ function DotnetBridgePage(): ReactNode {
           disabled={loading}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 text-sm font-medium"
         >
-          {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Play className="w-4 h-4" />
-          )}
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
           {loading ? t('common.loading') : t('dotnet.run')}
         </button>
       </div>
@@ -182,7 +181,7 @@ function DotnetBridgePage(): ReactNode {
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default DotnetBridgePage
+export default DotnetBridgePage;

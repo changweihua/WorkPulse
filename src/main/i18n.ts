@@ -1,8 +1,8 @@
-import { app } from 'electron'
-import { getSetting } from './db'
+import { app } from 'electron';
+import { getSetting } from './db';
 
-export type AppLanguage = 'system' | 'zh' | 'en'
-export type ResolvedLanguage = 'zh' | 'en'
+export type AppLanguage = 'system' | 'zh' | 'en';
+export type ResolvedLanguage = 'zh' | 'en';
 
 const translations = {
   zh: {
@@ -37,8 +37,9 @@ const translations = {
     taskDraft: '草稿',
     taskDue: '截止 {{date}}',
     taskCompletedAt: '完成于 {{date}}',
-    reportUserMessage: '以下是我的工作日志，请生成工作总结报告：\n\n{{logs}}{{tasks}}\n\n请参考以下格式模板输出：\n{{template}}',
-    taskContextTitle: '\n\n相关任务上下文：\n{{tasks}}'
+    reportUserMessage:
+      '以下是我的工作日志，请生成工作总结报告：\n\n{{logs}}{{tasks}}\n\n请参考以下格式模板输出：\n{{template}}',
+    taskContextTitle: '\n\n相关任务上下文：\n{{tasks}}',
   },
   en: {
     create: 'Create',
@@ -55,7 +56,8 @@ const translations = {
     showApp: 'Show WorkPulse',
     quit: 'Quit',
     closeDialogMessage: 'Are you sure you want to quit?',
-    closeDialogDetail: 'You can quit the app or minimize to the tray to keep it running in the background.',
+    closeDialogDetail:
+      'You can quit the app or minimize to the tray to keep it running in the background.',
     noWorkLogsInRange: 'No work logs in the selected date range',
     noLogsToExport: 'No logs to export',
     exportLogsTitle: 'Export work logs',
@@ -72,31 +74,32 @@ const translations = {
     taskDraft: 'Draft',
     taskDue: 'due {{date}}',
     taskCompletedAt: 'completed {{date}}',
-    reportUserMessage: 'Here are my work logs. Generate a work summary report:\n\n{{logs}}{{tasks}}\n\nUse this output template as the structure:\n{{template}}',
-    taskContextTitle: '\n\nRelated task context:\n{{tasks}}'
-  }
-} as const
+    reportUserMessage:
+      'Here are my work logs. Generate a work summary report:\n\n{{logs}}{{tasks}}\n\nUse this output template as the structure:\n{{template}}',
+    taskContextTitle: '\n\nRelated task context:\n{{tasks}}',
+  },
+} as const;
 
-type MainTranslationKey = keyof typeof translations.zh
+type MainTranslationKey = keyof typeof translations.zh;
 
 export function resolveSystemLanguage(language: string): ResolvedLanguage {
-  return language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  return language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
 }
 
 export function getConfiguredLanguage(): AppLanguage {
-  const saved = getSetting('app_language')
-  return saved === 'zh' || saved === 'en' || saved === 'system' ? saved : 'system'
+  const saved = getSetting('app_language');
+  return saved === 'zh' || saved === 'en' || saved === 'system' ? saved : 'system';
 }
 
 export function getResolvedLanguage(): ResolvedLanguage {
-  const configured = getConfiguredLanguage()
-  return configured === 'system' ? resolveSystemLanguage(app.getLocale()) : configured
+  const configured = getConfiguredLanguage();
+  return configured === 'system' ? resolveSystemLanguage(app.getLocale()) : configured;
 }
 
 export function tMain(
   key: MainTranslationKey,
-  values: Record<string, string | number> = {}
+  values: Record<string, string | number> = {},
 ): string {
-  const template = translations[getResolvedLanguage()][key] ?? translations.en[key]
-  return template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(values[token] ?? ''))
+  const template = translations[getResolvedLanguage()][key] ?? translations.en[key];
+  return template.replace(/\{\{(\w+)\}\}/g, (_, token) => String(values[token] ?? ''));
 }
