@@ -12,6 +12,7 @@
 - 🦄 refactor: React Router 导入路径迁移 — 6 个文件的 hooks/组件从 `react-router-dom` 迁移至 `react-router`（`createHashRouter` 和 `RouterProvider` 保留 `react-router-dom`）
 - 🦄 refactor: Zustand v5 规范对齐 — 6 个 store 改为 `create<T>()(...)` 双调用，12 个消费组件添加 `useShallow` 防止不必要重渲染
 - 🦄 refactor: CSS 设计规范对齐 — `surface-card` 毛玻璃参数统一为 `blur(16px) saturate(180%)`，新增 `chrome-bg`/`panel-dark`/`surface-subtle-dark` token 替代硬编码 hex
+- ✨ feat: worklog 日志列表滚动触底自动加载更多（IntersectionObserver，保留手动按钮兜底）
 
 ### 变更
 
@@ -31,6 +32,7 @@
 - 🎈 perf: 工作日志列表排序走索引 — 新增 `sort_key` 冗余列物化 `COALESCE(due_date, created_at)`（含存量回填与四处写路径回写），列表/搜索/导出改按 `sort_key` 排序，消除全表 join+sort
 - 🎈 perf: 背景模糊开销降低 — AnimatedBackground 静止 30 帧后完全停止 rAF 循环（鼠标移动重启）；卡片 `backdrop-filter` 模糊半径 16→12px、输入框 20→15px（饱和度与玻璃质感参数保留）
 - 🎈 perf: OCR 模型加载绕开 IPC 克隆 — `usePPOCR` 优先经 `appmodel://` 协议流式读取模型（模块级 ArrayBuffer 缓存 + content-length 分段进度），失败回退原 `read-model-file` IPC；消除 medium 变体约 138MB 的结构化克隆
+- 🦄 refactor: worklog 瀑布流卡片高度测量改为 ResizeObserver 事件驱动，移除定时器与 MutationObserver
 
 ### 新增
 
