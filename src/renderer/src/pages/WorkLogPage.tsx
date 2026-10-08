@@ -550,7 +550,9 @@ function WorkLogPage(): ReactNode {
   const tRef = useRef(t);
   // 渲染期派生写 ref：语言切换当次渲染 LogEntry 以新 key 重建，子组件在同一次渲染中
   // 经 stableT 读 t，必须当帧拿到新 t（提交后再同步会停留在旧语言直到下次渲染）
-  const [prevT, setPrevT] = useState(t);
+  // 必须用惰性初始化 () => t：t 是函数，直接 useState(t) 会被 React 当作初始化器执行，
+  // prevT 变成 t() 的返回值（string），与函数 t 永远不等 → 渲染期 setState 死循环抛 #301
+  const [prevT, setPrevT] = useState<typeof t>(() => t);
   if (prevT !== t) {
     setPrevT(t);
     tRef.current = t;

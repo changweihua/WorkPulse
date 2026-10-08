@@ -49,6 +49,7 @@
 
 ### 修复
 
+- 🐞 fix: 打包后页面白屏报 React #301（Too many re-renders）— `useI18n` 的 `t` 改为 `useCallback` 引用稳定（原每次渲染返回新函数），并修正 WorkLogPage `useState(t)` 为惰性初始化 `useState(() => t)`（t 是函数，React 会执行它，prevT 变成 string 与 t 永不相等，渲染期派生 `if (prevT !== t)` 永真死循环）
 - 🐞 fix: 统一 ECharts 图表字体为全局字体，新增公共图表主题模块
 - 🐞 fix: 工作日志记录 tag 未垂直居中、编辑与删除按钮仅悬停显示 — 内容行改 `items-center` 并修正 `whitespace-nowrap` 拼写，编辑/删除按钮常驻显示
 - 🐞 fix: 打包后启动崩溃 Cannot find module trousse — feedsmith 打进 main bundle（`externalizeDeps.exclude`），绕开 electron-builder 不收集依赖包内嵌套 `node_modules` 的限制
