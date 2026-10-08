@@ -507,7 +507,8 @@ function KanbanPage(): ReactNode {
   }, [fetchTasks]);
 
   // 渲染期派生：store 中的 tasks 变化时同步本地副本（原为 useEffect 内同步 setState）
-  const [prevTasks, setPrevTasks] = useState<Task[]>(tasks);
+  // 哨兵初始值 null：确保首次渲染时也会把 store 缓存同步进 localTasks（否则缓存命中时首屏空白）
+  const [prevTasks, setPrevTasks] = useState<Task[] | null>(null);
   if (prevTasks !== tasks) {
     setPrevTasks(tasks);
     setLocalTasks(tasks);

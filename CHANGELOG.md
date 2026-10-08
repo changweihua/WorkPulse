@@ -41,6 +41,7 @@
 - 🌈 style: 全量 oxfmt 格式化 — 137 个存量文件按 .oxfmtrc.json（分号、2 空格缩进、宽度 100）统一格式，format:check 转绿（此前 132 文件为升级前既有债务）
 - 🗑️ remove: 移除 18 处失效的 eslint-disable 注释 — 仓库从未接入 eslint，注释已全部失效；同步修复其暴露出的 14 条 oxlint 警告（ReportPage、ReportsPage、screenshot-overlay、useIdleCallback、useHuggingFaceModel），全仓警告保持 0
 - 🌈 style: 行尾统一为 LF — package-lock.json 及 10 个 CRLF 残留文件转换（.env、.gitignore、.npmrc、Bridge 源码、resources 配置等），配合 .gitattributes 彻底消除行尾混用
+- 🦄 refactor: XrayProcessor 移除死状态 `isPreviewing` — 处理中中间态从未渲染，状态恒为 false，按钮 `disabled`/文案简化为仅依赖 `imageLoaded`
 
 ### 新增
 
@@ -66,6 +67,10 @@
 - 🐞 fix: 修复 14 个存量 web 类型错误 — `npm run typecheck:web` 首次归零（segmentClick/RadialApi 签名对齐 preload、ArticleReader 守卫 url 回调、rssStore.updateFeed 补 url 可选参数、i18n 补 apiKeySaved/apiKeyDeleted 词条、SettingsPage 遗留无引用处理器注释化）
 - 🐞 fix: 启动崩溃 `no such column: sort_key` — `createTables` 不再提前创建 sort_key 索引（存量库该列由 migrateWorkLogSortKey 加列后才存在），索引统一在迁移内创建
 - 🐞 fix: feedsmith v3 类型适配 — `domParseItems` 参数从 `ReturnType<typeof parseFeed>` 改为显式 `AnyFeed<string>`（v3 泛型 TDate 默认 string，ReturnType 实例化为 unknown 导致不匹配）
+- 🐞 fix: 截图工具栏点击复制/保存无反应 — 重构提交误将四个按钮的 `run` 改为空函数，恢复 `runAction('copy'/'save')` 与占位提示调用（键盘快捷键不受影响）
+- 🐞 fix: 看板首屏空白 — 渲染期派生的 `prevTasks` 改哨兵 `null` 初始化，store 有缓存时首帧即同步进 `localTasks`（fetch 失败也不再永久空白）
+- 🐞 fix: 工作日志切换语言后条目文案停留在旧语言 — `tRef` 改为渲染期派生写入，语言切换当帧子组件即读到新 `t`
+- 🐞 fix: 统计页「今天」跨天过期 — 模块级 `NOW` 常量改为组件挂载时取值，应用长驻跨天后柱状图与 AI 摘要不再圈选昨天
 
 ### 依赖更新
 

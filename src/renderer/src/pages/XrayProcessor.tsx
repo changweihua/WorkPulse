@@ -382,7 +382,6 @@ function ProcessorCore() {
 
   // 预览触发
   const [previewTrigger, setPreviewTrigger] = useState(0);
-  const [isPreviewing, setIsPreviewing] = useState(false);
 
   // 全屏编辑器
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -478,8 +477,7 @@ function ProcessorCore() {
     const composite = getCompositeImageData();
     if (!composite) return;
     const { width, height, data } = composite;
-    // 预览绘制为同步批处理：原先的 setIsPreviewing(true/false) 在同一批次内提交，
-    // 中间态从未渲染，删除后对外表现一致（isPreviewing 恒为 false），也避免 effect 内同步 setState
+    // 预览绘制为同步批处理（原先的处理中中间态从未渲染，已移除）
 
     const brightCanvas = brightPreviewRef.current;
     if (brightCanvas) {
@@ -604,14 +602,14 @@ function ProcessorCore() {
           </label>
           <button
             onClick={() => setPreviewTrigger((prev) => prev + 1)}
-            disabled={!imageLoaded || isPreviewing}
+            disabled={!imageLoaded}
             className={`px-3 py-1.5 text-sm rounded-lg shadow-sm transition ${
-              imageLoaded && !isPreviewing
+              imageLoaded
                 ? 'bg-green-600 hover:bg-green-700 text-white'
                 : 'bg-zinc-200 text-zinc-400 dark:text-zinc-500 dark:bg-zinc-700 cursor-not-allowed'
             }`}
           >
-            {isPreviewing ? '⏳ 处理中...' : '👁️ 预览'}
+            👁️ 预览
           </button>
           <button
             onClick={handleResetEditor}

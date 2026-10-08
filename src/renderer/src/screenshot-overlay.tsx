@@ -369,10 +369,10 @@ function ScreenshotOverlay(): React.ReactNode {
   }
 
   const TOOLS: ToolDef[] = [
-    { key: 'copy', label: '复制', hint: '1', Icon: Copy, run: () => {} },
-    { key: 'save', label: '保存', hint: '2', Icon: Save, run: () => {} },
-    { key: 'mark', label: '标记截图', Icon: Pen, run: () => {} },
-    { key: 'search', label: '视觉搜索', Icon: Eye, run: () => {} },
+    { key: 'copy', label: '复制', hint: '1', Icon: Copy, run: () => runAction('copy') },
+    { key: 'save', label: '保存', hint: '2', Icon: Save, run: () => runAction('save') },
+    { key: 'mark', label: '标记截图', Icon: Pen, run: () => runPlaceholder('标记功能开发中') },
+    { key: 'search', label: '视觉搜索', Icon: Eye, run: () => runPlaceholder('视觉搜索开发中') },
   ];
 
   return (

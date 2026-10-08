@@ -73,9 +73,6 @@ function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-/** 页面加载时的当前时间：供 render 中派生“今天”，避免在 render 期间调用不纯的 Date */
-const NOW = new Date();
-
 function useCountUp(target: number, duration = 1200): number {
   const [value, setValue] = useState(0);
   const startTime = useRef<number | null>(null);
@@ -548,7 +545,9 @@ function CategoryBreakdown({ range, enabled }: { range: number; enabled: boolean
 
 function AISummary({ stats }: { stats: Stats }): ReactNode {
   const { t } = useI18n();
-  const today = formatLocalDate(NOW);
+  // 挂载时取“现在”：应用长驻跨天后仍能显示真正今天的数据
+  const [now] = useState(() => new Date());
+  const today = formatLocalDate(now);
   const todayEntry = stats.daily.find((d) => d.date === today);
   const todayLogs = todayEntry?.log_count ?? 0;
   const todayTasks = todayEntry?.task_completed ?? 0;
@@ -761,6 +760,8 @@ function computeDeltas(daily: DailyStats[]): {
 function StatsPage(): ReactNode {
   const [stats, setStats] = useState<Stats | null>(null);
   const [range, setRange] = useState<number>(90);
+  // 挂载时取“现在”：应用长驻跨天后，柱状图“今天”的圈选不会停在模块加载那天
+  const [mountedNow] = useState(() => new Date());
   const { t } = useI18n();
   const [donutReady, setDonutReady] = useState(false);
   const [barReady, setBarReady] = useState(false);
@@ -831,7 +832,7 @@ function StatsPage(): ReactNode {
   const barDays = Math.min(range, 30);
 
   const filled: DailyStats[] = [];
-  const today = NOW;
+  const today = mountedNow;
   for (let i = barDays - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);

@@ -548,11 +548,13 @@ function WorkLogPage(): ReactNode {
   // useI18n 的 t 每次渲染返回新函数；包装为引用稳定的版本，
   // 供 memo 化的日志条目与 useCallback 依赖使用，避免每次渲染失效所有条目
   const tRef = useRef(t);
-  // 渲染期不写 ref：提交后再同步最新 t（stableT 仅在事件回调与子组件渲染中读取，
-  // 读取时机均晚于本次提交，故行为一致）
-  useEffect(() => {
+  // 渲染期派生写 ref：语言切换当次渲染 LogEntry 以新 key 重建，子组件在同一次渲染中
+  // 经 stableT 读 t，必须当帧拿到新 t（提交后再同步会停留在旧语言直到下次渲染）
+  const [prevT, setPrevT] = useState(t);
+  if (prevT !== t) {
+    setPrevT(t);
     tRef.current = t;
-  });
+  }
   const stableT = useCallback(
     (key: TranslationKey, values?: Record<string, string | number>) => tRef.current(key, values),
     [],
