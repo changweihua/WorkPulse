@@ -13,6 +13,7 @@
 - 🦄 refactor: Zustand v5 规范对齐 — 6 个 store 改为 `create<T>()(...)` 双调用，12 个消费组件添加 `useShallow` 防止不必要重渲染
 - 🦄 refactor: CSS 设计规范对齐 — `surface-card` 毛玻璃参数统一为 `blur(16px) saturate(180%)`，新增 `chrome-bg`/`panel-dark`/`surface-subtle-dark` token 替代硬编码 hex
 - ✨ feat: worklog 日志列表滚动触底自动加载更多（IntersectionObserver，保留手动按钮兜底）
+- ✨ feat: AI 悬浮按钮与返回顶部按钮自动避让 — 检测到重叠时朝最近边缘平滑让位，对方消失后回到用户原位置，拖拽与位置持久化不受影响
 
 ### 变更
 
