@@ -35,6 +35,7 @@
 - 🎈 perf: OCR 模型加载绕开 IPC 克隆 — `usePPOCR` 优先经 `appmodel://` 协议流式读取模型（模块级 ArrayBuffer 缓存 + content-length 分段进度），失败回退原 `read-model-file` IPC；消除 medium 变体约 138MB 的结构化克隆
 - 🦄 refactor: worklog 瀑布流卡片高度测量改为 ResizeObserver 事件驱动，移除定时器与 MutationObserver
 - 📦 deps: 升级全部过时依赖（18 项，均为小版本/补丁）— electron 44.5.0、electron-vite 6.0.0-beta.5、vite 8.3.1、openai 7.25.0、oxlint 1.86.0、oxfmt 0.71.0、motion 13.4.6、lucide-react 1.49.0 等；typecheck / lint / build 验证通过
+- 📦 deps: 升级全部过时依赖（18 项）— electron 44.7.0、electron-vite 6.0.0-beta.7、vite 8.3.3、openai 7.30.0、oxlint 1.87.0、oxfmt 0.72.0、lucide-react 1.52.0、motion 14.0.0（官方声明 React 侧零破坏性变更，项目 17 处用法均在公开 API，0 行代码改动）等；typecheck / lint / format / build 验证通过
 - 🐳 chore: 真实接入 oxfmt/oxlint — lint-staged 从「全仓 oxlint 恒红致 oxfmt 从不执行」修为仅检查 staged 文件、全部文件类型统一走 oxfmt，且 oxlint/oxfmt 命令追加 `--no-error-on-unmatched-pattern`（提交仅含被忽略路径 scripts/build/native/*.d.ts 等 JS/TS 文件时不再报「No files found」拦截提交）；完全移除 prettier（依赖、.prettierrc、脚本引用）；新增 CI workflow（typecheck + oxlint 警告棘轮 ≤50 + format:check + build，push/PR 触发）；新增 .gitattributes（LF 归一且保留 LFS 规则）；.editorconfig 补 max_line_length 与 oxfmt 对齐
 - 🦄 refactor: oxlint 全仓 57 条警告清零 — 覆盖 react(set-state-in-effect)、react(refs)、react(purity)、react-hooks(exhaustive-deps)、react(immutability) 五类规则，修复均保持行为不变（派生加载态、effect 内同步 ref、Date 外提等最小模式），未使用任何 disable 注释
 - 🌈 style: 全量 oxfmt 格式化 — 137 个存量文件按 .oxfmtrc.json（分号、2 空格缩进、宽度 100）统一格式，format:check 转绿（此前 132 文件为升级前既有债务）
