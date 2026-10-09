@@ -129,6 +129,8 @@ export const translations = {
     'kanban.draftHelp': '可办可不办的想法，拖到待办即为计划',
     'kanban.draftPlaceholder': '随手记一个...',
     'kanban.noDrafts': '暂无草稿',
+    'kanban.doneExpand': '展开 {{count}} 条',
+    'kanban.doneCollapse': '收起',
 
     'report.generatedFallback': '生成失败',
     'report.noRecordsNeedle': '没有工作记录',
@@ -441,6 +443,8 @@ export const translations = {
     'kanban.draftHelp': 'Ideas for later. Drag one to Todo when it becomes a plan.',
     'kanban.draftPlaceholder': 'Capture an idea...',
     'kanban.noDrafts': 'No drafts',
+    'kanban.doneExpand': 'Show {{count}} more',
+    'kanban.doneCollapse': 'Collapse',
 
     'report.generatedFallback': 'Generation failed',
     'report.noRecordsNeedle': 'no work records',

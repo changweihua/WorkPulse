@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { FadeIn, MOTION_EASE } from '../components/Motion';
 import {
   DndContext,
@@ -29,6 +29,7 @@ import {
   Archive,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Calendar,
   Pencil,
   Check,
@@ -67,6 +68,9 @@ const COLUMNS: {
 
 const ALL_DROPPABLE_IDS: DroppableId[] = ['todo', 'in_progress', 'done', 'draft'];
 const SAVE_SHORTCUT_LABEL = navigator.userAgent.includes('Mac') ? '⌘+Enter' : 'Ctrl+Enter';
+
+/** 已完成列默认直接展示的卡片数，其余折叠（视觉最协调的取值） */
+const DONE_PREVIEW_COUNT = 6;
 
 // --- Droppable Column Wrapper ---
 function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }): ReactNode {
@@ -499,8 +503,19 @@ function KanbanPage(): ReactNode {
     const saved = localStorage.getItem('kanban:draftOpen');
     return saved !== null ? saved === 'true' : true;
   });
+  // 已完成列折叠状态：默认收起（只展示前 DONE_PREVIEW_COUNT 条）
+  const [doneOpen, setDoneOpen] = useState(
+    () => localStorage.getItem('kanban:doneOpen') === 'true',
+  );
   const [previewDesc, setPreviewDesc] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  /** 手动切换已完成列折叠：写入 localStorage 持久化（拖拽自动展开不写入） */
+  const toggleDoneOpen = (): void => {
+    const next = !doneOpen;
+    setDoneOpen(next);
+    localStorage.setItem('kanban:doneOpen', String(next));
+  };
 
   useEffect(() => {
     fetchTasks().finally(() => setLoading(false));
@@ -545,6 +560,8 @@ function KanbanPage(): ReactNode {
   const handleDragStart = (event: DragStartEvent): void => {
     const task = localTasks.find((t) => t.id === event.active.id);
     setActiveTask(task || null);
+    // 拖拽已完成列任务时自动展开折叠区，保证隐藏区域可作为拖放目标（仅改内存状态，不写 localStorage）
+    if (task?.status === 'done' && !doneOpen) setDoneOpen(true);
   };
 
   const handleDragOver = (event: DragOverEvent): void => {
@@ -565,6 +582,9 @@ function KanbanPage(): ReactNode {
     }
 
     if (!overColumn) return;
+
+    // 拖拽经过已完成列时同样自动展开，避免落入不可见区域（仅改内存状态）
+    if (overColumn === 'done' && !doneOpen) setDoneOpen(true);
 
     const activeTaskItem = localTasks.find((t) => t.id === activeId);
     if (!activeTaskItem || activeTaskItem.status === overColumn) return;
@@ -773,6 +793,19 @@ function KanbanPage(): ReactNode {
           <div className="grid grid-cols-3 gap-4">
             {COLUMNS.map((col) => {
               const columnTasks = getColumnTasks(col.id);
+              // 已完成列：默认只展示前 DONE_PREVIEW_COUNT 条，其余折叠（仅 done 列生效）
+              const isDoneColumn = col.id === 'done';
+              const visibleTasks = isDoneColumn
+                ? columnTasks.slice(0, DONE_PREVIEW_COUNT)
+                : columnTasks;
+              const hiddenTasks = isDoneColumn ? columnTasks.slice(DONE_PREVIEW_COUNT) : [];
+              const hiddenCount = hiddenTasks.length;
+              const collapsible = isDoneColumn && hiddenCount > 0;
+              // 折叠时对可见列表尾部施加渐隐遮罩，溶入页面背景（CSS 变量自动适配暗色模式）
+              const fadeMask =
+                collapsible && !doneOpen
+                  ? 'linear-gradient(to bottom, black calc(100% - 56px), transparent 100%)'
+                  : undefined;
               return (
                 <div key={col.id} className="min-h-50">
                   <div className={`flex items-center gap-2 mb-3 pb-2 border-b-2 ${col.color}`}>
@@ -788,8 +821,14 @@ function KanbanPage(): ReactNode {
                     strategy={verticalListSortingStrategy}
                   >
                     <DroppableColumn id={col.id}>
-                      <div className="space-y-2">
-                        {columnTasks.map((task) => (
+                      {/* 可见卡片列表：折叠态加渐隐遮罩（遮罩只影响视觉，不影响拖拽命中） */}
+                      <div
+                        className="space-y-2"
+                        style={
+                          fadeMask ? { maskImage: fadeMask, WebkitMaskImage: fadeMask } : undefined
+                        }
+                      >
+                        {visibleTasks.map((task) => (
                           <SortableTaskCard
                             key={task.id}
                             task={task}
@@ -804,6 +843,74 @@ function KanbanPage(): ReactNode {
                           </div>
                         )}
                       </div>
+
+                      {/* 折叠的其余已完成任务：平滑高度展开 + 级联入场（拖拽中禁用位移动画以免污染测量） */}
+                      <AnimatePresence initial={false}>
+                        {collapsible && doneOpen && (
+                          <motion.div
+                            key="done-hidden"
+                            className="overflow-hidden"
+                            initial={{ height: 0 }}
+                            animate={{ height: 'auto' }}
+                            exit={{ height: 0 }}
+                            transition={{ duration: 0.4, ease: MOTION_EASE }}
+                          >
+                            <div className="space-y-2 pt-2">
+                              {hiddenTasks.map((task, i) => (
+                                <motion.div
+                                  key={task.id}
+                                  initial={activeTask ? false : { opacity: 0, y: 12 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{
+                                    duration: 0.3,
+                                    delay: activeTask ? 0 : Math.min(i * 0.05, 0.35),
+                                    ease: MOTION_EASE,
+                                  }}
+                                >
+                                  <SortableTaskCard
+                                    task={task}
+                                    onDelete={handleDelete}
+                                    onSetDue={handleSetDue}
+                                    onUpdate={handleUpdate}
+                                  />
+                                </motion.div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* 展开/收起按钮：固定插槽位于可见列表与折叠区之后，随高度动画平滑推移，hover 微交互 */}
+                      {collapsible && (
+                        <div className="mt-2 flex justify-center">
+                          <button
+                            type="button"
+                            onClick={toggleDoneOpen}
+                            aria-expanded={doneOpen}
+                            aria-label={
+                              doneOpen
+                                ? t('kanban.doneCollapse')
+                                : t('kanban.doneExpand', { count: hiddenCount })
+                            }
+                            className={`group inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs transition-all duration-200 active:scale-95 ${
+                              doneOpen
+                                ? 'text-zinc-500 dark:text-zinc-400 bg-zinc-100/80 dark:bg-white/[0.04] hover:bg-zinc-200/80 dark:hover:bg-white/[0.08] border border-zinc-200/60 dark:border-white/[0.06] hover:-translate-y-0.5'
+                                : 'text-green-600 dark:text-green-400 bg-green-500/10 hover:bg-green-500/20 border border-green-400/40 hover:border-green-400/70 hover:-translate-y-0.5 hover:shadow-[0_4px_14px_-6px_rgba(34,197,94,0.6)]'
+                            }`}
+                          >
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform duration-300 ${
+                                doneOpen ? 'rotate-180' : 'group-hover:translate-y-0.5'
+                              }`}
+                            />
+                            <span>
+                              {doneOpen
+                                ? t('kanban.doneCollapse')
+                                : t('kanban.doneExpand', { count: hiddenCount })}
+                            </span>
+                          </button>
+                        </div>
+                      )}
                     </DroppableColumn>
                   </SortableContext>
                 </div>

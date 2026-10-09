@@ -14,6 +14,7 @@
 - 🦄 refactor: CSS 设计规范对齐 — `surface-card` 毛玻璃参数统一为 `blur(16px) saturate(180%)`，新增 `chrome-bg`/`panel-dark`/`surface-subtle-dark` token 替代硬编码 hex
 - ✨ feat: worklog 日志列表滚动触底自动加载更多（IntersectionObserver，保留手动按钮兜底）
 - ✨ feat: AI 悬浮按钮与返回顶部按钮自动避让 — 检测到重叠时朝最近边缘平滑让位，对方消失后回到用户原位置，拖拽与位置持久化不受影响
+- ✨ feat: 看板已完成列折叠 — 默认显示 6 条，其余渐隐折叠（mask 遮罩 + 高度动画 + 级联入场），支持展开/收起按钮与拖拽自动展开，状态持久化
 
 ### 变更
 
