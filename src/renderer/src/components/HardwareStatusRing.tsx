@@ -15,15 +15,21 @@ import type { HwStats } from '../../../shared/hw-stats';
  *   电池供电时不渲染 → Logo 自然露出（不改 RadialMenu 的中心按钮本体）
  *
  * 布局（0°=正上方，顺时针；右半区 0~180，左半区 180~360），三段之间留明显间隔：
- * 底部 152.26°~207.74° 放电量圆点（圆心 156°~204°）；CPU 弧从 137° 逆时针生长 127° 到 10°（右半区），
+ * 底部 ≈151.7°~208.3°（含衬边）放电量圆点（圆心 156°~204°）；CPU 弧从 137° 逆时针生长 127° 到 10°（右半区），
  * 内存弧从 223° 顺时针生长 127° 到 350°（左半区）。三处间隔按视觉净空计（已折算弧端
- * round cap）：底部两角各 ≈13.3°（≈8.2px，告警描边加宽后 ≈12.1°，仍不相交）、
- * 顶部名义 20° / 净空 ≈16.1°（≈9.9px）→
+ * round cap）：底部两角各 ≈12.7°（≈7.8px；告警本体加宽到 3.9 线宽后 ≈10.4°，≈6.4px，仍不相交）、
+ * 顶部名义 20° / 净空 ≈16.1°（告警时 ≈11.4°）→
  * 一眼看出是三个独立元素；两弧各 127°（≤180°）、方向相反、互为镜像、各自锁死在自己那半边，
  * 任何进度值（含 100% + 告警加宽）都不相交。
  *
  * 分层（由内到外）：中心按钮 24 → 圆点与双弧共用 35.3 → 扇区内沿 38。
  * 圆点与弧同半径同轨道；充电闪电由本层叠加在中心按钮之上（zIndex 2 > 1），与弧层不同元素不同半径。
+ *
+ * 对比策略（浅色壁纸可读，且不用阴影）——「淡晕轮廓」：轨道与未亮圆点保留一层很淡的深色衬边
+ *（同路径 / 同圆，只比本体宽 RIM_PAD，透明度仅 0.35）→ 浅色壁纸上是若有似无的暗晕而非硬描边；
+ * 渐变进度弧与告警弧不画衬边，靠自身饱和度（青→黄→橙→红 / 告警红）跳出来 → 整环保持轻盈通透。
+ * 轨道本色用中性浅灰 0.7 半透，深色壁纸上可见、浅色壁纸上又不闷（玻璃感）。
+ * 用户明确不要阴影：boxShadow / drop-shadow 在 206×206 透明悬浮窗上会合成出方形暗边，已全部移除。
  *
  * 交互：光标落在环带（半径 25~38）即悬停，弹出数值读数条；平时只显示图形保持紧凑。
  * 收起态窗口可见区仅 applyShape(38) 的 76×76 方形（x,y ∈ [65,141]）→ 数值气泡做成
@@ -46,28 +52,32 @@ const INNER_R = 38; // 扇区内半径（环带外沿）
 
 /* ── 状态环几何：电量圆点与 CPU / 内存双弧共用同一圆周（24 ~ 38 环带，围绕中心圆圈） ──
  * 约定：0°=正上方，顺时针递增 → 右半区 [0,180]，左半区 [180,360]。
- * 三个元素共圆周但互不相接：底部电量圆点段外缘 152.26°~207.74°，
+ * 三个元素共圆周但互不相接：底部电量圆点段外缘（含衬边）151.69°~208.31°，
  * CPU 弧锁在右半区（137° 起逆时针 127° 到 10°）、内存弧锁在左半区（223° 起顺时针 127° 到 350°），
- * 方向相反、互为镜像；三处间隔：底部两角视觉净空 ≈13.3°（告警加宽后 ≈12.1°，不相交）、
- * 顶部名义 20° / 净空 ≈16.1°。 */
+ * 方向相反、互为镜像；三处间隔：底部两角视觉净空 ≈12.7°（告警加宽后 ≈10.4°，不相交）、
+ * 顶部名义 20° / 净空 ≈16.1°（告警时 ≈11.4°）。 */
 const TOP_GAP = 20; // 顶部名义间隔（两弧末端之间：CPU 止 10°、内存止 350°）
-const R_RING = 35.3; // 圆点与双弧共用半径（圆点外缘 37.6 仍在外沿 38 之内 → 同一圆环）
+const R_RING = 35.3; // 圆点与双弧共用半径（圆点衬边外缘 37.95 仍在环带外沿 38 之内 → 同一圆环）
 const STROKE_W = 2.4; // 弧线宽（24~38 环带偏窄，压缩线宽换取双弧间距）
-const TRACK_COLOR = 'rgba(255,255,255,0.2)'; // 轨道 / 未亮圆点底色（比进度弧明显减淡，让渐变弧与亮起的电量更突出）
-const CAP_DEG = (Math.asin(STROKE_W / 2 / R_RING) * 180) / Math.PI; // ≈1.95° 弧端 round cap 角外延（净空按它折算；告警加宽到 3.9 线宽时 ≈3.17°）
+const RIM_COLOR = 'rgba(18,22,32,0.35)'; // 淡墨衬边：只留在轨道与圆点上，勾一层「淡淡的暗晕轮廓」而非硬描边（浅色壁纸够读即可，不求醒目）
+const RIM_PAD = 0.9; // 衬边比本体宽的量（两侧各 ≈0.45px，细到只剩轮廓暗示；无阴影）
+const RIM_INK = 'rgba(12,15,24,0.5)'; // 图标类淡衬边（充电闪电 / 读数条图标）：小尺寸图标上的轮廓提示，降透明度避免发闷
+const TRACK_COLOR = 'rgba(222,227,236,0.7)'; // 轨道 / 未亮圆点本色：中性浅灰半透（0.7），深色壁纸可见、浅色壁纸透气，保留玻璃感
+const CAP_DEG = (Math.asin(STROKE_W / 2 / R_RING) * 180) / Math.PI; // ≈1.95° 弧端 round cap 角外延（净空按它折算；告警本体 3.9 时 ≈3.17°）
 const CPU_A = 137; // CPU 右弧起点（到圆点段外缘 152.26° 的净空 = 152.26 − 137 − cap ≈ 13.3°）
 const MEM_A = 360 - CPU_A; // 223° 内存左弧起点（与 CPU 关于 180° 轴严格镜像）
 const ARC_SWEEP = CPU_A - TOP_GAP / 2; // 127° 每条弧扫角（≤180：末端落在 10° / 350°，三段 + 三间隔铺满整圆）
 const CPU_SWEEP = -ARC_SWEEP; // 逆时针生长：137° → 10°（角度递减，锁定右半区）
 const MEM_SWEEP = ARC_SWEEP; // 顺时针生长：223° → 350°（角度递增，锁定左半区）
-const DOT_R = 2.3; // 圆点半径（直径 4.6，比上版 3.4 更饱满；外缘 37.6 不超环带外沿 38）
+const DOT_R = 2.3; // 圆点半径（直径 4.6，比上版 3.4 更饱满；本体外缘 37.6）
+const DOT_RIM = 0.35; // 圆点衬边厚度（衬边圆半径 2.65 → 外缘 37.95 仍在环带外沿 38 之内；相邻圆点外缘净空 ≈2.09px ≥2px；本体直径不变，几何骨架不动）
 const DOT_COUNT = 5; // 5 档 = 每档 20%（颗内支持按余数比例部分填充 = 半颗/实际百分比）
-const DOT_STEP_DEG = 12; // 相邻圆点角间距（圆心弧距 ≈7.39px，外缘净空 ≈2.79px ≥2px）
-const DOT_HALF_DEG = (Math.asin(DOT_R / R_RING) * 180) / Math.PI; // ≈3.74° 单颗圆点角半宽（圆点无描边，外缘 = 纯半径）
-const DOT_EDGE_DEG = ((DOT_COUNT - 1) / 2) * DOT_STEP_DEG + DOT_HALF_DEG; // ≈27.74° 圆点段外缘相对 180° 的半跨（段外缘 152.26°~207.74°）
+const DOT_STEP_DEG = 12; // 相邻圆点角间距（圆心弧距 ≈7.39px，外缘净空 ≈2.09px ≥2px）
+const DOT_HALF_DEG = (Math.asin((DOT_R + DOT_RIM) / R_RING) * 180) / Math.PI; // ≈4.30° 单颗圆点角半宽（含衬边，外缘 = 衬边圆半径）
+const DOT_EDGE_DEG = ((DOT_COUNT - 1) / 2) * DOT_STEP_DEG + DOT_HALF_DEG; // ≈28.30° 圆点段外缘相对 180° 的半跨（段外缘 151.69°~208.31°）
 /* 三元素悬停命中边界（与视觉边界对齐；三处间隔区不命中任何元素） */
-const DOT_HIT_LO = 180 - DOT_EDGE_DEG; // 152.26° 圆点段右外缘（CPU 弧一侧）
-const DOT_HIT_HI = 180 + DOT_EDGE_DEG; // 207.74° 圆点段左外缘（内存弧一侧）
+const DOT_HIT_LO = 180 - DOT_EDGE_DEG; // 151.69° 圆点段右外缘（CPU 弧一侧）
+const DOT_HIT_HI = 180 + DOT_EDGE_DEG; // 208.31° 圆点段左外缘（内存弧一侧）
 const CPU_HIT_LO = TOP_GAP / 2 - CAP_DEG; // 8.05° CPU 弧视觉末端
 const CPU_HIT_HI = CPU_A + CAP_DEG; // 138.95° CPU 弧视觉起点（含 round cap）
 const MEM_HIT_LO = MEM_A - CAP_DEG; // 221.05° 内存弧视觉起点（含 round cap）
@@ -381,7 +391,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
 
   // ─── 悬停判定：复用主进程 30ms 光标轮询，环带 = [25, 38] ───
   // 与几何常量对齐（由 DOT_HIT / CPU_HIT / MEM_HIT 推导，不写死角度）：
-  // 圆点段 152.26°~207.74° = 电量，CPU 弧 8.05°~138.95° = CPU，
+  // 圆点段 151.69°~208.31° = 电量，CPU 弧 8.05°~138.95° = CPU，
   // 内存弧 221.05°~351.95° = 内存；三处间隔区不归属任何元素（悬停也能看出是三段）
   useEffect(() => {
     const cleanup = window.radialApi.onCursor((p) => {
@@ -395,7 +405,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
       let angle = (Math.atan2(dx, -dy) * 180) / Math.PI;
       if (angle < 0) angle += 360;
       if (angle >= DOT_HIT_LO && angle <= DOT_HIT_HI) {
-        setHover('battery'); // 底部圆点段 = 电量（与两侧弧起点各留 ≈12.8° 视觉净空）
+        setHover('battery'); // 底部圆点段 = 电量（与两侧弧起点各留 ≈12.7° 视觉净空）
         return;
       }
       if (!hwRef.current) {
@@ -460,7 +470,8 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   // 电池供电不显示 ───
   const showChargeBolt = charging || powerMode === 'mains';
 
-  /* ── 单条进度弧（带符号 sweep，支持左右镜像生长） ── */
+  /* ── 单条进度弧（带符号 sweep，支持左右镜像生长）──
+        轨道 = 淡墨衬边 + 浅灰本体；进度弧 / 告警弧不加衬边，靠渐变 / 红色自身饱和度区分 ── */
   const renderRing = (
     metric: 'cpu' | 'mem',
     r: number,
@@ -475,14 +486,23 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
     const grad = f > 0.02 ? buildGradient(r, startDeg, sweepDeg * f) : null;
     const drawn = f > 0.015; // 极小值不画进度（沿用原端点显示阈值）；进度端只靠 round cap 收口，无跟随圆点
     const gradId = `hwGrad-${metric}`;
+    const trackD = arcPathD(r, startDeg, startDeg + sweepDeg); // 轨道 = 整段弧
+    const progD = arcPathD(r, startDeg, startDeg + sweepDeg * f); // 进度 = 按当前值截断的弧
 
     return (
       <g key={metric} style={{ opacity: dim ? 0.34 : 1, transition: 'opacity 0.25s ease' }}>
-        {/* 单色描边基底（轨道）—— 与电量圆点同圆周、同底色，三段是同一条环形刻度带被间隔切开；
-            轨道减淡（TRACK_COLOR）→ 渐变进度弧成为唯一的视觉焦点；无阴影（drop-shadow 会在
-            Windows 透明窗上合成出方形暗边） */}
+        {/* 轨道：淡墨衬边（RIM_COLOR，宽 +RIM_PAD）+ 浅灰本色 —— 与电量圆点同圆周、同底色，
+            三段是同一条环形刻度带被间隔切开；衬边很淡（0.35）只作暗晕轮廓，不产生硬描边的闷感；
+            无阴影（drop-shadow 会在 Windows 透明窗上合成出方形暗边） */}
         <path
-          d={arcPathD(r, startDeg, startDeg + sweepDeg)}
+          d={trackD}
+          fill="none"
+          stroke={RIM_COLOR}
+          strokeWidth={STROKE_W + RIM_PAD}
+          strokeLinecap="round"
+        />
+        <path
+          d={trackD}
           fill="none"
           stroke={TRACK_COLOR}
           strokeWidth={STROKE_W}
@@ -504,9 +524,10 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
                 ))}
               </linearGradient>
             </defs>
-            {/* 进度弧：颜色渐变（冷 → 暖，末端即当前负载色） */}
+            {/* 进度弧：不加衬边（衬边只留给轨道与圆点）——渐变本体（冷 → 暖，末端即当前负载色）
+                自身饱和度足够跳出来，去掉硬描边后整环更轻盈通透 */}
             <path
-              d={arcPathD(r, startDeg, startDeg + sweepDeg * f)}
+              d={progD}
               fill="none"
               stroke={`url(#${gradId})`}
               strokeWidth={STROKE_W}
@@ -515,25 +536,28 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
           </>
         )}
         {alert && drawn && (
-          /* ≥85% 告警：红色脉冲覆盖，视觉突变 */
-          <path
-            className="hw-alert-pulse"
-            d={arcPathD(r, startDeg, startDeg + sweepDeg * f)}
-            fill="none"
-            stroke={ALERT_COLOR}
-            strokeWidth={STROKE_W + 1.5}
-            strokeLinecap="round"
-          />
+          /* ≥85% 告警：红色脉冲覆盖（本体加宽 1.5 → 3.9，外缘仍在 38 之内）；
+             不加衬边 —— 饱和红自身足够醒目，衬边只会让告警带变闷 */
+          <g className="hw-alert-pulse">
+            <path
+              d={progD}
+              fill="none"
+              stroke={ALERT_COLOR}
+              strokeWidth={STROKE_W + 1.5}
+              strokeLinecap="round"
+            />
+          </g>
         )}
       </g>
     );
   };
 
-  /* ── 电量 / 电源圆点（与双弧同圆周 R_RING 的底部刻度段，圆心 156°~204°、外缘 152.26°~207.74°，
-        与两侧弧起点各留 ≈13.3° 视觉净空；每颗 20%，颗内按余数比例部分填充；
+  /* ── 电量 / 电源圆点（与双弧同圆周 R_RING 的底部刻度段，圆心 156°~204°、外缘 151.69°~208.31°，
+        与两侧弧起点各留 ≈12.7° 视觉净空；每颗 20%，颗内按余数比例部分填充；
         点亮方向 = 逆时针（底部自左向右，圆心角 204° → 156°，颗内弦的推进方向与之一致）；
-        无电量数据时常显电源状态；圆点不描边，未亮底色 = 轨道同色（TRACK_COLOR）→
-        看起来是同一环形刻度带的组成部分，亮 / 灭只靠填充色区分） ── */
+        无电量数据时常显电源状态；
+        每颗 = 淡墨衬边圆（RIM_COLOR，r = DOT_R + DOT_RIM）+ 本体圆（r = DOT_R，轨道同色或电量色）——
+        本体直径与几何骨架不变，衬边只是一圈很淡的暗晕（0.35），亮 / 灭仍靠填充色区分） ── */
   const dots: ReactNode[] = [];
   for (let i = 0; i < DOT_COUNT; i++) {
     const deg = 180 + (i - (DOT_COUNT - 1) / 2) * DOT_STEP_DEG;
@@ -545,11 +569,13 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
     const lit = frac > 0;
     dots.push(
       <g key={i}>
+        {/* 衬边圆：比本体宽 DOT_RIM，浅色壁纸上勾出轮廓（深色壁纸上与背景融为一体，不产生脏边） */}
+        <circle cx={p.x} cy={p.y} r={DOT_R + DOT_RIM} fill={RIM_COLOR} />
         {/* 底圆：整颗亮 = 直接填色；部分亮 = 淡底 + 下方圆缺覆盖；全灭 = 淡底（纯填充，无描边、无阴影） */}
         <circle cx={p.x} cy={p.y} r={DOT_R} fill={on ? dotColor : TRACK_COLOR} />
         {!on && lit && (
           /* 部分填充：局部 +x = 逆时针前进方向，rotate(角度-180) 对齐后从先进入侧推进；
-             弦路径与整颗填充同半径（无描边），纯填充区分亮灭 */
+             弦路径与整颗填充同半径（落在衬边圆之内），纯填充区分亮灭 */
           <path
             d={dotFillPathD(frac, DOT_R)}
             transform={`translate(${p.x} ${p.y}) rotate(${deg - 180})`}
@@ -640,15 +666,22 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
         </svg>
 
         {/* 充电标识：闪电叠加在中心按钮 Logo 的视觉中心（103,103）——
-            hw-charge-bolt 呼吸发光；充电 / 接通电源时常显，电池供电不渲染 → Logo 自然露出；
+            hw-charge-bolt 呼吸；充电 / 接通电源时常显，电池供电不渲染 → Logo 自然露出；
             与 Logo 叠影共存（用户选择不加遮罩）；不与底部读数条（顶 127.5）相交；
-            菜单展开时整环淡出，中心交给关闭按钮 */}
+            中心按钮是浅色玻璃底 → 闪电描一圈淡墨轮廓（RIM_INK）+ 绿色填充，
+            浅色按钮上不发虚但也不闷；菜单展开时整环淡出，中心交给关闭按钮 */}
         {showChargeBolt && (
           <div
             className="hw-charge-bolt absolute flex items-center justify-center"
-            style={{ ...centerBox(BOLT_SIZE), color: DOT_COLOR_CHARGE }}
+            style={centerBox(BOLT_SIZE)}
           >
-            <Zap size={BOLT_SIZE} strokeWidth={2.4} fill="currentColor" />
+            <Zap
+              size={BOLT_SIZE}
+              strokeWidth={2}
+              fill={DOT_COLOR_CHARGE}
+              stroke={RIM_INK}
+              aria-hidden
+            />
           </div>
         )}
       </motion.div>
@@ -676,14 +709,27 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
               color: pill.alert ? '#be123c' : '#18181b',
               border: pill.alert ? '1px solid rgba(244,63,94,0.45)' : '1px solid rgba(0,0,0,0.1)',
               // 读数条不带任何阴影：boxShadow 的大模糊会在 206×206 的透明悬浮窗上糊开一整片暗影。
-              // 靠不透明底色 + 描边与背景区分即可；弧线 / 圆点自身的 drop-shadow 可读性手法保留。
+              // 靠不透明底色 + 描边与背景区分即可；弧线 / 圆点 / 图标自身的对比改由「淡墨衬边」承担。
             }}
             initial={{ opacity: 0, y: 4, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 3, scale: 0.97 }}
             transition={{ duration: 0.16, ease: 'easeOut' }}
           >
-            <pill.Icon size={10} strokeWidth={2.6} style={{ color: pill.color, flexShrink: 0 }} />
+            {/* 图标也描一圈淡墨轮廓（RIM_INK）露出 ≈0.3px：青 / 绿等亮色图标在近白色药丸上
+                不再发虚，但降透明度后不显闷；上层保持本色描边 */}
+            <span className="relative shrink-0" style={{ width: 10, height: 10 }}>
+              <pill.Icon
+                size={10}
+                strokeWidth={4}
+                style={{ color: RIM_INK, position: 'absolute', left: 0, top: 0 }}
+              />
+              <pill.Icon
+                size={10}
+                strokeWidth={2.6}
+                style={{ color: pill.color, position: 'absolute', left: 0, top: 0 }}
+              />
+            </span>
             <span>{pill.text}</span>
             {pill.sub && <span className="font-medium opacity-55">{pill.sub}</span>}
           </motion.div>
