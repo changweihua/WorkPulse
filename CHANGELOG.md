@@ -6,6 +6,8 @@
 
 ### 新增
 
+- ✨ feat: 新增 Ctrl+K 全局命令面板，支持页面导航、拼音匹配与日志搜索直达
+- ✨ feat: 导航配置抽取为 `config/navigation.ts` 单一数据源，顶部导航改为按配置渲染
 - ✨ feat: 侧边栏响应式自动收起/展开 — 小屏幕（<768px）自动收起，大屏幕（≥768px）自动展开，尊重用户手动操作
 - ✨ feat: RULES.md — 基于实际依赖版本生成的代码审查规则文档（12 章节覆盖 React 19/Zustand v5/Drizzle/Zod v4/Tailwind v4/Motion/Vite 8/TS 7/Router v7）
 - ✨ feat: FIX-PLAN.md — 代码审查修复方案文档

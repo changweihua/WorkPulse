@@ -1,17 +1,23 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import { Link, useLocation, useMatches, useNavigate } from 'react-router';
 import AnimatedOutlet from '../components/AnimatedOutlet';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AnimatePresence, motion } from 'motion/react';
 import { Icon } from '@iconify/react';
-import { BarChart3, CalendarRange, Zap, Rss } from 'lucide-react';
+import { BarChart3, CalendarRange, Zap, Rss, Search } from 'lucide-react';
 import { SiOnnx, SiPaddle, SiPaddlepaddle } from '../components/icons/SiliconIcons';
 import { useI18n } from '../stores/languageStore';
 import { useClickAway } from 'react-use';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import WebGLFluid from '../components/WebGLFluid';
 import { ScrollToTopButton } from '../components/ScrollToTopButton';
+import { useCommandPalette, MOD_KEY_HINT } from '../hooks/useCommandPalette';
+// 入口按钮样式与面板样式同源（面板本体由 lazy chunk 按需加载）
+import '../components/CommandPalette.css';
 // import CursorRing from '../components/CursorRing';
+
+// 命令面板按需加载：不进首屏主包，首次打开才拉取 chunk
+const CommandPalette = lazy(() => import('../components/CommandPalette'));
 
 interface NavItem {
   path: string;
@@ -82,6 +88,8 @@ export default function NavLayout() {
 
   // 监听主进程导航 IPC（从径向菜单/托盘/快捷键触发）
   const navigate = useNavigate();
+  // 全局命令面板（Ctrl/⌘ + K），入口按钮与快捷键共用同一状态
+  const palette = useCommandPalette();
   useEffect(() => {
     const cleanup = window.api.on.navigate((page) => {
       navigate(`/${page}`);
@@ -259,6 +267,27 @@ export default function NavLayout() {
           </button>
         </div>
 
+        {/* -- 全局命令面板入口：Ctrl/⌘ + K（收起态仅图标） -- */}
+        <button
+          type="button"
+          onClick={palette.open}
+          className={`cp-trigger shrink-0 mx-2 mb-1.5 rounded-lg outline-none
+                      focus-visible:ring-2 focus-visible:ring-blue-400/70
+                      ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
+          aria-label={t('commandPalette.openButton')}
+          title={`${t('commandPalette.openButton')} (${MOD_KEY_HINT})`}
+        >
+          <Search className="w-4 h-4 shrink-0" aria-hidden="true" />
+          {!collapsed && (
+            <>
+              <span className="flex-1 text-left text-sm truncate whitespace-nowrap">
+                {t('commandPalette.openButton')}
+              </span>
+              <kbd className="cp-kbd">{MOD_KEY_HINT}</kbd>
+            </>
+          )}
+        </button>
+
         {/* -- Scrollable nav body -- */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-3">
           {sections.map((section, sIdx) => (
@@ -376,6 +405,11 @@ export default function NavLayout() {
         {/* Scroll-to-top button */}
         <ScrollToTopButton scrollRef={scrollRef} />
       </div>
+
+      {/* 全局命令面板（Ctrl/⌘ + K） */}
+      <Suspense fallback={null}>
+        <CommandPalette open={palette.isOpen} onClose={palette.close} />
+      </Suspense>
     </div>
   );
 }
