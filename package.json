@@ -229,6 +229,7 @@
     "koffi": "^3.3.2",
     "node-api-dotnet": "^0.9.27",
     "openai": "^7.25.0",
+    "pinyin-pro": "^3.29.5",
     "zod": "^4.6.5"
   },
   "devDependencies": {
