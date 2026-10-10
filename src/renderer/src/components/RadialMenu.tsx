@@ -294,7 +294,9 @@ export function RadialMenu(): ReactNode {
             document.body.style.userSelect = 'none';
           }
         }
-        window.radialApi.dragMove(me.movementX, me.movementY);
+        // 位移由主进程用 screen.getCursorScreenPoint() 绝对差分计算（渲染层 movementX/Y 会因窗口移动反向），
+        // 渲染层仅需在移动时触发通知
+        window.radialApi.dragMove();
       }
       totalDist += Math.sqrt(me.movementX * me.movementX + me.movementY * me.movementY);
     };

@@ -48,16 +48,14 @@
   animation: hw-charge-glow 1.6s ease-in-out infinite;
 }
 
-/* ── 硬件状态环：充电闪电标识呼吸发光（与圆点呼吸同周期同相位，整体一起明暗） ── */
+/* ── 硬件状态环：充电闪电标识呼吸（与圆点呼吸同周期同相位，整体一起明暗；无阴影合成） ── */
 @keyframes hw-charge-bolt {
   0%,
   100% {
     opacity: 1;
-    filter: drop-shadow(0 0 2px rgba(52, 211, 153, 0.95)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
   }
   50% {
     opacity: 0.45;
-    filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.45)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
   }
 }
 .hw-charge-bolt {

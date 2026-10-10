@@ -25,7 +25,7 @@ interface RadialApi {
   segmentClick: (key: string, item?: unknown) => void;
   // 拖拽
   dragStart: () => void;
-  dragMove: (dx: number, dy: number) => void;
+  dragMove: () => void;
   dragEnd: () => void;
   // 截图
   startCapture: () => Promise<boolean>;

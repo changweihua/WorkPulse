@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld('radialApi', {
 
   // ── 拖拽（mousedown → mousemove → mouseup） ──
   dragStart: () => ipcRenderer.send('radial:drag-start'),
-  dragMove: (dx: number, dy: number) => ipcRenderer.send('radial:drag-move', dx, dy),
+  dragMove: () => ipcRenderer.send('radial:drag-move'),
   dragEnd: () => ipcRenderer.send('radial:drag-end'),
 
   // ── 截图 ──

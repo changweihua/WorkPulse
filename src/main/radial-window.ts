@@ -77,11 +77,21 @@ function stopCursorPolling(): void {
 
 // ─── setShape: OS 级点击穿透 ───
 // Windows: setShape 定义可点击区域，区域外的鼠标事件穿透到下层窗口
+// 用多行矩形条带（每行 1px 高、宽=弦长）平铺逼近圆形（而非单个方形 rect）：
+// Windows 透明窗上 OS 会对 setShape 区域边界合成一圈暗边/阴影，方形 shape 会呈现
+// 「正方形阴影」；条带圆形轮廓与内容形状一致 → 无方形感。仅展开/收起时调用，开销可忽略。
 function applyShape(win: BrowserWindow, radius: number): void {
-  const x = Math.round(CX - radius);
-  const y = Math.round(CY - radius);
+  const x0 = Math.round(CX - radius);
+  const y0 = Math.round(CY - radius);
   const size = Math.round(radius * 2);
-  win.setShape([{ x, y, width: size, height: size }]);
+  const rects: Electron.Rectangle[] = [];
+  for (let i = 0; i < size; i++) {
+    const dy = i - radius + 0.5; // 行中心相对圆心
+    const half = Math.sqrt(Math.max(radius * radius - dy * dy, 0));
+    if (half < 0.5) continue;
+    rects.push({ x: Math.round(CX - half), y: y0 + i, width: Math.round(half * 2), height: 1 });
+  }
+  win.setShape(rects.length > 0 ? rects : [{ x: x0, y: y0, width: size, height: size }]);
 }
 
 // ─── 展开 / 收起 ───
@@ -312,19 +322,35 @@ ipcMain.on('radial:segment-click', (_event, key: string, item?: any) => {
 });
 
 // 拖拽（center button mousedown → document mousemove → mouseup）
+// 位移一律在主进程用 screen.getCursorScreenPoint() 绝对差分计算：
+// 渲染层 movementX/Y 在「主进程移动窗口 → Chromium 按新窗口位置重算合成鼠标事件」时会反向/重复，
+// 导致窗口与光标反向分开；主进程绝对坐标不受窗口移动影响。
 let isDragging = false;
+let dragStartCursor: { x: number; y: number } | null = null;
+let dragStartWindow: { x: number; y: number } | null = null;
 
 ipcMain.on('radial:drag-start', () => {
   isDragging = true;
+  const cursor = screen.getCursorScreenPoint();
+  dragStartCursor = { x: cursor.x, y: cursor.y };
   if (radialWindow && !radialWindow.isDestroyed()) {
+    const [wx, wy] = radialWindow.getPosition();
+    dragStartWindow = { x: wx, y: wy };
     applyShape(radialWindow, WIDGET_SIZE / 2);
     setMoveCursor();
   }
 });
 
-ipcMain.on('radial:drag-move', (_event, dx: number, dy: number) => {
-  if (!isDragging || !radialWindow || radialWindow.isDestroyed()) return;
-  const [x, y] = radialWindow.getPosition();
+ipcMain.on('radial:drag-move', () => {
+  if (
+    !isDragging ||
+    !radialWindow ||
+    radialWindow.isDestroyed() ||
+    !dragStartCursor ||
+    !dragStartWindow
+  )
+    return;
+  const cursor = screen.getCursorScreenPoint();
   const displays = screen.getAllDisplays();
   let minX = Infinity,
     minY = Infinity,
@@ -336,8 +362,11 @@ ipcMain.on('radial:drag-move', (_event, dx: number, dy: number) => {
     maxX = Math.max(maxX, d.bounds.x + d.bounds.width);
     maxY = Math.max(maxY, d.bounds.y + d.bounds.height);
   }
-  const clampedX = Math.max(minX, Math.min(x + dx, maxX - 206));
-  const clampedY = Math.max(minY, Math.min(y + dy, maxY - 206));
+  // 绝对定位：起点窗口位置 + 光标位移（拖拽期间窗口移动不影响光标屏幕坐标）
+  const targetX = dragStartWindow.x + (cursor.x - dragStartCursor.x);
+  const targetY = dragStartWindow.y + (cursor.y - dragStartCursor.y);
+  const clampedX = Math.max(minX, Math.min(targetX, maxX - WIDGET_SIZE));
+  const clampedY = Math.max(minY, Math.min(targetY, maxY - WIDGET_SIZE));
   radialWindow.setPosition(clampedX, clampedY);
 });
 

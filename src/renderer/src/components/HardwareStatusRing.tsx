@@ -11,18 +11,19 @@ import type { HwStats } from '../../../shared/hw-stats';
  *   视觉上是「一个圆」被分成：底部电量圆点段 + 右半 CPU 段 + 左半内存段（三段之间留明显间隔）
  * - 圆点 = 计数：底部 5 颗小圆点 = 电量（每颗 20%，颗内按余数比例部分填充，点亮方向 = 逆时针）；
  *   无电量数据时常显「电源状态」
- * - 符号 = 身份：内层 Cpu / MemoryStick 小图标标明左右两段弧的归属（内层半径，不撞同半径的弧）
+ * - 充电闪电叠在中心按钮 Logo 的视觉中心（103,103）：充电 / 接通电源时替代 Logo 显示，
+ *   电池供电时不渲染 → Logo 自然露出（不改 RadialMenu 的中心按钮本体）
  *
  * 布局（0°=正上方，顺时针；右半区 0~180，左半区 180~360），三段之间留明显间隔：
- * 底部 151.78°~208.22° 放电量圆点（圆心 156°~204°）；CPU 弧从 137° 逆时针生长 127° 到 10°（右半区），
+ * 底部 152.26°~207.74° 放电量圆点（圆心 156°~204°）；CPU 弧从 137° 逆时针生长 127° 到 10°（右半区），
  * 内存弧从 223° 顺时针生长 127° 到 350°（左半区）。三处间隔按视觉净空计（已折算弧端
- * round cap 与圆点描边外延）：底部两角各 ≈12.8°（≈7.9px，告警描边加宽后 ≈11.6°，仍不相交）、
- * 顶部名义 20° / 净空 ≈16.1°（≈9.9px，计入弧端点圆点后 ≈13.5°）→
+ * round cap）：底部两角各 ≈13.3°（≈8.2px，告警描边加宽后 ≈12.1°，仍不相交）、
+ * 顶部名义 20° / 净空 ≈16.1°（≈9.9px）→
  * 一眼看出是三个独立元素；两弧各 127°（≤180°）、方向相反、互为镜像、各自锁死在自己那半边，
- * 任何进度值（含 100% + 告警加宽 + 端点圆点）都不相交。
+ * 任何进度值（含 100% + 告警加宽）都不相交。
  *
- * 分层（由内到外）：中心按钮 24 → 身份图标 28.4（内层）→ 圆点与双弧共用 35.3 → 扇区内沿 38。
- * 圆点与弧同半径同轨道，身份图标单独放内层，与弧层（≥33.35）径向分离、互不遮挡。
+ * 分层（由内到外）：中心按钮 24 → 圆点与双弧共用 35.3 → 扇区内沿 38。
+ * 圆点与弧同半径同轨道；充电闪电由本层叠加在中心按钮之上（zIndex 2 > 1），与弧层不同元素不同半径。
  *
  * 交互：光标落在环带（半径 25~38）即悬停，弹出数值读数条；平时只显示图形保持紧凑。
  * 收起态窗口可见区仅 applyShape(38) 的 76×76 方形（x,y ∈ [65,141]）→ 数值气泡做成
@@ -45,37 +46,33 @@ const INNER_R = 38; // 扇区内半径（环带外沿）
 
 /* ── 状态环几何：电量圆点与 CPU / 内存双弧共用同一圆周（24 ~ 38 环带，围绕中心圆圈） ──
  * 约定：0°=正上方，顺时针递增 → 右半区 [0,180]，左半区 [180,360]。
- * 三个元素共圆周但互不相接：底部电量圆点段外缘 151.78°~208.22°，
+ * 三个元素共圆周但互不相接：底部电量圆点段外缘 152.26°~207.74°，
  * CPU 弧锁在右半区（137° 起逆时针 127° 到 10°）、内存弧锁在左半区（223° 起顺时针 127° 到 350°），
- * 方向相反、互为镜像；三处间隔：底部两角视觉净空 ≈12.8°（告警加宽后 ≈11.6°，不相交）、
- *顶部名义 20° / 含弧端点圆点净空 ≈13.5°。 */
+ * 方向相反、互为镜像；三处间隔：底部两角视觉净空 ≈13.3°（告警加宽后 ≈12.1°，不相交）、
+ * 顶部名义 20° / 净空 ≈16.1°。 */
 const TOP_GAP = 20; // 顶部名义间隔（两弧末端之间：CPU 止 10°、内存止 350°）
-const R_RING = 35.3; // 圆点与双弧共用半径（圆点外缘 37.9 仍在外沿 38 之内 → 同一圆环）
+const R_RING = 35.3; // 圆点与双弧共用半径（圆点外缘 37.6 仍在外沿 38 之内 → 同一圆环）
 const STROKE_W = 2.4; // 弧线宽（24~38 环带偏窄，压缩线宽换取双弧间距）
+const TRACK_COLOR = 'rgba(255,255,255,0.2)'; // 轨道 / 未亮圆点底色（比进度弧明显减淡，让渐变弧与亮起的电量更突出）
 const CAP_DEG = (Math.asin(STROKE_W / 2 / R_RING) * 180) / Math.PI; // ≈1.95° 弧端 round cap 角外延（净空按它折算；告警加宽到 3.9 线宽时 ≈3.17°）
-const CPU_A = 137; // CPU 右弧起点（到圆点段外缘 151.78° 的净空 = 151.78 − 137 − cap ≈ 12.8°）
+const CPU_A = 137; // CPU 右弧起点（到圆点段外缘 152.26° 的净空 = 152.26 − 137 − cap ≈ 13.3°）
 const MEM_A = 360 - CPU_A; // 223° 内存左弧起点（与 CPU 关于 180° 轴严格镜像）
 const ARC_SWEEP = CPU_A - TOP_GAP / 2; // 127° 每条弧扫角（≤180：末端落在 10° / 350°，三段 + 三间隔铺满整圆）
 const CPU_SWEEP = -ARC_SWEEP; // 逆时针生长：137° → 10°（角度递减，锁定右半区）
 const MEM_SWEEP = ARC_SWEEP; // 顺时针生长：223° → 350°（角度递增，锁定左半区）
-const DOT_R = 2.3; // 圆点半径（直径 4.6，比上版 3.4 更饱满；外缘 2.6 不超环带外沿 38）
+const DOT_R = 2.3; // 圆点半径（直径 4.6，比上版 3.4 更饱满；外缘 37.6 不超环带外沿 38）
 const DOT_COUNT = 5; // 5 档 = 每档 20%（颗内支持按余数比例部分填充 = 半颗/实际百分比）
-const DOT_STROKE_W = 0.6; // 圆点描边宽（圆点外缘 = DOT_R + 描边一半，间隔与命中判定都按外缘折算）
-const DOT_STEP_DEG = 12; // 相邻圆点角间距（圆心弧距 ≈7.39px，外缘净空 ≈2.19px ≥2px）
-const DOT_HALF_DEG = (Math.asin((DOT_R + DOT_STROKE_W / 2) / R_RING) * 180) / Math.PI; // ≈4.22° 单颗圆点（含描边）角半宽
-const DOT_EDGE_DEG = ((DOT_COUNT - 1) / 2) * DOT_STEP_DEG + DOT_HALF_DEG; // ≈28.22° 圆点段外缘相对 180° 的半跨（段外缘 151.78°~208.22°）
+const DOT_STEP_DEG = 12; // 相邻圆点角间距（圆心弧距 ≈7.39px，外缘净空 ≈2.79px ≥2px）
+const DOT_HALF_DEG = (Math.asin(DOT_R / R_RING) * 180) / Math.PI; // ≈3.74° 单颗圆点角半宽（圆点无描边，外缘 = 纯半径）
+const DOT_EDGE_DEG = ((DOT_COUNT - 1) / 2) * DOT_STEP_DEG + DOT_HALF_DEG; // ≈27.74° 圆点段外缘相对 180° 的半跨（段外缘 152.26°~207.74°）
 /* 三元素悬停命中边界（与视觉边界对齐；三处间隔区不命中任何元素） */
-const DOT_HIT_LO = 180 - DOT_EDGE_DEG; // 151.78° 圆点段右外缘（CPU 弧一侧）
-const DOT_HIT_HI = 180 + DOT_EDGE_DEG; // 208.22° 圆点段左外缘（内存弧一侧）
+const DOT_HIT_LO = 180 - DOT_EDGE_DEG; // 152.26° 圆点段右外缘（CPU 弧一侧）
+const DOT_HIT_HI = 180 + DOT_EDGE_DEG; // 207.74° 圆点段左外缘（内存弧一侧）
 const CPU_HIT_LO = TOP_GAP / 2 - CAP_DEG; // 8.05° CPU 弧视觉末端
 const CPU_HIT_HI = CPU_A + CAP_DEG; // 138.95° CPU 弧视觉起点（含 round cap）
 const MEM_HIT_LO = MEM_A - CAP_DEG; // 221.05° 内存弧视觉起点（含 round cap）
 const MEM_HIT_HI = 360 - CPU_HIT_LO; // 351.95° 内存弧视觉末端（与 CPU 关于 0° 轴镜像）
-const ICON_CPU_DEG = 18; // 18° 内层右侧身份图标（Cpu，与同角度的外层弧径向分离）
-const ICON_MEM_DEG = 342; // 342° 内层左侧身份图标（MemoryStick）
-const ICON_SIZE = 8; // 身份图标边长（内层可用径向仅 ~8.7，10px 图标会顶到中心按钮与弧层）
-const R_ICON = 28.4; // 身份图标所在内层半径（图标占 24.4~32.4，与圆点内缘 32.7 径向分离）
-const ICON_CHARGE_DEG = 180; // 充电闪电角度：底部圆点段中央的内侧（与圆点段同心不同径，不重叠）
+const BOLT_SIZE = 13; // 充电闪电边长（10~14px 取中，叠加在中心按钮 Logo 的视觉中心 103,103）
 const HIT_IN = CENTER_R + 1; // 悬停判定内沿 25（避开中心按钮）
 const HIT_OUT = INNER_R; // 悬停判定外沿 38（与扇区悬停带 [38,94] 无缝衔接）
 const ALERT_AT = 85; // 告警阈值（%）
@@ -234,7 +231,7 @@ function buildGradient(r: number, startDeg: number, sweepDeg: number): GradDef |
   };
 }
 
-/** 数值平滑：把突变的采样值缓动到目标值，弧长 / 端点随之平滑过渡 */
+/** 数值平滑：把突变的采样值缓动到目标值，弧长随之平滑过渡 */
 function useSmoothed(target: number | null, tau = 260): number | null {
   const [shown, setShown] = useState<number | null>(target);
   const stateRef = useRef<{ cur: number | null; raf: number }>({ cur: target, raf: 0 });
@@ -384,7 +381,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
 
   // ─── 悬停判定：复用主进程 30ms 光标轮询，环带 = [25, 38] ───
   // 与几何常量对齐（由 DOT_HIT / CPU_HIT / MEM_HIT 推导，不写死角度）：
-  // 圆点段 151.78°~208.22° = 电量，CPU 弧 8.05°~138.95° = CPU，
+  // 圆点段 152.26°~207.74° = 电量，CPU 弧 8.05°~138.95° = CPU，
   // 内存弧 221.05°~351.95° = 内存；三处间隔区不归属任何元素（悬停也能看出是三段）
   useEffect(() => {
     const cleanup = window.radialApi.onCursor((p) => {
@@ -418,7 +415,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
     return cleanup;
   }, []);
 
-  // ─── 数值平滑（弧长 / 端点平滑过渡） ───
+  // ─── 数值平滑（弧长平滑过渡） ───
   // 注意：cpu / memUsedPct 都是 0–100 的百分比，必须先 /100 归一化再 clamp01。
   // 若直接 clamp01(hw.memUsedPct)，任何 ≥1% 的真实占用都会被夹成 1 → memS 恒为 100 → 内存弧永远画满。
   const cpuS = useSmoothed(hw && hw.cpu !== null ? clamp01(hw.cpu / 100) * 100 : null);
@@ -476,22 +473,22 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
     const f = clamp01(v / 100);
     const alert = v >= ALERT_AT;
     const grad = f > 0.02 ? buildGradient(r, startDeg, sweepDeg * f) : null;
-    const tip = f > 0.015 ? angleToXY(startDeg + sweepDeg * f, r, CX, CY) : null;
+    const drawn = f > 0.015; // 极小值不画进度（沿用原端点显示阈值）；进度端只靠 round cap 收口，无跟随圆点
     const gradId = `hwGrad-${metric}`;
-    const darkShadow = 'drop-shadow(0 0 2px rgba(0,0,0,0.55))';
 
     return (
       <g key={metric} style={{ opacity: dim ? 0.34 : 1, transition: 'opacity 0.25s ease' }}>
-        {/* 单色描边基底（轨道）—— 与电量圆点同圆周、同底色，三段是同一条环形刻度带被间隔切开 */}
+        {/* 单色描边基底（轨道）—— 与电量圆点同圆周、同底色，三段是同一条环形刻度带被间隔切开；
+            轨道减淡（TRACK_COLOR）→ 渐变进度弧成为唯一的视觉焦点；无阴影（drop-shadow 会在
+            Windows 透明窗上合成出方形暗边） */}
         <path
           d={arcPathD(r, startDeg, startDeg + sweepDeg)}
           fill="none"
-          stroke="rgba(255,255,255,0.34)"
+          stroke={TRACK_COLOR}
           strokeWidth={STROKE_W}
           strokeLinecap="round"
-          style={{ filter: darkShadow }}
         />
-        {grad && tip && (
+        {grad && drawn && (
           <>
             <defs>
               <linearGradient
@@ -514,11 +511,10 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
               stroke={`url(#${gradId})`}
               strokeWidth={STROKE_W}
               strokeLinecap="round"
-              style={{ filter: darkShadow }}
             />
           </>
         )}
-        {alert && tip && (
+        {alert && drawn && (
           /* ≥85% 告警：红色脉冲覆盖，视觉突变 */
           <path
             className="hw-alert-pulse"
@@ -527,33 +523,17 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
             stroke={ALERT_COLOR}
             strokeWidth={STROKE_W + 1.5}
             strokeLinecap="round"
-            style={{ filter: `drop-shadow(0 0 3px ${ALERT_COLOR})` }}
-          />
-        )}
-        {/* 弧端点指示：颜色 = 当前刻度色 */}
-        {tip && (
-          <circle
-            cx={tip.x}
-            cy={tip.y}
-            r={1.6}
-            fill={alert ? ALERT_COLOR : loadColor(f)}
-            stroke="rgba(6,9,14,0.75)"
-            strokeWidth={0.8}
-            style={{
-              filter: alert
-                ? `drop-shadow(0 0 3px ${ALERT_COLOR})`
-                : 'drop-shadow(0 0 2px rgba(0,0,0,0.6))',
-            }}
           />
         )}
       </g>
     );
   };
 
-  /* ── 电量 / 电源圆点（与双弧同圆周 R_RING 的底部刻度段，圆心 156°~204°、外缘 151.78°~208.22°，
-        与两侧弧起点各留 ≈12.8° 视觉净空；每颗 20%，颗内按余数比例部分填充；
+  /* ── 电量 / 电源圆点（与双弧同圆周 R_RING 的底部刻度段，圆心 156°~204°、外缘 152.26°~207.74°，
+        与两侧弧起点各留 ≈13.3° 视觉净空；每颗 20%，颗内按余数比例部分填充；
         点亮方向 = 逆时针（底部自左向右，圆心角 204° → 156°，颗内弦的推进方向与之一致）；
-        无电量数据时常显电源状态；未亮圆点用弧轨道同色 → 看起来是同一环形刻度带的组成部分） ── */
+        无电量数据时常显电源状态；圆点不描边，未亮底色 = 轨道同色（TRACK_COLOR）→
+        看起来是同一环形刻度带的组成部分，亮 / 灭只靠填充色区分） ── */
   const dots: ReactNode[] = [];
   for (let i = 0; i < DOT_COUNT; i++) {
     const deg = 180 + (i - (DOT_COUNT - 1) / 2) * DOT_STEP_DEG;
@@ -563,29 +543,17 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
     const frac = clamp01(dotTotal - rank); // 本颗填充比例（0=未亮、<1=部分、1=整颗）
     const on = frac >= 1;
     const lit = frac > 0;
-    // 已亮圆点在深色描边之外再叠一层同色柔光（drop-shadow）：
-    // 亮壁纸靠深色描边压边、暗壁纸靠同色柔光浮起 → 绿色电量进度在两种壁纸上都清晰
-    const glow =
-      lit && dotColor.startsWith('#') ? `drop-shadow(0 0 1.6px ${dotColor}b3)` : undefined;
     dots.push(
-      <g key={i} style={glow ? { filter: glow } : undefined}>
-        {/* 底圆：整颗亮 = 直接填色；部分亮 = 灰底 + 下方圆缺覆盖；全灭 = 灰底 */}
-        <circle
-          cx={p.x}
-          cy={p.y}
-          r={DOT_R}
-          fill={on ? dotColor : 'rgba(255,255,255,0.34)'}
-          stroke={lit ? 'rgba(6,9,14,0.7)' : 'rgba(6,9,14,0.45)'}
-          strokeWidth={DOT_STROKE_W}
-        />
+      <g key={i}>
+        {/* 底圆：整颗亮 = 直接填色；部分亮 = 淡底 + 下方圆缺覆盖；全灭 = 淡底（纯填充，无描边、无阴影） */}
+        <circle cx={p.x} cy={p.y} r={DOT_R} fill={on ? dotColor : TRACK_COLOR} />
         {!on && lit && (
-          /* 部分填充：局部 +x = 逆时针前进方向，rotate(角度-180) 对齐后从先进入侧推进 */
+          /* 部分填充：局部 +x = 逆时针前进方向，rotate(角度-180) 对齐后从先进入侧推进；
+             弦路径与整颗填充同半径（无描边），纯填充区分亮灭 */
           <path
             d={dotFillPathD(frac, DOT_R)}
             transform={`translate(${p.x} ${p.y}) rotate(${deg - 180})`}
             fill={dotColor}
-            stroke="rgba(6,9,14,0.7)"
-            strokeWidth={DOT_STROKE_W}
           />
         )}
       </g>,
@@ -665,39 +633,22 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
             style={{
               opacity: dimmed('battery') ? 0.4 : 1,
               transition: 'opacity 0.25s ease',
-              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))',
             }}
           >
             <g className={dotPulse}>{dots}</g>
           </g>
         </svg>
 
-        {/* 身份符号：内层的小图标（角度落在弧的半区内，但半径在内层 28.7，与弧/圆点同圆周 35.3 径向分离；与 ICON_R=66 的菜单图标也不同层不同半径） */}
-        {hasHw && (
-          <>
-            <div
-              className="absolute flex items-center justify-center"
-              style={{ ...iconPos(ICON_CPU_DEG), color: 'rgba(240,244,250,0.95)' }}
-            >
-              <Cpu size={ICON_SIZE} strokeWidth={2.6} />
-            </div>
-            <div
-              className="absolute flex items-center justify-center"
-              style={{ ...iconPos(ICON_MEM_DEG), color: 'rgba(240,244,250,0.95)' }}
-            >
-              <MemoryStick size={ICON_SIZE} strokeWidth={2.6} />
-            </div>
-          </>
-        )}
-
-        {/* 充电标识：底部圆点段中央（180°）的内侧闪电，充电中 / 接通电源时常显 + 呼吸发光动画；
-            内层半径 R_ICON（24.7~32.7）与圆点（内缘 33.3）径向分离、不重叠，电池供电不渲染 */}
+        {/* 充电标识：闪电叠加在中心按钮 Logo 的视觉中心（103,103）——
+            hw-charge-bolt 呼吸发光；充电 / 接通电源时常显，电池供电不渲染 → Logo 自然露出；
+            与 Logo 叠影共存（用户选择不加遮罩）；不与底部读数条（顶 127.5）相交；
+            菜单展开时整环淡出，中心交给关闭按钮 */}
         {showChargeBolt && (
           <div
             className="hw-charge-bolt absolute flex items-center justify-center"
-            style={{ ...iconPos(ICON_CHARGE_DEG), color: DOT_COLOR_CHARGE }}
+            style={{ ...centerBox(BOLT_SIZE), color: DOT_COLOR_CHARGE }}
           >
-            <Zap size={ICON_SIZE} strokeWidth={2.4} fill="currentColor" />
+            <Zap size={BOLT_SIZE} strokeWidth={2.4} fill="currentColor" />
           </div>
         )}
       </motion.div>
@@ -705,7 +656,8 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
       {/* ═══ 数值读数条（独立 zIndex 20；收起态可见区仅 76×76 方形 [65,141]² →
             做成贴可见区底边的全宽窄条：条顶 127.5 清空中心按钮（底 127）、条底 140.5 贴下沿 141，
             完整可见；两弧仅弧头约 4° + round cap 藏进条后（视觉为弧从条后穿出），
-            电量圆点 / 充电闪电整段被条覆盖 → 悬停时以条上图标 + 数值自述，dim 反馈仍由弧承担）═══ */}
+            电量圆点整段被条覆盖 → 悬停时以条上图标 + 数值自述，dim 反馈仍由弧承担；
+            中心闪电在 y ≈ 96.5~109.5，位于条顶（127.5）之上，不与条相交）═══ */}
       <AnimatePresence>
         {!expanded && pill && (
           <motion.div
@@ -724,7 +676,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
               color: pill.alert ? '#be123c' : '#18181b',
               border: pill.alert ? '1px solid rgba(244,63,94,0.45)' : '1px solid rgba(0,0,0,0.1)',
               // 读数条不带任何阴影：boxShadow 的大模糊会在 206×206 的透明悬浮窗上糊开一整片暗影。
-              // 靠不透明底色 + 描边与背景区分即可；弧线/圆点自身的暗色 drop-shadow 描边可读性手法保留。
+              // 靠不透明底色 + 描边与背景区分即可；弧线 / 圆点自身的 drop-shadow 可读性手法保留。
             }}
             initial={{ opacity: 0, y: 4, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -741,15 +693,12 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   );
 }
 
-/** 身份图标的绝对定位（中心对齐到指定角度、内层半径 R_ICON） */
-function iconPos(deg: number): CSSProperties {
-  const p = angleToXY(deg, R_ICON, CX, CY);
-  const S = 12; // 图标容器尺寸（8px 图标 + 余量；实际图标径向约 24.7~32.7，与弧/圆点所在同圆周 33.35~37.25 分离 → 不重叠）
+/** 居中方框定位（中心对齐到 widget 视觉中心 103,103 → 叠加在中心按钮 Logo 位置） */
+function centerBox(size: number): CSSProperties {
   return {
-    left: p.x - S / 2,
-    top: p.y - S / 2,
-    width: S,
-    height: S,
-    filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.9)) drop-shadow(0 1px 1px rgba(0,0,0,0.6))',
+    left: CX - size / 2,
+    top: CY - size / 2,
+    width: size,
+    height: size,
   };
 }
