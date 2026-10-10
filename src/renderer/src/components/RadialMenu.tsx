@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SPRING_SPRING } from './Motion';
+import { HardwareStatusRing } from './HardwareStatusRing';
 
 /* ── 尺寸参数（所有派生值均从这里计算，无硬编码） ── */
 const OUTER_R = 94;
@@ -521,6 +522,10 @@ export function RadialMenu(): ReactNode {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* ═══ 硬件状态环（内环：CPU/内存弧 + 电量圆点，围绕中心圆圈）：纯展示层，pointer-events 不拦截点击；
+          菜单展开时隐藏、收起时显示（expanded 由 RadialMenu 的 radial:state 订阅状态透传） ═══ */}
+      <HardwareStatusRing expanded={expanded} />
     </div>
   );
 }

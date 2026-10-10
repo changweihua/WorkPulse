@@ -1,6 +1,8 @@
 /// <reference path="../../preload/index.d.ts" />
 /// <reference types="vite/client" />
 
+import type { HwStats } from '../../shared/hw-stats';
+
 interface ImportMetaEnv {
   readonly VITE_APP_TITLE: string;
   // 可以添加更多环境变量
@@ -16,6 +18,8 @@ interface RadialApi {
   onCursor: (
     cb: (info: { x: number; y: number; dist: number; isOverCenter: boolean }) => void,
   ) => void;
+  /** 订阅硬件状态推送（通道 'hw-stats'），返回取消订阅函数 */
+  onHwStats: (cb: (stats: HwStats) => void) => () => void;
   // 交互动作（renderer → main）
   centerClick: () => void;
   segmentClick: (key: string, item?: unknown) => void;

@@ -4,6 +4,7 @@ import { is } from '@electron-toolkit/utils';
 import { getSetting, setSetting } from './db';
 import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus';
 import { setMoveCursor, restoreCursor } from './cursor';
+import { startHwStats, stopHwStats } from './hw-stats';
 import log from 'electron-log/main';
 
 let radialWindow: BrowserWindow | null = null;
@@ -17,6 +18,7 @@ const INNER_R = 38;
 const OUTER_R = 94;
 const CENTER_R = 24;
 const EXPANDED_R = 103; // 展开态可点击半径（= INNER_R + gap + (OUTER_R - INNER_R)/2）
+const COLLAPSED_R = 38; // 收起态半径（= INNER_R）：需覆盖硬件状态环带（24~38），否则 setShape 会把状态环裁掉
 const SEG_ANGLE = 72;
 const POLL_INTERVAL_MS = 30;
 
@@ -96,7 +98,7 @@ function collapseRadial(): void {
   const win = radialWindow;
   if (!win || win.isDestroyed()) return;
   expanded = false;
-  applyShape(win, CENTER_R);
+  applyShape(win, COLLAPSED_R); // 收起态：中心圆+状态环带可点击
   win.webContents.send('radial:state', { expanded: false });
 }
 
@@ -209,6 +211,9 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   // 光标轮询（Meel 原则）
   startCursorPolling(radialWindow);
 
+  // 硬件状态采样推送（CPU/内存/电池，每秒一次）
+  startHwStats(radialWindow);
+
   // Re-assert alwaysOnTop（Meel 原则 + 周期性强制置顶）
   // 主窗口可见时隐藏悬浮窗，主窗口隐藏时才置顶
   let lastMainVisible: boolean | null = null;
@@ -238,6 +243,7 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   radialWindow.on('closed', () => {
     clearInterval(topInterval);
     stopCursorPolling();
+    stopHwStats();
     if (saveTimer) clearTimeout(saveTimer);
     isDragging = false;
   });
@@ -253,7 +259,7 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   // 内容加载完成后，应用收起态 setShape 并通知 renderer
   radialWindow.webContents.on('did-finish-load', () => {
     if (radialWindow && !radialWindow.isDestroyed()) {
-      applyShape(radialWindow, CENTER_R); // 收起态：仅中心圆可点击
+      applyShape(radialWindow, COLLAPSED_R); // 收起态：中心圆+状态环带可点击
       radialWindow.webContents.send('radial:state', { expanded: false });
     }
   });
@@ -339,7 +345,7 @@ ipcMain.on('radial:drag-end', () => {
   isDragging = false;
   // 恢复 setShape 并重新启用 mouse events
   if (radialWindow && !radialWindow.isDestroyed()) {
-    applyShape(radialWindow, expanded ? EXPANDED_R : CENTER_R);
+    applyShape(radialWindow, expanded ? EXPANDED_R : COLLAPSED_R); // 收起态：中心圆+状态环带可点击
     restoreCursor();
   }
 });

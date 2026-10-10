@@ -19,3 +19,47 @@
     clip-path: circle(103px at 50% 50%);
   }
 }
+
+/* ── 硬件状态环：≥85% 告警脉冲（CPU/内存弧 + 低电量圆点） ── */
+@keyframes hw-alert-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+.hw-alert-pulse {
+  animation: hw-alert-pulse 0.9s ease-in-out infinite;
+}
+
+/* ── 硬件状态环：充电中的电量圆点呼吸 ── */
+@keyframes hw-charge-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+.hw-charge-glow {
+  animation: hw-charge-glow 1.6s ease-in-out infinite;
+}
+
+/* ── 硬件状态环：充电闪电标识呼吸发光（与圆点呼吸同周期同相位，整体一起明暗） ── */
+@keyframes hw-charge-bolt {
+  0%,
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px rgba(52, 211, 153, 0.95)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+  }
+  50% {
+    opacity: 0.45;
+    filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.45)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+  }
+}
+.hw-charge-bolt {
+  animation: hw-charge-bolt 1.6s ease-in-out infinite;
+}

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { HW_STATS_CHANNEL, type HwStats } from '../shared/hw-stats';
 
 contextBridge.exposeInMainWorld('radialApi', {
   // ── 状态监听（main → renderer） ──
@@ -14,6 +15,14 @@ contextBridge.exposeInMainWorld('radialApi', {
     ipcRenderer.on('radial:cursor', handler);
     return () => {
       ipcRenderer.removeListener('radial:cursor', handler);
+    };
+  },
+  /** 订阅硬件状态推送，返回取消订阅函数 */
+  onHwStats: (cb: (stats: HwStats) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, stats: unknown) => cb(stats as HwStats);
+    ipcRenderer.on(HW_STATS_CHANNEL, handler);
+    return () => {
+      ipcRenderer.removeListener(HW_STATS_CHANNEL, handler);
     };
   },
 
