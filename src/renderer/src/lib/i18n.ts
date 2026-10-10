@@ -310,6 +310,14 @@ export const translations = {
     'settings.updateError': '更新检查失败：{{message}}',
     'settings.updateCheckFailed': '检查更新出错',
 
+    'commandPalette.placeholder': '搜索页面或日志…',
+    'commandPalette.noResults': '无匹配结果',
+    'commandPalette.searchLogs': '搜索日志',
+    'commandPalette.hintNavigate': '↑↓ 选择',
+    'commandPalette.hintSelect': '回车打开',
+    'commandPalette.hintClose': 'Esc 关闭',
+    'commandPalette.openButton': '快速跳转',
+
     'date.thisWeek': '本周',
     'date.lastWeek': '上周',
     'date.thisMonth': '本月',
@@ -628,6 +636,14 @@ export const translations = {
     'settings.updateNotAvailable': 'You are up to date',
     'settings.updateError': 'Update check failed: {{message}}',
     'settings.updateCheckFailed': 'Update check failed',
+
+    'commandPalette.placeholder': 'Search pages or logs...',
+    'commandPalette.noResults': 'No results',
+    'commandPalette.searchLogs': 'Search logs',
+    'commandPalette.hintNavigate': '↑↓ navigate',
+    'commandPalette.hintSelect': 'Enter to open',
+    'commandPalette.hintClose': 'Esc to close',
+    'commandPalette.openButton': 'Quick jump',
 
     'date.thisWeek': 'This week',
     'date.lastWeek': 'Last week',

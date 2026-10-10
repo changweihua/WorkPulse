@@ -1,0 +1,12 @@
+/* 搜索关键词高亮 —— 跟随项目 accent 主题色（data-accent 重映射 --color-blue-*） */
+mark.highlight {
+  background: color-mix(in srgb, var(--color-blue-500) 28%, transparent);
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.dark mark.highlight {
+  background: color-mix(in srgb, var(--color-blue-400) 32%, transparent);
+}
