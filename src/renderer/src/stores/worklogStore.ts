@@ -17,7 +17,7 @@ interface WorkLogStore {
   fetchLogs: () => Promise<void>;
   loadMore: () => Promise<void>;
   prefetchNext: () => Promise<void>;
-  searchLogs: (keyword: string) => Promise<void>;
+  searchLogs: (keyword: string, limit?: number) => Promise<void>;
   clearSearch: () => Promise<void>;
   addLog: (content: string, category?: string) => Promise<WorkLog>;
   deleteLog: (id: number) => Promise<void>;
@@ -27,6 +27,9 @@ interface WorkLogStore {
 }
 
 const PAGE_SIZE = 50;
+
+/** 搜索结果条数上限：超过时截断展示，并在信息区提示「已显示前 N 条」 */
+export const SEARCH_LIMIT = 50;
 
 // Simple cache for prefetched work log data
 let prefetchedData: WorkLog[] | null = null;
@@ -74,11 +77,12 @@ export const useWorkLogStore = create<WorkLogStore>()((set, get) => ({
     prefetchedData = data.length > 0 ? data : null;
   },
 
-  searchLogs: async (keyword: string) => {
+  searchLogs: async (keyword: string, limit: number = SEARCH_LIMIT) => {
     set({ loading: true, searchKeyword: keyword });
     try {
-      const logs = await window.api.worklog.search(keyword);
-      set({ logs });
+      // limit 透传至 IPC/db 收窄查询，再在前端截断一次兜底（向量模式 topK 可能超过或少于 limit）
+      const logs = await window.api.worklog.search(keyword, limit);
+      set({ logs: logs.slice(0, limit) });
     } finally {
       set({ loading: false });
     }

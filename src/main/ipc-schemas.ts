@@ -143,6 +143,8 @@ export const WorklogByDateRangeSchema = z.object({
 
 export const WorklogSearchSchema = z.object({
   keyword: z.string().min(1).max(500),
+  // 结果条数上限：前端默认 50，不传时保持历史默认（db 层 200）
+  limit: z.number().int().min(1).max(1000).optional(),
 });
 
 export const WorklogSetCategorySchema = z.object({

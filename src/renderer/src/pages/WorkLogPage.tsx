@@ -19,8 +19,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Fade } from '../components/Motion';
 import { SkeletonLine, SkeletonRect } from '../components/Skeleton';
 import { DailySummaryModal } from '../components/DailySummaryModal';
-import { useWorkLogStore } from '../stores/worklogStore';
+import { useWorkLogStore, SEARCH_LIMIT } from '../stores/worklogStore';
 import { useShallow } from 'zustand/react/shallow';
+import { useSearchParams } from 'react-router';
+import { Highlight } from '../components/common/Highlight';
 import { formatDate, formatTime, groupLogsByDate } from '../lib/dateUtils';
 import { useI18n } from '../stores/languageStore';
 import type { TranslationKey } from '../lib/i18n';
@@ -304,6 +306,10 @@ interface LogEntryProps {
   setEditContent: (v: string) => void;
   setEditCategory: (v: string) => void;
   setEditDate: (v: string) => void;
+  /** 搜索关键词：非空时内容做命中高亮（memo 依赖此 prop 刷新高亮） */
+  query: string;
+  /** 键盘导航选中态：为 true 时显示明显选中样式 */
+  active: boolean;
   t: (key: TranslationKey, values?: Record<string, string | number>) => string;
   onToggleExpand: (id: number) => void;
   onStartEdit: (log: DateEntry[1][number]) => void;
@@ -330,6 +336,8 @@ const LogEntry = memo(function LogEntry({
   setEditContent,
   setEditCategory,
   setEditDate,
+  query,
+  active,
   t,
   onToggleExpand,
   onStartEdit,
@@ -347,7 +355,10 @@ const LogEntry = memo(function LogEntry({
           hidden: { opacity: 0, y: 8 },
           show: { opacity: 1, y: 0, transition: { duration: 0.25 } },
         }}
-        className="group flex items-center justify-between py-2 px-3 rounded-lg surface-card transition-all hover:shadow-md"
+        data-log-id={log.id}
+        className={`group flex items-center justify-between py-2 px-3 rounded-lg surface-card transition-all hover:shadow-md ${
+          active ? 'ring-2 ring-blue-500/70 bg-blue-50 dark:bg-blue-900/30' : ''
+        }`}
       >
         {editing ? (
           <>
@@ -402,7 +413,7 @@ const LogEntry = memo(function LogEntry({
           <>
             <div className="flex-1 mr-4 flex items-center gap-2 min-w-0">
               <span className="text-zinc-800 dark:text-zinc-200 break-all leading-relaxed">
-                {log.content}
+                {query ? <Highlight text={log.content} query={query} /> : log.content}
               </span>
               {log.category && (
                 <span className="text-[10px] leading-4 px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 whitespace-nowrap shrink-0 self-center">
@@ -530,6 +541,15 @@ function WorkLogPage(): ReactNode {
   );
   const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
+  // 键盘导航：当前选中的搜索结果下标（随结果变化重置为 0）
+  const [activeIndex, setActiveIndex] = useState(0);
+  // 搜索结果变化时把选中项重置为首条：在渲染期以 logs 引用派生，
+  // 避免在 effect 中 setState 触发级联渲染（渲染期更新会在同一次提交内完成）
+  const [prevLogs, setPrevLogs] = useState(logs);
+  if (prevLogs !== logs) {
+    setPrevLogs(logs);
+    setActiveIndex(0);
+  }
   const [shaking, setShaking] = useState(false);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -541,6 +561,7 @@ function WorkLogPage(): ReactNode {
   const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
   const [attachmentsByLog, setAttachmentsByLog] = useState<Record<number, Attachment[]>>({});
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimerRef = useRef<number>(0);
   const fetchedIdsRef = useRef<Set<number>>(new Set());
   const toast = useToast();
@@ -585,9 +606,30 @@ function WorkLogPage(): ReactNode {
   // 每日摘要弹窗状态
   const [showDailySummary, setShowDailySummary] = useState(false);
 
+  // 接收全局命令面板经路由参数 ?q= 带入的搜索词（全局面板 → 本页契约）：
+  // 写入搜索框 → 立即触发搜索（跳过 300ms 防抖）→ 清理 URL 参数，避免刷新重复触发
+  const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
-    fetchLogs();
-    inputRef.current?.focus();
+    const q = searchParams.get('q')?.trim();
+    if (!q) return;
+    setSearch(q);
+    clearTimeout(searchTimerRef.current);
+    searchLogs(q);
+    const next = new URLSearchParams(searchParams);
+    next.delete('q');
+    setSearchParams(next, { replace: true });
+    searchInputRef.current?.focus();
+  }, [searchParams, setSearchParams, searchLogs]);
+
+  useEffect(() => {
+    // ?q= 已在上方 effect 中同步触发搜索（searchLogs 先行写入 searchKeyword），
+    // 此时跳过默认列表拉取，避免两个请求竞态互相覆盖结果；焦点落在搜索框便于直接 ↑/↓
+    if (useWorkLogStore.getState().searchKeyword) {
+      searchInputRef.current?.focus();
+    } else {
+      fetchLogs();
+      inputRef.current?.focus();
+    }
 
     // 检查今天是否已展示过每日摘要（开发模式每次都弹）
     const today = new Date().toISOString().slice(0, 10);
@@ -614,6 +656,8 @@ function WorkLogPage(): ReactNode {
   // 依赖变化（hasMore/loading 等）时重建 observer，保证条件满足后仍能触发；
   // 条件不满足或组件卸载时 disconnect，防重复请求由 loading 守卫兜底
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // 搜索结果列表容器：键盘导航选中项 scrollIntoView 的定位范围
+  const listRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!hasMore || searchKeyword) return;
     const el = sentinelRef.current;
@@ -791,6 +835,47 @@ function WorkLogPage(): ReactNode {
     clearSearch();
   };
 
+  // 选中项滚入可视区域：block:'nearest' 仅在必要时滚动
+  useEffect(() => {
+    if (!searchKeyword || logs.length === 0) return;
+    const target = logs[Math.min(activeIndex, logs.length - 1)];
+    if (!target) return;
+    const el = listRef.current?.querySelector(`[data-log-id="${target.id}"]`);
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, logs, searchKeyword]);
+
+  // 搜索框键盘导航：↑/↓ 循环切换结果、Enter 展开选中项、Esc 清空搜索
+  // （选中项随结果变化的重置在上方渲染期派生中完成）
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    // 输入法组词中的按键直接放行，避免与候选选择冲突
+    if (e.nativeEvent.isComposing) return;
+
+    if (e.key === 'Escape') {
+      // 无搜索内容时不拦截，也不触发多余的列表刷新
+      if (search || searchKeyword) {
+        e.preventDefault();
+        handleClearSearch();
+      }
+      return;
+    }
+
+    // 非搜索态不劫持 ↑/↓，保留输入框默认行为（正常滚动）
+    if (!searchKeyword || logs.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % logs.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => (i - 1 + logs.length) % logs.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      // 打开选中项（复用日志条目的展开行为），无选中则取第一条
+      const target = logs[activeIndex] ?? logs[0];
+      if (target) toggleExpand(target.id);
+    }
+  };
+
   const handleDelete = useCallback(
     async (id: number): Promise<void> => {
       await deleteLog(id);
@@ -874,10 +959,13 @@ function WorkLogPage(): ReactNode {
         <div className="relative w-full sm:w-56 sm:flex-none">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
+            ref={searchInputRef}
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
             placeholder={t('worklog.searchPlaceholder')}
+            aria-label={t('worklog.searchPlaceholder')}
             className="w-full pl-9 pr-8 py-2 text-sm border border-[var(--color-border)] rounded-lg outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100"
           />
           {search && (
@@ -982,7 +1070,15 @@ function WorkLogPage(): ReactNode {
       {/* Search info */}
       {searchKeyword && (
         <div className="mb-3 mx-auto max-w-3xl text-sm text-zinc-500">
-          {t('worklog.searchInfo', { keyword: searchKeyword, count: logs.length })}
+          <Highlight
+            text={t('worklog.searchInfo', { keyword: searchKeyword, count: logs.length })}
+            query={searchKeyword}
+          />
+          {logs.length >= SEARCH_LIMIT && (
+            <span className="ml-2 text-amber-600 dark:text-amber-400">
+              {t('worklog.searchTruncated', { count: SEARCH_LIMIT })}
+            </span>
+          )}
           <button onClick={handleClearSearch} className="ml-2 text-blue-500 hover:underline">
             {t('common.clear')}
           </button>
@@ -1029,51 +1125,57 @@ function WorkLogPage(): ReactNode {
         </Fade>
       ) : (
         <>
-          <MasonryLayout
-            entries={Array.from(grouped.entries())}
-            renderCard={(dateKey, dateLogs, cardIdx) => (
-              <>
-                <h3 className="text-sm font-medium text-zinc-400 dark:text-zinc-500 mb-2">
-                  {formatDate(dateKey + 'T00:00:00', resolvedLanguage)}
-                </h3>
-                <motion.div
-                  className="space-y-1"
-                  initial="hidden"
-                  animate="show"
-                  variants={{
-                    hidden: {},
-                    show: { transition: { staggerChildren: 0.04, delayChildren: cardIdx * 0.06 } },
-                  }}
-                >
-                  {dateLogs.map((log) => (
-                    <LogEntry
-                      key={`${log.id}-${resolvedLanguage}`}
-                      log={log}
-                      atts={attachmentsByLog[log.id] ?? EMPTY_ATTS}
-                      expanded={expandedLogId === log.id}
-                      editing={editingId === log.id}
-                      deleting={deletingId === log.id}
-                      // 仅编辑中的行传真值，其余传空串，避免每次按键使所有行 memo 失效
-                      editContent={editingId === log.id ? editContent : ''}
-                      editCategory={editingId === log.id ? editCategory : ''}
-                      editDate={editingId === log.id ? editDate : ''}
-                      setEditContent={setEditContent}
-                      setEditCategory={setEditCategory}
-                      setEditDate={setEditDate}
-                      t={stableT}
-                      onToggleExpand={toggleExpand}
-                      onStartEdit={handleStartEdit}
-                      onSaveEdit={handleEditSave}
-                      onCancelEdit={handleEditCancel}
-                      onDelete={handleDelete}
-                      onSetDeleting={setDeletingId}
-                      onDeleteAttachment={handleDeleteAttachment}
-                    />
-                  ))}
-                </motion.div>
-              </>
-            )}
-          />
+          <div ref={listRef}>
+            <MasonryLayout
+              entries={Array.from(grouped.entries())}
+              renderCard={(dateKey, dateLogs, cardIdx) => (
+                <>
+                  <h3 className="text-sm font-medium text-zinc-400 dark:text-zinc-500 mb-2">
+                    {formatDate(dateKey + 'T00:00:00', resolvedLanguage)}
+                  </h3>
+                  <motion.div
+                    className="space-y-1"
+                    initial="hidden"
+                    animate="show"
+                    variants={{
+                      hidden: {},
+                      show: {
+                        transition: { staggerChildren: 0.04, delayChildren: cardIdx * 0.06 },
+                      },
+                    }}
+                  >
+                    {dateLogs.map((log) => (
+                      <LogEntry
+                        key={`${log.id}-${resolvedLanguage}`}
+                        log={log}
+                        atts={attachmentsByLog[log.id] ?? EMPTY_ATTS}
+                        expanded={expandedLogId === log.id}
+                        editing={editingId === log.id}
+                        deleting={deletingId === log.id}
+                        // 仅编辑中的行传真值，其余传空串，避免每次按键使所有行 memo 失效
+                        editContent={editingId === log.id ? editContent : ''}
+                        editCategory={editingId === log.id ? editCategory : ''}
+                        editDate={editingId === log.id ? editDate : ''}
+                        setEditContent={setEditContent}
+                        setEditCategory={setEditCategory}
+                        setEditDate={setEditDate}
+                        query={searchKeyword}
+                        active={!!searchKeyword && logs[activeIndex]?.id === log.id}
+                        t={stableT}
+                        onToggleExpand={toggleExpand}
+                        onStartEdit={handleStartEdit}
+                        onSaveEdit={handleEditSave}
+                        onCancelEdit={handleEditCancel}
+                        onDelete={handleDelete}
+                        onSetDeleting={setDeletingId}
+                        onDeleteAttachment={handleDeleteAttachment}
+                      />
+                    ))}
+                  </motion.div>
+                </>
+              )}
+            />
+          </div>
           {hasMore && !searchKeyword && (
             <div className="text-center py-4">
               {/* 触底自动加载哨兵：进入视口时触发 loadMore，下方按钮保留作兜底 */}
