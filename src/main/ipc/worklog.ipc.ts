@@ -8,7 +8,7 @@ import {
   addWorkLog,
   getWorkLogs,
   getWorkLogsByDateRange,
-  searchWorkLogs,
+  searchWorkLogsFuzzy,
   getCategories,
   updateWorkLogCategory,
   deleteWorkLog,
@@ -49,8 +49,10 @@ export function registerWorklogIpc(): void {
 
   guardedHandle('worklog:search', WorklogSearchSchema, async (data) => {
     const mode = getSetting('search_mode') || 'vector';
+    // 前端未传 limit 时保持历史默认（db 层 200）
+    const limit = data.limit ?? 200;
     if (mode === 'like') {
-      return ok(searchWorkLogs(data.keyword));
+      return ok(searchWorkLogsFuzzy(data.keyword, limit));
     }
     // 向量语义搜索，失败时回退到 LIKE
     try {
@@ -80,7 +82,7 @@ export function registerWorklogIpc(): void {
     } catch {
       // 向量搜索失败，回退到 LIKE
     }
-    return ok(searchWorkLogs(data.keyword));
+    return ok(searchWorkLogsFuzzy(data.keyword, limit));
   });
 
   guardedQuery('worklog:categories', () => {

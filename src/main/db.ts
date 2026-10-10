@@ -21,6 +21,7 @@ import * as schema from './db/schema';
 // removeVectorCache 是 function 声明会被提升，即便两侧初始化顺序互换也能正常引用。
 // oxlint-disable-next-line import/no-cycle -- 有意保留的静态环，安全性依据见上方注释
 import { removeVectorCache } from './vector-search';
+import { pinyinIncludes } from './pinyin-match';
 
 // ==================== 重导出（保持向后兼容） ====================
 
@@ -153,10 +154,46 @@ export function getWorkLogsByDateRange(from: string, to: string): WorkLog[] {
 
 export function searchWorkLogs(keyword: string, limit = 200): WorkLog[] {
   // H1：直接按冗余列 sort_key 排序，去掉 LEFT JOIN（原 COALESCE 语义已冗余化，可走索引）
+  // 排序增强：内容以关键词「开头」的直接命中优先于「中间命中」，其后再按 sort_key DESC
   const stmt = getDatabase().prepare(
-    'SELECT * FROM work_logs WHERE content LIKE ? ORDER BY sort_key DESC LIMIT ?',
+    `SELECT * FROM work_logs WHERE content LIKE ?
+     ORDER BY CASE WHEN content LIKE ? THEN 0 ELSE 1 END, sort_key DESC LIMIT ?`,
   );
-  return stmt.all(`%${keyword}%`, limit) as WorkLog[];
+  return stmt.all(`%${keyword}%`, `${keyword}%`, limit) as WorkLog[];
+}
+
+/** 拼音补充匹配的候选集上限：只在直接 LIKE 命中不足 limit 时才扫描 */
+const PINYIN_CANDIDATE_LIMIT = 500;
+
+/**
+ * 搜索工作日志（直接命中 + 拼音补充）。
+ *
+ * 1. 先走 SQL LIKE：前缀命中优先、再按 sort_key DESC，取 limit 条；
+ * 2. 若直接命中不足 limit，则按 sort_key DESC 拉取有限候选集（PINYIN_CANDIDATE_LIMIT），
+ *    在内存中用 pinyinIncludes 过滤（如输入拼音 "rizhi" 命中含「日志」的内容），
+ *    补齐到 limit 为止。拼音命中的结果排在直接命中之后。
+ *
+ * @param keyword 搜索关键词（中文或拼音）
+ * @param limit 结果条数上限（前端默认 50）
+ */
+export function searchWorkLogsFuzzy(keyword: string, limit = 200): WorkLog[] {
+  const direct = searchWorkLogs(keyword, limit);
+  if (direct.length >= limit) return direct;
+
+  const seen = new Set(direct.map((row) => row.id));
+  // 候选集不带 WHERE 条件，按 sort_key DESC 截取有限条，避免全表拼音扫描
+  const candidates = getDatabase()
+    .prepare('SELECT * FROM work_logs ORDER BY sort_key DESC LIMIT ?')
+    .all(PINYIN_CANDIDATE_LIMIT) as WorkLog[];
+
+  const matched: WorkLog[] = [];
+  for (const row of candidates) {
+    if (seen.has(row.id)) continue;
+    if (!pinyinIncludes(row.content, keyword)) continue;
+    matched.push(row);
+    if (direct.length + matched.length >= limit) break;
+  }
+  return direct.concat(matched);
 }
 
 export function workLogExists(content: string, category: string, dateStr?: string): boolean {

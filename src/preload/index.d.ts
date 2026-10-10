@@ -153,7 +153,7 @@ interface API {
     add: (content: string, category?: string) => Promise<WorkLog>;
     list: (limit?: number, offset?: number) => Promise<WorkLog[]>;
     byDateRange: (from: string, to: string) => Promise<WorkLog[]>;
-    search: (keyword: string) => Promise<WorkLog[]>;
+    search: (keyword: string, limit?: number) => Promise<WorkLog[]>;
     categories: () => Promise<string[]>;
     setCategory: (id: number, category: string) => Promise<void>;
     update: (

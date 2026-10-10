@@ -124,7 +124,13 @@ const api = {
       invoke(ipcRenderer.invoke('worklog:list', limit, offset)),
     byDateRange: (from: string, to: string) =>
       invoke(ipcRenderer.invoke('worklog:byDateRange', from, to)),
-    search: (keyword: string) => invoke(ipcRenderer.invoke('worklog:search', keyword)),
+    // limit 仅在显式传入时作为第二个参数下发：避免 IPC 序列化对 undefined 的差异处理
+    search: (keyword: string, limit?: number) =>
+      invoke(
+        limit === undefined
+          ? ipcRenderer.invoke('worklog:search', keyword)
+          : ipcRenderer.invoke('worklog:search', keyword, limit),
+      ),
     categories: () => invoke(ipcRenderer.invoke('worklog:categories')) as Promise<string[]>,
     setCategory: (id: number, category: string) =>
       invoke(ipcRenderer.invoke('worklog:setCategory', id, category)),
