@@ -59,10 +59,14 @@ const INNER_R = 38; // 扇区内半径（环带外沿）
 const TOP_GAP = 20; // 顶部名义间隔（两弧末端之间：CPU 止 10°、内存止 350°）
 const R_RING = 29.65; // 圆点与双弧共用半径（中心圆 24 → 环 29.65 间距 5.65 = 原 11.3 的一半；圆点衬边外缘 32.3 仍在 INNER_R 38 之内）
 const STROKE_W = 2.4; // 弧线宽（24~38 环带偏窄，压缩线宽换取双弧间距）
-const RIM_COLOR = 'rgba(18,22,32,0.35)'; // 淡墨衬边：只留在轨道与圆点上，勾一层「淡淡的暗晕轮廓」而非硬描边（浅色壁纸够读即可，不求醒目）
+/* ── 主题色 token（值取自 RadialTheme.css，读不到时退回下面的兜底色）──
+   本组件跑在独立透明 overlay 窗口里：该窗口不加载 index.css、也没有 .dark /
+   data-accent，因此专门由 RadialTheme.css 提供一套同名语义 token（壁纸可读调校）。
+   这些色值在首帧渲染时由 syncRingTheme() 统一读取一次，兜底串 = token 的默认值。 */
+let RIM_COLOR = 'rgba(18,22,32,0.35)'; // 淡墨衬边：只留在轨道与圆点上，勾一层「淡淡的暗晕轮廓」而非硬描边（浅色壁纸够读即可，不求醒目）
 const RIM_PAD = 0.9; // 衬边比本体宽的量（两侧各 ≈0.45px，细到只剩轮廓暗示；无阴影）
-const RIM_INK = 'rgba(12,15,24,0.5)'; // 图标类淡衬边（充电闪电 / 读数条图标）：小尺寸图标上的轮廓提示，降透明度避免发闷
-const TRACK_COLOR = 'rgba(222,227,236,0.7)'; // 轨道 / 未亮圆点本色：中性浅灰半透（0.7），深色壁纸可见、浅色壁纸透气，保留玻璃感
+let RIM_INK = 'rgba(12,15,24,0.5)'; // 图标类淡衬边（充电闪电 / 读数条图标）：小尺寸图标上的轮廓提示，降透明度避免发闷
+let TRACK_COLOR = 'rgba(222,227,236,0.7)'; // 轨道 / 未亮圆点本色：中性浅灰半透（0.7），深色壁纸可见、浅色壁纸透气，保留玻璃感
 const CAP_DEG = (Math.asin(STROKE_W / 2 / R_RING) * 180) / Math.PI; // ≈2.32° 弧端 round cap 角外延（净空按它折算；告警本体 3.9 时 ≈3.77°）
 const CPU_A = 137; // CPU 右弧起点（到圆点段外缘 150.88° 的净空 = 150.88 − 137 − cap ≈ 11.6°）
 const MEM_A = 360 - CPU_A; // 223° 内存左弧起点（与 CPU 关于 180° 轴严格镜像）
@@ -89,19 +93,81 @@ const ALERT_AT = 85; // 告警阈值（%）
 const COLLAPSED_HALF = 38; // 收起态可见区半边长（主进程 applyShape(38) 的 76×76 方形，局部坐标 x,y ∈ [65,141]，区域外不绘制像素）
 const PILL_H = 13; // 底部读数条高度（上下边框 2 + 内容区 11 ≥ 10px leading-none 文字；条顶 127.5 清空中心按钮底 127）
 
-/* ── 负载渐变色：低负载冷色 → 高负载暖色 ── */
-const LOAD_STOPS: ReadonlyArray<readonly [number, string]> = [
-  [0, '#22d3ee'], // 青
-  [0.5, '#facc15'], // 黄
-  [0.8, '#fb923c'], // 橙
-  [1, '#f43f5e'], // 红
+/* ── 负载渐变色：低负载冷色 → 高负载暖色（--color-load-* 四档，兜底 = token 默认值）──
+   四档语义固定（青 / 黄 / 橙 / 红），不随主窗口 accent 变化 —— 换主题也必须是同一套读数语言 */
+let LOAD_STOPS: ReadonlyArray<readonly [number, string]> = [
+  [0, '#22d3ee'], // 青 --color-load-low
+  [0.5, '#facc15'], // 黄 --color-load-mid
+  [0.8, '#fb923c'], // 橙 --color-load-high
+  [1, '#f43f5e'], // 红 --color-load-critical
 ];
-const ALERT_COLOR = '#ff2d55';
-const DOT_COLOR_CHARGE = '#34d399'; // 充电中 / 接通电源（呼吸绿，比正常电量绿更亮一档，靠呼吸动画区分）
-const DOT_COLOR_LOW = '#f43f5e'; // ≤20% 低电告警（红 + 脉冲，逻辑不变）
-const DOT_COLOR_MID = '#fbbf24'; // 电量未知的电池供电（琥珀，无百分比可用）
-const DOT_COLOR_OK = '#22c55e'; // 正常电量（>20%）：绿色进度 —— 电量=绿、负载=暖色告警，与青→黄→橙→红的 CPU/内存弧语义区分
-const DOT_COLOR_UNKNOWN = 'rgba(255,255,255,0.72)'; // 完全无数据时的中性常显
+let ALERT_COLOR = '#ff2d55'; // --color-alert
+let DOT_COLOR_CHARGE = '#34d399'; // 充电中 / 接通电源（--color-battery-charging，呼吸绿，比正常电量绿更亮一档，靠呼吸动画区分）
+let DOT_COLOR_LOW = '#f43f5e'; // ≤20% 低电告警（--color-battery-low，红 + 脉冲，逻辑不变）
+let DOT_COLOR_MID = '#fbbf24'; // 电量未知的电池供电（--color-battery-unknown，琥珀，无百分比可用）
+let DOT_COLOR_OK = '#22c55e'; // 正常电量（>20%）（--color-battery-ok）：绿色进度 —— 电量=绿、负载=暖色告警，与青→黄→橙→红的 CPU/内存弧语义区分
+let DOT_COLOR_UNKNOWN = 'rgba(255,255,255,0.72)'; // 完全无数据时的中性常显（--color-ring-dot-unknown）
+
+/* ── 底部读数条（--color-pill-*，告警态 --color-pill-alert-*）── */
+let PILL_BG = 'rgba(240,242,246,0.96)';
+let PILL_TEXT = '#18181b';
+let PILL_BORDER = 'rgba(0,0,0,0.1)';
+let PILL_ALERT_BG = 'rgba(255,241,243,0.97)';
+let PILL_ALERT_TEXT = '#be123c';
+let PILL_ALERT_BORDER = 'rgba(244,63,94,0.45)';
+
+/** 是否已从 RadialTheme.css 成功取到 token（取不到则每帧重试，避免 CSS 未注入时定死兜底值） */
+let ringThemeSynced = false;
+
+/**
+ * 把上面的颜色变量同步为 RadialTheme.css 里的 token 值。
+ * 在组件渲染体顶部调用（首帧之后不再读取，getComputedStyle 只付一次成本）；
+ * 任一 token 读不到 = CSS 尚未生效 → 保持兜底色，下次渲染重试。
+ */
+function syncRingTheme(): void {
+  if (ringThemeSynced || typeof document === 'undefined') return;
+  let cs: CSSStyleDeclaration;
+  try {
+    cs = getComputedStyle(document.documentElement);
+  } catch {
+    return;
+  }
+  const read = (name: string): string => cs.getPropertyValue(name).trim();
+  // 以轨道色作为「CSS 已注入」的探针：它必然是 token 文件里的第一条玻璃色
+  if (!read('--color-ring-track')) return;
+
+  RIM_COLOR = read('--color-ring-rim') || RIM_COLOR;
+  RIM_INK = read('--color-ring-rim-ink') || RIM_INK;
+  TRACK_COLOR = read('--color-ring-track') || TRACK_COLOR;
+  ALERT_COLOR = read('--color-alert') || ALERT_COLOR;
+  DOT_COLOR_CHARGE = read('--color-battery-charging') || DOT_COLOR_CHARGE;
+  DOT_COLOR_LOW = read('--color-battery-low') || DOT_COLOR_LOW;
+  DOT_COLOR_MID = read('--color-battery-unknown') || DOT_COLOR_MID;
+  DOT_COLOR_OK = read('--color-battery-ok') || DOT_COLOR_OK;
+  DOT_COLOR_UNKNOWN = read('--color-ring-dot-unknown') || DOT_COLOR_UNKNOWN;
+
+  PILL_BG = read('--color-pill-bg') || PILL_BG;
+  PILL_TEXT = read('--color-pill-text') || PILL_TEXT;
+  PILL_BORDER = read('--color-pill-border') || PILL_BORDER;
+  PILL_ALERT_BG = read('--color-pill-alert-bg') || PILL_ALERT_BG;
+  PILL_ALERT_TEXT = read('--color-pill-alert-text') || PILL_ALERT_TEXT;
+  PILL_ALERT_BORDER = read('--color-pill-alert-border') || PILL_ALERT_BORDER;
+
+  // 负载四档：必须整体可读且全部为 #rrggbb（loadColor 用 hexToRgb 做线性插值，坏值会静默变黑）
+  const low = parseHexToken(read('--color-load-low'));
+  const mid = parseHexToken(read('--color-load-mid'));
+  const high = parseHexToken(read('--color-load-high'));
+  const critical = parseHexToken(read('--color-load-critical'));
+  if (low && mid && high && critical) {
+    LOAD_STOPS = [
+      [0, low],
+      [0.5, mid],
+      [0.8, high],
+      [1, critical],
+    ];
+  }
+  ringThemeSynced = true;
+}
 
 /** 自测开关：URL 带 ?hwmock=1 时用本地模拟数据（仅联调预览用，正常运行走真实 onHwStats） */
 const MOCK = typeof location !== 'undefined' && /[?&]hwmock=1(?:&|$)/.test(location.search);
@@ -129,6 +195,13 @@ type PowerMode = 'level' | 'mains' | 'battery-unknown' | 'unknown';
 
 function clamp01(n: number): number {
   return n < 0 ? 0 : n > 1 ? 1 : n;
+}
+
+/** 校验 token 值是否为 `#rrggbb` 形式并返回原值；格式不符（rgb()/3位hex/含alpha）返回 null，
+ *  避免 hexToRgb 里 parseInt 得 NaN 后负载弧静默变黑 */
+function parseHexToken(value: string): string | null {
+  const v = value.trim();
+  return /^#[0-9a-f]{6}$/i.test(v) ? v : null;
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -285,6 +358,9 @@ function useSmoothed(target: number | null, tau = 260): number | null {
 /* ────────────────────────── 主组件 ────────────────────────── */
 
 export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNode {
+  // 首帧把颜色变量同步为 RadialTheme.css 的 token（组件里所有色值都读这些变量）
+  syncRingTheme();
+
   const [hw, setHw] = useState<HwStats | null>(null);
   const [battery, setBattery] = useState<{ level: number; charging: boolean } | null>(null);
   const [noBattery, setNoBattery] = useState(false);
@@ -705,9 +781,10 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
               zIndex: 20,
               pointerEvents: 'none',
               transformOrigin: '50% 100%', // 进出场从底边向上展开（贴边读数条的语义）
-              background: pill.alert ? 'rgba(255,241,243,0.97)' : 'rgba(240,242,246,0.96)',
-              color: pill.alert ? '#be123c' : '#18181b',
-              border: pill.alert ? '1px solid rgba(244,63,94,0.45)' : '1px solid rgba(0,0,0,0.1)',
+              // 配色全部走 --color-pill-* token（告警态换 --color-pill-alert-*）
+              background: pill.alert ? PILL_ALERT_BG : PILL_BG,
+              color: pill.alert ? PILL_ALERT_TEXT : PILL_TEXT,
+              border: `1px solid ${pill.alert ? PILL_ALERT_BORDER : PILL_BORDER}`,
               // 读数条不带任何阴影：boxShadow 的大模糊会在 206×206 的透明悬浮窗上糊开一整片暗影。
               // 靠不透明底色 + 描边与背景区分即可；弧线 / 圆点 / 图标自身的对比改由「淡墨衬边」承担。
             }}

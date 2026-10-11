@@ -55,8 +55,16 @@
   --color-accent: rgb(24 24 27);
   --color-accent-hover: rgb(39 39 42);
   --color-accent-text: rgb(250 250 250);
+}
 
-  /* Design tokens: Semantic */
+/* ===== 固定语义 token（@theme static 强制输出，不被 Tailwind 剪裁）=====
+   下列变量全部由 JS 动态读取（getComputedStyle 拼 `--color-${name}` 字符串）
+   或按名引用，构建期扫描不到静态引用。Tailwind v4 默认只输出被引用的
+   @theme 变量，普通 @theme 里它们会被剪掉导致运行时读到空值，
+   故必须放 static 块。新增此类 token 一律写进这里。 */
+@theme static {
+  /* 语义状态高彩度强调色 + 其 subtle 底色（AiStatsPage 运行时 getComputedStyle
+     拼名读取 --color-{info,success,warning,error}，必须强制输出防剪裁） */
   --color-success: rgb(34 197 94);
   --color-success-subtle: rgb(34 197 94 / 10%);
   --color-warning: rgb(245 158 11);
@@ -65,6 +73,61 @@
   --color-error-subtle: rgb(239 68 68 / 10%);
   --color-info: rgb(59 130 246);
   --color-info-subtle: rgb(59 130 246 / 10%);
+
+  /* 语义状态「文字安全色」
+     success/warning/error/info 是高彩度强调色，直接当文字用在浅色底上
+     对比度不足（如 #22c55e 在白底仅 2.1:1）。这四个是同色系压深一档的文字版，
+     浅色模式对白底 ≥ 4.5:1，暗色模式由 .dark 提亮一档对深底同样 ≥ 4.5:1。 */
+  --color-success-text: rgb(21 128 61);
+  --color-warning-text: rgb(180 83 9);
+  --color-error-text: rgb(185 28 28);
+  --color-info-text: rgb(29 78 216);
+
+  /* 遮罩 scrim（模态 / 命令面板压暗层） */
+  --color-scrim: rgb(9 9 11 / 45%);
+
+  /* 负载刻度四档色（状态环 / 性能图表热力共用）
+     语义固定不随 accent 变化 —— 「低负载青 → 高负载红」是读数语言，换主题必须保持一致 */
+  --color-load-low: #22d3ee;
+  --color-load-mid: #facc15;
+  --color-load-high: #fb923c;
+  --color-load-critical: #f43f5e;
+
+  /* 告警（比 error 更艳的「注意」级，用于状态环告警圈 / 读数条） */
+  --color-alert: rgb(255 45 85);
+  --color-alert-subtle: rgb(255 45 85 / 12%);
+
+  /* 电池状态点 */
+  --color-battery-charging: rgb(52 211 153);
+  --color-battery-ok: rgb(34 197 94);
+  --color-battery-low: rgb(244 63 94);
+  --color-battery-unknown: rgb(251 191 36);
+
+  /* 图表 / 标签分类色板（cat = category）
+     语义固定不随 accent 变化 —— 分类色必须在多次会话间稳定，否则图表无法形成记忆；
+     7 色在白底与 #0d0d14 深底上均可分辨（色相 + 明度双拉开） */
+  --color-cat-1: #3b82f6;
+  --color-cat-2: #8b5cf6;
+  --color-cat-3: #10b981;
+  --color-cat-4: #f59e0b;
+  --color-cat-5: #f43f5e;
+  --color-cat-6: #06b6d4;
+  --color-cat-7: #64748b;
+
+  /* AI 品牌渐变三段色（violet → blue → cyan）
+     固定品牌色不随 accent 切换：AI 按钮的光晕 / 阴影 / 渐变环是同一套视觉标识，
+     中间段若跟随 accent（如 orange）会与两端 violet/cyan 撞出突兀三色 */
+  --color-ai-1: #8b5cf6;
+  --color-ai-2: #3b82f6;
+  --color-ai-3: #22d3ee;
+}
+
+/* ===== 衍生 token（依赖 blue 色阶，而 blue 色阶由 [data-accent] 重映射，
+     故不能写进 @theme 内部 —— 必须放在外面用 var() 组合） ===== */
+:root {
+  /* 搜索命中高亮：底色 + 下缘强调线，随 accent 即时换色 */
+  --color-highlight-bg: color-mix(in srgb, var(--color-blue-500) 26%, transparent);
+  --color-highlight-edge: color-mix(in srgb, var(--color-blue-500) 55%, transparent);
 }
 
 /* ===== 焦点环全局基础 — DESIGN.md §4.1 ===== */
@@ -174,6 +237,39 @@ a:focus-visible,
   --color-warning-subtle: rgb(245 158 11 / 15%);
   --color-error-subtle: rgb(239 68 68 / 15%);
   --color-info-subtle: rgb(59 130 246 / 15%);
+
+  /* 语义状态文字色：暗底上压深色会掉进背景，提亮一档保对比度 */
+  --color-success-text: rgb(74 222 128);
+  --color-warning-text: rgb(251 191 36);
+  --color-error-text: rgb(248 113 113);
+  --color-info-text: rgb(96 165 250);
+
+  /* 遮罩：暗色模式下背景本身更暗，遮罩再压一层纯黑避免「发灰」 */
+  --color-scrim: rgb(0 0 0 / 60%);
+
+  /* 负载刻度：暗底上高明度更透气、发光感更强，故整体提亮一档 */
+  --color-load-low: #67e8f9;
+  --color-load-mid: #fde047;
+  --color-load-high: #fdba74;
+  --color-load-critical: #fb7185;
+
+  /* 分类色板：深底上换成同色相高明度档，避免暗部发闷 */
+  --color-cat-1: #60a5fa;
+  --color-cat-2: #a78bfa;
+  --color-cat-3: #34d399;
+  --color-cat-4: #fbbf24;
+  --color-cat-5: #fb7185;
+  --color-cat-6: #22d3ee;
+  --color-cat-7: #94a3b8;
+
+  /* AI 品牌渐变：暗底提亮，保持与亮色档同样的色相弧度 */
+  --color-ai-1: #a78bfa;
+  --color-ai-2: #60a5fa;
+  --color-ai-3: #67e8f9;
+
+  /* 搜索命中高亮：暗底上 blue-500 偏沉，改用 blue-400 并略增浓度 */
+  --color-highlight-bg: color-mix(in srgb, var(--color-blue-400) 30%, transparent);
+  --color-highlight-edge: color-mix(in srgb, var(--color-blue-400) 60%, transparent);
 }
 
 /* ===== Dark mode: Markdown 排版（tw-prose 变量覆盖，dark:prose-invert 对独立包无效） ===== */
@@ -305,9 +401,9 @@ body,
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
-    var(--skeleton-base, #e4e4e7) 25%,
-    var(--skeleton-shine, #f4f4f5) 50%,
-    var(--skeleton-base, #e4e4e7) 75%
+    var(--skeleton-base, var(--color-border-strong)) 25%,
+    var(--skeleton-shine, var(--color-border-subtle)) 50%,
+    var(--skeleton-base, var(--color-border-strong)) 75%
   );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.8s ease-in-out infinite;

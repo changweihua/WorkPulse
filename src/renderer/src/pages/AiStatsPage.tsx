@@ -33,7 +33,38 @@ echarts.use([
   CanvasRenderer,
 ]);
 
-const CATEGORY_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#f43f5e'];
+/**
+ * 读取 index.css 主题 token 并归一化为 #rrggbb。
+ * ECharts 使用 canvas 绘制，不识别 CSS 变量，必须先解析成字面色值；
+ * 读取失败（CSS 未就绪 / token 缺失）时回退到 fallback。
+ */
+function tokenHex(name: string, fallback: string): string {
+  if (typeof document === 'undefined') return fallback;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (!raw) return fallback;
+  if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+  const rgb = raw.match(/rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/);
+  if (!rgb) return fallback;
+  return `#${rgb
+    .slice(1, 4)
+    .map((v) => Math.round(Number(v)).toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+/**
+ * 图表分类色板：蓝/绿/琥珀/玫红映射到主题语义 token（info/success/warning/error），
+ * 紫、青两色 index.css 暂无对应 token，保留固定色值（见报告“缺失 token 建议”）。
+ */
+function categoryColors(): string[] {
+  return [
+    tokenHex('--color-info', '#3b82f6'),
+    '#8b5cf6',
+    '#06b6d4',
+    tokenHex('--color-success', '#10b981'),
+    tokenHex('--color-warning', '#f59e0b'),
+    tokenHex('--color-error', '#f43f5e'),
+  ];
+}
 
 function getDateRange(days: number): { from: string; to: string } {
   const to = new Date();
@@ -259,8 +290,9 @@ export default function AiStatsPage() {
     }
 
     const series: any[] = [];
+    const palette = categoryColors();
     Array.from(modelMap.entries()).forEach(([modelId, data], idx) => {
-      const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+      const color = palette[idx % palette.length];
       const displayName = modelNameMap.get(modelId) || modelId;
       // 实际数据
       const actualValues = dateList.map((dd) => {
@@ -366,10 +398,11 @@ export default function AiStatsPage() {
       });
     }
     const chart = modelPieInstance.current;
+    const palette = categoryColors();
     const data = modelStats.map((m, i) => ({
       name: m.model_name || m.model_id,
       value: m.call_count,
-      itemStyle: { color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] },
+      itemStyle: { color: palette[i % palette.length] },
     }));
 
     chart.setOption(
@@ -410,6 +443,7 @@ export default function AiStatsPage() {
     const chart = typeBarInstance.current;
     const cats = typeStats.map((s) => USAGE_TYPE_LABELS[s.usage_type] || s.usage_type);
     const vals = typeStats.map((s) => s.call_count);
+    const palette = categoryColors();
 
     chart.setOption(
       {
@@ -441,7 +475,7 @@ export default function AiStatsPage() {
             data: vals.map((v, i) => ({
               value: v,
               itemStyle: {
-                color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+                color: palette[i % palette.length],
                 borderRadius: [4, 4, 0, 0],
               },
             })),

@@ -190,30 +190,33 @@ export function registerFeedIpc(): void {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
   * { box-sizing: border-box; }
+  /* 颜色处理说明：本样式表由 Node 端拼进 data: URL 加载，作用域内无 index.css，
+     下方 var(--token, fallback) 一律回落 fallback（原 GitHub 打印配色），视觉零变化；
+     若未来改为同源加载则自动跟随主题 token。GitHub 专属 chrome 色（#e8eaed/#d0d7de/#f6f8fa/#24292f/#cf222e/#57606a/#8b949e 等）无 token 对应，保留 hex。 */
   body {
     font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color: #1a1a1a; line-height: 1.8; font-size: 14px;
+    color: var(--color-text, #1a1a1a); line-height: 1.8; font-size: 14px;
     max-width: 100%; margin: 0; padding: 0;
   }
   .github-code-copy, .github-anchor, .github-external-icon, .github-anchor-icon { display: none !important; }
   .github-code-header { display: flex !important; justify-content: space-between; align-items: center; padding: 6px 12px; background: #e8eaed; border-bottom: 1px solid #d0d7de; border-radius: 8px 8px 0 0; font-size: 12px; color: #57606a; }
   .github-code-lang { font-family: "JetBrains Mono", "Fira Code", monospace; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-  .github-link { text-decoration: none; color: #2563eb; }
-  .article-title { font-size: 24px; font-weight: 700; line-height: 1.3; margin: 0 0 12px; color: #111; page-break-after: avoid; page-break-inside: avoid; }
-  .article-meta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 12px; color: #666; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb; margin-bottom: 24px; }
-  .meta-source { background: #f0f7ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
-  .meta-author, .meta-date { color: #666; }
-  .meta-link { color: #2563eb; text-decoration: none; }
-  h1, h2, h3, h4, h5, h6 { font-weight: 600; line-height: 1.4; color: #111; page-break-after: avoid; page-break-inside: avoid; margin-top: 28px; margin-bottom: 12px; }
+  .github-link { text-decoration: none; color: var(--color-blue-600, #2563eb); }
+  .article-title { font-size: 24px; font-weight: 700; line-height: 1.3; margin: 0 0 12px; color: var(--color-text, #111); page-break-after: avoid; page-break-inside: avoid; }
+  .article-meta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 12px; color: var(--color-text-secondary, #666); padding-bottom: 16px; border-bottom: 1px solid #e5e7eb; margin-bottom: 24px; }
+  .meta-source { background: #f0f7ff; color: var(--color-blue-600, #2563eb); padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+  .meta-author, .meta-date { color: var(--color-text-secondary, #666); }
+  .meta-link { color: var(--color-blue-600, #2563eb); text-decoration: none; }
+  h1, h2, h3, h4, h5, h6 { font-weight: 600; line-height: 1.4; color: var(--color-text, #111); page-break-after: avoid; page-break-inside: avoid; margin-top: 28px; margin-bottom: 12px; }
   h1 { font-size: 22px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; }
   h2 { font-size: 18px; border-bottom: 1px solid #f0f0f0; padding-bottom: 6px; }
   h3 { font-size: 16px; }
   h4 { font-size: 15px; }
-  h5, h6 { font-size: 14px; color: #555; }
+  h5, h6 { font-size: 14px; color: var(--color-text-secondary, #555); }
   p { margin: 0 0 16px; orphans: 2; widows: 2; }
   strong { font-weight: 600; }
   em { font-style: italic; }
-  a { color: #2563eb; text-decoration: none; }
+  a { color: var(--color-blue-600, #2563eb); text-decoration: none; }
   blockquote { margin: 16px 0; padding: 12px 16px; border-left: 4px solid #d0d7de; background: #f6f8fa; border-radius: 0 6px 6px 0; color: #57606a; page-break-inside: avoid; }
   blockquote p:last-child { margin-bottom: 0; }
   pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 0 0 8px 8px; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; margin: 16px 0; page-break-inside: avoid; }
@@ -228,11 +231,11 @@ export function registerFeedIpc(): void {
   li { margin: 4px 0; }
   li > ul, li > ol { margin: 4px 0; }
   .task-list-item { list-style: none; margin-left: -20px; }
-  .task-list-item input[type="checkbox"] { margin-right: 6px; accent-color: #2563eb; }
+  .task-list-item input[type="checkbox"] { margin-right: 6px; accent-color: var(--color-blue-600, #2563eb); }
   img { max-width: 100%; height: auto; border-radius: 6px; margin: 12px 0; page-break-inside: avoid; }
   hr { border: none; border-top: 1px solid #d0d7de; margin: 24px 0; }
   del { color: #8b949e; }
-  .footnotes { font-size: 12px; color: #666; border-top: 1px solid #e5e7eb; margin-top: 32px; padding-top: 12px; page-break-before: auto; }
+  .footnotes { font-size: 12px; color: var(--color-text-secondary, #666); border-top: 1px solid #e5e7eb; margin-top: 32px; padding-top: 12px; page-break-before: auto; }
   .hljs { background: transparent; }
   .github-mermaid { text-align: center; margin: 16px 0; page-break-inside: avoid; }
   .github-mermaid svg { max-width: 100%; height: auto; }

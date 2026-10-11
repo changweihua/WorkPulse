@@ -2,6 +2,11 @@ import { useEffect, useState, useRef, useCallback, useMemo, type ReactNode } fro
 import { motion, AnimatePresence } from 'motion/react';
 import { SPRING_SPRING } from './Motion';
 import { HardwareStatusRing } from './HardwareStatusRing';
+// 径向 overlay 专用 token 层：本组件跑在独立透明窗口（radial.html → radial-entry.tsx），
+// 该窗口只加载 radial-only.css、不加载 index.css，也没有 .dark / data-accent，
+// 因此由 RadialTheme.css 提供同名语义 token；HardwareStatusRing 也在首帧 getComputedStyle 读取它。
+// 必须在首次渲染前完成注入 → 放在组件模块顶层 import。
+import './RadialTheme.css';
 
 /* ── 尺寸参数（所有派生值均从这里计算，无硬编码） ── */
 const OUTER_R = 94;
@@ -370,8 +375,10 @@ export function RadialMenu(): ReactNode {
         >
           <defs>
             <linearGradient id="segGlass" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(240,242,246,0.96)" />
-              <stop offset="100%" stopColor="rgba(225,228,234,0.92)" />
+              {/* stop-color 用 style 声明而非 stopColor 属性：SVG 表现属性不保证支持 var()，
+                  CSS 声明里的 var() 一定生效 */}
+              <stop offset="0%" style={{ stopColor: 'var(--color-radial-seg-top)' }} />
+              <stop offset="100%" style={{ stopColor: 'var(--color-radial-seg-bottom)' }} />
             </linearGradient>
           </defs>
           {visibleItems.map((item) => {
@@ -392,8 +399,13 @@ export function RadialMenu(): ReactNode {
               <path
                 key={item.key}
                 d={path}
-                fill={isHover ? 'rgba(200,210,225,0.95)' : 'url(#segGlass)'}
-                style={{ cursor: 'pointer', transition: 'fill 0.2s ease', pointerEvents: 'auto' }}
+                style={{
+                  // 悬停实色 / 常态玻璃渐变都走 CSS 变量（fill 表现属性同样不保证支持 var()）
+                  fill: isHover ? 'var(--color-radial-seg-hover)' : 'url(#segGlass)',
+                  cursor: 'pointer',
+                  transition: 'fill 0.2s ease',
+                  pointerEvents: 'auto',
+                }}
                 onClick={() => handleSegmentClick(item.key)}
               />
             );
@@ -445,15 +457,18 @@ export function RadialMenu(): ReactNode {
             <div
               key="tooltip"
               className="absolute pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
-                         text-sm font-medium text-zinc-800 dark:text-zinc-100"
+                         text-sm font-medium"
               style={{
                 left: tipPos.x,
                 top: tipPos.y,
                 zIndex: 10,
                 transform: 'translate(-50%, -50%)',
-                background: 'rgba(240,242,246,0.96)',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                border: '1px solid rgba(0,0,0,0.08)',
+                // 文字色改走 token：overlay 恒为浅玻璃，若留 dark:text-zinc-100，
+                // 系统暗色（prefers-color-scheme）会让浅底配浅字 → 不可读
+                color: 'var(--color-radial-tooltip-text)',
+                background: 'var(--color-radial-tooltip-bg)',
+                boxShadow: 'var(--shadow-radial-tooltip)',
+                border: '1px solid var(--color-radial-tooltip-border)',
               }}
             >
               {TOOLTIP_LABELS[item.key]?.[
@@ -475,15 +490,16 @@ export function RadialMenu(): ReactNode {
             {
               width: CENTER_SIZE,
               height: CENTER_SIZE,
+              // 展开 = 实色玻璃 / 收起 = 斜向淡玻璃渐变（RadialTheme.css 的 --gradient-radial-center-glass）
               background: expanded
-                ? 'rgba(240,242,246,0.96)'
-                : 'linear-gradient(145deg, rgba(255,255,255,0.6) 0%, rgba(230,233,240,0.4) 50%, rgba(210,215,225,0.35) 100%)',
+                ? 'var(--color-radial-center-solid)'
+                : 'var(--gradient-radial-center-glass)',
               backdropFilter: expanded ? 'blur(32px) saturate(180%)' : 'blur(8px)',
               WebkitBackdropFilter: expanded ? 'blur(32px) saturate(180%)' : 'blur(8px)',
               boxShadow: expanded
                 ? 'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)'
                 : 'inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -2px 3px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.08)',
-              border: '1px solid rgba(255,255,255,0.6)',
+              border: '1px solid var(--color-radial-center-border)',
               cursor: expanded ? 'pointer' : 'grab',
               transition: 'transform 0.15s ease, background 0.2s ease',
             } as React.CSSProperties
@@ -498,9 +514,10 @@ export function RadialMenu(): ReactNode {
                 height={CENTER_R}
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="rgba(60,64,72,0.9)"
                 strokeWidth={2.4}
                 strokeLinecap="round"
+                // stroke 走 style 声明读 token（stroke 是继承属性，子 <line> 自动继承）
+                style={{ stroke: 'var(--color-radial-icon)' }}
                 initial={{ rotate: -90, scale: 0, opacity: 0 }}
                 animate={{ rotate: 0, scale: 1, opacity: 1 }}
                 exit={{ rotate: 90, scale: 0, opacity: 0 }}

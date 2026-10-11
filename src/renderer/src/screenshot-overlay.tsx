@@ -446,6 +446,7 @@ function ScreenshotOverlay(): React.ReactNode {
                 width: selLocal.w,
                 height: selLocal.h,
                 background: 'transparent',
+                // AGENTS.md 截图规范强制：选区边框必须使用高分辨亮色 #00e5ff，禁止替换为 token
                 border: '2px solid #00e5ff',
                 boxSizing: 'border-box',
                 pointerEvents: 'none',
@@ -470,6 +471,7 @@ function ScreenshotOverlay(): React.ReactNode {
                 padding: '3px 8px',
                 borderRadius: 'var(--radius-sm)',
                 background: 'rgba(20,20,22,0.78)',
+                // 本 overlay 为独立窗口，不加载 index.css，token 读不到；深色胶囊上的反白文字无对应恒定 token，保留 hex
                 color: '#fff',
                 fontSize: 12,
                 fontFamily: 'system-ui, sans-serif',
@@ -568,6 +570,7 @@ function ScreenshotOverlay(): React.ReactNode {
               background: 'rgba(20,20,22,0.82)',
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
+              // 同上：独立 overlay 窗口读不到主题 token，深色胶囊反白文字保留 hex
               color: '#fff',
               fontSize: 14,
               fontFamily: 'system-ui, sans-serif',
@@ -579,6 +582,8 @@ function ScreenshotOverlay(): React.ReactNode {
           >
             <span
               style={{
+                // 语义成功/失败色：即 --color-success-text / --color-error-text 的暗色档原值；
+                // 但本 overlay 独立窗口不加载 index.css，var() 无法解析，故保留 hex（见报告「缺失 token 建议」）
                 color: toastMsg.startsWith('✗') ? '#f87171' : '#4ade80',
                 fontSize: 15,
                 lineHeight: 1,

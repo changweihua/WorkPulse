@@ -71,6 +71,8 @@ const GLASS_MATERIAL_PROPS = {
   temporalDistortion: 0.1,
   clearcoat: 1,
   attenuationDistance: 0.5,
+  // 注：这两个是 three.js MeshTransmissionMaterial 的材质属性，由 THREE.Color 解析，
+  // 无法识别 CSS var()，且白色是玻璃的物理中性色（不随主题变化），故保留字面量
   attenuationColor: '#ffffff',
   color: '#ffffff',
 } as const;
@@ -284,6 +286,7 @@ const ModeWrapper = memo(function ModeWrapper({
 export default function FluidGlass({
   mode = 'lens',
   backgroundColor = 'transparent',
+  // 固定深色画布上的浅色文字：--color-text-inverse 会随 .dark 翻转为近黑，不适配；无对应恒定 token，保留 hex
   textColor = '#ffffff',
   className,
   style,

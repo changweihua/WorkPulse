@@ -1118,8 +1118,8 @@ export default function ChatPage() {
                   className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition shadow-sm"
                   style={
                     isStreaming
-                      ? { backgroundColor: '#ef4444', color: 'white' }
-                      : { backgroundColor: '#3b82f6', color: 'white' }
+                      ? { backgroundColor: 'var(--color-error)', color: 'white' }
+                      : { backgroundColor: 'var(--color-info)', color: 'white' }
                   }
                 >
                   {isStreaming ? <X size={18} /> : <Send size={17} />}

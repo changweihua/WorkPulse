@@ -98,7 +98,8 @@ function StatBlock({
           width: 48,
           height: 48,
           borderRadius: 14,
-          background: `${color}20`,
+          // 用 color-mix 按百分比取色（0x20 ≈ 12.5%），配合 var() 语法安全；原 `${color}20` 仅支持 6 位 hex 拼接
+          background: `color-mix(in srgb, ${color} 12.5%, transparent)`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -117,6 +118,7 @@ function StatBlock({
             margin: 0,
             fontSize: 36,
             fontWeight: 800,
+            // 本窗口背景为恒定深色渐变，需要恒定反白文字；--color-text-inverse 会随主题翻黑，不适配，保留 hex
             color: '#fff',
             lineHeight: 1.1,
             fontVariantNumeric: 'tabular-nums',
@@ -191,7 +193,8 @@ function MiniBarChart({ data }: { data: SummaryData['weekData'] }): React.ReactN
                   height,
                   borderRadius: 4,
                   background: isToday
-                    ? 'linear-gradient(180deg, #a78bfa, #60a5fa)'
+                    ? // 今日条用 AI 品牌渐变（violet→blue）；token 不可用时回落原 hex（即 ai 暗色档原值）
+                      `linear-gradient(180deg, var(--color-ai-1, #a78bfa), var(--color-ai-2, #60a5fa))`
                     : total > 0
                       ? 'linear-gradient(180deg, rgba(167,139,250,0.6), rgba(96,165,250,0.4))'
                       : 'rgba(255,255,255,0.08)',
@@ -328,6 +331,7 @@ function DailySummary(): React.ReactNode {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          // 深靛蓝夜幕渐变为本页专属视觉，token 中无对应色段（panel-dark 是平色 #0d0d14），保留 hex；见报告「缺失 token 建议」
           background: 'linear-gradient(135deg, #0f0c29 0%, #1a1145 30%, #302b63 60%, #1a2980 100%)',
           opacity: visible ? 1 : 0,
           transition: 'opacity 0.35s ease',
@@ -442,6 +446,7 @@ function DailySummary(): React.ReactNode {
                 margin: '6px 0 0',
                 fontSize: 22,
                 fontWeight: 800,
+                // 浅彩标题渐变（indigo/violet/blue 浅色档），token 中无对应浅色段（ai-* 为饱和中间调），保留 hex
                 background: 'linear-gradient(135deg, #e0e7ff, #c4b5fd, #93c5fd)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -468,7 +473,7 @@ function DailySummary(): React.ReactNode {
               emoji="🔥"
               label="连续打卡"
               value={data.streak}
-              color="#f97316"
+              color="var(--color-cat-4, #f97316)"
               delay={0.2}
             />
             <div style={{ display: 'flex', gap: 10 }}>
@@ -477,7 +482,7 @@ function DailySummary(): React.ReactNode {
                   emoji="📝"
                   label="今日日志"
                   value={data.todayLogs}
-                  color="#60a5fa"
+                  color="var(--color-cat-1, #60a5fa)"
                   delay={0.35}
                 />
               </div>
@@ -486,7 +491,7 @@ function DailySummary(): React.ReactNode {
                   emoji="✅"
                   label="完成任务"
                   value={data.todayTasks}
-                  color="#34d399"
+                  color="var(--color-cat-3, #34d399)"
                   delay={0.45}
                 />
               </div>
@@ -495,7 +500,7 @@ function DailySummary(): React.ReactNode {
               emoji="📋"
               label="待处理任务"
               value={data.activeTasks}
-              color="#a78bfa"
+              color="var(--color-cat-2, #a78bfa)"
               delay={0.55}
             />
           </div>

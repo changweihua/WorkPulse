@@ -188,9 +188,9 @@ export const SKELETON_CSS = `
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
-    var(--skeleton-base, #e4e4e7) 25%,
-    var(--skeleton-shine, #f4f4f5) 50%,
-    var(--skeleton-base, #e4e4e7) 75%
+    var(--skeleton-base, var(--color-border-strong)) 25%,
+    var(--skeleton-shine, var(--color-border-subtle)) 50%,
+    var(--skeleton-base, var(--color-border-strong)) 75%
   );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.8s ease-in-out infinite;

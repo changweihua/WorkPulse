@@ -135,7 +135,7 @@ function Grid({ cells, isDark }: { cells: Cell[]; isDark: boolean }) {
           <div
             style={{
               background: isDark ? 'rgba(20,20,30,0.95)' : 'rgba(255,255,255,0.95)',
-              color: isDark ? '#e5e7eb' : '#111827',
+              color: 'var(--color-text)',
               padding: '6px 10px',
               borderRadius: 'var(--radius-md)',
               fontSize: 12,

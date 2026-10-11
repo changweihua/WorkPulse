@@ -57,7 +57,14 @@ export default function FluidGlassPage() {
 
         {/* FluidGlass canvas — fills remaining space */}
         <div className="flex-1 min-h-0 relative">
-          <FluidGlass key={mode} mode={mode} backgroundColor="#0a0a12" textColor="#e5e7eb" />
+          {/* 画布底色用恒定深色面板 token（原 #0a0a12，token 为 #0d0d14，同为近黑深底）；
+              textColor 为组件内未消费的死 prop，且需恒定浅色（画布始终深底），无对应 token，保留 hex */}
+          <FluidGlass
+            key={mode}
+            mode={mode}
+            backgroundColor="var(--color-panel-dark)"
+            textColor="#e5e7eb"
+          />
 
           {/* Hint overlay */}
           <div

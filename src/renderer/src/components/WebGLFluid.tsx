@@ -79,6 +79,8 @@ void main() {
   float v = n3 * 0.5 + 0.5;  // remap to 0–1
 
   // Blue → purple gradient based on noise
+  // 注：GLSL 无法读取 CSS 变量，且 index.css 中没有与 #6382FF / #A864FF 对应的
+  // 主题 token（blue-500 为 #3b82f6，且无紫色阶），故此装饰性渐变保留字面色值。
   vec3 colA = vec3(0.38, 0.51, 1.0);  // blue  (#6382FF)
   vec3 colB = vec3(0.66, 0.39, 1.0);  // purple (#A864FF)
   vec3 col  = mix(colA, colB, smoothstep(0.2, 0.8, v));

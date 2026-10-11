@@ -1,0 +1,70 @@
+/* ============================================================
+   径向菜单 overlay 专用主题 token 层（RadialTheme.css）
+   ------------------------------------------------------------
+   为什么单独一份：
+   径向菜单是独立的透明 overlay 窗口（radial.html → radial-entry.tsx），
+   它只加载 radial-only.css，**不加载 index.css**，也没有主窗口的
+   .dark 类与 data-accent 属性，preload 只暴露 radialApi、读不到设置。
+   于是这里镜像一套与 index.css 同名同义的语义 token，供
+   RadialMenu.tsx（inline style / SVG stopColor）与
+   HardwareStatusRing.tsx（运行时 getComputedStyle 读取）使用。
+
+   调校原则：overlay 浮在**任意壁纸**之上，且恒为浅色玻璃态，
+   所以数值按「深浅壁纸都可读」选——高不透明度玻璃 + 淡墨衬边 +
+   高彩度状态色，不跟随主窗口 accent / 暗色模式（无可用通道）。
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* ── 负载刻度四档（与 index.css --color-load-* 同名同义，此处为亮色档）── */
+  --color-load-low: #22d3ee;
+  --color-load-mid: #facc15;
+  --color-load-high: #fb923c;
+  --color-load-critical: #f43f5e;
+
+  /* ── 告警 / 电池状态 ── */
+  --color-alert: #ff2d55;
+  --color-battery-charging: #34d399;
+  --color-battery-ok: #22c55e;
+  --color-battery-low: #f43f5e;
+  --color-battery-unknown: #fbbf24;
+
+  /* ── 状态环：淡墨衬边 / 轨道 / 未知态圆点 ── */
+  --color-ring-rim: rgb(18 22 32 / 0.35);
+  --color-ring-rim-ink: rgb(12 15 24 / 0.5);
+  --color-ring-track: rgb(222 227 236 / 0.7);
+  --color-ring-dot-unknown: rgb(255 255 255 / 0.72);
+
+  /* ── 底部读数条（常态 / 告警态两套）── */
+  --color-pill-bg: rgb(240 242 246 / 0.96);
+  --color-pill-text: #18181b;
+  --color-pill-border: rgb(0 0 0 / 0.1);
+  --color-pill-alert-bg: rgb(255 241 243 / 0.97);
+  --color-pill-alert-text: #be123c;
+  --color-pill-alert-border: rgb(244 63 94 / 0.45);
+
+  /* ── 扇区玻璃（SVG linearGradient 两端 stop + 悬停实色）── */
+  --color-radial-seg-top: rgb(240 242 246 / 0.96);
+  --color-radial-seg-bottom: rgb(225 228 234 / 0.92);
+  --color-radial-seg-hover: rgb(200 210 225 / 0.95);
+
+  /* ── 悬停 tooltip ── */
+  --color-radial-tooltip-bg: rgb(240 242 246 / 0.96);
+  --color-radial-tooltip-border: rgb(0 0 0 / 0.08);
+  --color-radial-tooltip-text: rgb(39 39 42);
+  --shadow-radial-tooltip: 0 4px 16px rgb(0 0 0 / 0.08);
+
+  /* ── 中心按钮（展开 = 实色玻璃，收起 = 斜向淡玻璃渐变）── */
+  --color-radial-center-solid: rgb(240 242 246 / 0.96);
+  --gradient-radial-center-glass: linear-gradient(
+    145deg,
+    rgb(255 255 255 / 0.6) 0%,
+    rgb(230 233 240 / 0.4) 50%,
+    rgb(210 215 225 / 0.35) 100%
+  );
+  --color-radial-center-border: rgb(255 255 255 / 0.6);
+
+  /* ── 中心关闭叉图标描边 ── */
+  --color-radial-icon: rgb(60 64 72 / 0.9);
+}

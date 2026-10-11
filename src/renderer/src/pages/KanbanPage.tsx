@@ -63,7 +63,8 @@ const COLUMNS: {
 }[] = [
   { id: 'todo', labelKey: 'kanban.todo', color: 'border-zinc-300 dark:border-zinc-600' },
   { id: 'in_progress', labelKey: 'kanban.inProgress', color: 'border-blue-400' },
-  { id: 'done', labelKey: 'kanban.done', color: 'border-green-400' },
+  // done 列改走语义 success token：与折叠按钮、保存勾同源，亮/暗两档对比度更稳
+  { id: 'done', labelKey: 'kanban.done', color: 'border-success' },
 ];
 
 const ALL_DROPPABLE_IDS: DroppableId[] = ['todo', 'in_progress', 'done', 'draft'];
@@ -71,6 +72,31 @@ const SAVE_SHORTCUT_LABEL = navigator.userAgent.includes('Mac') ? '⌘+Enter' : 
 
 /** 已完成列默认直接展示的卡片数，其余折叠（视觉最协调的取值） */
 const DONE_PREVIEW_COUNT = 6;
+
+/** 彩纸屑兜底色：--color-cat-* 读取失败（token 尚未加载）时使用，与亮色档色板一致 */
+const CONFETTI_FALLBACK_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e'];
+
+/**
+ * 读取主题分类色板 `--color-cat-1..N`。
+ *
+ * 彩纸屑因此与当前主题同源：亮色档偏沉稳、暗色档提亮一档，在各自底色上都不发灰。
+ * 在事件回调里调用（此时主题 token 已应用完毕），读不到时退回内置兜底色。
+ *
+ * @param count 需要的色数，默认 5
+ */
+function readCatColors(count = 5): string[] {
+  try {
+    const cs = getComputedStyle(document.documentElement);
+    const list: string[] = [];
+    for (let i = 1; i <= count; i++) {
+      const v = cs.getPropertyValue(`--color-cat-${i}`).trim();
+      if (v) list.push(v);
+    }
+    return list.length === count ? list : CONFETTI_FALLBACK_COLORS;
+  } catch {
+    return CONFETTI_FALLBACK_COLORS;
+  }
+}
 
 // --- Droppable Column Wrapper ---
 function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }): ReactNode {
@@ -295,7 +321,7 @@ function SortableTaskCard({
             <div className="flex items-center gap-1">
               <button
                 onClick={saveEdit}
-                className="p-1 text-green-500 hover:text-green-600 transition-colors"
+                className="p-1 text-success hover:text-success-text transition-colors"
                 title={t('kanban.saveShortcut', { shortcut: SAVE_SHORTCUT_LABEL })}
               >
                 <Check className="w-3.5 h-3.5" />
@@ -650,12 +676,12 @@ function KanbanPage(): ReactNode {
     if (!pendingComplete) return;
     await completeTask(pendingComplete.id, logContent);
 
-    // 🎊 彩纸屑庆祝
+    // 🎊 彩纸屑庆祝 —— 颜色取自主题分类色板 token（亮/暗主题各自一档）
     confetti({
       particleCount: 120,
       spread: 70,
       origin: { y: 0.6 },
-      colors: ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff6fd8'],
+      colors: readCatColors(),
     });
 
     setPendingComplete(null);
@@ -838,7 +864,7 @@ function KanbanPage(): ReactNode {
                           />
                         ))}
                         {columnTasks.length === 0 && (
-                          <div className="text-center py-8 text-xs text-zinc-300">
+                          <div className="text-center py-8 text-xs text-text-tertiary">
                             {t('kanban.dropHere')}
                           </div>
                         )}
@@ -895,7 +921,7 @@ function KanbanPage(): ReactNode {
                             className={`group inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs transition-all duration-200 active:scale-95 ${
                               doneOpen
                                 ? 'text-zinc-500 dark:text-zinc-400 bg-zinc-100/80 dark:bg-white/[0.04] hover:bg-zinc-200/80 dark:hover:bg-white/[0.08] border border-zinc-200/60 dark:border-white/[0.06] hover:-translate-y-0.5'
-                                : 'text-green-600 dark:text-green-400 bg-green-500/10 hover:bg-green-500/20 border border-green-400/40 hover:border-green-400/70 hover:-translate-y-0.5 hover:shadow-[0_4px_14px_-6px_rgba(34,197,94,0.6)]'
+                                : 'text-success-text bg-success-subtle border border-success/40 hover:border-success/70 hover:bg-success/15 hover:-translate-y-0.5 hover:shadow-[0_4px_14px_-6px_var(--color-success)]'
                             }`}
                           >
                             <ChevronDown
@@ -997,7 +1023,7 @@ function KanbanPage(): ReactNode {
                       />
                     ))}
                     {draftTasks.length === 0 && (
-                      <div className="text-center py-6 text-xs text-zinc-300">
+                      <div className="text-center py-6 text-xs text-text-tertiary">
                         {t('kanban.noDrafts')}
                       </div>
                     )}

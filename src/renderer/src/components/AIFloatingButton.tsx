@@ -413,9 +413,11 @@ export default function AIFloatingButton() {
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
                   <defs>
                     <linearGradient id="ai-grad-open" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#8b5cf6" />
-                      <stop offset="50%" stopColor="#3b82f6" />
-                      <stop offset="100%" stopColor="#22d3ee" />
+                      {/* stopColor 走 style 声明读 --color-ai-*：SVG 表现属性不保证支持 var()，
+                          CSS 声明里的 var() 一定生效；暗色模式自动切到 index.css 的提亮档 */}
+                      <stop offset="0%" style={{ stopColor: 'var(--color-ai-1)' }} />
+                      <stop offset="50%" style={{ stopColor: 'var(--color-ai-2)' }} />
+                      <stop offset="100%" style={{ stopColor: 'var(--color-ai-3)' }} />
                     </linearGradient>
                   </defs>
                   {/* 主星芒 — 中心四角星 */}
@@ -467,9 +469,26 @@ export default function AIFloatingButton() {
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
                   <defs>
                     <linearGradient id="ai-grad-closed" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor={hovered ? '#8b5cf6' : '#71717a'} />
-                      <stop offset="50%" stopColor={hovered ? '#3b82f6' : '#a1a1aa'} />
-                      <stop offset="100%" stopColor={hovered ? '#22d3ee' : '#71717a'} />
+                      {/* 悬停 = AI 品牌三段色；静息 = 中性文字档（#71717a/#a1a1aa 恰为
+                          --color-text-secondary / --color-text-tertiary 的亮色值，改 token 后暗色自动提亮） */}
+                      <stop
+                        offset="0%"
+                        style={{
+                          stopColor: hovered ? 'var(--color-ai-1)' : 'var(--color-text-secondary)',
+                        }}
+                      />
+                      <stop
+                        offset="50%"
+                        style={{
+                          stopColor: hovered ? 'var(--color-ai-2)' : 'var(--color-text-tertiary)',
+                        }}
+                      />
+                      <stop
+                        offset="100%"
+                        style={{
+                          stopColor: hovered ? 'var(--color-ai-3)' : 'var(--color-text-secondary)',
+                        }}
+                      />
                     </linearGradient>
                   </defs>
                   {/* 主星芒 — 中心四角星 */}

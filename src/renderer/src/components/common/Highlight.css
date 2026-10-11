@@ -1,12 +1,14 @@
-/* 搜索关键词高亮 —— 跟随项目 accent 主题色（data-accent 重映射 --color-blue-*） */
+/* 搜索关键词高亮 —— 取 index.css 衍生 token：
+   --color-highlight-bg 底色随 accent（data-accent 重映射 --color-blue-*）即时换色，
+   --color-highlight-edge 下缘强调线让高亮在「低对比文字」上也能被一眼认出；
+   亮/暗两套浓度已分档，故这里不再写 .dark 覆盖。
+   fallback：万一所在入口没加载 index.css，退回直接用 blue 色阶自行 mix。 */
 mark.highlight {
-  background: color-mix(in srgb, var(--color-blue-500) 28%, transparent);
+  background: var(--color-highlight-bg, color-mix(in srgb, var(--color-blue-500) 26%, transparent));
+  box-shadow: inset 0 -1px 0
+    var(--color-highlight-edge, color-mix(in srgb, var(--color-blue-500) 55%, transparent));
   color: inherit;
-  padding: 0 1px;
+  padding: 0 2px;
   border-radius: 3px;
   font-weight: 600;
-}
-
-.dark mark.highlight {
-  background: color-mix(in srgb, var(--color-blue-400) 32%, transparent);
 }

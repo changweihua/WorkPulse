@@ -55,7 +55,7 @@ function MermaidDiagram({ code }: { code: string }) {
         }
       } catch {
         if (containerRef.current) {
-          containerRef.current.innerHTML = `<pre style="color: #cf222e; padding: 12px; background: #fff1f0; border-radius: 6px;">Mermaid 图表渲染失败</pre>`;
+          containerRef.current.innerHTML = `<pre style="color: var(--color-error); padding: 12px; background: var(--color-error-subtle); border-radius: 6px;">Mermaid 图表渲染失败</pre>`;
         }
       }
     };
@@ -503,7 +503,7 @@ export default function ArticleReader() {
                 {exportProgress.stage === 'done' ? (
                   <svg
                     className="w-7 h-7"
-                    style={{ color: '#22c55e' }}
+                    style={{ color: 'var(--color-success)' }}
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -544,7 +544,7 @@ export default function ArticleReader() {
                   width: `${exportProgress.percent}%`,
                   background:
                     exportProgress.stage === 'done'
-                      ? '#22c55e'
+                      ? 'var(--color-success)'
                       : 'linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, white))',
                   transition: 'width 0.4s ease-out',
                 }}
