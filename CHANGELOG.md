@@ -4,6 +4,8 @@
 
 ## [未发布]
 
+## [0.3.9] - 2026-10-12
+
 ### 变更
 
 - 🌈 style: 主题配色体系优化 — index.css 新增固定语义 token（文字安全色、遮罩 scrim、负载四档、告警/电池状态点、7 色分类色板、AI 品牌渐变、搜索高亮衍生色；分类/品牌/文字安全色含亮暗两档，告警/电池为恒定读数色），置于 `@theme static` 防止被 Tailwind 剪裁；最近新功能全面接入主题（命令面板遮罩/选中态/聚焦反馈、硬件状态环与径向菜单经 RadialTheme.css 独立 token 层、搜索高亮、看板折叠列与彩纸屑、AI 悬浮按钮渐变），顺带修复径向菜单 tooltip 在系统暗色下浅底浅字不可读的问题
@@ -53,6 +55,7 @@
 - 🦄 refactor: worklog 瀑布流卡片高度测量改为 ResizeObserver 事件驱动，移除定时器与 MutationObserver
 - 📦 deps: 升级全部过时依赖（18 项，均为小版本/补丁）— electron 44.5.0、electron-vite 6.0.0-beta.5、vite 8.3.1、openai 7.25.0、oxlint 1.86.0、oxfmt 0.71.0、motion 13.4.6、lucide-react 1.49.0 等；typecheck / lint / build 验证通过
 - 📦 deps: 升级全部过时依赖（18 项）— electron 44.7.0、electron-vite 6.0.0-beta.7、vite 8.3.3、openai 7.30.0、oxlint 1.87.0、oxfmt 0.72.0、lucide-react 1.52.0、motion 14.0.0（官方声明 React 侧零破坏性变更，项目 17 处用法均在公开 API，0 行代码改动）等；typecheck / lint / format / build 验证通过
+- 📦 deps: 升级全部过时依赖版本声明下限（19 项）— electron 44.7.0、electron-vite 6.0.0-beta.8、vite 8.3.4、openai 7.32.0、drizzle-orm 0.45.4、zod 4.6.6、lucide-react 1.55.0、motion 14.1.0、mermaid 12.1.0、koffi 3.3.3 等；npm update 同步锁文件，npm-check-updates 与 taze 双重检测确认无遗漏，typecheck 验证通过
 - 🐳 chore: 真实接入 oxfmt/oxlint — lint-staged 从「全仓 oxlint 恒红致 oxfmt 从不执行」修为仅检查 staged 文件、全部文件类型统一走 oxfmt，且 oxlint/oxfmt 命令追加 `--no-error-on-unmatched-pattern`（提交仅含被忽略路径 scripts/build/native/*.d.ts 等 JS/TS 文件时不再报「No files found」拦截提交）；完全移除 prettier（依赖、.prettierrc、脚本引用）；新增 CI workflow（typecheck + oxlint 警告棘轮 ≤50 + format:check + build，push/PR 触发）；新增 .gitattributes（LF 归一且保留 LFS 规则）；.editorconfig 补 max_line_length 与 oxfmt 对齐
 - 🦄 refactor: oxlint 全仓 57 条警告清零 — 覆盖 react(set-state-in-effect)、react(refs)、react(purity)、react-hooks(exhaustive-deps)、react(immutability) 五类规则，修复均保持行为不变（派生加载态、effect 内同步 ref、Date 外提等最小模式），未使用任何 disable 注释
 - 🌈 style: 全量 oxfmt 格式化 — 137 个存量文件按 .oxfmtrc.json（分号、2 空格缩进、宽度 100）统一格式，format:check 转绿（此前 132 文件为升级前既有债务）
