@@ -21,6 +21,11 @@ const EXPANDED_R = 103; // 展开态可点击半径（= INNER_R + gap + (OUTER_R
 const COLLAPSED_R = 38; // 收起态半径（= INNER_R）：需覆盖硬件状态环带（24~38），否则 setShape 会把状态环裁掉
 const SEG_ANGLE = 72;
 const POLL_INTERVAL_MS = 30;
+// 悬停读数条矩形（renderer HardwareStatusRing.tsx 垂直居中窄条，窗口局部坐标）：
+// left = CX - COLLAPSED_R = 65、width = 76、top = CY - PILL_H/2 = 96.5、
+// bottom = 96.5 + 13 = 109.5 → y 向下取整 96、下边界向上取整 110（height 14）。
+// 读数条四角（±38, dy±6.5）落在 COLLAPSED_R=38 圆之外 ≈0.55px → 悬停时并入区域兜底。
+const PILL_RECT: Electron.Rectangle = { x: 65, y: 96, width: 76, height: 14 };
 
 // 径向菜单扇区定义（角度与 renderer 严格保持一致）
 const RADIAL_ITEMS = [
@@ -43,6 +48,9 @@ function getMainWindow(): BrowserWindow | null {
 // Meel 原则：窗口创建一次复用、focusable:false、alwaysOnTop re-assert、光标轮询
 // 区别：show:true（默认显示）、setShape 点击穿透、DOM 点击/拖拽
 let expanded = false;
+// 光标是否悬停在收起态环带 [CENTER_R+1, INNER_R] = [25, 38]（与 renderer HIT_IN/HIT_OUT 一致）。
+// 悬停时渲染层会显示底部读数条，主进程需把 PILL_RECT 并入 setShape，否则读数条被 OS 区域裁剪。
+let hoverBand = false;
 
 // ─── 光标轮询（Meel 原则） ───
 let cursorPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -62,6 +70,15 @@ function startCursorPolling(win: BrowserWindow): void {
     const dy = localY - CY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const isOverCenter = dist <= CENTER_R;
+    // 收起态且非拖拽时，按悬停带翻转 shape：带内读数条矩形并入区域（读数条四角在圆外，
+    // 不并入会被 OS 圆形区域裁掉四角）；带外恢复纯圆形条带。仅状态翻转时才重设，避免每 30ms 重设。
+    if (!expanded && !isDragging && win.isVisible()) {
+      const inBand = !isOverCenter && dist <= INNER_R; // [25, 38]，与渲染层命中带一致
+      if (inBand !== hoverBand) {
+        hoverBand = inBand;
+        applyShape(win, COLLAPSED_R, hoverBand ? [PILL_RECT] : []);
+      }
+    }
     // Skip IPC send when window is hidden and not expanded (no cursor tracking needed)
     if (!win.isVisible() && !expanded) return;
     win.webContents.send('radial:cursor', { x: localX, y: localY, dist, isOverCenter });
@@ -80,8 +97,7 @@ function stopCursorPolling(): void {
 // 用多行矩形条带（每行 1px 高、宽=弦长）平铺逼近圆形（而非单个方形 rect）：
 // Windows 透明窗上 OS 会对 setShape 区域边界合成一圈暗边/阴影，方形 shape 会呈现
 // 「正方形阴影」；条带圆形轮廓与内容形状一致 → 无方形感。仅展开/收起时调用，开销可忽略。
-function applyShape(win: BrowserWindow, radius: number): void {
-  const x0 = Math.round(CX - radius);
+function buildCircleRects(radius: number): Electron.Rectangle[] {
   const y0 = Math.round(CY - radius);
   const size = Math.round(radius * 2);
   const rects: Electron.Rectangle[] = [];
@@ -91,7 +107,21 @@ function applyShape(win: BrowserWindow, radius: number): void {
     if (half < 0.5) continue;
     rects.push({ x: Math.round(CX - half), y: y0 + i, width: Math.round(half * 2), height: 1 });
   }
-  win.setShape(rects.length > 0 ? rects : [{ x: x0, y: y0, width: size, height: size }]);
+  return rects;
+}
+
+// extra：需要并入区域的额外矩形（收起态悬停时的读数条 PILL_RECT）。
+// 读数条是贴底矩形、四角在半径 38 圆之外，收起态必须在悬停时并入，否则被 OS 区域裁剪。
+function applyShape(win: BrowserWindow, radius: number, extra: Electron.Rectangle[] = []): void {
+  const x0 = Math.round(CX - radius);
+  const y0 = Math.round(CY - radius);
+  const size = Math.round(radius * 2);
+  const rects = buildCircleRects(radius);
+  if (rects.length === 0) {
+    win.setShape([{ x: x0, y: y0, width: size, height: size }]);
+    return;
+  }
+  win.setShape(extra.length > 0 ? [...rects, ...extra] : rects);
 }
 
 // ─── 展开 / 收起 ───
@@ -100,6 +130,7 @@ function expandRadial(): void {
   const win = radialWindow;
   if (!win || win.isDestroyed()) return;
   expanded = true;
+  hoverBand = false; // 展开态由 EXPANDED_R 圆接管，复位悬停读数条状态
   applyShape(win, EXPANDED_R);
   win.webContents.send('radial:state', { expanded: true });
 }
@@ -108,6 +139,7 @@ function collapseRadial(): void {
   const win = radialWindow;
   if (!win || win.isDestroyed()) return;
   expanded = false;
+  hoverBand = false; // 先恢复纯圆形，下一个轮询 tick 会按当前光标重新判定悬停带
   applyShape(win, COLLAPSED_R); // 收起态：中心圆+状态环带可点击
   win.webContents.send('radial:state', { expanded: false });
 }
@@ -331,6 +363,7 @@ let dragStartWindow: { x: number; y: number } | null = null;
 
 ipcMain.on('radial:drag-start', () => {
   isDragging = true;
+  hoverBand = false; // 拖拽中是方形区域，不能被读数条状态覆盖
   const cursor = screen.getCursorScreenPoint();
   dragStartCursor = { x: cursor.x, y: cursor.y };
   if (radialWindow && !radialWindow.isDestroyed()) {
@@ -372,6 +405,7 @@ ipcMain.on('radial:drag-move', () => {
 
 ipcMain.on('radial:drag-end', () => {
   isDragging = false;
+  hoverBand = false; // 恢复圆形后交给光标轮询重新判定悬停带
   // 恢复 setShape 并重新启用 mouse events
   if (radialWindow && !radialWindow.isDestroyed()) {
     applyShape(radialWindow, expanded ? EXPANDED_R : COLLAPSED_R); // 收起态：中心圆+状态环带可点击

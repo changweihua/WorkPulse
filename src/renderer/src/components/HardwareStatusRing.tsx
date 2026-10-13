@@ -91,7 +91,7 @@ const HIT_IN = CENTER_R + 1; // 悬停判定内沿 25（避开中心按钮）
 const HIT_OUT = INNER_R; // 悬停判定外沿 38（与扇区悬停带 [38,94] 无缝衔接）
 const ALERT_AT = 85; // 告警阈值（%）
 const COLLAPSED_HALF = 38; // 收起态可见区半边长（主进程 applyShape(38) 的 76×76 方形，局部坐标 x,y ∈ [65,141]，区域外不绘制像素）
-const PILL_H = 13; // 底部读数条高度（上下边框 2 + 内容区 11 ≥ 10px leading-none 文字；条顶 127.5 清空中心按钮底 127）
+const PILL_H = 13; // 底部读数条高度（上下边框 2 + 内容区 11 ≥ 10px leading-none 文字；垂直居中于圆中线 y=103）
 
 /* ── 负载渐变色：低负载冷色 → 高负载暖色（--color-load-* 四档，兜底 = token 默认值）──
    四档语义固定（青 / 黄 / 橙 / 红），不随主窗口 accent 变化 —— 换主题也必须是同一套读数语言 */
@@ -525,15 +525,14 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   //（如 47% → 2.35 = 2 整颗 + 第 3 颗 35%；57% → 2.85 = 2 整颗 + 第 3 颗 85%）
   let dotTotal = DOT_COUNT;
   let dotColor = DOT_COLOR_OK;
-  let dotPulse: string | undefined;
   if (powerMode === 'level' && level !== null) {
     dotTotal = clamp01(level) * DOT_COUNT;
     // 低电告警可见性保底：≤20% 且填充不足半颗（含 0%）时按半颗显示，
-    // 保证红色脉冲警示不消失；>10% 起严格按实际百分比，单调不回退
+    // 保证红色警示不消失；>10% 起严格按实际百分比，单调不回退
     if (level <= 0.2 && dotTotal < 0.5) dotTotal = 0.5;
-    // 颜色只区分状态，不区分档位：填充比例表达百分比，颜色表达「正常绿 / 低电红 / 充电绿呼吸」
+    // 颜色只区分状态，不区分档位：填充比例表达百分比，颜色表达「正常绿 / 低电红 / 充电绿」
+    //（圆点不做呼吸/闪动动画，静态色即可）
     dotColor = charging ? DOT_COLOR_CHARGE : level <= 0.2 ? DOT_COLOR_LOW : DOT_COLOR_OK;
-    dotPulse = charging ? 'hw-charge-glow' : level <= 0.2 ? 'hw-alert-pulse' : undefined;
   } else if (powerMode === 'mains') {
     dotColor = DOT_COLOR_CHARGE;
   } else if (powerMode === 'battery-unknown') {
@@ -737,7 +736,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
               transition: 'opacity 0.25s ease',
             }}
           >
-            <g className={dotPulse}>{dots}</g>
+            <g>{dots}</g>
           </g>
         </svg>
 
@@ -762,11 +761,10 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
         )}
       </motion.div>
 
-      {/* ═══ 数值读数条（独立 zIndex 20；收起态可见区仅 76×76 方形 [65,141]² →
-            做成贴可见区底边的全宽窄条：条顶 127.5 清空中心按钮（底 127）、条底 140.5 贴下沿 141，
-            完整可见；两弧仅弧头约 4° + round cap 藏进条后（视觉为弧从条后穿出），
-            电量圆点整段被条覆盖 → 悬停时以条上图标 + 数值自述，dim 反馈仍由弧承担；
-            中心闪电在 y ≈ 96.5~109.5，位于条顶（127.5）之上，不与条相交）═══ */}
+      {/* ═══ 数值读数条（独立 zIndex 20；收起态 OS 可见区是半径 38 的圆 →
+            贴底摆放时底部弦宽不足（y=134 处半宽仅 ≈22px）会被裁角，故垂直居中显示：
+            圆中线（y=103）处半宽恰为 38，76 宽窄条天然放得下；
+            悬停时主进程把读数条矩形并入 setShape 兜底四角；悬停仅收起态生效）═══ */}
       <AnimatePresence>
         {!expanded && pill && (
           <motion.div
@@ -775,7 +773,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
                        text-[10px] font-semibold leading-none tabular-nums"
             style={{
               left: CX - COLLAPSED_HALF, // 65：贴可见区左沿，宽度贴满 76
-              top: CY + CENTER_R + 0.5, // 127.5：中心按钮底（127）之下 0.5px，不压按钮
+              top: CY - PILL_H / 2, // 96.5：垂直居中（圆中线 y=103 处弦宽最大 = 76，不被圆形可见区裁角）
               width: COLLAPSED_HALF * 2, // 76
               height: PILL_H, // 13
               zIndex: 20,

@@ -34,21 +34,7 @@
   animation: hw-alert-pulse 0.9s ease-in-out infinite;
 }
 
-/* ── 硬件状态环：充电中的电量圆点呼吸 ── */
-@keyframes hw-charge-glow {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-.hw-charge-glow {
-  animation: hw-charge-glow 1.6s ease-in-out infinite;
-}
-
-/* ── 硬件状态环：充电闪电标识呼吸（与圆点呼吸同周期同相位，整体一起明暗；无阴影合成） ── */
+/* ── 硬件状态环：充电闪电标识呼吸（与中心 Logo 叠加显示；无阴影合成） ── */
 @keyframes hw-charge-bolt {
   0%,
   100% {
