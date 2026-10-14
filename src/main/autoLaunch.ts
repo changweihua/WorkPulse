@@ -8,10 +8,25 @@ import log from 'electron-log/main';
 import { guardedHandle, guardedQuery } from './ipc-guard';
 import { ok } from '../shared/ipc-result';
 import { AutoLaunchSchema, CloseActionSchema, WindowMaterialSchema } from './ipc-schemas';
-import { applyWindowMaterial, resolveWindowMaterial } from './window-material';
+import { applyWindowMaterial, resolveWindowMaterial, type WindowMaterial } from './window-material';
 
 let mainWinGetter: () => BrowserWindow | null = () => null;
 let appIconPath = '';
+
+/** 将材质应用到主窗口（含 win32 下的图标恢复），供「保存」与「预览」共用 */
+function applyMaterialToMainWindow(material: WindowMaterial): void {
+  const win = mainWinGetter();
+  if (!win) return;
+  // 统一走 applyWindowMaterial：同步切换原生背景色 + DWM 材质
+  applyWindowMaterial(win, material);
+  if (process.platform === 'win32') {
+    try {
+      win.setIcon(appIconPath);
+    } catch (err) {
+      log.error('[Main] setIcon failed:', err);
+    }
+  }
+}
 
 export function setAutoLaunchDeps(
   getMainWindow: () => BrowserWindow | null,
@@ -76,18 +91,13 @@ export function registerAutoLaunchIpc(): void {
 
   guardedHandle('set-window-material', WindowMaterialSchema, (data) => {
     setSetting('window_material', data.material);
-    const win = mainWinGetter();
-    if (win) {
-      // 统一走 applyWindowMaterial：同步切换原生背景色 + DWM 材质
-      applyWindowMaterial(win, data.material);
-      if (process.platform === 'win32') {
-        try {
-          win.setIcon(appIconPath);
-        } catch (err) {
-          log.error('[Main] setIcon failed:', err);
-        }
-      }
-    }
+    applyMaterialToMainWindow(data.material);
+    return ok(undefined);
+  });
+
+  // 预览材质：仅即时应用效果到窗口，不调 setSetting（不落盘）；保存仍走 set-window-material
+  guardedHandle('preview-window-material', WindowMaterialSchema, (data) => {
+    applyMaterialToMainWindow(data.material);
     return ok(undefined);
   });
 }
