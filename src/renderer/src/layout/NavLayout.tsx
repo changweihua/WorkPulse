@@ -14,6 +14,8 @@ import { ScrollToTopButton } from '../components/ScrollToTopButton';
 import { useCommandPalette, MOD_KEY_HINT } from '../hooks/useCommandPalette';
 // 入口按钮样式与面板样式同源（面板本体由 lazy chunk 按需加载）
 import '../components/CommandPalette.css';
+// L2 导航层玻璃样式：标题栏 L1 玻璃 + reduced-transparency 降级覆盖（侧栏在此）
+import './nav-glass.css';
 // import CursorRing from '../components/CursorRing';
 
 // 命令面板按需加载：不进首屏主包，首次打开才拉取 chunk
@@ -231,16 +233,16 @@ export default function NavLayout() {
         animate={{ width: sidebarWidth }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       >
-        {/* Liquid glass caustic overlay */}
-        <LiquidGlassSurface
-          className="absolute inset-0 z-0"
-          frosted={false}
-          intensity={0.3}
-          animated={true}
-          style={{ pointerEvents: 'none' }}
-        >
-          <div className="w-full h-full" />
-        </LiquidGlassSurface>
+        {/* L2 液态玻璃 caustic 覆盖层（阶段三）：
+            外层包裹负责绝对定位与 pointer-events，避免 LiquidGlassSurface 根节点
+            自带 relative 与传入 absolute 类冲突导致高度塌陷；
+            frosted={false} —— 毛玻璃由 .surface-sidebar 提供，禁玻璃嵌套（C2）；
+            侧栏折叠时 animated=false → 卸载 Canvas 释放 WebGL context（预算 ≤2）。 */}
+        <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden="true">
+          <LiquidGlassSurface className="w-full h-full" frosted={false} intensity={0.3} animated={!collapsed}>
+            <div className="w-full h-full" />
+          </LiquidGlassSurface>
+        </div>
 
         {/* -- Top: brand + toggle -- */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0">

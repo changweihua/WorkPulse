@@ -3,9 +3,12 @@
    覆盖层 + 居中偏上悬浮面板；全部取项目主题 token，暗色自动跟随
    ============================================================ */
 
-/* ---- 遮罩：半透明压暗 + 轻微背景模糊 ----
+/* ---- 遮罩：半透明压暗（阶段三移除全屏 backdrop blur）----
    背景取 --color-scrim：亮色 = 中性墨黑 45%，暗色 = 纯黑 60%（token 内已分档），
-   一处定义两套主题，不再需要 .dark 覆盖规则 */
+   一处定义两套主题，不再需要 .dark 覆盖规则。
+   阶段三：原 blur(6px) saturate(120%) 为全屏 backdrop 读取（≈8.3M 设备像素@DPR2），
+   超 C3 预算（≤3,000,000）；且与面板玻璃叠层违 C2 —— 现由面板内
+   LiquidGlassSurface（L2）统一提供毛玻璃，遮罩只保留压暗。 */
 .cp-overlay {
   position: fixed;
   inset: 0;
@@ -15,11 +18,12 @@
   justify-content: center;
   padding: 0 16px;
   background: var(--color-scrim);
-  backdrop-filter: blur(6px) saturate(120%);
-  -webkit-backdrop-filter: blur(6px) saturate(120%);
 }
 
-/* ---- 面板：居中偏上 12vh，宽度自适应 ---- */
+/* ---- 面板：居中偏上 12vh，宽度自适应 ----
+   阶段三：原 blur(24px) saturate(180%) 移除 —— 玻璃感由包裹内容的
+   LiquidGlassSurface 提供（单处 blur(12px)，面板区域单帧读取 ≈1.15M ✓ C3/C5）；
+   这里只保留实底近似色、边框与阴影作为玻璃下的底衬。 */
 .cp-panel {
   width: min(640px, calc(100vw - 32px));
   margin-top: 12vh;
@@ -33,8 +37,18 @@
   border-top-color: color-mix(in srgb, var(--color-blue-500) 45%, var(--glass-border));
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-fluent-xl);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* ---- 减少透明度降级（C6）：面板退不透明实心底，只保留布局 ----
+   双类名抬特异性（0,2,0 / 0,3,0），与规则顺序无关地覆盖 --color-surface-elevated 半透明底 */
+@media (prefers-reduced-transparency: reduce) {
+  .cp-panel.cp-panel {
+    background: #ffffff;
+  }
+
+  .dark .cp-panel.cp-panel {
+    background: rgb(30 30 35);
+  }
 }
 
 /* ---- 输入区：比列表底色略沉的「头部」分层 ---- */

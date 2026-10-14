@@ -210,14 +210,15 @@ a:focus-visible,
 
 /* ===== Dark mode tokens ===== */
 .dark {
-  /* 深色表面：足够的不透明度稳定背景亮度，保证文字对比度 */
-  --color-surface-card: rgb(30 30 35 / 0.55);
-  --color-surface-elevated: rgb(30 30 35 / 0.6);
-  --color-surface-input: rgb(30 30 35 / 0.5);
+  /* 深色表面：提高不透明度压住亮色最坏背景，保文字对比度
+     （原 0.55/0.6/0.5 实测最差 2.1:1；现主/次/三级文字在纯白最坏背景下均 ≥3:1） */
+  --color-surface-card: rgb(30 30 35 / 0.85);
+  --color-surface-elevated: rgb(30 30 35 / 0.8);
+  --color-surface-input: rgb(30 30 35 / 0.82);
   --color-surface-inset: rgb(255 255 255 / 5%);
 
-  /* 深色玻璃边框/阴影 */
-  --glass-border: rgb(255 255 255 / 0.12);
+  /* 深色玻璃边框/阴影：边框由 0.12 提到 0.18，暗底上边缘更清晰 */
+  --glass-border: rgb(255 255 255 / 0.18);
   --glass-shadow: 0 4px 30px rgb(0 0 0 / 0.25);
 
   --color-border: rgb(255 255 255 / 10%);
@@ -344,7 +345,12 @@ a:focus-visible,
   color: #d2a8ff;
 }
 
-/* ===== Base: transparent body for Acrylic ===== */
+/* ===== Base: 根容器（html/body）背景透明，透出 L0 系统材质 =====
+   系统材质（mica / tabbed / acrylic）由 Windows DWM 合成，只有根容器
+   背景为透明才能看到。原先 body 用的 --color-surface-inset（4%/5% 半透明）
+   会额外压一层底色，这里直接透明化让材质完全透出。
+   材质为「无（不透明）」时的兜底底色由主进程的原生 window backgroundColor
+   提供（src/main/window-material.ts），CSS 层不再叠实心底。 */
 html {
   background: transparent;
 }
@@ -353,7 +359,7 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: var(--color-surface-inset);
+  background: transparent;
   color: var(--color-text);
 }
 
@@ -375,7 +381,8 @@ html.theme-transition *::after {
 
 .dark body,
 :root.dark body {
-  background: var(--color-surface-inset);
+  /* 暗色模式同样透明：材质透出优先，文字色仍随主题切换 */
+  background: transparent;
   color: var(--color-text);
 }
 
@@ -761,12 +768,14 @@ body,
       rgba(255, 255, 255, 0.12) 100%
     ),
     var(--color-surface-card);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  /* L1 玻璃链（C4/C5）：仅 blur + saturate 两趟，radius 统一 12px（≤24px，每表面仅 1 处） */
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1px solid var(--glass-border);
+  /* fresnel 边环：顶部高光 + 底部反光，伪造折射边缘（各玻璃工具类统一） */
   box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.25),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
     var(--glass-shadow);
   transition:
     transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
@@ -783,14 +792,15 @@ body,
     ),
     var(--color-surface-card);
   box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
     var(--glass-shadow);
 }
 .stat-card:hover {
   transform: translateY(-3px);
   box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
     0 8px 24px rgb(0 0 0 / 12%),
     0 16px 48px rgb(0 0 0 / 6%);
 }
@@ -1242,13 +1252,15 @@ body,
       rgba(255, 255, 255, 0.12) 100%
     ),
     var(--color-surface-card);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  /* L1 玻璃链（C4/C5）：blur + saturate 两趟，radius 统一 12px */
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
+  /* fresnel 边环：顶部高光 + 底部反光 */
   box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.25),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
     var(--glass-shadow);
 }
 .dark .surface-card {
@@ -1262,8 +1274,8 @@ body,
     ),
     var(--color-surface-card);
   box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
     var(--glass-shadow);
 }
 .surface-card::before {
@@ -1308,12 +1320,14 @@ body,
       rgba(255, 255, 255, 0.12) 100%
     ),
     var(--color-surface-card);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  /* L1 玻璃链（C4/C5）：blur + saturate 两趟，radius 统一 12px */
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border-right: 1px solid var(--glass-border);
+  /* fresnel 边环：顶部高光 + 底部反光 */
   box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.25),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
     var(--glass-shadow);
 }
 .dark .surface-sidebar {
@@ -1327,8 +1341,8 @@ body,
     ),
     var(--color-surface-card);
   box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.1),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
     var(--glass-shadow);
 }
 .surface-sidebar::before {
@@ -1359,12 +1373,15 @@ body,
   );
 }
 
-/* Elevated: modals, dropdowns — higher opacity + stronger shadow */
+/* Elevated: modals, dropdowns — higher opacity + stronger shadow（无 backdrop-filter，不计入玻璃预算） */
 .surface-elevated {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  /* fresnel 边环：顶部高光 + 底部反光（与其他玻璃工具类统一） */
   box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
     0 4px 12px rgb(0 0 0 / 8%),
     0 12px 24px rgb(0 0 0 / 6%);
 }
@@ -1381,12 +1398,15 @@ body,
       rgba(255, 255, 255, 0.1) 100%
     ),
     var(--color-surface-input);
-  backdrop-filter: blur(15px) saturate(180%);
-  -webkit-backdrop-filter: blur(15px) saturate(180%);
+  /* L1 玻璃链（C4/C5）：radius 由 15px 归一到 12px，仍为 blur + saturate 两趟 */
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  /* fresnel 边环：顶部高光 + 底部反光 */
   box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
     0 1px 3px rgb(0 0 0 / 0.06);
 }
 .dark .surface-input {
@@ -1399,7 +1419,8 @@ body,
     ),
     var(--color-surface-input);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
     0 1px 2px rgb(0 0 0 / 0.1);
 }
 .surface-input::before {
@@ -1633,10 +1654,11 @@ body,
   background: var(--color-error-subtle, rgba(239, 68, 68, 0.1));
 }
 
-/* Surface card with interactive child glow */
+/* Surface card with interactive child glow（保留统一 fresnel 边环 + 聚焦环） */
 .surface-card:has(:focus-visible) {
   box-shadow:
-    inset 0 1px 2px rgba(255, 255, 255, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
     0 0 0 2px rgba(59, 130, 246, 0.3),
     var(--glass-shadow);
 }
@@ -1970,14 +1992,8 @@ button[class*='rounded-full'] {
   border-radius: var(--radius-pill) !important;
 }
 
-/* 全局按钮毛玻璃效果 — 悬停时轻微模糊 */
-.surface-card
-  button:not(.surface-card):not([class*='bg-blue']):not([class*='bg-red']):not(
-    [class*='bg-emerald']
-  ):not([class*='bg-violet']):not([class*='bg-zinc']) {
-  backdrop-filter: blur(8px) saturate(120%);
-  -webkit-backdrop-filter: blur(8px) saturate(120%);
-}
+/* L1 玻璃嵌套（C2）：原规则给 .surface-card 内的 button 再叠一层 backdrop-filter，
+   形成「玻璃上叠玻璃」，且每个多出一趟 blur pass（C4/C5）。已移除，按钮沿用父级玻璃。 */
 
 /* 全局下拉 select 统一圆角 */
 select {

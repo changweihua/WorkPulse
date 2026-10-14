@@ -281,7 +281,8 @@ export const translations = {
     'settings.themeChanged': '主题已切换',
     'settings.material': '窗口材质',
     'settings.materialHelp':
-      '切换 Windows 11 背景材质：Mica（标准）、Tabbed（更强染色）或 Acrylic（实时模糊）。',
+      '切换 Windows 11 背景材质：Mica（标准）、Tabbed（更强染色）、Acrylic（实时模糊）或「无」（不透明，用于降级）。',
+    'settings.materialNone': '无（不透明）',
     'settings.materialMica': 'Mica',
     'settings.materialTabbed': 'Tabbed',
     'settings.materialAcrylic': 'Acrylic',
@@ -609,7 +610,8 @@ export const translations = {
     'settings.themeChanged': 'Theme changed',
     'settings.material': 'Window Material',
     'settings.materialHelp':
-      'Switch the Windows 11 backdrop: Mica (standard), Tabbed (stronger tint), or Acrylic (live blur).',
+      'Switch the Windows 11 backdrop: Mica (standard), Tabbed (stronger tint), Acrylic (live blur), or None (opaque, fallback).',
+    'settings.materialNone': 'None (opaque)',
     'settings.materialMica': 'Mica',
     'settings.materialTabbed': 'Tabbed',
     'settings.materialAcrylic': 'Acrylic',

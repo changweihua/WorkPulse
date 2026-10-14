@@ -7,6 +7,7 @@
 ### 新增
 
 - ✨ feat: dev 模式下工作日志向量化改用本地模型生成（Xenova/bge-small-zh-v1.5），无需配置远程 Embedding API，不消耗额度；向量来源 key 变化时自动清空并重建索引，防止不同模型向量混存
+- ✨ feat: 主窗口材质新增「无（不透明）」降级项，默认值按 Windows 版本判定（Win11 22H2+ 用 Mica，其余用 Tabbed），新增 `src/main/window-material.ts` 统一材质读取与应用链路，作为 GPU 合成异常时的兜底
 
 ### 修复
 
@@ -21,6 +22,16 @@
 - 🌈 style: 液态玻璃演示图本地化 — 5 张 Unsplash 远程图下载至 `public/assets/demo/`，离线可用避免黑图；新增 WorkPulse 3D 大标题与 bar 模式导航文字（响应式字号/间距，导航文案走 i18n）
 - 🌈 style: 电池圆点去呼吸动画 — 电量圆点改为静态色（正常绿 / 低电红 / 充电绿），移除充电呼吸与低电脉冲效果及对应的 `hw-charge-glow` 样式
 - 🐞 fix: 悬停读数条被裁剪 — 悬停带内由主进程把读数条矩形并入 setShape 区域（`buildCircleRects` + `PILL_RECT` 兜底圆形条带裁角），并从贴底改为垂直居中显示（圆中线弦宽最大，76 宽窄条天然放得下）
+
+### 变更（液态玻璃整体风格接入 · 分层路由）
+
+- 🦄 refactor: 玻璃工具类 fresnel 边环统一 — `.stat-card`/`.surface-card`/`.surface-sidebar`/`.surface-elevated`/`.surface-input` 全部补齐顶部 `inset 0 1px 0 rgba(255,255,255,0.25)` + 底部 `inset 0 -1px 0 rgba(255,255,255,0.06)` 折射边缘，暗色被削弱的高光一并补回
+- 🦄 refactor: backdrop-filter 链归一（C4/C5）— 全部 4 处统一为 `blur(12px) saturate(150%)`，每表面仅 1 处 blur、radius 12≤24、链长 2 个函数，`.surface-elevated` 保持 0 处 backdrop-filter 不新增
+- 🐞 fix: 移除玻璃嵌套（C2）— 删除 `.surface-card button` 的 `blur(8px)` 叠层，按钮沿用父级玻璃，消除玻璃上叠玻璃与多余一趟 blur pass
+- 🐞 fix: 暗色对比度补强 — `.dark` 下 surface token alpha 0.55/0.6/0.5 提至 0.85/0.8/0.82，`--glass-border` 0.12→0.18，三档文字最坏背景对比度全部 ≥3:1
+- 🦄 refactor: 主窗口背景让位 L0 系统材质 — `body`（含 `.dark`）背景 `var(--color-surface-inset)` 改 `transparent`，标题栏 `bg-chrome-bg/70` 改透明+边框，DWM 材质（Mica/Acrylic）可直达可见区
+- 🦄 refactor: 导航层接入 L2 液态玻璃覆盖层 — 侧栏与命令面板复用 `LiquidGlassSurface`，新增 `frameloop` Page Visibility 停环与 IntersectionObserver 联动，`prefers-reduced-transparency`/`reduced-motion` 命中时降级为不透明实底；删除命令面板全屏 `blur(6px)` 与面板 `blur(24px)` 叠层（约 8.3M 设备像素@DPR2 违 C3，且与面板玻璃叠层违 C2/C5）
+- 🦄 refactor: 液态玻璃演示页边界锁定（L3）— `FluidGlass.tsx` 文件头加 FBO 折射每帧额外一次全场景渲染的警告注释，新增 Page Visibility 停环（`frameloop='never'`），明确禁止复用到生产 UI 层
 
 ## [0.3.9] - 2026-10-12
 

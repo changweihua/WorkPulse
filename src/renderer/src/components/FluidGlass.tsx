@@ -1,3 +1,18 @@
+/**
+ * ⚠️ 边界锁定警告（L3 · 演示页专属）
+ *
+ * 本组件是**全量液态玻璃**：FBO 离屏渲染 + MeshTransmissionMaterial 折射材质。
+ * 每帧都会额外执行一次全场景渲染 pass（`gl.setRenderTarget(fbo)` +
+ * `gl.render(isolatedScene, ...)` + `gl.setRenderTarget(null)`，见 ModeWrapper），
+ * 成本远高于普通材质，是它**不能外溢到生产 UI 层**的根本原因。
+ *
+ * **仅限演示页（FluidGlassPage）使用，禁止复用到生产 UI 层。**
+ * 生产 UI 请改用：
+ * - `LiquidGlassSurface`（L2 覆盖层），或
+ * - L0 / L1（原生材质 / CSS 拟物）
+ *
+ * 详见 docs/SPECS/liquid-glass-style-adoption.md
+ */
 import * as THREE from 'three';
 import { useRef, useMemo, useState, useEffect, memo, Suspense, type ReactNode } from 'react';
 import { Canvas, createPortal, useFrame, useThree } from '@react-three/fiber';
@@ -482,12 +497,31 @@ export default function FluidGlass({
     [mode, userOverrides],
   );
 
+  // Page Visibility 停环：R3F 默认 frameloop="always"，窗口 hidden 时仍会每帧
+  // 跑 FBO 全场景渲染（外加折射采样），后台白白烧 GPU/CPU。按需切 'never'/'always'
+  const [frameloop, setFrameloop] = useState<'always' | 'never'>(() =>
+    typeof document !== 'undefined' && document.visibilityState === 'hidden'
+      ? 'never'
+      : 'always',
+  );
+
+  useEffect(() => {
+    const syncFrameloop = () =>
+      setFrameloop(document.visibilityState === 'hidden' ? 'never' : 'always');
+    // 挂载时先同步一次（防止挂载前已切到后台）
+    syncFrameloop();
+    document.addEventListener('visibilitychange', syncFrameloop);
+    return () => document.removeEventListener('visibilitychange', syncFrameloop);
+  }, []);
+
   return (
     <div
       className={className}
       style={{ width: '100%', height: '100%', position: 'relative', ...style }}
     >
       <Canvas
+        // 停环：窗口隐藏时 frameloop='never'，停止 useFrame 循环（含 FBO 全场景渲染）
+        frameloop={frameloop}
         gl={{
           alpha: true,
           toneMapping: THREE.NoToneMapping,

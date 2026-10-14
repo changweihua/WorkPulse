@@ -1,0 +1,45 @@
+/* ============================================================
+   L2 导航层玻璃（阶段三）
+   仅服务导航层三处：侧栏 / 命令面板 / 标题栏。
+   - 标题栏：只用 L1 CSS（长条区域 caustic 收益低、WebGL context 成本高，不挂 Canvas）。
+   - reduced-transparency 降级（C6）：导航层关闭 backdrop 读取，退不透明/原实底，只保留布局。
+   不动 index.css（阶段二在改）、不动 body/html 背景（阶段一）。
+   ============================================================ */
+
+/* ---- 标题栏 L1 玻璃：单处 blur(12px)、单帧读取 ≈240k 设备像素@DPR2（C4/C5 ✓）
+   背景仍保持透明让位 L0 系统材质，玻璃只负责模糊采样与 fresnel 高光 ---- */
+.titlebar-glass {
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  /* fresnel 伪高光（顶部高光 + 底部反光）；同时并入原工具类的浅阴影，避免被覆盖丢失 */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* ---- 减少透明度降级（C6）：L2 关闭 backdrop 读取，退不透明/原实底，只保留布局 ---- */
+@media (prefers-reduced-transparency: reduce) {
+  /* 标题栏：去玻璃（backdrop 读取 + fresnel 高光），保留分隔边框与浅阴影；
+     背景维持原设计的透明（让位 L0 系统材质），不引入新的半透明面 */
+  .titlebar-glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  /* 侧栏：.surface-sidebar 定义在 index.css（无分层普通规则），
+     这里用双类名抬高特异性（0,2,0 / 0,3,0），与源顺序无关地覆盖其半透明底与 backdrop blur；
+     background 简写会覆盖 @theme 工具类，故直接用不透明色值 */
+  .surface-sidebar.surface-sidebar {
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .dark .surface-sidebar.surface-sidebar {
+    background: rgb(30 30 35);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

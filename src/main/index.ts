@@ -57,6 +57,7 @@ import { buildMenu, setupContextMenu, getShortcuts } from './menu';
 import { createTray, rebuildTrayMenu } from './tray';
 import { createSplashWindow, closeSplashWindow } from './splash';
 import { registerAutoLaunchIpc, setAutoLaunchDeps } from './autoLaunch';
+import { resolveWindowMaterial, windowBackgroundColor } from './window-material';
 import { loadDotNet } from './asar-dotnet-loader';
 import { vectorSearch } from './vector-search';
 import { guardedHandle } from './ipc-guard';
@@ -174,6 +175,8 @@ function registerShortcutIpc(): void {
 // ── 主窗口 ──
 
 function createWindow(): void {
+  // 系统材质（L0）：默认值按 Windows 版本判定，材质为 none 时用不透明原生底色兜底
+  const initialMaterial = resolveWindowMaterial(getSetting('window_material'));
   const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
@@ -184,9 +187,8 @@ function createWindow(): void {
     frame: false,
     titleBarStyle: 'hidden',
     icon: APP_ICON_PATH,
-    backgroundColor: '#00000000',
-    backgroundMaterial:
-      (getSetting('window_material') as 'mica' | 'tabbed' | 'acrylic') || 'tabbed',
+    backgroundColor: windowBackgroundColor(initialMaterial),
+    backgroundMaterial: initialMaterial,
     ...(process.platform === 'win32'
       ? {
           titleBarOverlay: {

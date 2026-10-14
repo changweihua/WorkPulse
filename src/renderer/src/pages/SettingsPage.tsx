@@ -11,6 +11,7 @@ import {
   Layers,
   PanelTop,
   Droplets,
+  Ban,
   RefreshCw,
   Download,
   CheckCircle2,
@@ -482,8 +483,9 @@ function SettingsPage(): ReactNode {
     toast.success(t('settings.themeChanged'));
   };
 
-  // ---------- 窗口材质（Mica / Tabbed / Acrylic） ----------
-  const [material, setMaterial] = useState<string>('tabbed');
+  // ---------- 窗口材质（无 / Mica / Tabbed / Acrylic） ----------
+  // 初始为空，实际值由主进程返回（默认值由主进程按 Windows 版本判定）
+  const [material, setMaterial] = useState<string>('');
 
   useEffect(() => {
     window.api?.window
@@ -987,6 +989,13 @@ function SettingsPage(): ReactNode {
                         label: t('settings.materialAcrylic'),
                         Icon: Droplets,
                         color: 'bg-cyan-400',
+                      },
+                      {
+                        // 降级项：GPU 合成异常（electron #40515）时关掉系统材质
+                        value: 'none',
+                        label: t('settings.materialNone'),
+                        Icon: Ban,
+                        color: 'bg-zinc-400',
                       },
                     ] as const
                   ).map(({ value, label, Icon, color }) => (

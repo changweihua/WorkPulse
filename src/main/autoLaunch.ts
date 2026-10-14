@@ -8,6 +8,7 @@ import log from 'electron-log/main';
 import { guardedHandle, guardedQuery } from './ipc-guard';
 import { ok } from '../shared/ipc-result';
 import { AutoLaunchSchema, CloseActionSchema, WindowMaterialSchema } from './ipc-schemas';
+import { applyWindowMaterial, resolveWindowMaterial } from './window-material';
 
 let mainWinGetter: () => BrowserWindow | null = () => null;
 let appIconPath = '';
@@ -69,18 +70,22 @@ export function registerAutoLaunchIpc(): void {
   });
 
   guardedQuery('get-window-material', () => {
-    return ok(getSetting('window_material') || 'tabbed');
+    // 默认值按 Windows 版本判定：Win11 22H2+ 默认 mica，其余默认 tabbed
+    return ok(resolveWindowMaterial(getSetting('window_material')));
   });
 
   guardedHandle('set-window-material', WindowMaterialSchema, (data) => {
     setSetting('window_material', data.material);
     const win = mainWinGetter();
-    if (win && process.platform === 'win32') {
-      try {
-        win.setBackgroundMaterial(data.material as 'mica' | 'tabbed' | 'acrylic');
-        win.setIcon(appIconPath);
-      } catch (err) {
-        log.error('[Main] setBackgroundMaterial failed:', err);
+    if (win) {
+      // 统一走 applyWindowMaterial：同步切换原生背景色 + DWM 材质
+      applyWindowMaterial(win, data.material);
+      if (process.platform === 'win32') {
+        try {
+          win.setIcon(appIconPath);
+        } catch (err) {
+          log.error('[Main] setIcon failed:', err);
+        }
       }
     }
     return ok(undefined);

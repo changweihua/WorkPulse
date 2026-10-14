@@ -13,6 +13,7 @@ import {
 } from '../config/navigation';
 import { MOD_KEY_HINT } from '../hooks/useCommandPalette';
 import './CommandPalette.css';
+import { LiquidGlassSurface } from './LiquidGlassSurface';
 
 /** 结果上限：避免超长列表拖慢渲染与键盘滚动 */
 const RESULT_LIMIT = 20;
@@ -208,89 +209,94 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
           >
-            {/* ---- 输入区 ---- */}
-            <div className="cp-input-row">
-              <Search className="cp-input-icon" aria-hidden="true" />
-              <input
-                ref={inputRef}
-                type="text"
-                className="cp-input"
-                value={query}
-                placeholder={t('commandPalette.placeholder')}
+            {/* L2 液态玻璃面板（阶段三）：毛玻璃 + caustic 由 LiquidGlassSurface 提供，
+                替代原 .cp-panel 全屏级 backdrop blur（违 C3 预算且与 overlay 叠玻璃违 C2）；
+                面板关闭时整棵卸载 → Canvas 自动释放 WebGL context。 */}
+            <LiquidGlassSurface className="flex flex-col min-h-0">
+              {/* ---- 输入区 ---- */}
+              <div className="cp-input-row">
+                <Search className="cp-input-icon" aria-hidden="true" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className="cp-input"
+                  value={query}
+                  placeholder={t('commandPalette.placeholder')}
+                  aria-label={t('commandPalette.placeholder')}
+                  aria-activedescendant={activeId}
+                  aria-controls="cp-listbox"
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setActiveIndex(0); // 新输入从第一条结果开始
+                  }}
+                  onKeyDown={handleKeyDown}
+                />
+                <kbd className="cp-kbd cp-kbd-escape">Esc</kbd>
+              </div>
+
+              {/* ---- 结果列表 ---- */}
+              <div
+                ref={listRef}
+                id="cp-listbox"
+                className="cp-list"
+                role="listbox"
                 aria-label={t('commandPalette.placeholder')}
-                aria-activedescendant={activeId}
-                aria-controls="cp-listbox"
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setActiveIndex(0); // 新输入从第一条结果开始
-                }}
-                onKeyDown={handleKeyDown}
-              />
-              <kbd className="cp-kbd cp-kbd-escape">Esc</kbd>
-            </div>
-
-            {/* ---- 结果列表 ---- */}
-            <div
-              ref={listRef}
-              id="cp-listbox"
-              className="cp-list"
-              role="listbox"
-              aria-label={t('commandPalette.placeholder')}
-            >
-              {/* 有查询但导航无命中：给出空状态提示，动作项仍可执行 */}
-              {trimmedQuery !== '' && navResults.length === 0 && (
-                <div className="cp-empty" role="presentation">
-                  {t('commandPalette.noResults')}
-                </div>
-              )}
-              {entries.map((entry, index) => (
-                <div
-                  key={entry.id}
-                  id={entry.id}
-                  data-index={index}
-                  role="option"
-                  aria-selected={index === activeIndex}
-                  className={`cp-item${index === activeIndex ? ' is-active' : ''}`}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => runEntry(entry)}
-                >
-                  <span className="cp-item-icon" aria-hidden="true">
-                    {entry.icon}
-                  </span>
-                  <span className="cp-item-main">
-                    <span className="cp-item-title">
-                      <Highlight text={entry.title} query={trimmedQuery} />
+              >
+                {/* 有查询但导航无命中：给出空状态提示，动作项仍可执行 */}
+                {trimmedQuery !== '' && navResults.length === 0 && (
+                  <div className="cp-empty" role="presentation">
+                    {t('commandPalette.noResults')}
+                  </div>
+                )}
+                {entries.map((entry, index) => (
+                  <div
+                    key={entry.id}
+                    id={entry.id}
+                    data-index={index}
+                    role="option"
+                    aria-selected={index === activeIndex}
+                    className={`cp-item${index === activeIndex ? ' is-active' : ''}`}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onClick={() => runEntry(entry)}
+                  >
+                    <span className="cp-item-icon" aria-hidden="true">
+                      {entry.icon}
                     </span>
-                    <span className="cp-item-path">/{entry.path}</span>
-                  </span>
-                  {index === activeIndex && (
-                    <CornerDownLeft className="cp-item-enter" aria-hidden="true" />
-                  )}
-                </div>
-              ))}
-            </div>
+                    <span className="cp-item-main">
+                      <span className="cp-item-title">
+                        <Highlight text={entry.title} query={trimmedQuery} />
+                      </span>
+                      <span className="cp-item-path">/{entry.path}</span>
+                    </span>
+                    {index === activeIndex && (
+                      <CornerDownLeft className="cp-item-enter" aria-hidden="true" />
+                    )}
+                  </div>
+                ))}
+              </div>
 
-            {/* ---- 底部快捷键提示 ---- */}
-            <div className="cp-footer">
-              <span className="cp-hint">
-                <kbd className="cp-kbd">↑</kbd>
-                <kbd className="cp-kbd">↓</kbd>
-                {t('commandPalette.hintNavigate')}
-              </span>
-              <span className="cp-hint">
-                <kbd className="cp-kbd">Enter</kbd>
-                {t('commandPalette.hintSelect')}
-              </span>
-              <span className="cp-hint">
-                <kbd className="cp-kbd">Esc</kbd>
-                {t('commandPalette.hintClose')}
-              </span>
-              <span className="cp-hint cp-hint-mod">
-                <kbd className="cp-kbd">{MOD_KEY_HINT}</kbd>
-              </span>
-            </div>
+              {/* ---- 底部快捷键提示 ---- */}
+              <div className="cp-footer">
+                <span className="cp-hint">
+                  <kbd className="cp-kbd">↑</kbd>
+                  <kbd className="cp-kbd">↓</kbd>
+                  {t('commandPalette.hintNavigate')}
+                </span>
+                <span className="cp-hint">
+                  <kbd className="cp-kbd">Enter</kbd>
+                  {t('commandPalette.hintSelect')}
+                </span>
+                <span className="cp-hint">
+                  <kbd className="cp-kbd">Esc</kbd>
+                  {t('commandPalette.hintClose')}
+                </span>
+                <span className="cp-hint cp-hint-mod">
+                  <kbd className="cp-kbd">{MOD_KEY_HINT}</kbd>
+                </span>
+              </div>
+            </LiquidGlassSurface>
           </motion.div>
         </motion.div>
       )}
