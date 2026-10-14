@@ -10,6 +10,8 @@ import { TOP_NAV_ORDER, findNavItem, renderNavIcon, resolveNavLabel } from '../c
 import { useCommandPalette, MOD_KEY_HINT } from '../hooks/useCommandPalette';
 // 入口按钮样式与面板样式同源（面板本体由 lazy chunk 按需加载）
 import '../components/CommandPalette.css';
+// L2 导航层玻璃样式：标题栏 L1 玻璃 + reduced-transparency 降级（不挂 Canvas）
+import './nav-glass.css';
 
 // 命令面板按需加载：不进首屏主包，首次打开才拉取 chunk
 const CommandPalette = lazy(() => import('../components/CommandPalette'));
@@ -104,8 +106,10 @@ export default function Layout() {
 
   return (
     <div className="h-screen flex flex-col">
-      {/* 标题栏与内容区同色涂装 */}
-      <div className="bg-chrome-bg dark:bg-surface-subtle-dark">
+      {/* 标题栏背景让位给 L0 系统材质：去掉不透明底，仅保留分隔边框与浅阴影。
+          对比度守卫：titlebar-glass 单处 blur(12px)（C5 每表面仅 1 处 blur）+ fresnel 高光，
+          标题文字透出壁纸时由玻璃层保障可读性；TitleBarLayout 与本组件互斥渲染，不会叠两层 */}
+      <div className="titlebar-glass bg-transparent border-b border-black/[0.06] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <TitleBar />
       </div>
       <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/20 dark:border-zinc-700/20">

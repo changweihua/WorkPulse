@@ -494,8 +494,9 @@ export function RadialMenu(): ReactNode {
               background: expanded
                 ? 'var(--color-radial-center-solid)'
                 : 'var(--gradient-radial-center-glass)',
-              backdropFilter: expanded ? 'blur(32px) saturate(180%)' : 'blur(8px)',
-              WebkitBackdropFilter: expanded ? 'blur(32px) saturate(180%)' : 'blur(8px)',
+              // 玻璃预算硬约束：单声明仅 1 处 blur、radius ≤24px、≤2 个滤镜函数（统一 blur(12px) saturate(150%)）
+              backdropFilter: 'blur(12px) saturate(150%)',
+              WebkitBackdropFilter: 'blur(12px) saturate(150%)',
               boxShadow: expanded
                 ? 'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)'
                 : 'inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -2px 3px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.08)',

@@ -8,9 +8,13 @@
 
 - ✨ feat: dev 模式下工作日志向量化改用本地模型生成（Xenova/bge-small-zh-v1.5），无需配置远程 Embedding API，不消耗额度；向量来源 key 变化时自动清空并重建索引，防止不同模型向量混存
 - ✨ feat: 主窗口材质新增「无（不透明）」降级项，默认值按 Windows 版本判定（Win11 22H2+ 用 Mica，其余用 Tabbed），新增 `src/main/window-material.ts` 统一材质读取与应用链路，作为 GPU 合成异常时的兜底
+- ✨ feat: 新增玻璃预算门控审计 `npm run audit:glass`（`scripts/audit-glass-budget.mjs`）— 静态扫描全部 backdrop-filter，按 C3（单帧读取 ≤3,000,000 设备像素@DPR2）、C5（每表面 1 处 blur、radius ≤24px）判定，违规非 0 退出，防止玻璃性能预算回归
+- ✨ feat: 设置页窗口材质切换支持实时预览 — 新增 `preview-window-material` IPC（只应用不落盘），点击即时预览、「应用」才保存、「取消」或离开页面自动恢复，预览中/已保存角标区分
 
 ### 修复
 
+- 🐞 fix: 径向菜单中心圆玻璃超预算 — `blur(32px) saturate(180%)` 三元声明估算 5.01M 设备像素超 3M 预算且单声明 2 处 blur、radius 32>24，统一为 `blur(12px) saturate(150%)`
+- 🐞 fix: 主内容布局标题栏遮挡 L0 系统材质 — `Layout.tsx` 不透明包裹层改 `titlebar-glass` 透明让位，保留单处 blur(12px)+fresnel 作对比度守卫
 - 🐞 fix: 液态玻璃演示滚动无效 — 图片内容接入 `Scroll` 并新增滚动驱动的错峰缩放动画
 - 🐞 fix: 液态玻璃指针跟踪失效 — ScrollControls 滚动层遮挡 canvas，改用 window `pointermove` + `getBoundingClientRect` 计算 NDC
 - 🐞 fix: 液态玻璃折射视差丢失 — FBO 离屏渲染从正交相机改用主透视相机，玻璃位置改为按 z=15 深度视口换算，移除硬编码坐标
