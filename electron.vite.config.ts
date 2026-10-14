@@ -51,7 +51,20 @@ export default defineConfig(({ mode }) => {
         // feedsmith 的 dist 内自带嵌套 node_modules/trousse，electron-builder 依赖收集器
         // 会硬编码跳过嵌套 node_modules 导致打包后运行时 Cannot find module，故将 feedsmith
         // 打进 main bundle（其内部相对 require 在构建期即可解析）
+        //
+        // @huggingface/transformers 仅 dev 本地向量化使用（local-embed.ts 动态 import），
+        // 位于 devDependencies，必须 externalize：内联打包会在 sharp /
+        // createRequire(import.meta.url) 处崩溃（rolldown、esbuild 双重实测复现）。
+        // 打包版永不加载，其相关依赖一并 externalize 防止被卷入 bundle。
         externalizeDeps: {
+          include: [
+            '@huggingface/transformers',
+            'onnxruntime-node',
+            'onnxruntime-common',
+            'sharp',
+            '@huggingface/tokenizers',
+            '@huggingface/jinja',
+          ],
           exclude: ['feedsmith'],
         },
         rolldownOptions: {

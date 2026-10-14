@@ -1,15 +1,28 @@
 /**
  * 本地向量搜索服务
  *
- * - 调用全局 AI 配置的 Embedding API（OpenAI 兼容）
+ * - Embedding 来源分两条路径：
+ *   - dev 模式（!app.isPackaged）：本地 transformers.js 模型生成（local-embed.ts，
+ *     Xenova/bge-small-zh-v1.5，512 维），不调远程 API、不需要 Key、不计额度
+ *   - 打包版：调用全局 AI 配置的 Embedding API（OpenAI 兼容），行为不变
  * - 向量持久化到 SQLite worklog_vectors 表
  * - 内存余弦相似度搜索
- * - 每日 API 调用上限 100 次，超限回退 BM25
+ * - 每日 API 调用上限 100 次，超限回退 BM25（仅远程模式生效）
+ * - 向量来源 key（settings.vector_embed_key）变化时自动清空并重建索引，
+ *   防止不同模型/维度的向量混存导致余弦相似度静默失效
  */
 import { app } from 'electron';
 import log from 'electron-log/main';
 // oxlint-disable-next-line import/no-cycle -- 有意保留的静态环：跨模块调用只发生在函数体内，打包为单文件 bundle 后安全
-import { getDatabase, getUnindexedWorkLogs, markWorkLogsIndexed } from './db';
+import {
+  getDatabase,
+  getSetting,
+  getUnindexedWorkLogs,
+  markWorkLogsIndexed,
+  setSetting,
+  // oxlint-disable-next-line import/no-cycle -- 同上（多行 import 的环警告落在 from 行，注释须紧贴其上）
+} from './db';
+import { isLocalEmbeddingEnabled, LOCAL_EMBED_MODEL_ID, localEmbed } from './local-embed';
 // oxlint-disable-next-line import/no-cycle -- 同上（db → vector-search 环在函数体内访问）
 import { logAiUsage } from './aiUsage';
 import {
@@ -107,6 +120,32 @@ function getActiveEmbeddingConfig(): EmbeddingConfig | null {
   }
 }
 
+// ==================== 向量来源 key（防不同模型向量混存） ====================
+
+/** settings 表中持久化向量来源 key 的键名 */
+const VECTOR_EMBED_KEY_SETTING = 'vector_embed_key';
+
+/**
+ * 计算当前向量来源 key：
+ * - dev 本地模式：`local:<模型ID>`（维度固定 512）
+ * - 远程模式：`api:<激活配置ID>:<模型名>`
+ *
+ * key 变化（切换模式或模型）意味着向量维度/语义空间变化，必须清空重建，
+ * 否则新旧向量混存导致余弦相似度静默失效。
+ */
+function computeEmbedKey(): string {
+  if (isLocalEmbeddingEnabled()) {
+    return `local:${LOCAL_EMBED_MODEL_ID}`;
+  }
+  let activeId = '';
+  try {
+    activeId = getGlobalConfig().activeEmbeddingConfigId ?? '';
+  } catch {
+    activeId = '';
+  }
+  return `api:${activeId}:${getActiveEmbeddingConfig()?.model ?? ''}`;
+}
+
 // ==================== 每日调用计数 ====================
 
 function getEmbeddingQuotaGroup(): string {
@@ -131,6 +170,8 @@ function getDailyCallCount(): number {
 }
 
 function incrementDailyCallCount(): number {
+  // 本地 embedding 不消耗额度：不写入调用计数，避免污染统计与远程剩余额度判断
+  if (isLocalEmbeddingEnabled()) return getDailyCallCount();
   try {
     const activeId = getGlobalConfig().activeEmbeddingConfigId || 'embedding';
     const group = getEmbeddingQuotaGroup();
@@ -142,12 +183,19 @@ function incrementDailyCallCount(): number {
 }
 
 function isOverDailyLimit(): boolean {
+  // 本地 embedding 不计额度，永不超限
+  if (isLocalEmbeddingEnabled()) return false;
   return getDailyCallCount() >= getDailyApiLimit();
 }
 
 // ==================== Embedding API 调用 ====================
 
 async function callEmbeddingAPI(texts: string[]): Promise<number[][]> {
+  // dev 模式：走本地 transformers.js 模型，不发远程请求、不记 logAiUsage、不消耗额度
+  if (isLocalEmbeddingEnabled()) {
+    return localEmbed(texts);
+  }
+
   const config = getActiveEmbeddingConfig();
   if (!config) throw new Error('未配置 Embedding 模型');
 
@@ -376,8 +424,50 @@ class VectorSearchService {
   initialize(): void {
     if (this.initialized) return;
     ensureVectorTable();
+    this.ensureEmbedKeyConsistency();
     this.initialized = true;
     log.info('[VectorSearch] 初始化完成');
+  }
+
+  /**
+   * 校验向量来源 key：与持久化记录不一致（切换了本地/远程或模型）时，
+   * 清空全部向量并重置同步标记，避免不同维度/模型的向量混存导致余弦相似度静默失效。
+   */
+  private ensureEmbedKeyConsistency(): void {
+    const current = computeEmbedKey();
+    let stored: string | null = null;
+    try {
+      stored = getSetting(VECTOR_EMBED_KEY_SETTING);
+    } catch (e) {
+      log.warn('[VectorSearch] 读取向量来源 key 失败，跳过一致性检查:', e);
+      return;
+    }
+    if (stored === current) return;
+
+    this.purgeAllVectors();
+    try {
+      setSetting(VECTOR_EMBED_KEY_SETTING, current);
+    } catch (e) {
+      log.warn('[VectorSearch] 写入向量来源 key 失败:', e);
+    }
+    log.info(
+      `[VectorSearch] 向量来源已变更（${stored ?? '首次'} → ${current}），已清空向量索引，将按新来源重新向量化`,
+    );
+  }
+
+  /**
+   * 清空全部向量数据：worklog 向量、查询向量缓存、内存缓存、同步标记。
+   * rebuildIndex 与向量来源变更时共用，避免重复代码。
+   */
+  private purgeAllVectors(): void {
+    const db = getDatabase();
+    db.exec('DELETE FROM worklog_vectors');
+    // 查询向量也来自旧来源，必须一并清空，否则旧维度查询向量与新向量混算余弦
+    db.exec('DELETE FROM query_vectors');
+    // 清空向量后使缓存失效，下次搜索重建为空缓存
+    invalidateVectorCache();
+    // 重置所有 worklog 的同步标记
+    db.exec('UPDATE work_logs SET vector_synced_at = NULL');
   }
 
   /**
@@ -398,7 +488,10 @@ class VectorSearchService {
       return { indexed: 0, errors: 0, skipped: unindexed.length };
     }
 
-    const remaining = getDailyApiLimit() - getDailyCallCount();
+    // 本地模式不计额度，不限制处理数量；远程模式按剩余额度截断
+    const remaining = isLocalEmbeddingEnabled()
+      ? Number.POSITIVE_INFINITY
+      : getDailyApiLimit() - getDailyCallCount();
     // 过滤掉内容未变更的（已有向量且 hash 一致）
     const db = getDatabase();
     const existingHashes = db
@@ -612,10 +705,13 @@ class VectorSearchService {
       return false;
     }
 
-    const config = getActiveEmbeddingConfig();
-    if (!config) {
-      log.debug('[VectorSearch] 未配置 Embedding 模型，跳过向量化');
-      return false;
+    // 远程模式要求已配置；dev 本地模式无需远程配置也放行
+    if (!isLocalEmbeddingEnabled()) {
+      const config = getActiveEmbeddingConfig();
+      if (!config) {
+        log.debug('[VectorSearch] 未配置 Embedding 模型，跳过向量化');
+        return false;
+      }
     }
 
     const db = getDatabase();
@@ -659,12 +755,7 @@ class VectorSearchService {
    */
   rebuildIndex(): void {
     this.initialize();
-    const db = getDatabase();
-    db.exec('DELETE FROM worklog_vectors');
-    // 清空向量后使缓存失效，下次搜索重建为空缓存
-    invalidateVectorCache();
-    // 重置所有 worklog 的同步标记
-    db.exec('UPDATE work_logs SET vector_synced_at = NULL');
+    this.purgeAllVectors();
     log.info('[VectorSearch] 向量索引已重建');
   }
 }
