@@ -484,8 +484,15 @@ function SettingsPage(): ReactNode {
   };
 
   // ---------- 窗口材质（无 / Mica / Tabbed / Acrylic） ----------
-  // 初始为空，实际值由主进程返回（默认值由主进程按 Windows 版本判定）
+  // material = 已保存值；previewMaterial = 预览中的值（null 表示无预览）。点击选项只预览不落盘，「应用」才保存
   const [material, setMaterial] = useState<string>('');
+  const [previewMaterial, setPreviewMaterial] = useState<string | null>(null);
+
+  // 供卸载 cleanup 读取最新值（避免闭包拿到旧值）
+  const materialRef = useRef(material);
+  const previewMaterialRef = useRef(previewMaterial);
+  materialRef.current = material;
+  previewMaterialRef.current = previewMaterial;
 
   useEffect(() => {
     window.api?.window
@@ -494,10 +501,38 @@ function SettingsPage(): ReactNode {
       .catch(() => {});
   }, []);
 
-  const handleMaterialChange = async (value: string): Promise<void> => {
-    const res = await window.api?.window?.setMaterial?.(value);
+  // 卸载/离开页面时若仍在预览态，恢复到已保存值，避免预览残留
+  useEffect(() => {
+    return () => {
+      if (previewMaterialRef.current !== null) {
+        window.api?.window?.previewMaterial?.(materialRef.current)?.catch(() => {});
+      }
+    };
+  }, []);
+
+  // 「取消」：恢复到已保存值并结束预览态
+  const handleMaterialCancel = (): void => {
+    window.api?.window?.previewMaterial?.(material)?.catch(() => {});
+    setPreviewMaterial(null);
+  };
+
+  // 点击选项：即时预览效果（不落盘）。点回已保存项等同取消预览
+  const handleMaterialPreview = (value: string): void => {
+    if (value === material) {
+      handleMaterialCancel();
+      return;
+    }
+    setPreviewMaterial(value);
+    window.api?.window?.previewMaterial?.(value)?.catch(() => {});
+  };
+
+  // 「应用」：落盘保存（走原 setMaterial IPC）并结束预览态
+  const handleMaterialApply = async (): Promise<void> => {
+    if (previewMaterial === null) return;
+    const res = await window.api?.window?.setMaterial?.(previewMaterial);
     if (res?.success) {
-      setMaterial(value);
+      setMaterial(previewMaterial);
+      setPreviewMaterial(null);
       toast.success(t('settings.materialChanged'));
     }
   };
@@ -998,24 +1033,68 @@ function SettingsPage(): ReactNode {
                         color: 'bg-zinc-400',
                       },
                     ] as const
-                  ).map(({ value, label, Icon, color }) => (
-                    <button
-                      key={value}
-                      onClick={() => handleMaterialChange(value)}
-                      className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors ${
-                        material === value
-                          ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
-                          : 'border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
-                      }`}
-                    >
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full ${color} ${material === value ? 'ring-2 ring-white dark:ring-zinc-900 ring-offset-1' : ''}`}
-                      />
-                      <Icon className="w-4 h-4" />
-                      {label}
-                    </button>
-                  ))}
+                  ).map(({ value, label, Icon, color }) => {
+                    // 选中态高亮跟随预览值（预览优先），无预览时回落到已保存值
+                    const isSelected = (previewMaterial ?? material) === value;
+                    // 预览态下该选项是预览目标（琥珀虚线框 + 「预览中」角标）
+                    const isPreviewing = previewMaterial !== null && previewMaterial === value;
+                    // 预览态下该选项是已保存值（实线框 + 「已保存」角标），用于一眼区分预览/已保存
+                    const isSavedInPreview =
+                      previewMaterial !== null && previewMaterial !== material && material === value;
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => handleMaterialPreview(value)}
+                        className={`relative flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors ${
+                          isPreviewing
+                            ? 'border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-500 dark:bg-amber-500/10 dark:text-amber-400'
+                            : isSelected
+                              ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                              : isSavedInPreview
+                                ? 'border-zinc-400 dark:border-zinc-500 text-zinc-600 dark:text-zinc-300'
+                                : 'border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full ${color} ${isSelected && !isPreviewing ? 'ring-2 ring-white dark:ring-zinc-900 ring-offset-1' : ''}`}
+                        />
+                        <Icon className="w-4 h-4" />
+                        {label}
+                        {isPreviewing && (
+                          <span className="absolute -top-2 -right-1.5 px-1 py-0.5 text-[10px] leading-none rounded bg-amber-500 text-white dark:bg-amber-500">
+                            {t('settings.materialPreviewing')}
+                          </span>
+                        )}
+                        {isSavedInPreview && (
+                          <span className="absolute -top-2 -right-1.5 px-1 py-0.5 text-[10px] leading-none rounded bg-zinc-500 text-white dark:bg-zinc-400 dark:text-zinc-900">
+                            {t('settings.materialSavedBadge')}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
+                {previewMaterial !== null && previewMaterial !== material && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      {t('settings.materialPreviewHint')}
+                    </p>
+                    <div className="ml-auto flex items-center gap-2">
+                      <button
+                        onClick={handleMaterialCancel}
+                        className="px-3 py-1.5 text-xs rounded-md border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        {t('settings.materialCancel')}
+                      </button>
+                      <button
+                        onClick={handleMaterialApply}
+                        className="px-3 py-1.5 text-xs rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 transition-opacity"
+                      >
+                        {t('settings.materialApply')}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
 

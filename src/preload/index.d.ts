@@ -414,6 +414,7 @@ interface API {
     close: () => void;
     getMaterial: () => Promise<string>;
     setMaterial: (material: string) => Promise<{ success: boolean }>;
+    previewMaterial: (material: string) => Promise<{ success: boolean }>;
   };
   vector: {
     initialize: () => Promise<{ ok: boolean }>;
@@ -491,6 +492,7 @@ declare global {
       close: () => void;
       getMaterial: () => Promise<string>;
       setMaterial: (material: string) => Promise<{ success: boolean }>;
+      previewMaterial: (material: string) => Promise<{ success: boolean }>;
     };
     pp: {
       ipcRenderer: {

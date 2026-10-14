@@ -386,6 +386,9 @@ const api = {
     getMaterial: (): Promise<string> => invoke(ipcRenderer.invoke('get-window-material')),
     setMaterial: (material: string): Promise<{ success: boolean }> =>
       invoke(ipcRenderer.invoke('set-window-material', material)),
+    // 预览材质（不落盘）：仅即时应用效果，保存仍走 setMaterial
+    previewMaterial: (material: string): Promise<{ success: boolean }> =>
+      invoke(ipcRenderer.invoke('preview-window-material', material)),
   },
   on: {
     quickCreate: (cb: (type: QuickCreateType) => void) => {
