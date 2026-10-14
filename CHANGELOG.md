@@ -4,8 +4,17 @@
 
 ## [未发布]
 
+### 修复
+
+- 🐞 fix: 液态玻璃演示滚动无效 — 图片内容接入 `Scroll` 并新增滚动驱动的错峰缩放动画
+- 🐞 fix: 液态玻璃指针跟踪失效 — ScrollControls 滚动层遮挡 canvas，改用 window `pointermove` + `getBoundingClientRect` 计算 NDC
+- 🐞 fix: 液态玻璃折射视差丢失 — FBO 离屏渲染从正交相机改用主透视相机，玻璃位置改为按 z=15 深度视口换算，移除硬编码坐标
+
 ### 变更
 
+- 🦄 refactor: 液态玻璃渲染管线对齐参考实现 — 材质改三层合并（基础预设/模式覆盖/props），关闭 `temporalDistortion` 与 `backside` 消除玻璃持续蠕动并降低采样开销，跟随阻尼 0.4→0.15 增强液态惯性，背景内容 z 轴拉深制造折射纵深
+- 🦄 refactor: 液态玻璃 GLB 按需加载 — 模块顶层 preload 三个模型，运行时只加载当前模式；页面切换模式不再经 `key` 销毁重建 Canvas
+- 🌈 style: 液态玻璃演示图本地化 — 5 张 Unsplash 远程图下载至 `public/assets/demo/`，离线可用避免黑图；新增 WorkPulse 3D 大标题与 bar 模式导航文字（响应式字号/间距，导航文案走 i18n）
 - 🌈 style: 电池圆点去呼吸动画 — 电量圆点改为静态色（正常绿 / 低电红 / 充电绿），移除充电呼吸与低电脉冲效果及对应的 `hw-charge-glow` 样式
 - 🐞 fix: 悬停读数条被裁剪 — 悬停带内由主进程把读数条矩形并入 setShape 区域（`buildCircleRects` + `PILL_RECT` 兜底圆形条带裁角），并从贴底改为垂直居中显示（圆中线弦宽最大，76 宽窄条天然放得下）
 

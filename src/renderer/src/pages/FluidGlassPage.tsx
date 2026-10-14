@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import FluidGlass from '../components/FluidGlass';
 import MouseReactiveTitle from '../components/MouseReactiveTitle';
 import { useI18n } from '../stores/languageStore';
+import { findNavItem, resolveNavLabel } from '../config/navigation';
 
 type Mode = 'lens' | 'cube' | 'bar';
 
@@ -11,9 +12,22 @@ const MODES: { key: Mode; label: string; desc: string }[] = [
   { key: 'bar', label: 'Bar', desc: '底部导航栏，固定位置' },
 ];
 
+/** bar 模式演示用的导航项 path（取自 navigation.ts 单一数据源） */
+const DEMO_NAV_PATHS = ['worklog', 'kanban', 'calendar'];
+
 export default function FluidGlassPage() {
   const [mode, setMode] = useState<Mode>('lens');
   const { t } = useI18n();
+
+  // 3D 导航标签：经 navigation.ts 定位导航项 + i18n 取文案，禁止硬编码
+  const navItems = useMemo(
+    () =>
+      DEMO_NAV_PATHS.map((path) => {
+        const item = findNavItem(path);
+        return item ? resolveNavLabel(item, t) : path;
+      }),
+    [t],
+  );
 
   return (
     <div className="flex flex-col h-full px-8 py-4">
@@ -58,12 +72,14 @@ export default function FluidGlassPage() {
         {/* FluidGlass canvas — fills remaining space */}
         <div className="flex-1 min-h-0 relative">
           {/* 画布底色用恒定深色面板 token（原 #0a0a12，token 为 #0d0d14，同为近黑深底）；
-              textColor 为组件内未消费的死 prop，且需恒定浅色（画布始终深底），无对应 token，保留 hex */}
+              textColor 已接入组件内的 3D 标题与 bar 导航文字，需恒定浅色（画布始终深底），无对应 token，保留 hex。
+              注意：不再用 key={mode}，否则每次切模式都会 unmount/remount 整个 Canvas，
+              GLB 重新请求、GPU 资源全部重建 */}
           <FluidGlass
-            key={mode}
             mode={mode}
             backgroundColor="var(--color-panel-dark)"
             textColor="#e5e7eb"
+            navItems={navItems}
           />
 
           {/* Hint overlay */}
