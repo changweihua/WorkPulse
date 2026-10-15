@@ -13,6 +13,7 @@
 
 ### 修复
 
+- 🐞 fix: 日报浮层玻璃链归一 — `daily-summary.tsx` 主卡片 `blur(24px)` 达 C5 上限，统一为 `blur(12px) saturate(150%)`，预算内余量更足
 - 🐞 fix: 径向菜单中心圆玻璃超预算 — `blur(32px) saturate(180%)` 三元声明估算 5.01M 设备像素超 3M 预算且单声明 2 处 blur、radius 32>24，统一为 `blur(12px) saturate(150%)`
 - 🐞 fix: 主内容布局标题栏遮挡 L0 系统材质 — `Layout.tsx` 不透明包裹层改 `titlebar-glass` 透明让位，保留单处 blur(12px)+fresnel 作对比度守卫
 - 🐞 fix: 液态玻璃演示滚动无效 — 图片内容接入 `Scroll` 并新增滚动驱动的错峰缩放动画

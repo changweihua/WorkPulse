@@ -376,8 +376,9 @@ function DailySummary(): React.ReactNode {
             overflow: 'hidden',
             borderRadius: 24,
             background: 'rgba(20, 16, 50, 0.85)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
+            // L1 玻璃链归一（C4/C5）：原 blur(24px) 达上限，统一为 blur(12px) saturate(150%)
+            backdropFilter: 'blur(12px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(12px) saturate(150%)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             boxShadow: '0 24px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.05) inset',
             cursor: 'default',
