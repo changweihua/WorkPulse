@@ -198,7 +198,12 @@ const TEXT_OUTLINE_PROPS = {
 function Typography({ textColor }: { textColor: string }) {
   const cls = useViewportClass();
   return (
-    <Text position={[0, 0, 12]} fontSize={TITLE_FONT_SIZE[cls]} color={textColor} {...TEXT_OUTLINE_PROPS}>
+    <Text
+      position={[0, 0, 12]}
+      fontSize={TITLE_FONT_SIZE[cls]}
+      color={textColor}
+      {...TEXT_OUTLINE_PROPS}
+    >
       WorkPulse
     </Text>
   );
@@ -488,8 +493,7 @@ export default function FluidGlass({
   className,
   style,
 }: FluidGlassProps) {
-  const userOverrides =
-    mode === 'lens' ? lensProps : mode === 'bar' ? barProps : cubeProps;
+  const userOverrides = mode === 'lens' ? lensProps : mode === 'bar' ? barProps : cubeProps;
 
   // 三层材质合并随模式与用户覆盖变化，缓存避免每帧重建
   const materialProps = useMemo(
@@ -500,9 +504,7 @@ export default function FluidGlass({
   // Page Visibility 停环：R3F 默认 frameloop="always"，窗口 hidden 时仍会每帧
   // 跑 FBO 全场景渲染（外加折射采样），后台白白烧 GPU/CPU。按需切 'never'/'always'
   const [frameloop, setFrameloop] = useState<'always' | 'never'>(() =>
-    typeof document !== 'undefined' && document.visibilityState === 'hidden'
-      ? 'never'
-      : 'always',
+    typeof document !== 'undefined' && document.visibilityState === 'hidden' ? 'never' : 'always',
   );
 
   useEffect(() => {

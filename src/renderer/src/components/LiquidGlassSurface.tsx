@@ -70,9 +70,7 @@ function useReducedMotion(): boolean {
 
 /** C7：Page Visibility —— 窗口隐藏时把 R3F frameloop 切到 'never' 停环 */
 function usePageVisible(): boolean {
-  const [visible, setVisible] = useState(
-    () => typeof document === 'undefined' || !document.hidden,
-  );
+  const [visible, setVisible] = useState(() => typeof document === 'undefined' || !document.hidden);
 
   useEffect(() => {
     const onChange = () => setVisible(!document.hidden);

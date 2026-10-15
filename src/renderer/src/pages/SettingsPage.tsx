@@ -1040,7 +1040,9 @@ function SettingsPage(): ReactNode {
                     const isPreviewing = previewMaterial !== null && previewMaterial === value;
                     // 预览态下该选项是已保存值（实线框 + 「已保存」角标），用于一眼区分预览/已保存
                     const isSavedInPreview =
-                      previewMaterial !== null && previewMaterial !== material && material === value;
+                      previewMaterial !== null &&
+                      previewMaterial !== material &&
+                      material === value;
                     return (
                       <button
                         key={value}

@@ -40,10 +40,7 @@ export function renderNavIcon(icon: NavIcon, className?: string): ReactNode {
 }
 
 /** 解析导航项显示文案（i18n key 优先，其次固定文案，最后回退 path） */
-export function resolveNavLabel(
-  item: NavItemConfig,
-  t: (key: TranslationKey) => string,
-): string {
+export function resolveNavLabel(item: NavItemConfig, t: (key: TranslationKey) => string): string {
   if (item.labelKey) return t(item.labelKey);
   return item.fallbackLabel ?? item.path;
 }

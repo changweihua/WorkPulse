@@ -239,7 +239,12 @@ export default function NavLayout() {
             frosted={false} —— 毛玻璃由 .surface-sidebar 提供，禁玻璃嵌套（C2）；
             侧栏折叠时 animated=false → 卸载 Canvas 释放 WebGL context（预算 ≤2）。 */}
         <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden="true">
-          <LiquidGlassSurface className="w-full h-full" frosted={false} intensity={0.3} animated={!collapsed}>
+          <LiquidGlassSurface
+            className="w-full h-full"
+            frosted={false}
+            intensity={0.3}
+            animated={!collapsed}
+          >
             <div className="w-full h-full" />
           </LiquidGlassSurface>
         </div>
