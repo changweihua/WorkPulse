@@ -226,8 +226,13 @@ function createWindow(): void {
           isQuitting = true;
           app.quit();
         } else {
-          mainWindow.hide();
-          appBus.emit(SHOW_RADIAL, mainWindow);
+          // 延迟 hide，让原生标题栏按钮（WinCaptionButton）的 ink-drop 动画播完，
+          // 避免窗口隐藏导致动画被暂停、CompositorAnimationObserver 长期 active 告警
+          setTimeout(() => {
+            if (isQuitting || mainWindow.isDestroyed()) return;
+            mainWindow.hide();
+            appBus.emit(SHOW_RADIAL, mainWindow);
+          }, 300);
         }
       }
     });
