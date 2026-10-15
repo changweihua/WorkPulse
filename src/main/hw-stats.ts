@@ -3,26 +3,51 @@
  * - CPU：os.cpus() 两次采样差分 + EMA 平滑
  * - 内存：process.getSystemMemoryInfo()（单位 KB）
  * - 电池：powerMonitor.isOnBatteryPower()
- * - 充电：Windows 下每 5s 轮询 WMI BatteryStatus 拿真实充电状态（navigator.getBattery().charging 在 Windows 上只是「插电」别名，无法区分满电断充）
+ * - 充电：Windows 下每 5s 轮询 WMI BatteryStatus 拿真实充电状态（navigator.getBattery().charging 在 Windows 上只是「插电」别名，无法区分满电断充；经 cscript+VBScript 查询，powershell 在部分机器启动过慢必超时）
  * 每 1000ms 向目标窗口推送 'hw-stats' 事件，变化小于阈值时去抖不发送。
  */
 import { BrowserWindow, powerMonitor } from 'electron';
 import { execFile } from 'child_process';
-import { cpus } from 'os';
+import { writeFileSync } from 'fs';
+import { cpus, tmpdir } from 'os';
+import { join } from 'path';
 import { HW_STATS_CHANNEL, type HwStats } from '../shared/hw-stats';
 
 /** 采样间隔（毫秒） */
 const SAMPLE_INTERVAL_MS = 1000;
 /** WMI 充电状态轮询间隔（毫秒）：查询有进程开销，降频到 5s */
 const CHARGING_POLL_INTERVAL_MS = 5000;
-/** WMI 查询超时（毫秒） */
-const CHARGING_POLL_TIMEOUT_MS = 4000;
 /**
- * WMI 充电状态查询命令：root\wmi 的 BatteryStatus.Chaming（多个电池任一 Charging=true 即视为充电中）。
- * 无电池设备输出 none；有电池输出 true/false。
+ * WMI 查询超时（毫秒）：实测 cscript 冷启动 ~2.2s、热查询 ~1s（powershell 冷启动在部分
+ * 机器被杀软拖到 5.8s+ 导致必超时，故改用 cscript），10s 为宽松兜底
  */
-const CHARGING_POLL_CMD =
-  "$b = Get-CimInstance -ClassName BatteryStatus -Namespace root\\wmi -ErrorAction SilentlyContinue; if (-not $b) { 'none' } elseif ($b | Where-Object { $_.Charging -eq $true }) { 'true' } else { 'false' }";
+const CHARGING_POLL_TIMEOUT_MS = 10000;
+/**
+ * WMI 充电状态查询脚本（VBScript，经 cscript.exe 执行）：
+ * 查 root\wmi 的 BatteryStatus.Charging（多个电池任一 Charging=true 即视为充电中），
+ * 有电池输出 true/false，无电池（台式机）输出 none。
+ * 选 cscript 而非 powershell：powershell.exe 冷启动在部分机器被杀软拖到 5s+ 必超时，
+ * cscript 冷启动 ~2.2s / 热 ~1s 且系统自带。
+ */
+const CHARGING_POLL_VBS = [
+  'Set locator = CreateObject("WbemScripting.SWbemLocator")',
+  'Set service = locator.ConnectServer(".", "root\\wmi")',
+  'On Error Resume Next',
+  'Set items = service.ExecQuery("SELECT Charging FROM BatteryStatus")',
+  'If Err.Number <> 0 Then WScript.Echo "none" : WScript.Quit 0',
+  'count = 0 : charging = False',
+  'For Each item In items',
+  '  count = count + 1',
+  '  If item.Charging = True Then charging = True',
+  'Next',
+  'If count = 0 Then',
+  '  WScript.Echo "none"',
+  'ElseIf charging Then',
+  '  WScript.Echo "true"',
+  'Else',
+  '  WScript.Echo "false"',
+  'End If',
+].join('\r\n');
 /** EMA 平滑系数：ema = ema * 0.5 + cur * 0.5（减弱平滑以降低 1~2s 滞后） */
 const EMA_ALPHA = 0.5;
 /** 突变阈值（%）：当帧原始值与 EMA 差距达到该值时直接取原始值，快速收敛 */
@@ -124,14 +149,22 @@ function sampleOnBattery(): boolean {
  * 轮询一次 WMI BatteryStatus 刷新 realCharging。
  * 非 Windows 跳过；查询中/失败时保留上一次值（失败不覆盖为 null，避免闪断）。
  * 无电池设备（台式机）查询返回空 → realCharging 置 null（未知），渲染进程回退。
+ * 实现：把 VBScript 写入临时文件，用系统自带 cscript.exe 执行（勿加 //B，会吞掉 stdout）。
  */
 function pollCharging(): void {
   if (process.platform !== 'win32') return;
   if (chargingBusy) return; // 上一次未返回，跳过本轮防重叠
+  let vbsPath: string;
+  try {
+    vbsPath = join(tmpdir(), 'workpulse-battery-status.vbs');
+    writeFileSync(vbsPath, CHARGING_POLL_VBS, 'utf8');
+  } catch {
+    return; // 临时文件写失败：跳过本轮
+  }
   chargingBusy = true;
   execFile(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-Command', CHARGING_POLL_CMD],
+    'cscript.exe',
+    ['//Nologo', vbsPath],
     { timeout: CHARGING_POLL_TIMEOUT_MS, windowsHide: true, encoding: 'utf8' },
     (err, stdout) => {
       chargingBusy = false;
