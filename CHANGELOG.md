@@ -22,6 +22,7 @@
 
 ### 变更
 
+- 🌈 style: 充电闪电闪烁条件收紧 — 悬浮窗充电闪电的呼吸闪烁仅在插着电源且正在充电（`battery.charging`）时生效；接通电源但未充电（如满电插电、台式机 mains）时闪电仍显示但保持静态，不再闪烁
 - 🦄 refactor: 液态玻璃渲染管线对齐参考实现 — 材质改三层合并（基础预设/模式覆盖/props），关闭 `temporalDistortion` 与 `backside` 消除玻璃持续蠕动并降低采样开销，跟随阻尼 0.4→0.15 增强液态惯性，背景内容 z 轴拉深制造折射纵深
 - 🦄 refactor: 液态玻璃 GLB 按需加载 — 模块顶层 preload 三个模型，运行时只加载当前模式；页面切换模式不再经 `key` 销毁重建 Canvas
 - 🌈 style: 液态玻璃演示图本地化 — 5 张 Unsplash 远程图下载至 `public/assets/demo/`，离线可用避免黑图；新增 WorkPulse 3D 大标题与 bar 模式导航文字（响应式字号/间距，导航文案走 i18n）

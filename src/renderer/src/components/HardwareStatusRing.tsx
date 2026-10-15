@@ -542,7 +542,8 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   }
 
   // ─── 充电标识：充电中（battery.charging）或接通电源（mains：台式机 / 满电持续插电）时显示；
-  // 电池供电不显示 ───
+  // 电池供电不显示。呼吸闪烁仅在真正「插着电源且充电中」（charging）时生效；
+  // 接通电源但未充电（如满电插电）时静态显示不闪烁 ───
   const showChargeBolt = charging || powerMode === 'mains';
 
   /* ── 单条进度弧（带符号 sweep，支持左右镜像生长）──
@@ -741,13 +742,14 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
         </svg>
 
         {/* 充电标识：闪电放在顶部 0° 顶隙（CPU / 内存两弧末端之间，电量圆点段正上方，
-            与圆点同在 29.65 圆周上）——hw-charge-bolt 呼吸；充电 / 接通电源时显示，
-            电池供电不渲染；顶隙 40° 下两侧净空 ≈4.2px，尺寸 10px；
+            与圆点同在 29.65 圆周上）；充电 / 接通电源时显示，电池供电不渲染；
+            呼吸闪烁（hw-charge-bolt）仅在真正插着电源且充电中（charging）时挂载，
+            接通电源但未充电（如满电插电）时静态显示；顶隙 40° 下两侧净空 ≈4.2px，尺寸 10px；
             浅色/深色壁纸 → 绿色填充（DOT_COLOR_CHARGE）+ 淡墨轮廓（RIM_INK）双保险；
             菜单展开时整环淡出 */}
         {showChargeBolt && (
           <div
-            className="hw-charge-bolt absolute flex items-center justify-center"
+            className={`${charging ? 'hw-charge-bolt ' : ''}absolute flex items-center justify-center`}
             style={topGapBox(BOLT_SIZE)}
           >
             <Zap
