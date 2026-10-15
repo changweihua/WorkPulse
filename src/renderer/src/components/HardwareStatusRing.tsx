@@ -388,6 +388,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
           memUsedGB: Math.round((memTotalGB * memUsedPct) / 100) / 10,
           memTotalGB,
           onBattery: false,
+          charging: null, // 未知 → 回退 MOCK 的 battery.charging
           ts: Date.now(),
         });
       }, 900);
@@ -508,7 +509,11 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   const memS = useSmoothed(hw ? clamp01(hw.memUsedPct / 100) * 100 : null);
 
   const level = battery && !noBattery ? clamp01(battery.level) : null;
-  const charging = !!battery?.charging;
+  // 插电判定（Windows 上 navigator.charging 等价于「AC 在线」，无法区分满电断充）：控制闪电图标显示
+  const plugged = !!battery?.charging;
+  // 真实充电状态：优先主进程 WMI BatteryStatus（hw.charging，可区分满电断充），
+  // 未知（非 Windows / 查询失败 / 无电池）时回退 navigator.charging；控制呼吸闪烁与充电色
+  const charging = hw?.charging ?? plugged;
 
   // ─── 电源表达判定（圆点常显） ───
   const powerMode: PowerMode =
@@ -542,9 +547,9 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   }
 
   // ─── 充电标识：充电中（battery.charging）或接通电源（mains：台式机 / 满电持续插电）时显示；
-  // 电池供电不显示。呼吸闪烁仅在真正「插着电源且充电中」（charging）时生效；
+  // 电池供电不显示。呼吸闪烁仅在真正「插着电源且充电中」（WMI 真实 charging）时生效；
   // 接通电源但未充电（如满电插电）时静态显示不闪烁 ───
-  const showChargeBolt = charging || powerMode === 'mains';
+  const showChargeBolt = plugged || powerMode === 'mains';
 
   /* ── 单条进度弧（带符号 sweep，支持左右镜像生长）──
         轨道 = 淡墨衬边 + 浅灰本体；进度弧 / 告警弧不加衬边，靠渐变 / 红色自身饱和度区分 ── */
@@ -689,7 +694,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
       alert: hw.memUsedPct >= ALERT_AT,
     };
   } else if (hover === 'battery') {
-    const low = powerMode === 'level' && level !== null && !charging && level <= 0.2;
+    const low = powerMode === 'level' && level !== null && !plugged && level <= 0.2;
     pill =
       powerMode === 'level' && level !== null
         ? {

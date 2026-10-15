@@ -13,6 +13,7 @@
 
 ### 修复
 
+- 🐞 fix: 满电插电仍显示充电闪烁 — Windows 上 Chromium 的 `navigator.getBattery().charging` 只是「插电」别名，无法区分满电断充；主进程改为每 5s 轮询 WMI `BatteryStatus`（root\wmi）取真实充电状态并入 `hw-stats` 推送（`HwStats.charging`），闪电呼吸闪烁仅在真实充电中生效，满电插电保持静态显示
 - 🐞 fix: 日报浮层玻璃链归一 — `daily-summary.tsx` 主卡片 `blur(24px)` 达 C5 上限，统一为 `blur(12px) saturate(150%)`，预算内余量更足
 - 🐞 fix: 径向菜单中心圆玻璃超预算 — `blur(32px) saturate(180%)` 三元声明估算 5.01M 设备像素超 3M 预算且单声明 2 处 blur、radius 32>24，统一为 `blur(12px) saturate(150%)`
 - 🐞 fix: 主内容布局标题栏遮挡 L0 系统材质 — `Layout.tsx` 不透明包裹层改 `titlebar-glass` 透明让位，保留单处 blur(12px)+fresnel 作对比度守卫

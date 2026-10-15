@@ -3,14 +3,26 @@
  * - CPU：os.cpus() 两次采样差分 + EMA 平滑
  * - 内存：process.getSystemMemoryInfo()（单位 KB）
  * - 电池：powerMonitor.isOnBatteryPower()
+ * - 充电：Windows 下每 5s 轮询 WMI BatteryStatus 拿真实充电状态（navigator.getBattery().charging 在 Windows 上只是「插电」别名，无法区分满电断充）
  * 每 1000ms 向目标窗口推送 'hw-stats' 事件，变化小于阈值时去抖不发送。
  */
 import { BrowserWindow, powerMonitor } from 'electron';
+import { execFile } from 'child_process';
 import { cpus } from 'os';
 import { HW_STATS_CHANNEL, type HwStats } from '../shared/hw-stats';
 
 /** 采样间隔（毫秒） */
 const SAMPLE_INTERVAL_MS = 1000;
+/** WMI 充电状态轮询间隔（毫秒）：查询有进程开销，降频到 5s */
+const CHARGING_POLL_INTERVAL_MS = 5000;
+/** WMI 查询超时（毫秒） */
+const CHARGING_POLL_TIMEOUT_MS = 4000;
+/**
+ * WMI 充电状态查询命令：root\wmi 的 BatteryStatus.Chaming（多个电池任一 Charging=true 即视为充电中）。
+ * 无电池设备输出 none；有电池输出 true/false。
+ */
+const CHARGING_POLL_CMD =
+  "$b = Get-CimInstance -ClassName BatteryStatus -Namespace root\\wmi -ErrorAction SilentlyContinue; if (-not $b) { 'none' } elseif ($b | Where-Object { $_.Charging -eq $true }) { 'true' } else { 'false' }";
 /** EMA 平滑系数：ema = ema * 0.5 + cur * 0.5（减弱平滑以降低 1~2s 滞后） */
 const EMA_ALPHA = 0.5;
 /** 突变阈值（%）：当帧原始值与 EMA 差距达到该值时直接取原始值，快速收敛 */
@@ -32,9 +44,15 @@ let prevTimes: { total: number; idle: number } | null = null;
 /** CPU 使用率 EMA 平滑值 */
 let emaCpu: number | null = null;
 /** 上一次实际推送的负载（用于去抖比较） */
-let lastSent: { cpu: number | null; memUsedPct: number } | null = null;
+let lastSent: { cpu: number | null; memUsedPct: number; charging: boolean | null } | null = null;
 /** 上一次实际推送的时间戳（用于时间兜底强制推送） */
 let lastPushAt = 0;
+/** WMI 充电状态轮询定时器（独立于采样定时器，5s 一次） */
+let chargingTimer: ReturnType<typeof setInterval> | null = null;
+/** WMI 充电状态最新值（true=充电中 false=插电未充电 null=未知/查询失败/无电池） */
+let realCharging: boolean | null = null;
+/** WMI 查询是否在途（防重叠：上一次未返回则跳过本轮） */
+let chargingBusy = false;
 
 /** 汇总所有核心的 CPU times（total / idle），无 CPU 数据时返回 null */
 function readCpuTimes(): { total: number; idle: number } | null {
@@ -102,6 +120,48 @@ function sampleOnBattery(): boolean {
   }
 }
 
+/**
+ * 轮询一次 WMI BatteryStatus 刷新 realCharging。
+ * 非 Windows 跳过；查询中/失败时保留上一次值（失败不覆盖为 null，避免闪断）。
+ * 无电池设备（台式机）查询返回空 → realCharging 置 null（未知），渲染进程回退。
+ */
+function pollCharging(): void {
+  if (process.platform !== 'win32') return;
+  if (chargingBusy) return; // 上一次未返回，跳过本轮防重叠
+  chargingBusy = true;
+  execFile(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-Command', CHARGING_POLL_CMD],
+    { timeout: CHARGING_POLL_TIMEOUT_MS, windowsHide: true, encoding: 'utf8' },
+    (err, stdout) => {
+      chargingBusy = false;
+      if (err) return; // 查询失败：沿用上一次值
+      const out = (stdout || '').trim();
+      if (out.endsWith('true')) realCharging = true;
+      else if (out.endsWith('false')) realCharging = false;
+      else if (out.endsWith('none')) realCharging = null; // 无电池（台式机）
+      // 其他输出（异常文本混入）：沿用上一次值
+    },
+  );
+}
+
+/** 启动 WMI 充电状态轮询（幂等；先同步拉一次再挂定时器） */
+function startChargingPoll(): void {
+  if (chargingTimer) return;
+  pollCharging();
+  chargingTimer = setInterval(pollCharging, CHARGING_POLL_INTERVAL_MS);
+}
+
+/** 停止 WMI 充电状态轮询并复位缓存值 */
+function stopChargingPoll(): void {
+  if (chargingTimer) {
+    clearInterval(chargingTimer);
+    chargingTimer = null;
+  }
+  realCharging = null;
+  chargingBusy = false;
+}
+
 /** 执行一次采样，按去抖规则推送到目标窗口 */
 function tick(): void {
   const win = targetWin;
@@ -120,9 +180,10 @@ function tick(): void {
     memUsedGB: mem.memUsedGB,
     memTotalGB: mem.memTotalGB,
     onBattery: sampleOnBattery(),
+    charging: realCharging,
     ts: Date.now(),
   };
-  // 去抖：首帧必发；其后 cpu 或 memUsedPct 变化 ≥1% 才发；
+  // 去抖：首帧必发；其后 cpu 或 memUsedPct 变化 ≥1%、或充电状态变化才发；
   // 距上次推送 ≥3000ms 时即使无变化也强制推送，避免缓慢连续变化被饿死
   if (lastSent) {
     const cpuChanged =
@@ -130,8 +191,9 @@ function tick(): void {
         ? stats.cpu !== lastSent.cpu
         : Math.abs(stats.cpu - lastSent.cpu) >= DEBOUNCE_THRESHOLD_PCT;
     const memChanged = Math.abs(stats.memUsedPct - lastSent.memUsedPct) >= DEBOUNCE_THRESHOLD_PCT;
+    const chargingChanged = stats.charging !== lastSent.charging;
     const fallbackDue = Date.now() - lastPushAt >= PUSH_FALLBACK_MS;
-    if (!cpuChanged && !memChanged && !fallbackDue) return;
+    if (!cpuChanged && !memChanged && !chargingChanged && !fallbackDue) return;
   }
   if (win.isDestroyed() || win.webContents.isDestroyed()) {
     stopHwStats();
@@ -139,7 +201,7 @@ function tick(): void {
     return;
   }
   win.webContents.send(HW_STATS_CHANNEL, stats);
-  lastSent = { cpu: stats.cpu, memUsedPct: stats.memUsedPct };
+  lastSent = { cpu: stats.cpu, memUsedPct: stats.memUsedPct, charging: stats.charging };
   lastPushAt = Date.now();
 }
 
@@ -163,6 +225,7 @@ function bindPowerListeners(): void {
 export function startHwStats(win: BrowserWindow): void {
   targetWin = win;
   bindPowerListeners();
+  startChargingPoll(); // WMI 充电状态轮询（5s，独立于采样定时器，幂等）
   if (timer) return; // 已在采样中
   prevTimes = null; // 重建差分基线（新会话首帧 cpu 为 null）
   timer = setInterval(tick, SAMPLE_INTERVAL_MS);
@@ -171,6 +234,7 @@ export function startHwStats(win: BrowserWindow): void {
 
 /** 停止硬件状态采样（系统休眠 / 窗口销毁时调用），并复位采样状态避免二次启动沿用旧数据 */
 export function stopHwStats(): void {
+  stopChargingPoll(); // 停 WMI 轮询并复位缓存值
   if (timer) {
     clearInterval(timer);
     timer = null;

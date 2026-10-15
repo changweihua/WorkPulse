@@ -18,6 +18,12 @@ export interface HwStats {
   memTotalGB: number;
   /** 是否电池供电（台式机恒为 false） */
   onBattery: boolean;
+  /**
+   * 是否正在充电（Windows 下来自主进程轮询 WMI BatteryStatus 的真实状态，
+   * 可区分「满电断充」；null = 未知（非 Windows / 无电池 / 查询失败），
+   * 此时渲染进程回退 navigator.getBattery().charging（其在 Windows 上等价于「插电」）
+   */
+  charging: boolean | null;
   /** 时间戳 */
   ts: number;
 }
