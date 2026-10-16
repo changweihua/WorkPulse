@@ -546,10 +546,10 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
     dotColor = DOT_COLOR_UNKNOWN;
   }
 
-  // ─── 充电标识：充电中（battery.charging）或接通电源（mains：台式机 / 满电持续插电）时显示；
-  // 电池供电不显示。呼吸闪烁仅在真正「插着电源且充电中」（WMI 真实 charging）时生效；
-  // 接通电源但未充电（如满电插电）时静态显示不闪烁 ───
-  const showChargeBolt = plugged || powerMode === 'mains';
+  // ─── 充电标识填充：接通电源（plugged / mains：台式机 / 满电持续插电）时闪电填充充电绿；
+  // 电池供电时闪电仍显示但仅保留轮廓不填充（fill=none）。呼吸闪烁仅在真正「插着电源且
+  // 充电中」（WMI 真实 charging）时生效；接通电源但未充电（如满电插电）时静态显示不闪烁 ───
+  const boltFilled = plugged || powerMode === 'mains';
 
   /* ── 单条进度弧（带符号 sweep，支持左右镜像生长）──
         轨道 = 淡墨衬边 + 浅灰本体；进度弧 / 告警弧不加衬边，靠渐变 / 红色自身饱和度区分 ── */
@@ -747,25 +747,23 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
         </svg>
 
         {/* 充电标识：闪电放在顶部 0° 顶隙（CPU / 内存两弧末端之间，电量圆点段正上方，
-            与圆点同在 29.65 圆周上）；充电 / 接通电源时显示，电池供电不渲染；
+            与圆点同在 29.65 圆周上）；常显不隐藏：接通电源时填充充电绿（DOT_COLOR_CHARGE），
+            电池供电时仅保留淡墨轮廓不填充（fill=none）；
             呼吸闪烁（hw-charge-bolt）仅在真正插着电源且充电中（charging）时挂载，
             接通电源但未充电（如满电插电）时静态显示；顶隙 40° 下两侧净空 ≈4.2px，尺寸 10px；
-            浅色/深色壁纸 → 绿色填充（DOT_COLOR_CHARGE）+ 淡墨轮廓（RIM_INK）双保险；
             菜单展开时整环淡出 */}
-        {showChargeBolt && (
-          <div
-            className={`${charging ? 'hw-charge-bolt ' : ''}absolute flex items-center justify-center`}
-            style={topGapBox(BOLT_SIZE)}
-          >
-            <Zap
-              size={BOLT_SIZE}
-              strokeWidth={2}
-              fill={DOT_COLOR_CHARGE}
-              stroke={RIM_INK}
-              aria-hidden
-            />
-          </div>
-        )}
+        <div
+          className={`${charging ? 'hw-charge-bolt ' : ''}absolute flex items-center justify-center`}
+          style={topGapBox(BOLT_SIZE)}
+        >
+          <Zap
+            size={BOLT_SIZE}
+            strokeWidth={2}
+            fill={boltFilled ? DOT_COLOR_CHARGE : 'none'}
+            stroke={RIM_INK}
+            aria-hidden
+          />
+        </div>
       </motion.div>
 
       {/* ═══ 数值读数条（独立 zIndex 20；收起态 OS 可见区是半径 38 的圆 →
