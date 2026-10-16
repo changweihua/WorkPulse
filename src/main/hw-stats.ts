@@ -3,52 +3,23 @@
  * - CPU：os.cpus() 两次采样差分 + EMA 平滑
  * - 内存：process.getSystemMemoryInfo()（单位 KB）
  * - 电池：powerMonitor.isOnBatteryPower()
- * - 充电：Windows 下每 5s 轮询 WMI BatteryStatus 拿真实充电状态（navigator.getBattery().charging 在 Windows 上只是「插电」别名，无法区分满电断充；经 cscript+VBScript 查询，powershell 在部分机器启动过慢必超时）
+ * - 充电：Windows 下每 1s 经 koffi 进程内调用 powrprof.dll 的 CallNtPowerInformation 读取真实电池状态
+ *   （navigator.getBattery().charging 在 Windows 上只是「插电」别名，无法区分满电断充；
+ *    改用进程内调用后无 spawn、无临时文件写入，消除了 cscript/VBScript 方案的杀软误报面）
  * 每 1000ms 向目标窗口推送 'hw-stats' 事件，变化小于阈值时去抖不发送。
  */
 import { BrowserWindow, powerMonitor } from 'electron';
-import { execFile } from 'child_process';
-import { writeFileSync } from 'fs';
-import { cpus, tmpdir } from 'os';
-import { join } from 'path';
+import { cpus } from 'os';
 import { HW_STATS_CHANNEL, type HwStats } from '../shared/hw-stats';
+import { readBatteryState } from './battery';
 
 /** 采样间隔（毫秒） */
 const SAMPLE_INTERVAL_MS = 1000;
-/** WMI 充电状态轮询间隔（毫秒）：查询有进程开销，降频到 5s */
-const CHARGING_POLL_INTERVAL_MS = 5000;
+/** 充电状态轮询间隔（毫秒）：进程内调用耗时 µs 级，贴近 1s 采样节奏以便插拔快速反馈 */
+const CHARGING_POLL_INTERVAL_MS = 1000;
 /**
- * WMI 查询超时（毫秒）：实测 cscript 冷启动 ~2.2s、热查询 ~1s（powershell 冷启动在部分
- * 机器被杀软拖到 5.8s+ 导致必超时，故改用 cscript），10s 为宽松兜底
+ * EMA 平滑系数：ema = ema * 0.5 + cur * 0.5（减弱平滑以降低 1~2s 滞后）
  */
-const CHARGING_POLL_TIMEOUT_MS = 10000;
-/**
- * WMI 充电状态查询脚本（VBScript，经 cscript.exe 执行）：
- * 查 root\wmi 的 BatteryStatus.Charging（多个电池任一 Charging=true 即视为充电中），
- * 有电池输出 true/false，无电池（台式机）输出 none。
- * 选 cscript 而非 powershell：powershell.exe 冷启动在部分机器被杀软拖到 5s+ 必超时，
- * cscript 冷启动 ~2.2s / 热 ~1s 且系统自带。
- */
-const CHARGING_POLL_VBS = [
-  'Set locator = CreateObject("WbemScripting.SWbemLocator")',
-  'Set service = locator.ConnectServer(".", "root\\wmi")',
-  'On Error Resume Next',
-  'Set items = service.ExecQuery("SELECT Charging FROM BatteryStatus")',
-  'If Err.Number <> 0 Then WScript.Echo "none" : WScript.Quit 0',
-  'count = 0 : charging = False',
-  'For Each item In items',
-  '  count = count + 1',
-  '  If item.Charging = True Then charging = True',
-  'Next',
-  'If count = 0 Then',
-  '  WScript.Echo "none"',
-  'ElseIf charging Then',
-  '  WScript.Echo "true"',
-  'Else',
-  '  WScript.Echo "false"',
-  'End If',
-].join('\r\n');
-/** EMA 平滑系数：ema = ema * 0.5 + cur * 0.5（减弱平滑以降低 1~2s 滞后） */
 const EMA_ALPHA = 0.5;
 /** 突变阈值（%）：当帧原始值与 EMA 差距达到该值时直接取原始值，快速收敛 */
 const EMA_JUMP_THRESHOLD_PCT = 10;
@@ -72,12 +43,10 @@ let emaCpu: number | null = null;
 let lastSent: { cpu: number | null; memUsedPct: number; charging: boolean | null } | null = null;
 /** 上一次实际推送的时间戳（用于时间兜底强制推送） */
 let lastPushAt = 0;
-/** WMI 充电状态轮询定时器（独立于采样定时器，5s 一次） */
+/** 充电状态轮询定时器（独立于采样定时器，1s 一次） */
 let chargingTimer: ReturnType<typeof setInterval> | null = null;
-/** WMI 充电状态最新值（true=充电中 false=插电未充电 null=未知/查询失败/无电池） */
+/** 充电状态最新值（true=充电中 false=插电未充电 null=未知/无电池/读取失败） */
 let realCharging: boolean | null = null;
-/** WMI 查询是否在途（防重叠：上一次未返回则跳过本轮） */
-let chargingBusy = false;
 
 /** 汇总所有核心的 CPU times（total / idle），无 CPU 数据时返回 null */
 function readCpuTimes(): { total: number; idle: number } | null {
@@ -146,53 +115,31 @@ function sampleOnBattery(): boolean {
 }
 
 /**
- * 轮询一次 WMI BatteryStatus 刷新 realCharging。
- * 非 Windows 跳过；查询中/失败时保留上一次值（失败不覆盖为 null，避免闪断）。
- * 无电池设备（台式机）查询返回空 → realCharging 置 null（未知），渲染进程回退。
- * 实现：把 VBScript 写入临时文件，用系统自带 cscript.exe 执行（勿加 //B，会吞掉 stdout）。
+ * 读取一次电池状态刷新 realCharging。
+ * 非 Windows / 调用失败 / 无电池（台式机）时 readBatteryState 返回 null → 沿用上一次值
+ * （初始即 null，即「未知」，渲染进程回退 navigator.getBattery().charging），
+ * 避免偶发读取失败把真实状态覆盖成 null 造成闪断。
+ * 实现：koffi 进程内调用 powrprof.dll CallNtPowerInformation，无 spawn、无临时文件。
  */
 function pollCharging(): void {
-  if (process.platform !== 'win32') return;
-  if (chargingBusy) return; // 上一次未返回，跳过本轮防重叠
-  let vbsPath: string;
-  try {
-    vbsPath = join(tmpdir(), 'workpulse-battery-status.vbs');
-    writeFileSync(vbsPath, CHARGING_POLL_VBS, 'utf8');
-  } catch {
-    return; // 临时文件写失败：跳过本轮
-  }
-  chargingBusy = true;
-  execFile(
-    'cscript.exe',
-    ['//Nologo', vbsPath],
-    { timeout: CHARGING_POLL_TIMEOUT_MS, windowsHide: true, encoding: 'utf8' },
-    (err, stdout) => {
-      chargingBusy = false;
-      if (err) return; // 查询失败：沿用上一次值
-      const out = (stdout || '').trim();
-      if (out.endsWith('true')) realCharging = true;
-      else if (out.endsWith('false')) realCharging = false;
-      else if (out.endsWith('none')) realCharging = null; // 无电池（台式机）
-      // 其他输出（异常文本混入）：沿用上一次值
-    },
-  );
+  const state = readBatteryState();
+  if (state) realCharging = state.charging;
 }
 
-/** 启动 WMI 充电状态轮询（幂等；先同步拉一次再挂定时器） */
+/** 启动充电状态轮询（幂等；先同步拉一次再挂定时器） */
 function startChargingPoll(): void {
   if (chargingTimer) return;
   pollCharging();
   chargingTimer = setInterval(pollCharging, CHARGING_POLL_INTERVAL_MS);
 }
 
-/** 停止 WMI 充电状态轮询并复位缓存值 */
+/** 停止充电状态轮询并复位缓存值 */
 function stopChargingPoll(): void {
   if (chargingTimer) {
     clearInterval(chargingTimer);
     chargingTimer = null;
   }
   realCharging = null;
-  chargingBusy = false;
 }
 
 /** 执行一次采样，按去抖规则推送到目标窗口 */
@@ -258,7 +205,7 @@ function bindPowerListeners(): void {
 export function startHwStats(win: BrowserWindow): void {
   targetWin = win;
   bindPowerListeners();
-  startChargingPoll(); // WMI 充电状态轮询（5s，独立于采样定时器，幂等）
+  startChargingPoll(); // 充电状态轮询（1s，独立于采样定时器，幂等）
   if (timer) return; // 已在采样中
   prevTimes = null; // 重建差分基线（新会话首帧 cpu 为 null）
   timer = setInterval(tick, SAMPLE_INTERVAL_MS);
@@ -267,7 +214,7 @@ export function startHwStats(win: BrowserWindow): void {
 
 /** 停止硬件状态采样（系统休眠 / 窗口销毁时调用），并复位采样状态避免二次启动沿用旧数据 */
 export function stopHwStats(): void {
-  stopChargingPoll(); // 停 WMI 轮询并复位缓存值
+  stopChargingPoll(); // 停充电状态轮询并复位缓存值
   if (timer) {
     clearInterval(timer);
     timer = null;
