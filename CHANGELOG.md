@@ -35,6 +35,7 @@
 - 🌈 style: 充电闪电与双弧间距加大 — 顶部顶隙 20°→40°（CPU/内存弧扫角 127°→119°，方向与镜像对称不变），闪电与两弧端常态净空 ≈4.2px、告警加宽时 ≈3.3px，不再贴弧
 - 🐞 fix: 悬停读数条被裁剪 — 悬停带内由主进程把读数条矩形并入 setShape 区域（`buildCircleRects` + `PILL_RECT` 兜底圆形条带裁角），并从贴底改为垂直居中显示（圆中线弦宽最大，76 宽窄条天然放得下）
 - 📦 deps: 升级 17 个依赖至最新 — electron 44.7.2、electron-vite 6.0.0 正式版（原 beta.8）、react/react-dom 19.3.1、openai 7.34.0、zod 4.6.7、oxlint 1.88.0、oxfmt 0.73.0、lucide-react 1.57.0、mermaid 12.2.0、motion 14.2.0 等；oxfmt 0.73 新格式规则重排 5 个源文件（仅格式，无逻辑改动）
+- 📦 deps: 更新 12 个依赖至 semver 范围内最新 — electron 44.9.0、openai 7.39.0、lucide-react 1.59.0、motion 14.3.0、gpt-tokenizer 4.1.0、@reactuses/core 6.6.0、node-api-dotnet 0.9.28、@commitlint/* 21.2.4、@iconify-json/* 等
 
 ### 变更（液态玻璃整体风格接入 · 分层路由）
 
