@@ -535,6 +535,20 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   const [battery, setBattery] = useState<{ level: number; charging: boolean } | null>(null);
   const [noBattery, setNoBattery] = useState(false);
 
+  // ─── 展开卡顿修复：进出场动画窗口（±500ms）内挂起数据 setState ───
+  // 环在同一窗口正在做 opacity 淡出/入、RadialMenu 在跑 clip-path 揭示弹簧；
+  // 1s 硬件推送 / 700ms 电量模拟若落进窗口，会触发整张 SVG 重建（双弧 2×17 个渐变 stop
+  // 全部重算）→ 掉帧。窗口外照常更新，数据时效性不受影响（下一轮推送即补上）。
+  const transitionUntilRef = useRef(0);
+  const prevExpandedRef = useRef(expanded);
+  useEffect(() => {
+    if (prevExpandedRef.current !== expanded) {
+      prevExpandedRef.current = expanded;
+      transitionUntilRef.current = Date.now() + 500;
+    }
+  }, [expanded]);
+  const inTransition = (): boolean => Date.now() < transitionUntilRef.current;
+
   // ─── G7 主题：主进程给的 theme 只在根元素挂 .hw-dark 类 ───
   // 暗色变体是一组 CSS 变量覆盖，必须从「带类的根元素」读计算值（读 documentElement 拿不到）；
   // 读到的值真变化了才 forceRender —— 颜色存于模块变量，SVG / 图标的 inline style 需要一次重渲染才更新。
@@ -557,6 +571,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   useEffect(() => {
     if (MOCK) {
       const id = window.setInterval(() => {
+        if (inTransition()) return; // 动画窗口内挂起（卡顿修复）
         const t = Date.now() / 1000;
         const cpu = clamp01((45 + 52 * Math.sin(t / 3.5)) / 100) * 100; // 0~97，会触发告警
         const memUsedPct = clamp01((50 + 42 * Math.sin(t / 7)) / 100) * 100; // 8~92
@@ -581,6 +596,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
     }
 
     const off = window.radialApi.onHwStats((s) => {
+      if (inTransition()) return; // 动画窗口内挂起（卡顿修复）
       if (s && typeof s === 'object') setHw(s);
     });
     return () => off();
@@ -590,6 +606,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   useEffect(() => {
     if (MOCK) {
       const id = window.setInterval(() => {
+        if (inTransition()) return; // 动画窗口内挂起（卡顿修复）
         if (MOCK_PLUGGED) {
           // 插着电但不在充电：顶槽必须落在 Plug 分支（不是 Zap）
           setBattery({ level: 0.62, charging: true });
@@ -613,6 +630,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
     let bat: BatteryLike | null = null;
     let dead = false;
     const push = (): void => {
+      if (inTransition()) return; // 动画窗口内挂起（卡顿修复）
       if (bat && !dead) setBattery({ level: bat.level, charging: bat.charging });
     };
     getBattery
