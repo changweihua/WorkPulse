@@ -36,6 +36,10 @@
 - 🌈 style: 液态玻璃演示图本地化 — 5 张 Unsplash 远程图下载至 `public/assets/demo/`，离线可用避免黑图；新增 WorkPulse 3D 大标题与 bar 模式导航文字（响应式字号/间距，导航文案走 i18n）
 - 🌈 style: 电池圆点去呼吸动画 — 电量圆点改为静态色（正常绿 / 低电红 / 充电绿），移除充电呼吸与低电脉冲效果及对应的 `hw-charge-glow` 样式
 - 🌈 style: 充电闪电与双弧间距加大 — 顶部顶隙 20°→40°（CPU/内存弧扫角 127°→119°，方向与镜像对称不变），闪电与两弧端常态净空 ≈4.2px、告警加宽时 ≈3.3px，不再贴弧
+- 🌈 style: 移除悬浮窗收起态悬停读数条 — 删除 pill 渲染、hover 命中判定、未悬停项暗淡效果及主进程 setShape 并入读数条矩形的联动，收起态悬停不再有任何视觉反应
+- 🌈 style: 中部 Wi-Fi/蓝牙图标放大 — 边长 12→18px，WifiSignal viewBox 校正放大后的偏心，与双弧、顶部状态槽、底部圆点配重保持平衡
+- 🌈 style: 暂隐径向菜单中心按钮图标 — `SHOW_CENTER_GLYPH` 置 false，收起态 logo 与展开态关闭字形均不渲染（代码保留，改回 true 即恢复），中心按钮点击/拖拽行为不变
+- 🌈 style: 底部电量圆点间距加大 — 圆心角步进 12°→15°，相邻圆心距 5.8→7.74px，5 点总跨度 34.95px 仍在可见弦宽内，与两端弧净空不相交
 - 🐞 fix: 悬停读数条被裁剪 — 悬停带内由主进程把读数条矩形并入 setShape 区域（`buildCircleRects` + `PILL_RECT` 兜底圆形条带裁角），并从贴底改为垂直居中显示（圆中线弦宽最大，76 宽窄条天然放得下）
 - 📦 deps: 升级 17 个依赖至最新 — electron 44.7.2、electron-vite 6.0.0 正式版（原 beta.8）、react/react-dom 19.3.1、openai 7.34.0、zod 4.6.7、oxlint 1.88.0、oxfmt 0.73.0、lucide-react 1.57.0、mermaid 12.2.0、motion 14.2.0 等；oxfmt 0.73 新格式规则重排 5 个源文件（仅格式，无逻辑改动）
 - 📦 deps: 更新 12 个依赖至 semver 范围内最新 — electron 44.9.0、openai 7.39.0、lucide-react 1.59.0、motion 14.3.0、gpt-tokenizer 4.1.0、@reactuses/core 6.6.0、node-api-dotnet 0.9.28、@commitlint/* 21.2.4、@iconify-json/* 等

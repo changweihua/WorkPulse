@@ -35,6 +35,15 @@ const TOOLTIP_LABELS: Record<string, { zh: string; en: string }> = {
 
 const CENTER_SIZE = CENTER_R * 2;
 
+/**
+ * 中心按钮字形开关（临时隐藏）：false = 不渲染中心按钮内部的图标。
+ * 隐藏对象有两枚，代码全部原样保留在下方 <AnimatePresence> 里，日后想恢复改回 true 即可：
+ *   ① 收起态 logo（ICON_SVG 的 motion.img）—— 会与状态环新加的中部图标叠在一起；
+ *   ② 展开态 ✕ 关闭字形（motion.svg，stroke 走 var(--color-radial-icon)）。
+ * 只控制字形显隐：玻璃底（backdropFilter / border / 渐变）、点击、拖拽、光标判定全部不受影响。
+ */
+const SHOW_CENTER_GLYPH: boolean = false;
+
 interface RadialItem {
   key: string;
   label: string;
@@ -479,7 +488,7 @@ export function RadialMenu(): ReactNode {
         })()}
       </motion.div>
 
-      {/* ═══ 中心圆形：logo / 关闭按钮 + 拖拽 ═══ */}
+      {/* ═══ 中心圆形：玻璃底 + 拖拽（内部字形已按 SHOW_CENTER_GLYPH 暂时隐藏） ═══ */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ zIndex: 1 }}
@@ -508,37 +517,40 @@ export function RadialMenu(): ReactNode {
           onMouseDown={handleCenterMouseDown}
         >
           <AnimatePresence mode="wait" initial={false}>
-            {expanded ? (
-              <motion.svg
-                key="close"
-                width={CENTER_R}
-                height={CENTER_R}
-                viewBox="0 0 24 24"
-                fill="none"
-                strokeWidth={2.4}
-                strokeLinecap="round"
-                // stroke 走 style 声明读 token（stroke 是继承属性，子 <line> 自动继承）
-                style={{ stroke: 'var(--color-radial-icon)' }}
-                initial={{ rotate: -90, scale: 0, opacity: 0 }}
-                animate={{ rotate: 0, scale: 1, opacity: 1 }}
-                exit={{ rotate: 90, scale: 0, opacity: 0 }}
-                transition={SPRING_SPRING}
-              >
-                <line x1="6" y1="6" x2="18" y2="18" />
-                <line x1="18" y1="6" x2="6" y2="18" />
-              </motion.svg>
-            ) : (
-              <motion.img
-                key="logo"
-                src={ICON_SVG}
-                alt="WorkPulse"
-                style={{ width: CENTER_R, height: CENTER_R, objectFit: 'contain' }}
-                initial={{ rotate: 90, scale: 0, opacity: 0 }}
-                animate={{ rotate: 0, scale: 1, opacity: 1 }}
-                exit={{ rotate: -90, scale: 0, opacity: 0 }}
-                transition={SPRING_SPRING}
-              />
-            )}
+            {/* 字形显隐由 SHOW_CENTER_GLYPH 控制（当前为 false = 空心玻璃圆）。
+                组件保留在此，动画与 key 都不动，恢复时无需改结构。 */}
+            {SHOW_CENTER_GLYPH &&
+              (expanded ? (
+                <motion.svg
+                  key="close"
+                  width={CENTER_R}
+                  height={CENTER_R}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                  // stroke 走 style 声明读 token（stroke 是继承属性，子 <line> 自动继承）
+                  style={{ stroke: 'var(--color-radial-icon)' }}
+                  initial={{ rotate: -90, scale: 0, opacity: 0 }}
+                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                  exit={{ rotate: 90, scale: 0, opacity: 0 }}
+                  transition={SPRING_SPRING}
+                >
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                </motion.svg>
+              ) : (
+                <motion.img
+                  key="logo"
+                  src={ICON_SVG}
+                  alt="WorkPulse"
+                  style={{ width: CENTER_R, height: CENTER_R, objectFit: 'contain' }}
+                  initial={{ rotate: 90, scale: 0, opacity: 0 }}
+                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                  exit={{ rotate: -90, scale: 0, opacity: 0 }}
+                  transition={SPRING_SPRING}
+                />
+              ))}
           </AnimatePresence>
         </div>
       </div>

@@ -44,7 +44,8 @@
   --color-ring-wifi: #22d3ee;
   --color-bluetooth: #4da3ff;
 
-  /* ── 底部读数条（常态 / 告警态两套）── */
+  /* ── 底部读数条（常态 / 告警态两套）—— 读数条本体已随「收起态悬停」一并移除，
+       token 原样保留，日后若要恢复读数条可直接复用，无需改这里 ── */
   --color-pill-bg: rgb(240 242 246 / 0.96);
   --color-pill-text: #18181b;
   --color-pill-border: rgb(0 0 0 / 0.1);

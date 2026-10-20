@@ -93,7 +93,7 @@
   --color-load-high: #fb923c;
   --color-load-critical: #f43f5e;
 
-  /* 告警（比 error 更艳的「注意」级，用于状态环告警圈 / 读数条） */
+  /* 告警（比 error 更艳的「注意」级，用于状态环告警圈） */
   --color-alert: rgb(255 45 85);
   --color-alert-subtle: rgb(255 45 85 / 12%);
 
