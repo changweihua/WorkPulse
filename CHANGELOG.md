@@ -4,6 +4,11 @@
 
 ## [未发布]
 
+### 修复
+
+- 🐞 fix: 径向菜单展开动画掉帧 — 玻璃盘 opacity 动画拆成两层（外层纯 opacity 合成层 + 内层静态 backdrop-filter，Chromium 不再每帧重采样滤镜链）；展开/收起 ±400ms 动画窗口内挂起 30ms 光标轮询 hover 与 1s 硬件/电量推送的 setState（防止整张状态环 SVG 重建打断弹簧动画），窗口外照常更新
+- 🐞 fix: 展开态 ✕ 关闭图标恢复显示 — 中心字形单开关（`SHOW_CENTER_GLYPH`）拆成两枚：收起态 logo 保持隐藏（`SHOW_CENTER_LOGO = false`），展开态 ✕ 恢复显示（`SHOW_CLOSE_GLYPH = true`），否则菜单无关闭入口
+
 ### 新增
 
 - ✨ feat: 悬浮窗径向菜单展开态磨砂玻璃底 — 新增共享玻璃盘（`blur(12px) saturate(150%)`，仅 1 处声明）托底全部扇区与间隙，扇区改为半透明染色（`--color-radial-seg-top/bottom` 0.96/0.92 → 0.38/0.26）实现通透质感，附 1px `--color-radial-glass-rim` 描边；`.hw-dark` 暗色底变体（深底磨砂 + 白色微染）随硬件主题推送落地

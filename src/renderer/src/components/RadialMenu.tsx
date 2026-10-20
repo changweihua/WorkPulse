@@ -36,13 +36,15 @@ const TOOLTIP_LABELS: Record<string, { zh: string; en: string }> = {
 const CENTER_SIZE = CENTER_R * 2;
 
 /**
- * 中心按钮字形开关（临时隐藏）：false = 不渲染中心按钮内部的图标。
- * 隐藏对象有两枚，代码全部原样保留在下方 <AnimatePresence> 里，日后想恢复改回 true 即可：
- *   ① 收起态 logo（ICON_SVG 的 motion.img）—— 会与状态环新加的中部图标叠在一起；
- *   ② 展开态 ✕ 关闭字形（motion.svg，stroke 走 var(--color-radial-icon)）。
+ * 中心按钮字形开关（拆成两枚独立开关）：
+ *   ① SHOW_CENTER_LOGO = false —— 收起态 logo（ICON_SVG 的 motion.img）暂时隐藏：
+ *      会与状态环新加的中部图标叠在一起（用户要求）。
+ *   ② SHOW_CLOSE_GLYPH = true —— 展开态 ✕ 关闭字形必须显示：菜单唯一的关闭入口，
+ *      藏掉它就关不了菜单（可用性缺陷；之前的单开关把两者一起藏了）。
  * 只控制字形显隐：玻璃底（backdropFilter / border / 渐变）、点击、拖拽、光标判定全部不受影响。
  */
-const SHOW_CENTER_GLYPH: boolean = false;
+const SHOW_CENTER_LOGO: boolean = false;
+const SHOW_CLOSE_GLYPH: boolean = true;
 
 interface RadialItem {
   key: string;
@@ -85,6 +87,10 @@ export function RadialMenu(): ReactNode {
   const [expanded, setExpanded] = useState(false);
   const [config, setConfig] = useState<Record<string, boolean> | null>(null);
   const expandedRef = useRef(false);
+  // ─── 展开卡顿修复：进出场动画窗口（±400ms）内挂起 hover / 状态更新 ───
+  // Spring 的 clip-path 揭示 + 玻璃淡入需要主线程专注合成；这个窗口里任何 setState
+  // （30ms 光标轮询、1s 硬件推送）触发的重渲染都会造成掉帧，动画结束后自动放行。
+  const transitionUntilRef = useRef(0);
 
   // ─── 主题标记：硬件状态推送里带 theme → 挂 .hw-dark 到根元素 ───
   //（RadialTheme.css 的暗色变体靠这个类落位：玻璃底 / 扇区染色的暗色 token 全部挂在 .hw-dark 下，
@@ -241,6 +247,8 @@ export function RadialMenu(): ReactNode {
     const handler = (info: any) => {
       expandedRef.current = info.expanded;
       setExpanded(info.expanded);
+      // 记录动画窗口终点：窗口内 hover / 环数据 setState 一律挂起（防掉帧）
+      transitionUntilRef.current = performance.now() + 400;
       if (!info.expanded) setHovered(null);
     };
     const cleanup = window.radialApi.onState(handler);
@@ -251,6 +259,9 @@ export function RadialMenu(): ReactNode {
   // 使用 visibleItemsRef 避免 useEffect([]) 闭包陈旧，始终检测当前可见项
   useEffect(() => {
     const handler = (info: any) => {
+      // 展开卡顿修复：进出场动画窗口内不更新 hover（避免光标轮询 setState 掉帧）；
+      // 收起后的清空不受影响（setHovered(null) 已在 onState 里做）
+      if (performance.now() < transitionUntilRef.current) return;
       if (!expandedRef.current) {
         setHovered(null);
         return;
@@ -380,11 +391,14 @@ export function RadialMenu(): ReactNode {
           （玻璃审计按声明计数，5 个扇区会成倍翻倍导致超预算）。
           圆盘放在 clip 容器之外、zIndex 0（低于中心按钮 / 环带 / 扇区层）→
           中心按钮自己的玻璃与描边不被这层染色盖住。
-          进出场：opacity 随展开动画 0→1，blur 本身不做动画（性能约束）。 ═══ */}
+          ⚠️ 性能（展开卡顿修复）：backdrop-filter 元素自身做 opacity 动画时，
+          Chromium 每帧都要对滤镜链重新采样（非纯合成层动画）→ 拆成两层：
+          外层 motion.div 只动 opacity（+ willChange 提升独立合成层），
+          内层静态玻璃（backdrop-filter 恒定、从不参与动画）。 ═══ */}
       <motion.div
         key="radial-glass"
         aria-hidden
-        className="absolute rounded-full"
+        className="absolute"
         style={{
           left: CX - EXPANDED_CLIP_R,
           top: CY - EXPANDED_CLIP_R,
@@ -392,16 +406,24 @@ export function RadialMenu(): ReactNode {
           height: EXPANDED_CLIP_R * 2,
           zIndex: 0,
           pointerEvents: 'none',
-          background: 'var(--color-radial-glass-base)',
-          border: '1px solid var(--color-radial-glass-rim)',
-          // 玻璃预算硬约束：单声明仅 1 处 blur、radius ≤24px、≤2 个滤镜函数（同中心圆规格）
-          backdropFilter: 'blur(12px) saturate(150%)',
-          WebkitBackdropFilter: 'blur(12px) saturate(150%)',
+          // 修复展开卡顿：opacity 动画走独立合成层，避开 backdrop-filter 重采样
+          willChange: 'opacity',
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: expanded ? 1 : 0 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
-      />
+      >
+        <div
+          className="h-full w-full rounded-full"
+          style={{
+            background: 'var(--color-radial-glass-base)',
+            border: '1px solid var(--color-radial-glass-rim)',
+            // 玻璃预算硬约束：单声明仅 1 处 blur、radius ≤24px、≤2 个滤镜函数（同中心圆规格）
+            backdropFilter: 'blur(12px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(12px) saturate(150%)',
+          }}
+        />
+      </motion.div>
 
       {/* ═══ 环形扇区 + 图标（clip-path 圆形揭示动画） ═══ */}
       <motion.div
@@ -526,7 +548,7 @@ export function RadialMenu(): ReactNode {
         })()}
       </motion.div>
 
-      {/* ═══ 中心圆形：玻璃底 + 拖拽（内部字形已按 SHOW_CENTER_GLYPH 暂时隐藏） ═══ */}
+      {/* ═══ 中心圆形：玻璃底 + 拖拽（收起态 logo 隐藏、展开态显示 ✕ 关闭字形） ═══ */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ zIndex: 1 }}
@@ -555,40 +577,41 @@ export function RadialMenu(): ReactNode {
           onMouseDown={handleCenterMouseDown}
         >
           <AnimatePresence mode="wait" initial={false}>
-            {/* 字形显隐由 SHOW_CENTER_GLYPH 控制（当前为 false = 空心玻璃圆）。
-                组件保留在此，动画与 key 都不动，恢复时无需改结构。 */}
-            {SHOW_CENTER_GLYPH &&
-              (expanded ? (
-                <motion.svg
-                  key="close"
-                  width={CENTER_R}
-                  height={CENTER_R}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  strokeWidth={2.4}
-                  strokeLinecap="round"
-                  // stroke 走 style 声明读 token（stroke 是继承属性，子 <line> 自动继承）
-                  style={{ stroke: 'var(--color-radial-icon)' }}
-                  initial={{ rotate: -90, scale: 0, opacity: 0 }}
-                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
-                  exit={{ rotate: 90, scale: 0, opacity: 0 }}
-                  transition={SPRING_SPRING}
-                >
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                </motion.svg>
-              ) : (
-                <motion.img
-                  key="logo"
-                  src={ICON_SVG}
-                  alt="WorkPulse"
-                  style={{ width: CENTER_R, height: CENTER_R, objectFit: 'contain' }}
-                  initial={{ rotate: 90, scale: 0, opacity: 0 }}
-                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
-                  exit={{ rotate: -90, scale: 0, opacity: 0 }}
-                  transition={SPRING_SPRING}
-                />
-              ))}
+            {/* 两个独立开关：展开态显示 ✕（关闭交互必需）、收起态 logo 暂时隐藏。
+                动画与 key 均未改动，恢复 logo 只需把 SHOW_CENTER_LOGO 改回 true。 */}
+            {expanded
+              ? SHOW_CLOSE_GLYPH && (
+                  <motion.svg
+                    key="close"
+                    width={CENTER_R}
+                    height={CENTER_R}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    strokeWidth={2.4}
+                    strokeLinecap="round"
+                    // stroke 走 style 声明读 token（stroke 是继承属性，子 <line> 自动继承）
+                    style={{ stroke: 'var(--color-radial-icon)' }}
+                    initial={{ rotate: -90, scale: 0, opacity: 0 }}
+                    animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                    exit={{ rotate: 90, scale: 0, opacity: 0 }}
+                    transition={SPRING_SPRING}
+                  >
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                  </motion.svg>
+                )
+              : SHOW_CENTER_LOGO && (
+                  <motion.img
+                    key="logo"
+                    src={ICON_SVG}
+                    alt="WorkPulse"
+                    style={{ width: CENTER_R, height: CENTER_R, objectFit: 'contain' }}
+                    initial={{ rotate: 90, scale: 0, opacity: 0 }}
+                    animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                    exit={{ rotate: -90, scale: 0, opacity: 0 }}
+                    transition={SPRING_SPRING}
+                  />
+                )}
           </AnimatePresence>
         </div>
       </div>
