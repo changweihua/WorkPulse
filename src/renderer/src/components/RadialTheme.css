@@ -28,6 +28,7 @@
   --color-battery-charging: #34d399;
   --color-battery-ok: #22c55e;
   --color-battery-low: #f43f5e;
+  --color-battery-warn: #f2b900;
   --color-battery-unknown: #fbbf24;
 
   /* ── 状态环：淡墨衬边 / 轨道 / 未知态圆点 ── */
@@ -35,6 +36,13 @@
   --color-ring-rim-ink: rgb(12 15 24 / 0.5);
   --color-ring-track: rgb(222 227 236 / 0.7);
   --color-ring-dot-unknown: rgb(255 255 255 / 0.72);
+
+  /* ── 中部槽位（中心圆内的 Wi-Fi / 蓝牙状态图标）──
+     Wi-Fi 弧主色刻意与负载弧的常规冷色（--color-load-low）同值：
+     中部图标是「同一套读数语言」的一部分，不能自成一套配色。
+     蓝牙单独给一支蓝（status-trio 深底色板），与青 / 绿 / 暖色告警都不撞色。 */
+  --color-ring-wifi: #22d3ee;
+  --color-bluetooth: #4da3ff;
 
   /* ── 底部读数条（常态 / 告警态两套）── */
   --color-pill-bg: rgb(240 242 246 / 0.96);

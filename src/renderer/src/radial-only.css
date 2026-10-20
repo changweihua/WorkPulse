@@ -34,16 +34,9 @@
   animation: hw-alert-pulse 0.9s ease-in-out infinite;
 }
 
-/* ── 硬件状态环：充电闪电标识呼吸（与中心 Logo 叠加显示；无阴影合成） ── */
-@keyframes hw-charge-bolt {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
-  }
-}
-.hw-charge-bolt {
-  animation: hw-charge-bolt 1.6s ease-in-out infinite;
+/* ── 硬件状态环：中部 Wi-Fi 三段弧的亮灭过渡 ──
+   信号 3→2→1 格时只切 stroke-opacity，弧本身不重绘 → 用过渡做成「渐隐」，
+   避免整枚图标随 AnimatePresence 的 key 一起闪一下。 */
+.hw-wifi-bar {
+  transition: stroke-opacity 0.28s ease;
 }

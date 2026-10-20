@@ -6,12 +6,20 @@
  * - 充电：Windows 下每 1s 经 koffi 进程内调用 powrprof.dll 的 CallNtPowerInformation 读取真实电池状态
  *   （navigator.getBattery().charging 在 Windows 上只是「插电」别名，无法区分满电断充；
  *    改用进程内调用后无 spawn、无临时文件写入，消除了 cscript/VBScript 方案的杀软误报面）
+ * - Wi-Fi / 蓝牙：委托 src/main/network-status.ts 采集，本模块只做异步缓存读取，
+ *   绝不阻塞 1s 的 CPU/内存采样节奏（网络模块内部自带 2s / 8s 轮询缓存）
  * 每 1000ms 向目标窗口推送 'hw-stats' 事件，变化小于阈值时去抖不发送。
  */
 import { BrowserWindow, powerMonitor } from 'electron';
 import { cpus } from 'os';
-import { HW_STATS_CHANNEL, type HwStats } from '../shared/hw-stats';
+import {
+  HW_STATS_CHANNEL,
+  type BluetoothStatus,
+  type HwStats,
+  type WifiStatus,
+} from '../shared/hw-stats';
 import { readBatteryState } from './battery';
+import { getBluetoothStatus, getWifiStatus } from './network-status';
 
 /** 采样间隔（毫秒） */
 const SAMPLE_INTERVAL_MS = 1000;
@@ -40,13 +48,25 @@ let prevTimes: { total: number; idle: number } | null = null;
 /** CPU 使用率 EMA 平滑值 */
 let emaCpu: number | null = null;
 /** 上一次实际推送的负载（用于去抖比较） */
-let lastSent: { cpu: number | null; memUsedPct: number; charging: boolean | null } | null = null;
+let lastSent: {
+  cpu: number | null;
+  memUsedPct: number;
+  charging: boolean | null;
+  wifi: string;
+  bluetooth: string;
+} | null = null;
 /** 上一次实际推送的时间戳（用于时间兜底强制推送） */
 let lastPushAt = 0;
 /** 充电状态轮询定时器（独立于采样定时器，1s 一次） */
 let chargingTimer: ReturnType<typeof setInterval> | null = null;
 /** 充电状态最新值（true=充电中 false=插电未充电 null=未知/无电池/读取失败） */
 let realCharging: boolean | null = null;
+/**
+ * Wi-Fi / 蓝牙最新快照（由 network-status 异步缓存回填）。
+ * 首次采样前为 null，下一帧（≤1s）即带上真实值。
+ */
+let wifiStatus: WifiStatus | null = null;
+let bluetoothStatus: BluetoothStatus | null = null;
 
 /** 汇总所有核心的 CPU times（total / idle），无 CPU 数据时返回 null */
 function readCpuTimes(): { total: number; idle: number } | null {
@@ -142,6 +162,45 @@ function stopChargingPoll(): void {
   realCharging = null;
 }
 
+/**
+ * 异步刷新 Wi-Fi / 蓝牙快照（不 await、不阻塞采样）。
+ * network-status 内部按 2s / 8s 限流，每秒调用也只会命中缓存；
+ * 结果回填到模块变量，供下一次 tick 组装负载，避免拖慢 1s 的 CPU/内存采样。
+ */
+function refreshNetworkStatus(): void {
+  getWifiStatus()
+    .then((value) => {
+      wifiStatus = value;
+    })
+    .catch(() => {
+      /* network-status 内部已兜底并记录日志，这里只防止未捕获的 rejection */
+    });
+  getBluetoothStatus()
+    .then((value) => {
+      bluetoothStatus = value;
+    })
+    .catch(() => {
+      /* 同上 */
+    });
+}
+
+/**
+ * 把 Wi-Fi / 蓝牙状态压成字符串签名，用于去抖比较。
+ * 只取「会让 UI 变化」的字段：wifi 用 available/connected/ssid/bars（signal 已映射进 bars），
+ * 蓝牙用设备名 + 电量列表；null 与空列表需要区分，故显式拼 'null'。
+ */
+function networkSignature(
+  wifi: WifiStatus | null,
+  bt: BluetoothStatus | null,
+): { wifi: string; bluetooth: string } {
+  return {
+    wifi: wifi ? `${wifi.available}|${wifi.connected}|${wifi.ssid ?? ''}|${wifi.bars}` : 'null',
+    bluetooth: bt
+      ? `${bt.available}|${bt.devices.map((d) => `${d.name}:${d.battery ?? 'x'}`).join(',')}`
+      : 'null',
+  };
+}
+
 /** 执行一次采样，按去抖规则推送到目标窗口 */
 function tick(): void {
   const win = targetWin;
@@ -154,6 +213,8 @@ function tick(): void {
   const cpu = sampleCpu();
   const mem = sampleMem();
   if (!mem) return; // 内存采样失败，本帧跳过
+  // 触发一次异步网络状态刷新（命中缓存时零系统开销），结果在下一帧生效
+  refreshNetworkStatus();
   const stats: HwStats = {
     cpu,
     memUsedPct: mem.memUsedPct,
@@ -161,9 +222,12 @@ function tick(): void {
     memTotalGB: mem.memTotalGB,
     onBattery: sampleOnBattery(),
     charging: realCharging,
+    wifi: wifiStatus,
+    bluetooth: bluetoothStatus,
     ts: Date.now(),
   };
-  // 去抖：首帧必发；其后 cpu 或 memUsedPct 变化 ≥1%、或充电状态变化才发；
+  const signature = networkSignature(stats.wifi, stats.bluetooth);
+  // 去抖：首帧必发；其后 cpu 或 memUsedPct 变化 ≥1%、充电状态变化、或 Wi-Fi/蓝牙状态变化才发；
   // 距上次推送 ≥3000ms 时即使无变化也强制推送，避免缓慢连续变化被饿死
   if (lastSent) {
     const cpuChanged =
@@ -172,8 +236,19 @@ function tick(): void {
         : Math.abs(stats.cpu - lastSent.cpu) >= DEBOUNCE_THRESHOLD_PCT;
     const memChanged = Math.abs(stats.memUsedPct - lastSent.memUsedPct) >= DEBOUNCE_THRESHOLD_PCT;
     const chargingChanged = stats.charging !== lastSent.charging;
+    const wifiChanged = signature.wifi !== lastSent.wifi;
+    const btChanged = signature.bluetooth !== lastSent.bluetooth;
     const fallbackDue = Date.now() - lastPushAt >= PUSH_FALLBACK_MS;
-    if (!cpuChanged && !memChanged && !chargingChanged && !fallbackDue) return;
+    if (
+      !cpuChanged &&
+      !memChanged &&
+      !chargingChanged &&
+      !wifiChanged &&
+      !btChanged &&
+      !fallbackDue
+    ) {
+      return;
+    }
   }
   if (win.isDestroyed() || win.webContents.isDestroyed()) {
     stopHwStats();
@@ -181,7 +256,12 @@ function tick(): void {
     return;
   }
   win.webContents.send(HW_STATS_CHANNEL, stats);
-  lastSent = { cpu: stats.cpu, memUsedPct: stats.memUsedPct, charging: stats.charging };
+  lastSent = {
+    cpu: stats.cpu,
+    memUsedPct: stats.memUsedPct,
+    charging: stats.charging,
+    ...signature,
+  };
   lastPushAt = Date.now();
 }
 

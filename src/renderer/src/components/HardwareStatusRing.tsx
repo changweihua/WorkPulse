@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Battery, Cpu, MemoryStick, Plug, Power, Zap } from 'lucide-react';
-import type { HwStats } from '../../../shared/hw-stats';
+import { Battery, Bluetooth, Cpu, MemoryStick, Plug, Power, Wifi, WifiOff } from 'lucide-react';
+import type { BluetoothStatus, HwStats, WifiStatus } from '../../../shared/hw-stats';
+import { BATTERY_INACTIVE_ALPHA, batteryRole, type BatteryRole } from './hw-colors';
+import { buildCenterScene } from './hw-scene';
 
 /**
  * 硬件状态显示环 —— 围绕中心圆圈的内环状态层（位于 CENTER_R 24 ~ INNER_R 38 环带内）
@@ -11,19 +13,19 @@ import type { HwStats } from '../../../shared/hw-stats';
  *   视觉上是「一个圆」被分成：底部电量圆点段 + 右半 CPU 段 + 左半内存段（三段之间留明显间隔）
  * - 圆点 = 计数：底部 5 颗小圆点 = 电量（每颗 20%，颗内按余数比例部分填充，点亮方向 = 逆时针）；
  *   无电量数据时常显「电源状态」
- * - 充电闪电放在顶部 0° 顶隙（CPU / 内存两弧末端之间，电量圆点段的正上方，
- *   与圆点同在 29.65 圆周上）：充电 / 接通电源时显示，电池供电时不渲染
+ * - 顶部 0° 顶隙（CPU / 内存两弧末端之间，电量圆点段的正上方，同在 29.65 圆周上）是「电源状态槽」：
+ *   放电中显示电量百分比数字，充电 / 已接电源显示静态插头图标，无电源数据时不渲染
  *
  * 布局（0°=正上方，顺时针；右半区 0~180，左半区 180~360），三段之间留明显间隔：
  * 底部 ≈151.7°~208.3°（含衬边）放电量圆点（圆心 156°~204°）；CPU 弧从 137° 逆时针生长 119° 到 20°（右半区），
  * 内存弧从 223° 顺时针生长 119° 到 340°（左半区）。三处间隔按视觉净空计（已折算弧端
  * round cap）：底部两角各 ≈12.7°（≈7.8px；告警本体加宽到 3.9 线宽后 ≈10.4°，≈6.4px，仍不相交）、
- * 顶部名义 40°（给 0° 位充电闪电两侧各留 ≈4.2px 常态净空 / 告警时 ≈3.3px）→
+ * 顶部名义 40°（给 0° 位电源状态槽两侧各留 ≈4.2px 常态净空 / 告警时 ≈3.3px）→
  * 一眼看出是三个独立元素；两弧各 119°（≤180°）、方向相反、互为镜像、各自锁死在自己那半边，
  * 任何进度值（含 100% + 告警加宽）都不相交。
  *
  * 分层（由内到外）：中心按钮 24 → 圆点与双弧共用 29.65 → 扇区内沿 38。
- * 圆点、弧、充电闪电全部落在 29.65 同一圆周上；闪电占顶部 0° 顶隙（两弧之间、电量圆点正上方）。
+ * 圆点、弧、电源状态槽全部落在 29.65 同一圆周上；电源状态槽占顶部 0° 顶隙（两弧之间、电量圆点正上方）。
  *
  * 对比策略（浅色壁纸可读，且不用阴影）——「淡晕轮廓」：轨道与未亮圆点保留一层很淡的深色衬边
  *（同路径 / 同圆，只比本体宽 RIM_PAD，透明度仅 0.35）→ 浅色壁纸上是若有似无的暗晕而非硬描边；
@@ -55,8 +57,8 @@ const INNER_R = 38; // 扇区内半径（环带外沿）
  * 三个元素共圆周但互不相接：底部电量圆点段外缘（含衬边）150.88°~209.12°，
  * CPU 弧锁在右半区（137° 起逆时针 119° 到 20°）、内存弧锁在左半区（223° 起顺时针 119° 到 340°），
  * 方向相反、互为镜像；三处间隔：底部两角视觉净空 ≈11.9°（告警加宽后 ≈9.5°，不相交）、
- * 顶部名义 40°（0° 位闪电与两弧端两侧净空 ≈4.2px / 告警时 ≈3.3px）。 */
-const TOP_GAP = 40; // 顶部名义间隔（两弧末端之间：CPU 止 20°、内存止 340°；给 0° 位充电闪电留出两侧净空）
+ * 顶部名义 40°（0° 位电源状态槽与两弧端两侧净空 ≈4.2px / 告警时 ≈3.3px）。 */
+const TOP_GAP = 40; // 顶部名义间隔（两弧末端之间：CPU 止 20°、内存止 340°；给 0° 位电源状态槽留出两侧净空）
 const R_RING = 29.65; // 圆点与双弧共用半径（中心圆 24 → 环 29.65 间距 5.65 = 原 11.3 的一半；圆点衬边外缘 32.3 仍在 INNER_R 38 之内）
 const STROKE_W = 2.4; // 弧线宽（24~38 环带偏窄，压缩线宽换取双弧间距）
 /* ── 主题色 token（值取自 RadialTheme.css，读不到时退回下面的兜底色）──
@@ -65,7 +67,7 @@ const STROKE_W = 2.4; // 弧线宽（24~38 环带偏窄，压缩线宽换取双�
    这些色值在首帧渲染时由 syncRingTheme() 统一读取一次，兜底串 = token 的默认值。 */
 let RIM_COLOR = 'rgba(18,22,32,0.35)'; // 淡墨衬边：只留在轨道与圆点上，勾一层「淡淡的暗晕轮廓」而非硬描边（浅色壁纸够读即可，不求醒目）
 const RIM_PAD = 0.9; // 衬边比本体宽的量（两侧各 ≈0.45px，细到只剩轮廓暗示；无阴影）
-let RIM_INK = 'rgba(12,15,24,0.5)'; // 图标类淡衬边（充电闪电 / 读数条图标）：小尺寸图标上的轮廓提示，降透明度避免发闷
+let RIM_INK = 'rgba(12,15,24,0.5)'; // 图标类淡衬边（顶部电源状态图标 / 读数条图标）：小尺寸图标上的轮廓提示，降透明度避免发闷
 let TRACK_COLOR = 'rgba(222,227,236,0.7)'; // 轨道 / 未亮圆点本色：中性浅灰半透（0.7），深色壁纸可见、浅色壁纸透气，保留玻璃感
 const CAP_DEG = (Math.asin(STROKE_W / 2 / R_RING) * 180) / Math.PI; // ≈2.32° 弧端 round cap 角外延（净空按它折算；告警本体 3.9 时 ≈3.77°）
 const CPU_A = 137; // CPU 右弧起点（到圆点段外缘 150.88° 的净空 = 150.88 − 137 − cap ≈ 11.6°）
@@ -86,7 +88,11 @@ const CPU_HIT_LO = TOP_GAP / 2 - CAP_DEG; // 17.68° CPU 弧视觉末端
 const CPU_HIT_HI = CPU_A + CAP_DEG; // 138.95° CPU 弧视觉起点（含 round cap）
 const MEM_HIT_LO = MEM_A - CAP_DEG; // 221.05° 内存弧视觉起点（含 round cap）
 const MEM_HIT_HI = 360 - CPU_HIT_LO; // 342.32° 内存弧视觉末端（与 CPU 关于 0° 轴镜像）
-const BOLT_SIZE = 10; // 充电闪电边长（放顶部 0° 顶隙，两侧常态净空 ≈4.2px 才不贴弧端）
+const PLUG_SIZE = 10; // 顶部电源状态槽的插头图标边长（放顶部 0° 顶隙，两侧常态净空 ≈4.2px 才不贴弧端）
+/* ── 中部槽位（中心圆 CENTER_R 之内的留白）：Wi-Fi / 蓝牙状态图标 ──
+   12×12 图标盒居中于 (CX, CY)：含 1.5px 描边余量（lucide 双层描边 4/2 → 12px 下外侧淡墨晕 ≈0.5px），
+   盒边距中心圆内沿还剩 12px，不会顶到 24 半径的中心按钮边缘（图标只做视觉提示，不接管点击）。 */
+const CENTER_ICON = 12;
 const HIT_IN = CENTER_R + 1; // 悬停判定内沿 25（避开中心按钮）
 const HIT_OUT = INNER_R; // 悬停判定外沿 38（与扇区悬停带 [38,94] 无缝衔接）
 const ALERT_AT = 85; // 告警阈值（%）
@@ -102,11 +108,15 @@ let LOAD_STOPS: ReadonlyArray<readonly [number, string]> = [
   [1, '#f43f5e'], // 红 --color-load-critical
 ];
 let ALERT_COLOR = '#ff2d55'; // --color-alert
-let DOT_COLOR_CHARGE = '#34d399'; // 充电中 / 接通电源（--color-battery-charging，呼吸绿，比正常电量绿更亮一档，靠呼吸动画区分）
-let DOT_COLOR_LOW = '#f43f5e'; // ≤20% 低电告警（--color-battery-low，红 + 脉冲，逻辑不变）
-let DOT_COLOR_MID = '#fbbf24'; // 电量未知的电池供电（--color-battery-unknown，琥珀，无百分比可用）
-let DOT_COLOR_OK = '#22c55e'; // 正常电量（>20%）（--color-battery-ok）：绿色进度 —— 电量=绿、负载=暖色告警，与青→黄→橙→红的 CPU/内存弧语义区分
-let DOT_COLOR_UNKNOWN = 'rgba(255,255,255,0.72)'; // 完全无数据时的中性常显（--color-ring-dot-unknown）
+let DOT_COLOR_CHARGE = '#34d399'; // 充电 / 接通电源（--color-battery-charging）：powered 角色（+ 顶部插头图标同色）
+let DOT_COLOR_LOW = '#f43f5e'; // <10% 低电量临界（--color-battery-low）：critical 角色，红 + 告警
+let DOT_COLOR_WARN = '#f2b900'; // 10%~20% 低电量预警（--color-battery-warn）：lowPower 角色，黄
+let DOT_COLOR_MID = '#fbbf24'; // 电量未知（--color-battery-unknown）：unknown 角色，琥珀，无百分比可用
+let DOT_COLOR_OK = '#22c55e'; // 正常电量（--color-battery-ok）：primary 角色，绿色进度 —— 电量=绿、负载=暖色告警，与青→黄→橙→红的 CPU/内存弧语义区分
+
+/* ── 中部槽位（中心圆内的 Wi-Fi / 蓝牙图标 + 对应读数条）── */
+let WIFI_COLOR = '#22d3ee'; // Wi-Fi 三段弧 / 读数条（--color-ring-wifi，值同 --color-load-low：与 CPU/内存弧常规冷色一致）
+let BT_COLOR = '#4da3ff'; // 蓝牙图标 / 读数条（--color-bluetooth，status-trio 深底色板蓝）
 
 /* ── 底部读数条（--color-pill-*，告警态 --color-pill-alert-*）── */
 let PILL_BG = 'rgba(240,242,246,0.96)';
@@ -115,6 +125,9 @@ let PILL_BORDER = 'rgba(0,0,0,0.1)';
 let PILL_ALERT_BG = 'rgba(255,241,243,0.97)';
 let PILL_ALERT_TEXT = '#be123c';
 let PILL_ALERT_BORDER = 'rgba(244,63,94,0.45)';
+
+/* ── 顶部电源状态槽（0° 顶隙）── */
+const TOP_TEXT = '#ffffff'; // 放电百分比数字的常规色（白）：外圈另描一道 RIM_INK 淡墨边，浅色壁纸上仍可读（无阴影）
 
 /** 是否已从 RadialTheme.css 成功取到 token（取不到则每帧重试，避免 CSS 未注入时定死兜底值） */
 let ringThemeSynced = false;
@@ -142,9 +155,16 @@ function syncRingTheme(): void {
   ALERT_COLOR = read('--color-alert') || ALERT_COLOR;
   DOT_COLOR_CHARGE = read('--color-battery-charging') || DOT_COLOR_CHARGE;
   DOT_COLOR_LOW = read('--color-battery-low') || DOT_COLOR_LOW;
+  DOT_COLOR_WARN = read('--color-battery-warn') || DOT_COLOR_WARN;
   DOT_COLOR_MID = read('--color-battery-unknown') || DOT_COLOR_MID;
   DOT_COLOR_OK = read('--color-battery-ok') || DOT_COLOR_OK;
-  DOT_COLOR_UNKNOWN = read('--color-ring-dot-unknown') || DOT_COLOR_UNKNOWN;
+
+  // 中部槽位：Wi-Fi 主色优先读自己的 token，退化到负载常规冷色（两者本就同值），最后兜底常量
+  WIFI_COLOR =
+    parseHexToken(read('--color-ring-wifi')) ||
+    parseHexToken(read('--color-load-low')) ||
+    WIFI_COLOR;
+  BT_COLOR = read('--color-bluetooth') || BT_COLOR;
 
   PILL_BG = read('--color-pill-bg') || PILL_BG;
   PILL_TEXT = read('--color-pill-text') || PILL_TEXT;
@@ -172,6 +192,63 @@ function syncRingTheme(): void {
 /** 自测开关：URL 带 ?hwmock=1 时用本地模拟数据（仅联调预览用，正常运行走真实 onHwStats） */
 const MOCK = typeof location !== 'undefined' && /[?&]hwmock=1(?:&|$)/.test(location.search);
 
+/**
+ * 中部槽位自测分支（仅在 ?hwmock=1 下生效）。
+ * 优先链的每种中部场景都要能静态核对，而换真机硬件成本太高 → 用 URL 参数指定分支：
+ *   ?hwmock=1                 → Wi-Fi 已连接 3 格（默认，且无蓝牙外设）
+ *   ?hwmock=1&hwwifi=mid      → 已连接 2 格（验证中间弧熄灭后的空心观感）
+ *   ?hwmock=1&hwwifi=weak     → 已连接 1 格（最内弧点亮）
+ *   ?hwmock=1&hwwifi=noconn   → 无线已开启但未关联（空心 Wi-Fi，三弧全 inactive）
+ *   ?hwmock=1&hwwifi=off      → Wi-Fi 关闭 / 不可用（斜杠 WifiOff）
+ *   ?hwmock=1&hwwifi=none     → 无无线网卡 / 采集失败（wifi: null，同样走斜杠）
+ *   ?hwmock=1&hwbt=1          → 蓝牙单设备带电量（优先链②，抢占 Wi-Fi 图标）
+ *   ?hwmock=1&hwbt=multi      → 蓝牙三设备（首台无电量 → 验证「等N台」与无电量副文本）
+ */
+const MOCK_QUERY = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+type MockWifiBranch = 'ok' | 'mid' | 'weak' | 'noconn' | 'off' | 'none';
+const MOCK_WIFI_BRANCH: MockWifiBranch = (() => {
+  const v = MOCK_QUERY?.get('hwwifi');
+  return v === 'mid' || v === 'weak' || v === 'noconn' || v === 'off' || v === 'none' ? v : 'ok';
+})();
+const MOCK_BT_BRANCH = MOCK_QUERY?.get('hwbt') ?? '';
+const MOCK_BT = MOCK_BT_BRANCH === '1' || MOCK_BT_BRANCH === 'multi';
+
+/** 自测用 Wi-Fi 状态：覆盖「3 格 / 2 格 / 1 格 / 未关联 / 关闭 / 采集失败」六种分支 */
+function mockWifi(): WifiStatus | null {
+  switch (MOCK_WIFI_BRANCH) {
+    case 'none':
+      return null; // 采集失败 / 无无线网卡
+    case 'off':
+      return { available: false, connected: false, ssid: null, signal: null, bars: 0 };
+    case 'noconn':
+      return { available: true, connected: false, ssid: null, signal: null, bars: 0 };
+    case 'weak':
+      return { available: true, connected: true, ssid: 'WorkPulse-5G', signal: 18, bars: 1 };
+    case 'mid':
+      return { available: true, connected: true, ssid: 'WorkPulse-5G', signal: 42, bars: 2 };
+    default:
+      return { available: true, connected: true, ssid: 'WorkPulse-5G', signal: 78, bars: 3 };
+  }
+}
+
+/** 自测用蓝牙状态：单台外设带电量（名称偏长，顺带验证读数条的文字截断）；
+ *  hwbt=multi 时给三台，首台不带电量 → 同时验证「等N台」与「无电量不显示副文本」 */
+function mockBluetooth(): BluetoothStatus | null {
+  if (MOCK_BT_BRANCH === 'multi') {
+    return {
+      available: true,
+      devices: [
+        { name: 'MX Master 3S', battery: null },
+        { name: 'XM4 耳机', battery: 86 },
+        { name: 'Keychron K3', battery: 64 },
+      ],
+    };
+  }
+  return MOCK_BT
+    ? { available: true, devices: [{ name: 'XM4 耳机', battery: 86 }] }
+    : { available: true, devices: [] };
+}
+
 /** navigator.getBattery() 的最小结构（避免依赖 DOM 实验性类型） */
 interface BatteryLike {
   level: number;
@@ -180,7 +257,8 @@ interface BatteryLike {
   removeEventListener(type: 'levelchange' | 'chargingchange', cb: () => void): void;
 }
 
-type Metric = 'cpu' | 'mem' | 'battery';
+/** 悬停读数条可指向的元素：环带三段（CPU 弧 / 内存弧 / 电量圆点）+ 中部槽位（Wi-Fi / 蓝牙） */
+type Metric = 'cpu' | 'mem' | 'battery' | 'wifi' | 'bluetooth';
 
 /**
  * 底部圆点的四种电源表达 —— 保证圆点在任何机器上都常显：
@@ -190,6 +268,14 @@ type Metric = 'cpu' | 'mem' | 'battery';
  * - unknown：既无电量也无 hwStats → 5 颗全亮（中性白）
  */
 type PowerMode = 'level' | 'mains' | 'battery-unknown' | 'unknown';
+
+/**
+ * 顶部电源状态槽（0° 顶隙）的渲染描述：
+ * - percent：放电中显示电量百分比数字（颜色按 batteryRole）
+ * - plug：充电中 / 已接电源未充电 / 已充满 → 静态插头图标（绿）
+ * - null：电池供电但电量未知 / 无任何电源数据 → 不渲染（圆点保持琥珀色逻辑）
+ */
+type TopSlot = { kind: 'percent'; text: string; color: string } | { kind: 'plug'; color: string };
 
 /* ────────────────────────── 工具函数 ────────────────────────── */
 
@@ -389,6 +475,8 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
           memTotalGB,
           onBattery: false,
           charging: null, // 未知 → 回退 MOCK 的 battery.charging
+          wifi: mockWifi(), // 中部槽位 Wi-Fi 分支（见 MOCK_WIFI_BRANCH）
+          bluetooth: mockBluetooth(), // 中部槽位蓝牙分支（?hwbt=1 时单设备带电量）
           ts: Date.now(),
         });
       }, 900);
@@ -466,7 +554,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
     return () => window.clearInterval(id);
   }, [battery, hasHw]);
 
-  // ─── 悬停判定：复用主进程 30ms 光标轮询，环带 = [25, 38] ───
+  // ─── 悬停判定：复用主进程 30ms 光标轮询，中心圆内 = 中部槽位，环带 = [25, 38] ───
   // 与几何常量对齐（由 DOT_HIT / CPU_HIT / MEM_HIT 推导，不写死角度）：
   // 圆点段 150.88°~209.12° = 电量，CPU 弧 8.05°~138.95° = CPU，
   // 内存弧 221.05°~351.95° = 内存；三处间隔区不归属任何元素（悬停也能看出是三段）
@@ -475,6 +563,13 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
       const dx = p.x - CX;
       const dy = p.y - CY;
       const dist = Math.sqrt(dx * dx + dy * dy);
+      // 中部槽位（中心圆半径内）：直接复用中心图标的优先链，保证「看到什么图标 = 读出什么数据」；
+      // 场景为空（无任何硬件数据）时中心是留白，悬停也不该冒出条目
+      if (dist <= CENTER_R) {
+        const scene = buildCenterScene(hwRef.current);
+        setHover(scene ? scene.kind : null);
+        return;
+      }
       if (dist < HIT_IN || dist > HIT_OUT) {
         setHover(null);
         return;
@@ -509,10 +604,10 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   const memS = useSmoothed(hw ? clamp01(hw.memUsedPct / 100) * 100 : null);
 
   const level = battery && !noBattery ? clamp01(battery.level) : null;
-  // 插电判定（Windows 上 navigator.charging 等价于「AC 在线」，无法区分满电断充）：控制闪电图标显示
+  // 插电判定（Windows 上 navigator.charging 等价于「AC 在线」，无法区分满电断充）：决定顶部槽位是否显示插头
   const plugged = !!battery?.charging;
   // 真实充电状态：优先主进程 WMI BatteryStatus（hw.charging，可区分满电断充），
-  // 未知（非 Windows / 查询失败 / 无电池）时回退 navigator.charging；控制呼吸闪烁与充电色
+  // 未知（非 Windows / 查询失败 / 无电池）时回退 navigator.charging；控制顶部槽位与圆点角色色
   const charging = hw?.charging ?? plugged;
 
   // ─── 电源表达判定（圆点常显） ───
@@ -525,31 +620,65 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
           ? 'battery-unknown'
           : 'unknown';
 
+  // ─── 电池颜色角色（底部圆点 / 顶部百分比数字 / 悬停读数条共用同一套语义）───
+  // 判定顺序见 hw-colors.ts：低电量临界 > 低电量预警 > 充电/接电 > 未知 > 常规
+  const role = batteryRole(level, charging, powerMode);
+  /** 角色 → 具体色值（色值来自 RadialTheme.css token，syncRingTheme 已写入下列变量） */
+  const roleColor = (r: BatteryRole): string => {
+    switch (r) {
+      case 'critical':
+        return DOT_COLOR_LOW;
+      case 'lowPower':
+        return DOT_COLOR_WARN;
+      case 'powered':
+        return DOT_COLOR_CHARGE;
+      case 'unknown':
+        return DOT_COLOR_MID;
+      default:
+        return DOT_COLOR_OK;
+    }
+  };
+
   // ─── 电量点亮（逆时针：底部自左向右 = 圆心角 204° → 156°）───
   // dotTotal ∈ [0, 5]：整数部分 = 整颗数，小数部分 = 下一颗的填充比例
   //（如 47% → 2.35 = 2 整颗 + 第 3 颗 35%；57% → 2.85 = 2 整颗 + 第 3 颗 85%）
   let dotTotal = DOT_COUNT;
-  let dotColor = DOT_COLOR_OK;
   if (powerMode === 'level' && level !== null) {
     dotTotal = clamp01(level) * DOT_COUNT;
     // 低电告警可见性保底：≤20% 且填充不足半颗（含 0%）时按半颗显示，
-    // 保证红色警示不消失；>10% 起严格按实际百分比，单调不回退
+    // 保证红色 / 黄色警示不消失；>20% 起严格按实际百分比，单调不回退
     if (level <= 0.2 && dotTotal < 0.5) dotTotal = 0.5;
-    // 颜色只区分状态，不区分档位：填充比例表达百分比，颜色表达「正常绿 / 低电红 / 充电绿」
-    //（圆点不做呼吸/闪动动画，静态色即可）
-    dotColor = charging ? DOT_COLOR_CHARGE : level <= 0.2 ? DOT_COLOR_LOW : DOT_COLOR_OK;
-  } else if (powerMode === 'mains') {
-    dotColor = DOT_COLOR_CHARGE;
-  } else if (powerMode === 'battery-unknown') {
-    dotColor = DOT_COLOR_MID;
-  } else {
-    dotColor = DOT_COLOR_UNKNOWN;
   }
+  // 颜色只区分状态、不区分档位：填充比例表达百分比，颜色表达角色
+  //（圆点不做呼吸/闪动动画，静态色即可；未点亮的圆点 = 同角色色 alpha 0.22 的轨道）
+  const dotColor = roleColor(role);
 
-  // ─── 充电标识填充：接通电源（plugged / mains：台式机 / 满电持续插电）时闪电填充充电绿；
-  // 电池供电时闪电仍显示但仅保留轮廓不填充（fill=none）。呼吸闪烁仅在真正「插着电源且
-  // 充电中」（WMI 真实 charging）时生效；接通电源但未充电（如满电插电）时静态显示不闪烁 ───
-  const boltFilled = plugged || powerMode === 'mains';
+  // ─── 顶部电源状态槽（0° 顶隙）：放电 → 百分比数字；充电/接电 → 插头；无数据 → 不渲染 ───
+  const topSlot: TopSlot | null =
+    powerMode === 'level' && level !== null && !plugged && !charging
+      ? {
+          kind: 'percent',
+          text: `${Math.round(level * 100)}`,
+          // 数字颜色按角色：<10% 红、<20% 黄、其余白
+          color:
+            role === 'critical' ? DOT_COLOR_LOW : role === 'lowPower' ? DOT_COLOR_WARN : TOP_TEXT,
+        }
+      : charging || plugged || powerMode === 'mains'
+        ? { kind: 'plug', color: DOT_COLOR_CHARGE }
+        : null;
+
+  // ─── 中部槽位场景（优先链只存在于 hw-scene.buildCenterScene 一处）：Wi-Fi / 蓝牙 / 留白 ───
+  const center = buildCenterScene(hw);
+  // 入场键只按「场景类型 + 是否斜杠」区分：信号格数 3→2 时图标不重放整段淡入淡出，
+  // 只让各自弧的 stroke-opacity 平滑过渡（见 WifiSignal）
+  const centerKey =
+    center === null
+      ? 'none'
+      : center.kind === 'wifi'
+        ? center.off
+          ? 'wifi-off'
+          : 'wifi'
+        : 'bluetooth';
 
   /* ── 单条进度弧（带符号 sweep，支持左右镜像生长）──
         轨道 = 淡墨衬边 + 浅灰本体；进度弧 / 告警弧不加衬边，靠渐变 / 红色自身饱和度区分 ── */
@@ -637,8 +766,9 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
         与两侧弧起点各留 ≈12.7° 视觉净空；每颗 20%，颗内按余数比例部分填充；
         点亮方向 = 逆时针（底部自左向右，圆心角 204° → 156°，颗内弦的推进方向与之一致）；
         无电量数据时常显电源状态；
-        每颗 = 淡墨衬边圆（RIM_COLOR，r = DOT_R + DOT_RIM）+ 本体圆（r = DOT_R，轨道同色或电量色）——
-        本体直径与几何骨架不变，衬边只是一圈很淡的暗晕（0.35），亮 / 灭仍靠填充色区分） ── */
+        每颗 = 淡墨衬边圆（RIM_COLOR，r = DOT_R + DOT_RIM）+ 本体圆（r = DOT_R）——
+        本体直径与几何骨架不变，衬边只是一圈很淡的暗晕（0.35）；亮 / 灭靠角色色与透明度区分 ——
+        未点亮 = 同角色色 alpha 0.22（status-trio 的 inactive 规则），不再用固定暗色 ── */
   const dots: ReactNode[] = [];
   for (let i = 0; i < DOT_COUNT; i++) {
     const deg = 180 + (i - (DOT_COUNT - 1) / 2) * DOT_STEP_DEG;
@@ -652,8 +782,14 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
       <g key={i}>
         {/* 衬边圆：比本体宽 DOT_RIM，浅色壁纸上勾出轮廓（深色壁纸上与背景融为一体，不产生脏边） */}
         <circle cx={p.x} cy={p.y} r={DOT_R + DOT_RIM} fill={RIM_COLOR} />
-        {/* 底圆：整颗亮 = 直接填色；部分亮 = 淡底 + 下方圆缺覆盖；全灭 = 淡底（纯填充，无描边、无阴影） */}
-        <circle cx={p.x} cy={p.y} r={DOT_R} fill={on ? dotColor : TRACK_COLOR} />
+        {/* 底圆：整颗亮 = 角色色不透明；未整颗亮 = 同角色色 alpha 0.22 的轨道（部分填充在其上叠加） */}
+        <circle
+          cx={p.x}
+          cy={p.y}
+          r={DOT_R}
+          fill={dotColor}
+          fillOpacity={on ? 1 : BATTERY_INACTIVE_ALPHA}
+        />
         {!on && lit && (
           /* 部分填充：局部 +x = 逆时针前进方向，rotate(角度-180) 对齐后从先进入侧推进；
              弦路径与整颗填充同半径（落在衬边圆之内），纯填充区分亮灭 */
@@ -694,15 +830,17 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
       alert: hw.memUsedPct >= ALERT_AT,
     };
   } else if (hover === 'battery') {
-    const low = powerMode === 'level' && level !== null && !plugged && level <= 0.2;
+    // 颜色统一走 batteryRole()：critical 红 / lowPower 黄 / powered 绿 / unknown 琥珀 / primary 绿
+    const low = role === 'critical' || role === 'lowPower';
+    const onPower = charging || plugged;
     pill =
       powerMode === 'level' && level !== null
         ? {
             key: 'battery',
-            Icon: charging ? Zap : Battery,
+            Icon: role === 'powered' ? Plug : Battery,
             text: `${Math.round(level * 100)}%`,
-            sub: charging ? '·充电' : '·电池',
-            color: charging ? DOT_COLOR_CHARGE : low ? DOT_COLOR_LOW : DOT_COLOR_OK,
+            sub: onPower ? '·充电' : '·电池',
+            color: roleColor(role),
             alert: low,
           }
         : {
@@ -714,10 +852,38 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
                 : powerMode === 'battery-unknown'
                   ? '电量未知'
                   : '电源未知',
-            color: powerMode === 'mains' ? DOT_COLOR_CHARGE : dotColor,
+            color: roleColor(role),
             alert: false,
           };
     if (powerMode === 'unknown' && pill) pill = { ...pill, Icon: Power };
+  } else if (hover === 'wifi' && hw) {
+    // 与中部图标严格同一套判定（图标也同形：不可用 = WifiOff，与中心一致）：
+    // null / 不可用 → 「不可用」，已开启未关联 → 「未连接」，
+    // 已连接 → ssid（隐藏 SSID 时退化为「已连接」）+ 信号百分比
+    const w = hw.wifi;
+    const off = !w || !w.available;
+    pill = {
+      key: 'wifi',
+      Icon: off ? WifiOff : Wifi,
+      text: off ? '不可用' : w?.connected ? (w.ssid ?? '已连接') : '未连接',
+      sub: w && w.connected && w.signal !== null ? `·${Math.round(w.signal)}%` : undefined,
+      color: WIFI_COLOR,
+      alert: false,
+    };
+  } else if (hover === 'bluetooth' && hw) {
+    // 只有「有已连接外设」时才存在蓝牙条目（优先链②成立才可能悬停到这里；仍做防御性判空）
+    const [first, ...rest] = hw.bluetooth?.devices ?? [];
+    if (first) {
+      pill = {
+        key: 'bluetooth',
+        Icon: Bluetooth,
+        // 多台时「首台名 等N台」（N = 设备总数）；名称过长由 CSS 省略号截断，读数条宽度锁死 76px
+        text: rest.length > 0 ? `${first.name} 等${rest.length + 1}台` : first.name,
+        sub: first.battery !== null ? `·${first.battery}%` : undefined,
+        color: BT_COLOR,
+        alert: false,
+      };
+    }
   }
 
   const dimmed = (metric: Metric): boolean => hover !== null && hover !== metric;
@@ -744,25 +910,95 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
           >
             <g>{dots}</g>
           </g>
+
+          {/* 顶部电源状态槽 · 放电中：电量百分比数字（SVG 文本居中于 0° 顶隙）。
+              底层 fill=none 只描 RIM_INK 淡墨边、上层填角色色 —— 白色数字在浅色壁纸上仍可读，
+              与图标 / 读数条同一种「淡墨衬边」手法，全程无阴影（透明窗不能有阴影合成暗边） */}
+          {topSlot?.kind === 'percent' && (
+            <>
+              <text
+                x={CX}
+                y={CY - R_RING}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={10}
+                fontWeight={600}
+                fill="none"
+                stroke={RIM_INK}
+                strokeWidth={2.4}
+                strokeLinejoin="round"
+                style={{ fontVariantNumeric: 'tabular-nums' }}
+                aria-hidden
+              >
+                {topSlot.text}
+              </text>
+              <text
+                x={CX}
+                y={CY - R_RING}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={10}
+                fontWeight={600}
+                fill={topSlot.color}
+                style={{ fontVariantNumeric: 'tabular-nums' }}
+                aria-hidden
+              >
+                {topSlot.text}
+              </text>
+            </>
+          )}
         </svg>
 
-        {/* 充电标识：闪电放在顶部 0° 顶隙（CPU / 内存两弧末端之间，电量圆点段正上方，
-            与圆点同在 29.65 圆周上）；常显不隐藏：接通电源时填充充电绿（DOT_COLOR_CHARGE），
-            电池供电时仅保留淡墨轮廓不填充（fill=none）；
-            呼吸闪烁（hw-charge-bolt）仅在真正插着电源且充电中（charging）时挂载，
-            接通电源但未充电（如满电插电）时静态显示；顶隙 40° 下两侧净空 ≈4.2px，尺寸 10px；
-            菜单展开时整环淡出 */}
-        <div
-          className={`${charging ? 'hw-charge-bolt ' : ''}absolute flex items-center justify-center`}
-          style={topGapBox(BOLT_SIZE)}
-        >
-          <Zap
-            size={BOLT_SIZE}
-            strokeWidth={2}
-            fill={boltFilled ? DOT_COLOR_CHARGE : 'none'}
-            stroke={RIM_INK}
-            aria-hidden
-          />
+        {/* 顶部电源状态槽 · 充电中 / 已接电源未充电 / 已充满：静态插头图标（绿，不闪烁）。
+            尺寸 10px 落在 0° 顶隙；双层描边（底层 RIM_INK 粗描 + 上层本色）保证浅色壁纸可读；
+            无电量数据的 battery-unknown / unknown 不渲染任何顶部内容 */}
+        {topSlot?.kind === 'plug' && (
+          <div className="absolute flex items-center justify-center" style={topGapBox(PLUG_SIZE)}>
+            <span className="relative" style={{ width: PLUG_SIZE, height: PLUG_SIZE }}>
+              <Plug
+                size={PLUG_SIZE}
+                strokeWidth={4}
+                style={{ color: RIM_INK, position: 'absolute', left: 0, top: 0 }}
+                aria-hidden
+              />
+              <Plug
+                size={PLUG_SIZE}
+                strokeWidth={2}
+                style={{ color: topSlot.color, position: 'absolute', left: 0, top: 0 }}
+                aria-hidden
+              />
+            </span>
+          </div>
+        )}
+
+        {/* ═══ 中部槽位（中心圆半径内的留白）：Wi-Fi / 蓝牙状态图标 ═══
+            永远只有一枚，由 buildCenterScene 的优先链决定是哪个场景；切换时 0.2s 淡入淡出
+            （AnimatePresence 默认 sync 模式 + 子项绝对定位叠放 = 交叉淡化，不产生位移）；
+            收起态常显、展开态随整环一起淡出（由外层 motion.div 的 expanded 动画统一处理）；
+            整层 pointer-events: none → 图标不接管点击，中心按钮的点击 / 拖拽 / setShape 全不受影响。
+            无场景（无任何硬件数据）时不渲染任何东西，中心保持留白 ═══ */}
+        <div className="absolute flex items-center justify-center" style={centerBox(CENTER_ICON)}>
+          <AnimatePresence initial={false}>
+            {center && (
+              <motion.div
+                key={centerKey}
+                className="absolute inset-0 flex items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                aria-hidden
+              >
+                {center.kind === 'bluetooth' ? (
+                  <OutlineIcon Icon={Bluetooth} size={CENTER_ICON} color={BT_COLOR} />
+                ) : center.off ? (
+                  <OutlineIcon Icon={WifiOff} size={CENTER_ICON} color={WIFI_COLOR} />
+                ) : (
+                  <WifiSignal bars={center.bars} size={CENTER_ICON} />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
 
@@ -828,4 +1064,107 @@ function topGapBox(size: number): CSSProperties {
     width: size,
     height: size,
   };
+}
+
+/**
+ * 中部槽位方框定位：以 (CX, CY) 为几何中心。
+ * 12×12 的盒子四边距中心圆内沿（R=24）还剩 12px，既不顶到中心按钮边缘，也不出可见区。
+ */
+function centerBox(size: number): CSSProperties {
+  return {
+    left: CX - size / 2,
+    top: CY - size / 2,
+    width: size,
+    height: size,
+  };
+}
+
+/**
+ * 双描边图标（淡墨衬边 + 本色）：中部槽位只有 12px，亮色单描边在浅色壁纸上会「发虚」。
+ * 底层用 RIM_INK 粗描（透明度已压到 0.5）勾轮廓，上层保持本色细描 ——
+ * 与顶部插头、读数条图标同一手法，全程无阴影（透明窗不能有阴影合成暗边）。
+ */
+function OutlineIcon({
+  Icon,
+  size,
+  color,
+}: {
+  Icon: typeof Cpu;
+  size: number;
+  color: string;
+}): ReactNode {
+  return (
+    <span className="relative" style={{ width: size, height: size }}>
+      <Icon
+        size={size}
+        strokeWidth={4}
+        style={{ color: RIM_INK, position: 'absolute', left: 0, top: 0 }}
+        aria-hidden
+      />
+      <Icon
+        size={size}
+        strokeWidth={2}
+        style={{ color, position: 'absolute', left: 0, top: 0 }}
+        aria-hidden
+      />
+    </span>
+  );
+}
+
+/**
+ * Wi-Fi 信号弧的几何：三段同心弧，共用圆心 (12,19)，各自扫 ±42°、半径 4.5 / 9 / 13.5。
+ * 为什么不用 lucide 的 Wifi 图标：它的三段弧圆心并不重合（视觉是「叠起来的弧」），
+ * 而这里「格数 = 点亮几段」需要严格同心，信号 3→2→1 才是「外弧渐隐」而不是整枚图标换形状。
+ */
+function wifiArcPath(r: number): string {
+  const cx = 12;
+  const cy = 19;
+  const a = (42 * Math.PI) / 180;
+  const x0 = cx - r * Math.sin(a);
+  const y0 = cy - r * Math.cos(a);
+  const x1 = cx + r * Math.sin(a);
+  const y1 = cy - r * Math.cos(a);
+  return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+
+/** 由内到外三段弧（bars = 1 → 只亮最内一段；bars = 0 → 三段全灭 = 空心） */
+const WIFI_ARCS: ReadonlyArray<readonly [number, string]> = ([4.5, 9, 13.5] as const).map(
+  (r) => [r, wifiArcPath(r)] as const,
+);
+
+/**
+ * 中部槽位 Wi-Fi 指示：三段同心弧按格数点亮（0 格 = 已开启但未关联的空心态）。
+ * 亮 / 灭只切 stroke-opacity（同角色色降到 22%，沿用 status-trio 的 inactive 规则），
+ * 不换颜色、不重绘图元 → radial-only.css 的 .hw-wifi-bar 过渡生效：
+ * 信号 3→2→1 格是「弧渐隐」，不会整枚图标闪一下。
+ * 亮弧底层同样描一道 RIM_INK 淡墨轮廓，保证浅色壁纸上 1px 细弧仍可读。
+ */
+function WifiSignal({ bars, size }: { bars: 0 | 1 | 2 | 3; size: number }): ReactNode {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      {WIFI_ARCS.map(([r, d], i) => {
+        const lit = i < bars; // i=0 最内弧：1 格时只亮它
+        return (
+          <g key={r}>
+            <path
+              className="hw-wifi-bar"
+              d={d}
+              stroke={RIM_INK}
+              strokeWidth={3.2}
+              strokeLinecap="round"
+              strokeOpacity={lit ? 1 : 0}
+            />
+            <path
+              className="hw-wifi-bar"
+              d={d}
+              stroke={WIFI_COLOR}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeOpacity={lit ? 1 : BATTERY_INACTIVE_ALPHA}
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
 }

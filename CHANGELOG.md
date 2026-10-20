@@ -10,6 +10,9 @@
 - ✨ feat: 主窗口材质新增「无（不透明）」降级项，默认值按 Windows 版本判定（Win11 22H2+ 用 Mica，其余用 Tabbed），新增 `src/main/window-material.ts` 统一材质读取与应用链路，作为 GPU 合成异常时的兜底
 - ✨ feat: 新增玻璃预算门控审计 `npm run audit:glass`（`scripts/audit-glass-budget.mjs`）— 静态扫描全部 backdrop-filter，按 C3（单帧读取 ≤3,000,000 设备像素@DPR2）、C5（每表面 1 处 blur、radius ≤24px）判定，违规非 0 退出，防止玻璃性能预算回归
 - ✨ feat: 设置页窗口材质切换支持实时预览 — 新增 `preview-window-material` IPC（只应用不落盘），点击即时预览、「应用」才保存、「取消」或离开页面自动恢复，预览中/已保存角标区分
+- ✨ feat: 悬浮窗顶部电源状态槽 — 放电时闪电图标改为电量百分比数字（<20% 黄、<10% 红），充电/接电显示静态插头图标（充电绿），移除呼吸闪烁；新增 `hw-colors.ts` 电池颜色 role 状态机（临界红/预警黄/充电绿/未知琥珀/常规绿），底部圆点、顶部数字、悬停读数条统一着色，未点亮圆点降为 22% 透明度
+- ✨ feat: 悬浮窗中心新增 Wi-Fi/蓝牙状态图标 — 按 status-trio 优先链渲染（网络错误抢占 > 蓝牙外设 > Wi-Fi 信号格数），自绘三段同心弧信号图标按格数点亮、0.28s 渐隐过渡；新增 `hw-scene.ts` 场景构建器分离判定与渲染；新增 `--color-bluetooth`、`--color-ring-wifi` 颜色 token
+- ✨ feat: 主进程新增 Wi-Fi/蓝牙状态采集 — `network-status.ts`：Wi-Fi 经 netsh 双语+GBK/UTF-8 投票解码解析（2s 缓存），蓝牙经 koffi 进程内 SetupAPI 枚举外设（8s 缓存，含电量读取与本机适配器过滤），并入 `hw-stats` 去抖推送（`HwStats.wifi`/`HwStats.bluetooth` 字段）；悬停读数条新增 Wi-Fi（SSID·信号%）与蓝牙（设备名·电量）条目
 
 ### 修复
 
