@@ -86,6 +86,15 @@ export function RadialMenu(): ReactNode {
   const [config, setConfig] = useState<Record<string, boolean> | null>(null);
   const expandedRef = useRef(false);
 
+  // ─── 主题标记：硬件状态推送里带 theme → 挂 .hw-dark 到根元素 ───
+  //（RadialTheme.css 的暗色变体靠这个类落位：玻璃底 / 扇区染色的暗色 token 全部挂在 .hw-dark 下，
+  //  不挂类则一律走亮色默认值。仅做标记，硬件数据本体由 HardwareStatusRing 自行订阅。）
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const cleanup = window.radialApi.onHwStats((s) => setDark(s.theme === 'dark'));
+    return cleanup;
+  }, []);
+
   const gapOuterDeg = (GAP_PX / OUTER_R) * (180 / Math.PI);
   const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI);
 
@@ -356,7 +365,7 @@ export function RadialMenu(): ReactNode {
   return (
     <div
       ref={rootRef}
-      className="select-none"
+      className={`select-none${dark ? ' hw-dark' : ''}`}
       style={{
         position: 'fixed',
         width: WIDGET_SIZE,
@@ -365,6 +374,35 @@ export function RadialMenu(): ReactNode {
         top: 0,
       }}
     >
+      {/* ═══ 展开态共享玻璃底（整个组件唯一一处「表面级」blur 声明）═══
+          磨砂 backdrop-filter 只落在这层 198×198 圆盘上：扇区半透明染色、扇区间隙、
+          中心~扇区之间的环带都透过它读到底下的壁纸 —— 每个扇区 path 不能再各挂 blur
+          （玻璃审计按声明计数，5 个扇区会成倍翻倍导致超预算）。
+          圆盘放在 clip 容器之外、zIndex 0（低于中心按钮 / 环带 / 扇区层）→
+          中心按钮自己的玻璃与描边不被这层染色盖住。
+          进出场：opacity 随展开动画 0→1，blur 本身不做动画（性能约束）。 ═══ */}
+      <motion.div
+        key="radial-glass"
+        aria-hidden
+        className="absolute rounded-full"
+        style={{
+          left: CX - EXPANDED_CLIP_R,
+          top: CY - EXPANDED_CLIP_R,
+          width: EXPANDED_CLIP_R * 2,
+          height: EXPANDED_CLIP_R * 2,
+          zIndex: 0,
+          pointerEvents: 'none',
+          background: 'var(--color-radial-glass-base)',
+          border: '1px solid var(--color-radial-glass-rim)',
+          // 玻璃预算硬约束：单声明仅 1 处 blur、radius ≤24px、≤2 个滤镜函数（同中心圆规格）
+          backdropFilter: 'blur(12px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(12px) saturate(150%)',
+        }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: expanded ? 1 : 0 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+      />
+
       {/* ═══ 环形扇区 + 图标（clip-path 圆形揭示动画） ═══ */}
       <motion.div
         key="radial-content"
@@ -448,10 +486,10 @@ export function RadialMenu(): ReactNode {
                   src={item.icon}
                   alt={item.label}
                   style={{ width: ICON_SIZE, height: ICON_SIZE, objectFit: 'contain' }}
-                  className="drop-shadow-sm"
+                  /* 不加 drop-shadow：透明悬浮窗禁阴影（截图规范），玻璃底的透亮感也足够衬托图标 */
                 />
               ) : (
-                <span className="text-2xl drop-shadow-sm">{item.emoji ?? '📦'}</span>
+                <span className="text-2xl">{item.emoji ?? '📦'}</span>
               )}
             </motion.div>
           );

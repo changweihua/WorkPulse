@@ -6,6 +6,7 @@
 
 ### 新增
 
+- ✨ feat: 悬浮窗径向菜单展开态磨砂玻璃底 — 新增共享玻璃盘（`blur(12px) saturate(150%)`，仅 1 处声明）托底全部扇区与间隙，扇区改为半透明染色（`--color-radial-seg-top/bottom` 0.96/0.92 → 0.38/0.26）实现通透质感，附 1px `--color-radial-glass-rim` 描边；`.hw-dark` 暗色底变体（深底磨砂 + 白色微染）随硬件主题推送落地
 - ✨ feat: dev 模式下工作日志向量化改用本地模型生成（Xenova/bge-small-zh-v1.5），无需配置远程 Embedding API，不消耗额度；向量来源 key 变化时自动清空并重建索引，防止不同模型向量混存
 - ✨ feat: 主窗口材质新增「无（不透明）」降级项，默认值按 Windows 版本判定（Win11 22H2+ 用 Mica，其余用 Tabbed），新增 `src/main/window-material.ts` 统一材质读取与应用链路，作为 GPU 合成异常时的兜底
 - ✨ feat: 新增玻璃预算门控审计 `npm run audit:glass`（`scripts/audit-glass-budget.mjs`）— 静态扫描全部 backdrop-filter，按 C3（单帧读取 ≤3,000,000 设备像素@DPR2）、C5（每表面 1 处 blur、radius ≤24px）判定，违规非 0 退出，防止玻璃性能预算回归
