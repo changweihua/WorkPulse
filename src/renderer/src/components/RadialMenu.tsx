@@ -427,10 +427,12 @@ export function RadialMenu(): ReactNode {
           className="h-full w-full rounded-full"
           style={{
             background: 'var(--color-radial-glass-base)',
-            border: '1px solid var(--color-radial-glass-rim)',
             // 玻璃预算硬约束：单声明仅 1 处 blur、radius ≤24px、≤2 个滤镜函数（同中心圆规格）
             backdropFilter: 'blur(12px) saturate(150%)',
             WebkitBackdropFilter: 'blur(12px) saturate(150%)',
+            // rim 描边不在这层（见下方 radial-content 内的 rim 盘沿）：
+            // 盘沿若挂在玻璃盘上会以完整直径先于内容出现（0.2s 淡入 vs 0.6s spring 揭示），
+            // 视觉是「先一个空圈再填内容」——描边改成纯边框层挂进内容缩放缓存
           }}
         />
       </motion.div>
@@ -467,6 +469,25 @@ export function RadialMenu(): ReactNode {
         }}
         onAnimationComplete={releaseTransitionGate}
       >
+        {/* 盘沿 rim — 与内容共用同一缩放变换：纯 1px 描边层（无 blur），随 scale 揭示同步出现；
+            视觉原因：玻璃盘 0.2s 淡入即以完整直径出现，而内容是 scale 0.55→1 的 spring 缓慢长大 ——
+            描边若留在玻璃盘上，动画早期就是一圈空框、内容再填进去。
+            挂进这里后 rim 从 55% 直径与扇区同起止，随 spring 同步长到满圈。 */}
+        <div
+          key="radial-rim"
+          aria-hidden
+          className="absolute rounded-full"
+          style={{
+            left: CX - EXPANDED_CLIP_R,
+            top: CY - EXPANDED_CLIP_R,
+            width: EXPANDED_CLIP_R * 2,
+            height: EXPANDED_CLIP_R * 2,
+            zIndex: 0,
+            pointerEvents: 'none',
+            border: '1px solid var(--color-radial-glass-rim)',
+          }}
+        />
+
         {/* SVG 环形扇区 */}
         <svg
           key="ring"
