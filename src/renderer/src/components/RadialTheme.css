@@ -64,8 +64,8 @@
      扇区本体是低 alpha 中性染色叠在玻璃底上（两端 stop）：浅色变体取「浅底 + 墨染」
      （rgb(18 22 32) 0.10/0.06，悬停加深到 0.18），与 .hw-dark 暗色变体「深底 + 白染」
      （0.12/0.06 → 悬停 0.24）完全对称 —— 差异染色只是与盘底拉开对比，状态色仍不掺进来。 ── */
-  --color-radial-glass-base: rgb(248 249 251 / 0.5);
-  --color-radial-glass-rim: rgb(18 22 32 / 0.18);
+  --color-radial-glass-base: rgb(248 249 251 / 0.4);
+  --color-radial-glass-rim: rgb(18 22 32 / 0.1);
   --color-radial-seg-top: rgb(18 22 32 / 0.1);
   --color-radial-seg-bottom: rgb(18 22 32 / 0.06);
   --color-radial-seg-hover: rgb(18 22 32 / 0.18);
@@ -116,11 +116,12 @@
   --color-ring-track: rgb(226 232 240 / 0.62);
 
   /* ── 玻璃底暗色变体：深底磨砂，扇区只叠一层很淡的白色微染 ──
-     玻璃盘底色转深（深壁纸上的深色磨砂），rim 压到 0.16 避免亮边发脏；
+     玻璃盘底色转深（深壁纸上的深色磨砂），rim 压到 0.10 保持「隐约一圈」——
+     描边越实越像黑色线框，通透感全靠弱边缘；
      扇区染色换白色微染（0.12 / 0.06），悬停提亮到 0.24 ——
      状态色仍不动，扇区只是「盘面」而不是读数。 ── */
-  --color-radial-glass-base: rgb(26 29 36 / 0.46);
-  --color-radial-glass-rim: rgb(255 255 255 / 0.16);
+  --color-radial-glass-base: rgb(26 29 36 / 0.4);
+  --color-radial-glass-rim: rgb(255 255 255 / 0.1);
   --color-radial-seg-top: rgb(255 255 255 / 0.12);
   --color-radial-seg-bottom: rgb(255 255 255 / 0.06);
   --color-radial-seg-hover: rgb(255 255 255 / 0.24);
