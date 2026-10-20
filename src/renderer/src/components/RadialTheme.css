@@ -39,8 +39,8 @@
   ); /* 暗色主题下衬边统一取它（0.4 → 0.25），浅色主题仍用下面两条既有值，观感不变 */
   --color-ring-rim: rgb(18 22 32 / 0.35);
   --color-ring-rim-ink: rgb(12 15 24 / 0.5);
-  --color-ring-track: rgb(222 227 236 / 0.7);
-  --color-ring-dot-unknown: rgb(255 255 255 / 0.72);
+  --color-ring-track: rgb(100 109 124 / 0.42);
+  --color-ring-dot-unknown: rgb(18 22 32 / 0.35);
 
   /* ── 中部槽位（中心圆内的 Wi-Fi / 蓝牙状态图标）──
      Wi-Fi 弧主色刻意与负载弧的常规冷色（--color-load-low）同值：
@@ -61,17 +61,18 @@
   /* ── 扇区玻璃：共享玻璃底（唯一一处 blur 表面）＋ 扇区半透明染色 ──
      磨砂质感由下方共享玻璃底（.radial 的展开态圆盘）一次 blur(12px) saturate(150%) 提供，
      扇区无数——若每个扇区 path 各挂一处 backdrop-filter，玻璃审计会按声明数成倍累计，必超预算。
-     扇区本体改成 0.2~0.4 的浅色染色叠在玻璃底上（两端 stop），悬停再提亮一档；
-     有效亮度 ≈ 0.42 + 0.38 − 0.42×0.38 ≈ 0.64，深浅壁纸都能压住 emoji / 图标的可读性。 ── */
-  --color-radial-glass-base: rgb(240 242 246 / 0.42);
-  --color-radial-glass-rim: rgb(255 255 255 / 0.45);
-  --color-radial-seg-top: rgb(255 255 255 / 0.38);
-  --color-radial-seg-bottom: rgb(224 229 238 / 0.26);
-  --color-radial-seg-hover: rgb(255 255 255 / 0.55);
+     扇区本体是低 alpha 中性染色叠在玻璃底上（两端 stop）：浅色变体取「浅底 + 墨染」
+     （rgb(18 22 32) 0.10/0.06，悬停加深到 0.18），与 .hw-dark 暗色变体「深底 + 白染」
+     （0.12/0.06 → 悬停 0.24）完全对称 —— 差异染色只是与盘底拉开对比，状态色仍不掺进来。 ── */
+  --color-radial-glass-base: rgb(248 249 251 / 0.5);
+  --color-radial-glass-rim: rgb(18 22 32 / 0.18);
+  --color-radial-seg-top: rgb(18 22 32 / 0.1);
+  --color-radial-seg-bottom: rgb(18 22 32 / 0.06);
+  --color-radial-seg-hover: rgb(18 22 32 / 0.18);
 
   /* ── 悬停 tooltip ── */
   --color-radial-tooltip-bg: rgb(240 242 246 / 0.96);
-  --color-radial-tooltip-border: rgb(0 0 0 / 0.08);
+  --color-radial-tooltip-border: rgb(0 0 0 / 0.18);
   --color-radial-tooltip-text: rgb(39 39 42);
   --shadow-radial-tooltip: 0 4px 16px rgb(0 0 0 / 0.08);
 
@@ -83,7 +84,7 @@
     rgb(230 233 240 / 0.4) 50%,
     rgb(210 215 225 / 0.35) 100%
   );
-  --color-radial-center-border: rgb(255 255 255 / 0.6);
+  --color-radial-center-border: rgb(18 22 32 / 0.28);
 
   /* ── 中心关闭叉图标描边 ── */
   --color-radial-icon: rgb(60 64 72 / 0.9);

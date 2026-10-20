@@ -442,7 +442,7 @@ export function RadialMenu(): ReactNode {
           动画中段超出帧预算 → 用户看到「展开一半停顿一下再继续」。
           现改为 wrapper 上做 transform: scale + opacity（合成器动画，栅格化只在起止各一次）；
           clip 容器整个移除，「从中心展开」的感觉由 transformOrigin 50% 的缩放承载，
-          扇区形态 / hover 提亮 / 图标错峰入场 / tooltip 行为全部不变。
+          扇区形态 / hover 染色增强（浅盘墨染加深 / 深盘白染提亮，token 侧已对称）/ 图标错峰入场 / tooltip 行为全部不变。
           收起态命中防护：原来靠 clip-path 裁掉命中区，CSS 的 pointer-events:none 父层
           不会挡住显式设 auto 的子元素 —— 扇区 path 改为按 expanded 显式开关命中。 ═══ */}
       <motion.div
