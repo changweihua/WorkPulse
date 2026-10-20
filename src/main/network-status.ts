@@ -1,75 +1,86 @@
 /**
- * Wi-Fi / 蓝牙状态采集（主进程）
+ * 网络状态采集（主进程）
  *
- * Wi-Fi：每 2s 经 child_process.execFile 调用 `netsh wlan show interfaces` 解析。
- *   - Windows 输出会本地化：中文系统字段为「状态 / 信号」，英文为「State / Signal」，
- *     因此所有字段都按「英文 + 中文」双语正则匹配；
- *   - `SSID` 字面在两种语言下都存在，用行首锚点 `^\s*SSID\s*:` 取值，
- *     可避免误匹配同一块里的 `AP BSSID`；
- *   - netsh 的 stdout 按系统 ANSI 代码页（简中为 GBK）输出，且部分 GBK 序列恰好也是合法 UTF-8，
- *     因此 UTF-8 / GBK 各解码一次，用中文字段名关键字投票选优（详见 decodeConsoleText）。
+ * 三块采集面，全部进程内完成或单次外部命令完成，绝不阻塞 1s 采样循环：
  *
- * 蓝牙：每 8s 经 koffi 进程内枚举 SetupAPI 蓝牙设备类，无 spawn、无临时文件。
- *   - SetupDiGetClassDevsW(蓝牙类 GUID, DIGCF_PRESENT) → 设备信息集
- *   - SetupDiEnumDeviceInfo 遍历 → SetupDiGetDeviceRegistryPropertyW(SPDRP_FRIENDLYNAME) 取名
- *   - CM_Get_DevNode_Status 判定设备节点是否在场（等价 IsPresent=true，见常量区注释）
- *   - SetupDiGetDevicePropertyW 读 DEVPKEY_Device_BatteryLevel 取电量（不支持则 null）
+ * 1. 以太网 + 互联网连通性（每 15s 一次 PowerShell）
+ *    - 一次 `Get-NetAdapter -Physical` + `Get-NetConnectionProfile` 合并调用：
+ *        · 物理网卡里 Status=Up 且名称/描述不含 Wi-Fi 关键字的，判为以太网口 Up；
+ *        · 当前连接配置文件（排除 DomainAuthenticated）的 IPv4/IPv6 Connectivity，
+ *          任一为 Internet 即可上网，明确非 Internet（Disconnected/NoTraffic/Subnet/LocalNetwork）即不可上网。
+ *    - PowerShell 冷启动在部分机器上会被杀软拖到数秒，因此结果缓存 15s，
+ *      失败保留上一次成功值（连续 3 次才置空），15s 节奏下不会造成 spawn 风暴。
+ *
+ * 2. Wi-Fi（每 3s）
+ *    - 首选 WLAN API（wlanapi.dll，koffi 进程内 FFI）：
+ *        WlanOpenHandle(2) → WlanEnumInterfaces → WlanQueryInterface(current_connection)
+ *        直接拿到 isState / dot11Ssid / wlanSignalQuality(0–100)，
+ *        真实 RSSI 换算质量，比 netsh 文本解析更稳（不受本地化与编码影响）。
+ *    - 任何 WlanAPI 失败（dll/服务不可用、结构校验不通过、调用返回错误码）
+ *      都静默回退 netsh 路径，且只 warn 一次，避免 3s 一条日志。
+ *    - netsh 回退：`netsh wlan show interfaces`，字段按「英文 + 中文」双语正则匹配；
+ *        SSID 用行首锚点 `^\s*SSID\s*:` 取值，避免误匹配同块的 `AP BSSID`；
+ *        stdout 按系统 ANSI 代码页（简中为 GBK）输出，UTF-8 / GBK 各解一次投票选优
+ *        （详见 decodeConsoleText）。
+ *
+ * 3. 蓝牙（每 8s，koffi 枚举 SetupAPI 蓝牙设备类）
+ *    - SetupDiGetClassDevsW(蓝牙类 GUID, DIGCF_PRESENT) → 设备信息集
+ *    - SetupDiEnumDeviceInfo 遍历 → SetupDiGetDeviceRegistryPropertyW(SPDRP_FRIENDLYNAME) 取名
+ *    - CM_Get_DevNode_Status 判定设备节点是否在场（等价 IsPresent=true，见常量区注释）
+ *    - SetupDiGetDevicePropertyW 读 DEVPKEY_Device_BatteryLevel 取电量（不支持则 null）
  *
  * koffi 使用约定（沿用 src/main/battery.ts 的实测结论）：
  *   1. 结构体一律用原始 Buffer 手工按字节布局，不声明 koffi.struct，规避成员类型校验坑；
  *   2. 句柄用 intptr_t 传递（x64/x86 下与 void* 的 ABI 一致），避免 koffi 指针对象语义差异；
- *   3. 出参缓冲用 Buffer，禁止 koffi.decode / koffi 数组语法；
+ *   3. 出参缓冲用 Buffer，禁止 koffi.decode 到 JS 对象（`decode(ptr, 'uint8', n)` 返回 Uint8Array
+ *      再用 Buffer.from 包一层是安全的，本模块只走这条路）；
  *   4. 任何初始化或调用异常都被捕获并降级为 null，绝不把异常抛给主进程采样循环。
  *
- * 轮询缓存：两个函数各自维护「上次采集时间 + 结果 + 进行中的请求」，
+ * 轮询缓存：各采集面各自维护「上次采集时间 + 结果 + 进行中的请求」，
  * 未到期直接返回缓存值，多路调用不会叠加系统命令/FFI 开销。
- * Wi-Fi 侧额外区分「瞬时失败」（超时被杀 / 拿不到输出）与「确无无线接口」：
- * 前者保留上一次成功值并计数，连续 3 次才置空，避免杀软拖慢 netsh 时中心图标闪断。
+ * Wi-Fi / 以太网额外区分「瞬时失败」（超时被杀 / 拿不到输出）与「确定结论」：
+ * 前者保留上一次成功值并计数，连续 3 次才置空，避免杀软拖慢外部命令时中心图标闪断。
  */
 
 import { execFile } from 'child_process';
 import log from 'electron-log/main';
-import type { BluetoothStatus, WifiStatus } from '../shared/hw-stats';
+import type { BluetoothStatus, EthernetStatus, WifiStatus } from '../shared/hw-stats';
 
-/** Wi-Fi 轮询间隔（毫秒） */
-const WIFI_POLL_INTERVAL_MS = 2000;
+/** Wi-Fi 轮询间隔（毫秒）；WlanAPI 虽是进程内调用，但没必要比 3s 更密 */
+const WIFI_POLL_INTERVAL_MS = 3000;
 /** 蓝牙轮询间隔（毫秒）：FFI 枚举比 netsh 贵，放慢到 8s */
 const BT_POLL_INTERVAL_MS = 8000;
+/** 以太网 + 互联网连通性轮询间隔（毫秒）：PowerShell 启动昂贵，15s 足够 */
+const ETHERNET_POLL_INTERVAL_MS = 15000;
 /**
  * netsh 命令超时（毫秒）。
  * 本项目实测：杀软会把子进程冷启动拖到 5s+（用户日志里出现过两次「无输出」导致的误判），
- * 而 netsh 正常执行通常 <1s；取 4s 兼顾「异常环境不被一刀切」与「失败后 2s 节奏能及时重试」。
+ * 而 netsh 正常执行通常 <1s；取 4s 兼顾「异常环境不被一刀切」与「失败后 3s 节奏能及时重试」。
  */
 const NETSH_TIMEOUT_MS = 4000;
 /**
+ * PowerShell 命令超时（毫秒）。
+ * ⚠️ 本机实测（Win11 / i5-8250U）：仅 Get-NetAdapter 单独一次 ≈4.7s，
+ * 仅 Get-NetConnectionProfile 单独一次 ≈3.1s，两个 cmdlet 合并后整段 ≈7.3–8.1s，
+ * 主要开销是 powershell.exe 冷启动 + NetAdapter/NetConnectionProfile 模块自动加载。
+ * 因此 5s 会稳定超时、把三态永远卡在「瞬时失败」，取 12s（≈实测值的 1.5 倍余量）。
+ * 超时仍按「瞬时失败」处理，保留上一次成功值。
+ */
+const POWERSHELL_TIMEOUT_MS = 12000;
+/**
  * 连续瞬时失败多少次才放弃上一次成功值。
- * 单次超时只说明「这一轮没拿到」；3 次 ≈ 6s（2s 轮询节奏）仍拿不到，
- * 才认定采集面真的坏了——防止「永远显示旧值」把真实的 Wi-Fi 断连藏起来。
+ * 单次超时只说明「这一轮没拿到」；3 次 ≈ 9s（3s 节奏 Wi-Fi）/ 45s（15s 节奏以太网）仍拿不到，
+ * 才认定采集面真的坏了——防止「永远显示旧值」把真实的断连藏起来。
  */
 const WIFI_TRANSIENT_FAIL_LIMIT = 3;
+const ETHERNET_TRANSIENT_FAIL_LIMIT = 3;
 
-// ───────────────────────────── Wi-Fi ─────────────────────────────
-
-/** Wi-Fi 缓存值（null = 无无线网卡 / netsh 不可用 / 连续采集失败） */
-let wifiCache: WifiStatus | null = null;
-/** Wi-Fi 上次实际采集时间（0 = 从未采集）——瞬时失败也刷新，保持 2s 节奏防 spawn 风暴 */
-let wifiFetchedAt = 0;
-/** 连续瞬时失败次数（成功采集或确认无无线接口时清零） */
-let wifiTransientFails = 0;
-/**
- * 上次拿到「确定结论」的时间（已连接态 / 确无无线接口都算；0 = 从未成功）。
- * 连续失败判定本身用 wifiTransientFails（次数已等价表达「距上次成功的失败长度」），
- * 这个时间戳只用于日志里说明保留的旧值已陈旧多久，两者刻意分开：
- * wifiFetchedAt 会因为失败而刷新，不能拿来判断「上次成功」。
- */
-let wifiLastOkAt = 0;
-/** 进行中的 Wi-Fi 采集（并发调用复用同一 Promise，避免重复 spawn） */
-let wifiInFlight: Promise<WifiStatus | null> | null = null;
+// ───────────────────────────── 通用：外部命令 ─────────────────────────────
 
 /**
  * 一次外部命令捕获的结果。
- * 失败时携带原因串：netsh 的失败要区分「超时被杀 / 彻底无输出」这类「瞬时」失败，
- * 不能和「netsh 正常执行但没有无线接口」混为一谈（后者是确定结论，可安全置空）。
+ * 失败时携带原因串：命令的失败要区分「超时被杀 / 彻底无输出」这类「瞬时」失败，
+ * 不能和「命令正常执行但确实没有该网络接口」混为一谈（后者是确定结论，可安全置空）。
  */
 type CaptureResult = { ok: true; buf: Buffer } | { ok: false; error: string };
 
@@ -79,13 +90,17 @@ type CaptureResult = { ok: true; buf: Buffer } | { ok: false; error: string };
  * 因此非 0 退出时只要拿到输出就继续交给解析层判断；彻底拿不到输出（超时被杀 / 启动即失败）
  * 才判为失败，并把 err.message 带出去供调用方记日志。
  */
-function execCapture(file: string, args: string[]): Promise<CaptureResult> {
+function execCapture(
+  file: string,
+  args: string[],
+  timeoutMs: number = NETSH_TIMEOUT_MS,
+): Promise<CaptureResult> {
   return new Promise((resolve) => {
     execFile(
       file,
       args,
       {
-        timeout: NETSH_TIMEOUT_MS,
+        timeout: timeoutMs,
         windowsHide: true,
         encoding: 'buffer',
         maxBuffer: 4 * 1024 * 1024,
@@ -103,7 +118,7 @@ function execCapture(file: string, args: string[]): Promise<CaptureResult> {
 }
 
 /**
- * 判断文本里是否出现了 netsh 本地化字段名的中文关键字。
+ * 判断文本里是否出现了命令本地化字段名的中文关键字。
  * 用于区分「UTF-8 原文」与「GBK 字节恰好构成合法 UTF-8」的乱码。
  */
 const LOCALIZED_FIELD_HINTS = ['状态', '信号', '名称', '已连接', '接口', '无线'];
@@ -147,30 +162,292 @@ function pickField(block: string, keys: string[]): string | null {
   return null;
 }
 
+/**
+ * 信号强度 → 信号格数：>=80→3、50–79→2、1–49→1、无→0。
+ * 阈值按 WlanAPI 质量口径（0–100）标定：80 以上满格，50 以上两格，
+ * 旧的 60/30 会让「勉强可用」的 55% 显示三格，视觉上过度乐观。
+ */
+function signalToBars(signal: number | null): 0 | 1 | 2 | 3 {
+  if (signal === null) return 0;
+  if (signal >= 80) return 3;
+  if (signal >= 50) return 2;
+  if (signal >= 1) return 1;
+  return 0;
+}
+
+// ─────────────────────── 以太网 + 互联网连通性（PowerShell） ───────────────────────
+
+/**
+ * 合并采集脚本（一次 PowerShell 同时拿以太网与连通性）。
+ * 说明：
+ *   - `[Console]::OutputEncoding` 强制 UTF-8，避免中文网卡名被按 OEM 代码页写出；
+ *     即便被改成 GBK，decodeConsoleText 也能兜住。
+ *   - 排除无线适配器：名称 + 描述同时匹配 Wi-Fi 关键字（覆盖英文/中文/常见厂商写法），
+ *     `-Physical` 已排除虚拟网卡/VPN，这里只再排除 802.11 介质。
+ *   - IPv4Connectivity / IPv6Connectivity 是 PowerShell 侧枚举（Disconnected/NoTraffic/
+ *     Subnet/LocalNetwork/Internet），用 ToString() 输出字符串，避免枚举数值随版本漂移。
+ *   - 所有变量先算再用，最后 [pscustomobject] + ConvertTo-Json -Compress 输出单行 JSON。
+ */
+const ETHERNET_PROBE_SCRIPT = [
+  '[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;',
+  "$ErrorActionPreference='SilentlyContinue';",
+  "$eth=Get-NetAdapter -Physical|Where-Object{$_.Status -eq 'Up' -and ($_.Name+' '+$_.InterfaceDescription) -notmatch 'Wi-?Fi|Wireless|WLAN|802\\.11|无线'}|Select-Object -First 1;",
+  "$prof=Get-NetConnectionProfile|Where-Object{$_.NetworkCategory -ne 'DomainAuthenticated'}|Select-Object -First 1;",
+  "$v4='';$v6='';",
+  'if($prof){$v4=$prof.IPv4Connectivity.ToString();$v6=$prof.IPv6Connectivity.ToString()};',
+  '$obj=[pscustomobject]@{up=[bool]$eth;name=$(if($eth){$eth.Name}else{$null});v4=$v4;v6=$v6};',
+  '$obj|ConvertTo-Json -Compress',
+].join('');
+
+/** 一次以太网探测的语义化结果 */
+export interface NetworkProbe {
+  /** 以太网状态；null = 采集失败（保留旧值阶段仍可能为 null） */
+  ethernet: EthernetStatus | null;
+  /** 是否可访问互联网；null = 未知 */
+  hasInternet: boolean | null;
+}
+
+/** 「明确可上网」的 Connectivity 取值 */
+const CONNECTIVITY_INTERNET = 'Internet';
+/** 「明确不可上网」的 Connectivity 取值；NoInternet 兼容旧命名 */
+const CONNECTIVITY_NO_INTERNET = new Set([
+  'Disconnected',
+  'NoTraffic',
+  'Subnet',
+  'LocalNetwork',
+  'NoInternet',
+]);
+
+/**
+ * 把 IPv4/IPv6 Connectivity 字符串折算成三态「是否能上网」。
+ * 任一为 Internet → true；两者都是明确的非 Internet → false；
+ * 其余（空/未知枚举）→ null，宁可显示未知也不误报断网。
+ */
+function connectivityToInternet(v4: unknown, v6: unknown): boolean | null {
+  const values = [v4, v6].filter((v): v is string => typeof v === 'string' && v.length > 0);
+  if (values.length === 0) return null;
+  if (values.some((v) => v === CONNECTIVITY_INTERNET)) return true;
+  return values.every((v) => CONNECTIVITY_NO_INTERNET.has(v)) ? false : null;
+}
+
+/**
+ * 解析探测脚本的 stdout（单行 JSON）。
+ * - 前置 BOM、末尾 CRLF 都清掉；
+ * - 只截取第一个 `{` 到最后一个 `}`，容忍 PowerShell 在 JSON 前打印的告警文本；
+ * - up=true 但 name 为空时按「已连接但未知名称」处理（name=null），不推翻 connected。
+ */
+function parseNetworkProbe(text: string): NetworkProbe | null {
+  const trimmed = text.replace(/^\uFEFF/, '').trim();
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(trimmed.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as { up?: unknown; name?: unknown; v4?: unknown; v6?: unknown };
+  const connected = obj.up === true;
+  const name = typeof obj.name === 'string' && obj.name.trim().length > 0 ? obj.name.trim() : null;
+  return {
+    ethernet: { connected, name: connected ? name : null },
+    hasInternet: connectivityToInternet(obj.v4, obj.v6),
+  };
+}
+
+/** 最近一次成功的探测结果（失败时保留，供 Wi-Fi 的 hasInternet 字段复用） */
+let probeCache: NetworkProbe = { ethernet: null, hasInternet: null };
+/** 上次实际采集时间（0 = 从未采集）——失败也刷新，保持 15s 节奏防 spawn 风暴 */
+let probeFetchedAt = 0;
+/** 连续瞬时失败次数 */
+let probeTransientFails = 0;
+/** 上次拿到确定结论的时间（仅用于日志说明旧值有多陈旧） */
+let probeLastOkAt = 0;
+/** 进行中的探测（并发调用复用同一 Promise） */
+let probeInFlight: Promise<NetworkProbe> | null = null;
+/**
+ * 两个对外快照（供调用方零等待同步读取）。
+ * 与 probeCache 同源、在同一次 applyProbeResult 里一起写入：
+ * 单独存一份是为了让调用方不必理解 NetworkProbe 的聚合结构，
+ * 将来两条采集面若拆分也能各自独立演进。
+ */
+let ethernetSnapshot: EthernetStatus | null = null;
+let internetSnapshot: boolean | null = null;
+
+/** 探测结果三态：成功 / 非 Windows（不需告警） / 瞬时失败 */
+type ProbeQuery =
+  | { kind: 'ok'; probe: NetworkProbe }
+  | { kind: 'unsupported' }
+  | { kind: 'transient'; reason: string };
+
+/** 真正执行一次探测（不含缓存判断，也不改缓存） */
+async function queryNetworkProbe(): Promise<ProbeQuery> {
+  if (process.platform !== 'win32') return { kind: 'unsupported' };
+  const captured = await execCapture(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-Command',
+      ETHERNET_PROBE_SCRIPT,
+    ],
+    POWERSHELL_TIMEOUT_MS,
+  );
+  if (!captured.ok) return { kind: 'transient', reason: captured.error };
+  const probe = parseNetworkProbe(decodeConsoleText(captured.buf));
+  if (!probe) return { kind: 'transient', reason: 'PowerShell 输出无法解析' };
+  return { kind: 'ok', probe };
+}
+
+/** 探测缓存变化后同步两个对外快照（唯一写入口，保证三处口径永远一致） */
+function syncProbeSnapshots(): void {
+  ethernetSnapshot = probeCache.ethernet;
+  internetSnapshot = probeCache.hasInternet;
+}
+
+/** 把一次探测结果应用到缓存，并维护「连续瞬时失败」状态机（与 Wi-Fi 同款） */
+function applyProbeResult(result: ProbeQuery): NetworkProbe {
+  const now = Date.now();
+  switch (result.kind) {
+    case 'ok':
+      probeCache = result.probe;
+      probeTransientFails = 0;
+      probeLastOkAt = now;
+      syncProbeSnapshots();
+      return probeCache;
+
+    case 'unsupported':
+      // 非 Windows：没有可采集面，直接给空值且不记失败
+      probeCache = { ethernet: null, hasInternet: null };
+      probeTransientFails = 0;
+      probeLastOkAt = now;
+      syncProbeSnapshots();
+      return probeCache;
+
+    default: {
+      probeTransientFails += 1;
+      if (probeTransientFails === 1) {
+        log.warn('[network] 以太网/连通性探测瞬时失败，保留当前状态:', result.reason);
+      }
+      if (probeTransientFails === ETHERNET_TRANSIENT_FAIL_LIMIT) {
+        const stale =
+          probeLastOkAt > 0
+            ? `旧值已陈旧 ${Math.round((now - probeLastOkAt) / 1000)}s`
+            : '此前从未成功采集';
+        const hadValue = probeCache.ethernet !== null || probeCache.hasInternet !== null;
+        probeCache = { ethernet: null, hasInternet: null };
+        syncProbeSnapshots();
+        log.warn(
+          `[network] 连续瞬时失败 ${ETHERNET_TRANSIENT_FAIL_LIMIT} 次，以太网/连通性置空（${stale}；` +
+            `${hadValue ? '不再沿用上一次成功值' : '此前已为空'}）`,
+        );
+      }
+      return probeCache;
+    }
+  }
+}
+
+/**
+ * 读取以太网 + 互联网连通性（15s 缓存；到期才真正调用 PowerShell）。
+ * 返回的 hasInternet 同时被 getWifiStatus 复用，保证两处口径一致。
+ */
+export function getNetworkProbe(): Promise<NetworkProbe> {
+  if (Date.now() - probeFetchedAt < ETHERNET_POLL_INTERVAL_MS) return Promise.resolve(probeCache);
+  if (probeInFlight) return probeInFlight;
+  probeInFlight = queryNetworkProbe()
+    .catch((err): ProbeQuery => ({
+      kind: 'transient',
+      reason: err instanceof Error ? err.message : String(err),
+    }))
+    .then((result) => {
+      const value = applyProbeResult(result);
+      // 失败也刷新采集时间戳，避免坏环境下每次 tick 都重试
+      probeFetchedAt = Date.now();
+      return value;
+    })
+    .finally(() => {
+      probeInFlight = null;
+    });
+  return probeInFlight;
+}
+
+/** 当前是否可上网（同步读缓存，供 Wi-Fi 状态拼装） */
+function currentHasInternet(): boolean | null {
+  return probeCache.hasInternet;
+}
+
+/** 缓存到期就在后台补一次探测；失败由探测面自己计数吞掉，调用方既不用等也不会拿到 rejection */
+function refreshProbeIfStale(): void {
+  if (Date.now() - probeFetchedAt >= ETHERNET_POLL_INTERVAL_MS) void getNetworkProbe();
+}
+
+/**
+ * 以太网状态（同步读取最近一次探测结果，null = 采集失败 / 非 Windows）。
+ * 15s 缓存到期时会顺手触发一次后台探测，因此调用方无需自己驱动刷新，
+ * 但拿到的永远是「当前已知」而非「刚刚测得」，不阻塞 1s 主循环。
+ */
+export function getEthernetStatus(): EthernetStatus | null {
+  refreshProbeIfStale();
+  return ethernetSnapshot;
+}
+
+/**
+ * 互联网连通性（同步读取；true=可上网 / false=明确不可上网 / null=未知）。
+ * 与 getWifiStatus().hasInternet 同源，保证两处不会互相矛盾。
+ */
+export function getInternetStatus(): boolean | null {
+  refreshProbeIfStale();
+  return internetSnapshot;
+}
+
+// ───────────────────────────── Wi-Fi ─────────────────────────────
+
+/** Wi-Fi 采集的原始结果（hasInternet 由探测面单独填充，故此处先去掉该字段） */
+type WifiBase = Omit<WifiStatus, 'hasInternet'>;
+
+/** 原生指针宽度（x64 = 8，ia32 = 4）；WlanAPI 出参指针按此宽度读出 */
+const PTR_BYTES = process.arch === 'ia32' ? 4 : 8;
+
+/** Wi-Fi 缓存值（null = 无无线网卡 / 采集面不可用 / 连续采集失败） */
+let wifiCache: WifiBase | null = null;
+/** Wi-Fi 上次实际采集时间（0 = 从未采集）——瞬时失败也刷新，保持 3s 节奏防 spawn 风暴 */
+let wifiFetchedAt = 0;
+/** 连续瞬时失败次数（成功采集或确认无无线接口时清零） */
+let wifiTransientFails = 0;
+/**
+ * 上次拿到「确定结论」的时间（已连接态 / 确无无线接口都算；0 = 从未成功）。
+ * 连续失败判定本身用 wifiTransientFails（次数已等价表达「距上次成功的失败长度」），
+ * 这个时间戳只用于日志里说明保留的旧值已陈旧多久，两者刻意分开：
+ * wifiFetchedAt 会因为失败而刷新，不能拿来判断「上次成功」。
+ */
+let wifiLastOkAt = 0;
+/** 进行中的 Wi-Fi 采集（并发调用复用同一 Promise，避免重复 spawn） */
+let wifiInFlight: Promise<WifiBase | null> | null = null;
+
+/** 把缓存的原始 Wi-Fi 结果补上 hasInternet，得到对外的 WifiStatus */
+function withInternet(base: WifiBase | null): WifiStatus | null {
+  return base ? { ...base, hasInternet: currentHasInternet() } : null;
+}
+
 /** 状态行是否表示「已连接」（英文 connected / 中文 已连接） */
 function isConnectedState(state: string | null): boolean {
   if (!state) return false;
   return /(^|\s)connected\b/i.test(state) || state.includes('已连接');
 }
 
-/** 信号强度 → 信号格数：>=60→3、30–59→2、1–29→1、无→0 */
-function signalToBars(signal: number | null): 0 | 1 | 2 | 3 {
-  if (signal === null) return 0;
-  if (signal >= 60) return 3;
-  if (signal >= 30) return 2;
-  if (signal >= 1) return 1;
-  return 0;
-}
-
 /**
- * 解析 `netsh wlan show interfaces` 输出。
+ * 解析 `netsh wlan show interfaces` 输出（WlanAPI 不可用时的回退路径）。
  * 输出按空行分成若干接口块，每块都会尝试取 State/信号/SSID；
  * 多网卡时优先返回「已连接」的那块，否则返回第一块。
  * 一个接口块都没有（无无线网卡 / 服务未启动）返回 null。
  */
-function parseWlanInterfaces(text: string): WifiStatus | null {
+function parseWlanInterfaces(text: string): WifiBase | null {
   const blocks = text.split(/\r?\n\s*\r?\n/);
-  const found: WifiStatus[] = [];
+  const found: WifiBase[] = [];
   for (const block of blocks) {
     const state = pickField(block, ['State', '状态']);
     const name = pickField(block, ['Name', '名称']);
@@ -198,20 +475,349 @@ function parseWlanInterfaces(text: string): WifiStatus | null {
   return found.find((item) => item.connected) ?? found[0];
 }
 
+// ── WLAN API（wlanapi.dll / koffi） ──
+
+/**
+ * GUID 是否对齐到 8 字节并不影响下列偏移（所有成员都是 4 字节对齐），
+ * 但结构体大小必须与真实布局一致，否则后续字段全部错位，所以解析前先做 sizeof/字段校验。
+ */
+/** sizeof(WLAN_INTERFACE_INFO_LIST) 固定头：DWORD dwNumberOfItems + DWORD dwIndex */
+const WLAN_LIST_HEAD_SIZE = 8;
+/**
+ * sizeof(WLAN_INTERFACE_INFO) = 532 = GUID(16) + WCHAR[256](512) + isState(4)。
+ * 实测校验：单接口时 WlanEnumInterfaces 分配的总长度为 8 + 532 = 540 字节
+ * （解码 540 字节之后的字节是堆上的其它数据），且 isState=1 落在列表内绝对偏移 536（项内 528）。
+ * GUID 的 Data4 为 uchar[8]、结构对齐 4 字节，因此数组步长同为 532（不会补到 536/540）。
+ */
+const WLAN_IFACE_ITEM_SIZE = 532;
+/** 单个接口项内部偏移：GUID 0（列表内 8），描述 16（列表内 24），isState 528（列表内 536） */
+const WLAN_IFACE_OFF_GUID = 0;
+const WLAN_IFACE_OFF_DESC = 16;
+const WLAN_IFACE_OFF_STATE = 528;
+/** WLAN_INTERFACE_STATE：0=未连接 1=已连接 2=正在认证 3=正在关联 4=正在断开 5=已断开 */
+const WLAN_IFACE_STATE_CONNECTED = 1;
+const WLAN_IFACE_STATE_MAX = 5;
+/** 一次枚举最多的接口数（超过视为结构解析错误，防止用脏数据越界读） */
+const WLAN_IFACE_MAX_COUNT = 64;
+/** WLAN_MAX_NAME_LENGTH：strProfileName / strInterfaceDescription 的字符数 */
+const WLAN_MAX_NAME_LENGTH = 256;
+/**
+ * WlanQueryInterface 的 opcode：wlan_intf_opcode_current_connection = 7。
+ * ⚠️ 注意不是 0x1008 —— 实测（Win11 24H2 / wlanapi.dll）传 0x1008 返回
+ * ERROR_NOT_SUPPORTED(50)，因为 0x1008 落在 autoconf 段但并非已定义 opcode；
+ * 传入 7 才返回 WLAN_CONNECTION_ATTRIBUTES。
+ */
+const WLAN_OPCODE_CURRENT_CONNECTION = 7;
+/** WlanOpenHandle 客户端版本：2 = Vista 及以上 */
+const WLAN_CLIENT_VERSION = 2;
+/**
+ * WLAN_CONNECTION_ATTRIBUTES 实测 sizeof = 604：
+ *   isState(4) + wlanConnectionMode(4) + strProfileName[256](512)
+ *   + WLAN_ASSOCIATION_ATTRIBUTES(68) + WLAN_SECURITY_ATTRIBUTES(16)
+ * 解析所需最小长度取 588（到 ulTxRate 为止），其余字段不读。
+ */
+const WLAN_CA_SIZE = 604;
+const WLAN_CA_MIN_SIZE = 588;
+/** 连接属性内部偏移：isState 0、dot11Ssid.uSSIDLength 520、ucSSID 524、wlanSignalQuality 576 */
+const WLAN_CA_OFF_IS_STATE = 0;
+const WLAN_CA_OFF_SSID_LEN = 520;
+const WLAN_CA_OFF_SSID = 524;
+const WLAN_CA_OFF_SIGNAL_QUALITY = 576;
+/** DOT11_SSID.ucSSID 的字节数 */
+const DOT11_SSID_MAX_LEN = 32;
+
+/** wlanapi.dll 函数集合（懒加载） */
+interface WlanApiFns {
+  open: (version: number, reserved: null, negotiated: Buffer, handle: Buffer) => number;
+  enumInterfaces: (handle: number, reserved: null, list: Buffer) => number;
+  query: (
+    handle: number,
+    guid: Buffer,
+    opcode: number,
+    reserved: null,
+    size: Buffer,
+    data: Buffer,
+    opcodeType: Buffer,
+  ) => number;
+  free: (ptr: number) => void;
+  close: (handle: number, reserved: null) => number;
+  /** 把原生指针指向的原始字节拷成 Buffer（koffi.decode 返回 Uint8Array） */
+  decode: (ptr: bigint, size: number) => Buffer;
+}
+let wlanFns: WlanApiFns | null = null;
+/** WlanAPI 加载失败后不再重试（避免每个轮询周期重复 require/load 并刷日志） */
+let wlanLoadFailed = false;
+/** 复用的 WLAN 客户端句柄（0 = 未打开）；只在调用失败时关闭重开 */
+let wlanHandle = 0;
+/** WlanAPI 相关告警只打一次（3s 轮询会把日志刷爆） */
+let wlanWarned = false;
+
+/** 只在首次失败时记日志，后续静默回退 netsh */
+function warnWlanOnce(message: string, detail?: unknown): void {
+  if (wlanWarned) return;
+  wlanWarned = true;
+  log.warn(message, detail ?? '');
+}
+
+/** 懒加载 wlanapi.dll 并解析所需符号（幂等）；失败后不再重试 */
+function ensureWlanApi(): WlanApiFns | null {
+  if (wlanFns) return wlanFns;
+  if (wlanLoadFailed || process.platform !== 'win32') return null;
+  try {
+    const koffi = require('koffi');
+    const dll = koffi.load('wlanapi.dll');
+    wlanFns = {
+      open: dll.func(
+        'uint32 WlanOpenHandle(uint32 dwClientVersion, void *pReserved, void *pdwNegotiatedVersion, void *phClientHandle)',
+      ),
+      enumInterfaces: dll.func(
+        'uint32 WlanEnumInterfaces(intptr_t hClientHandle, void *pReserved, void *ppInterfaceList)',
+      ),
+      query: dll.func(
+        'uint32 WlanQueryInterface(intptr_t hClientHandle, void *pInterfaceGuid, uint32 OpCode, void *pReserved, void *pdwDataSize, void *ppData, void *pWlanOpcodeValueType)',
+      ),
+      free: dll.func('void WlanFreeMemory(intptr_t pMemory)'),
+      close: dll.func('uint32 WlanCloseHandle(intptr_t hClientHandle, void *pReserved)'),
+      decode: (ptr: bigint, size: number): Buffer => {
+        const view = koffi.decode(ptr, 'uint8', size) as Uint8Array;
+        return Buffer.from(view.buffer, view.byteOffset, view.byteLength);
+      },
+    };
+    return wlanFns;
+  } catch (err) {
+    wlanLoadFailed = true;
+    log.warn('[network] koffi/wlanapi 加载失败，Wi-Fi 回退 netsh:', err);
+    return null;
+  }
+}
+
+/** 打开（或复用）WLAN 客户端句柄；失败返回 0 */
+function openWlanHandle(fns: WlanApiFns): number {
+  if (wlanHandle) return wlanHandle;
+  try {
+    const negotiated = Buffer.alloc(4);
+    const out = Buffer.alloc(PTR_BYTES);
+    const rc = fns.open(WLAN_CLIENT_VERSION, null, negotiated, out);
+    const handle = readPtr(out);
+    if (rc !== 0 || handle === 0) {
+      warnWlanOnce(`[network] WlanOpenHandle 失败 rc=${rc}，Wi-Fi 回退 netsh`);
+      return 0;
+    }
+    wlanHandle = handle;
+    return handle;
+  } catch (err) {
+    warnWlanOnce('[network] WlanOpenHandle 异常，Wi-Fi 回退 netsh:', err);
+    return 0;
+  }
+}
+
+/** 关闭复用的 WLAN 句柄（句柄失效 / 进程退出路径） */
+function closeWlanHandle(): void {
+  const fns = wlanFns;
+  const handle = wlanHandle;
+  wlanHandle = 0;
+  if (!fns || !handle) return;
+  try {
+    fns.close(handle, null);
+  } catch {
+    /* 关闭失败无补救手段，忽略 */
+  }
+}
+
+/** 从出参缓冲里读原生指针并转成 Number（句柄/指针都远小于 2^53，安全） */
+function readPtr(buf: Buffer): number {
+  return Number(PTR_BYTES === 4 ? buf.readUInt32LE(0) : buf.readBigUInt64LE(0));
+}
+
+/**
+ * 读定长 UTF-16LE 字段；必须能在 maxChars 内遇到双字节 0 终止符，
+ * 否则说明结构偏移猜错了（返回 null 让调用方回退 netsh）。
+ */
+function readWideField(buf: Buffer, offset: number, maxChars: number): string | null {
+  for (let i = 0; i < maxChars; i += 1) {
+    const at = offset + i * 2;
+    if (at + 1 >= buf.length) return null;
+    if (buf.readUInt16LE(at) === 0) return buf.toString('utf16le', offset, at);
+  }
+  return null;
+}
+
+/** 解码 SSID 原始字节：绝大多数是 UTF-8/ASCII，个别中文 SSID 用 GBK 写入 */
+function decodeSsidBytes(bytes: Buffer): string {
+  const utf8 = bytes.toString('utf8');
+  if (!utf8.includes('\uFFFD')) return utf8;
+  try {
+    return new TextDecoder('gbk').decode(bytes);
+  } catch {
+    return utf8;
+  }
+}
+
+/**
+ * 通过 WLAN API 读取一次 Wi-Fi 状态。
+ * 返回 null 表示 WlanAPI 这一路不可用（调用失败 / 结构校验不通过），由调用方回退 netsh；
+ * 返回 available=true 时是确定结论（连接或未连接都算）。
+ */
+function queryWifiViaWlanApi(): WifiBase | null {
+  const fns = ensureWlanApi();
+  if (!fns) return null;
+  let listPtr = 0;
+  try {
+    let handle = openWlanHandle(fns);
+    if (!handle) return null;
+
+    const listOut = Buffer.alloc(PTR_BYTES);
+    let rc = fns.enumInterfaces(handle, null, listOut);
+    if (rc !== 0) {
+      // 句柄可能已失效（WLAN 服务重启 / 用户切换等）：关掉重开一次再试
+      closeWlanHandle();
+      handle = openWlanHandle(fns);
+      if (!handle) return null;
+      const retryOut = Buffer.alloc(PTR_BYTES);
+      rc = fns.enumInterfaces(handle, null, retryOut);
+      if (rc !== 0) {
+        warnWlanOnce(`[network] WlanEnumInterfaces 失败 rc=${rc}，Wi-Fi 回退 netsh`);
+        return null;
+      }
+      listPtr = readPtr(retryOut);
+    } else {
+      listPtr = readPtr(listOut);
+    }
+    if (!listPtr) return null;
+
+    // 先读固定头 + 第一项，用 dwNumberOfItems 校验布局后再按需读全量
+    const head = fns.decode(BigInt(listPtr), WLAN_LIST_HEAD_SIZE + WLAN_IFACE_ITEM_SIZE);
+    const count = head.readUInt32LE(0);
+    if (count < 1 || count > WLAN_IFACE_MAX_COUNT) {
+      warnWlanOnce(`[network] WLAN_INTERFACE_INFO_LIST 项数异常(${count})，Wi-Fi 回退 netsh`);
+      return null;
+    }
+    const list =
+      count === 1
+        ? head
+        : fns.decode(BigInt(listPtr), WLAN_LIST_HEAD_SIZE + count * WLAN_IFACE_ITEM_SIZE);
+
+    // 结构校验：每个接口项的 isState 与描述字符串都必须合理，否则视为布局不符
+    let chosenGuid: Buffer | null = null;
+    let chosenState = -1;
+    for (let i = 0; i < count; i += 1) {
+      const base = WLAN_LIST_HEAD_SIZE + i * WLAN_IFACE_ITEM_SIZE;
+      const state = list.readUInt32LE(base + WLAN_IFACE_OFF_STATE);
+      const desc = readWideField(list, base + WLAN_IFACE_OFF_DESC, WLAN_MAX_NAME_LENGTH);
+      if (state > WLAN_IFACE_STATE_MAX || desc === null || desc.length === 0) {
+        warnWlanOnce('[network] WLAN_INTERFACE_INFO 布局校验失败，Wi-Fi 回退 netsh');
+        return null;
+      }
+      if (chosenGuid === null) {
+        chosenGuid = Buffer.from(
+          list.subarray(base + WLAN_IFACE_OFF_GUID, base + WLAN_IFACE_OFF_GUID + 16),
+        );
+        chosenState = state;
+      }
+      if (state === WLAN_IFACE_STATE_CONNECTED) {
+        // 优先连接中的接口
+        chosenGuid = Buffer.from(
+          list.subarray(base + WLAN_IFACE_OFF_GUID, base + WLAN_IFACE_OFF_GUID + 16),
+        );
+        chosenState = state;
+        break;
+      }
+    }
+    if (!chosenGuid) return null;
+    if (chosenState !== WLAN_IFACE_STATE_CONNECTED) {
+      // 有无线网卡但未连接：这是确定结论，不必回退 netsh
+      return { available: true, connected: false, ssid: null, signal: null, bars: 0 };
+    }
+
+    // 取当前连接的详细属性
+    const sizeOut = Buffer.alloc(4);
+    const dataOut = Buffer.alloc(PTR_BYTES);
+    const opcodeType = Buffer.alloc(4);
+    const qrc = fns.query(
+      handle,
+      chosenGuid,
+      WLAN_OPCODE_CURRENT_CONNECTION,
+      null,
+      sizeOut,
+      dataOut,
+      opcodeType,
+    );
+    if (qrc !== 0) {
+      warnWlanOnce(`[network] WlanQueryInterface 失败 rc=${qrc}，Wi-Fi 回退 netsh`);
+      return null;
+    }
+    const dataPtr = readPtr(dataOut);
+    if (!dataPtr) return null;
+    try {
+      const size = sizeOut.readUInt32LE(0);
+      if (size < WLAN_CA_MIN_SIZE) {
+        warnWlanOnce(`[network] WLAN_CONNECTION_ATTRIBUTES 尺寸异常(${size})，Wi-Fi 回退 netsh`);
+        return null;
+      }
+      const ca = fns.decode(BigInt(dataPtr), Math.min(size, WLAN_CA_SIZE));
+      const isState = ca.readUInt32LE(WLAN_CA_OFF_IS_STATE);
+      const ssidLen = ca.readUInt32LE(WLAN_CA_OFF_SSID_LEN);
+      const quality = ca.readUInt32LE(WLAN_CA_OFF_SIGNAL_QUALITY);
+      if (isState > WLAN_IFACE_STATE_MAX || ssidLen > DOT11_SSID_MAX_LEN || quality > 100) {
+        warnWlanOnce('[network] WLAN_CONNECTION_ATTRIBUTES 布局校验失败，Wi-Fi 回退 netsh');
+        return null;
+      }
+      if (isState !== WLAN_IFACE_STATE_CONNECTED) {
+        return { available: true, connected: false, ssid: null, signal: null, bars: 0 };
+      }
+      const ssid =
+        ssidLen > 0
+          ? decodeSsidBytes(ca.subarray(WLAN_CA_OFF_SSID, WLAN_CA_OFF_SSID + ssidLen)).trim()
+          : '';
+      const signal = Math.min(100, Math.max(0, quality));
+      return {
+        available: true,
+        connected: true,
+        ssid: ssid.length > 0 ? ssid : null,
+        signal,
+        bars: signalToBars(signal),
+      };
+    } finally {
+      // WlanQueryInterface 分配的属性块必须归还
+      try {
+        fns.free(dataPtr);
+      } catch {
+        /* 同上 */
+      }
+    }
+  } catch (err) {
+    warnWlanOnce('[network] WlanAPI 采集异常，Wi-Fi 回退 netsh:', err);
+    return null;
+  } finally {
+    if (listPtr) {
+      try {
+        fns.free(listPtr);
+      } catch {
+        /* 释放失败无补救手段，忽略 */
+      }
+    }
+  }
+}
+
 /**
  * 一次 Wi-Fi 采集的语义化结果——三态必须分开，否则「瞬时失败」会被当成「真无网卡」：
- * - ok：netsh 正常执行并解析出接口块（连接态 / 未连接都算确定结论）
+ * - ok：拿到了确定结论（连接态 / 未连接都算确定结论）
  * - no-interface：netsh 正常执行但没有任何接口块（无无线网卡 / WLAN 服务未启动）
  * - transient：超时被杀、启动失败、彻底拿不到输出（保留上一次成功值的场景）
  */
 type WifiQuery =
-  | { kind: 'ok'; status: WifiStatus }
+  | { kind: 'ok'; status: WifiBase }
   | { kind: 'no-interface' }
   | { kind: 'transient'; reason: string };
 
-/** 真正执行一次 Wi-Fi 采集（不含缓存判断，也不改缓存） */
+/**
+ * 真正执行一次 Wi-Fi 采集（不含缓存判断，也不改缓存）。
+ * 优先 WLAN API（真实 RSSI 质量，无子进程），失败才 spawn netsh。
+ */
 async function queryWifi(): Promise<WifiQuery> {
   if (process.platform !== 'win32') return { kind: 'no-interface' };
+  const viaApi = queryWifiViaWlanApi();
+  if (viaApi) return { kind: 'ok', status: viaApi };
   const captured = await execCapture('netsh', ['wlan', 'show', 'interfaces']);
   if (!captured.ok) return { kind: 'transient', reason: captured.error };
   const status = parseWlanInterfaces(decodeConsoleText(captured.buf));
@@ -227,7 +833,7 @@ async function queryWifi(): Promise<WifiQuery> {
  *
  * @returns 应用后的缓存值（瞬时失败时 = 上一次成功值）
  */
-function applyWifiResult(result: WifiQuery): WifiStatus | null {
+function applyWifiResult(result: WifiQuery): WifiBase | null {
   const now = Date.now();
   switch (result.kind) {
     case 'ok':
@@ -237,7 +843,7 @@ function applyWifiResult(result: WifiQuery): WifiStatus | null {
       return wifiCache;
 
     case 'no-interface':
-      // netsh 正常执行且确实没有接口块 = 确定结论，照旧置空并清计数
+      // 确实没有接口块 = 确定结论，照旧置空并清计数
       wifiCache = null;
       wifiTransientFails = 0;
       wifiLastOkAt = now;
@@ -246,11 +852,8 @@ function applyWifiResult(result: WifiQuery): WifiStatus | null {
     default: {
       wifiTransientFails += 1;
       if (wifiTransientFails === 1) {
-        // 只在这一轮连续失败的第一枪打日志，避免每 2s 刷一条同样的 warn
-        log.warn(
-          '[network] netsh wlan show interfaces 瞬时失败，保留当前 Wi-Fi 状态:',
-          result.reason,
-        );
+        // 只在这一轮连续失败的第一枪打日志，避免每 3s 刷一条同样的 warn
+        log.warn('[network] Wi-Fi 采集瞬时失败，保留当前 Wi-Fi 状态:', result.reason);
       }
       if (wifiTransientFails === WIFI_TRANSIENT_FAIL_LIMIT) {
         const stale =
@@ -270,29 +873,33 @@ function applyWifiResult(result: WifiQuery): WifiStatus | null {
 }
 
 /**
- * 读取 Wi-Fi 状态（2s 缓存；到期才真正调用 netsh）。
+ * 读取 Wi-Fi 状态（3s 缓存；到期才真正调用 WLAN API / netsh）。
+ * hasInternet 每次返回时从以太网探测缓存合并，保证与 ethernet.hasInternet 口径一致。
  * 返回 null 表示无无线网卡 / 无 WLAN 服务 / 连续瞬时失败已放弃旧值。
  */
 export function getWifiStatus(): Promise<WifiStatus | null> {
-  if (Date.now() - wifiFetchedAt < WIFI_POLL_INTERVAL_MS) return Promise.resolve(wifiCache);
-  if (wifiInFlight) return wifiInFlight;
-  wifiInFlight = queryWifi()
-    // 采集过程中的意外异常同样按瞬时失败处理（不推翻已有缓存）
-    .catch((err): WifiQuery => ({
-      kind: 'transient',
-      reason: err instanceof Error ? err.message : String(err),
-    }))
-    .then((result) => {
-      const value = applyWifiResult(result);
-      // 失败也刷新采集时间戳，避免坏环境下每秒重试造成进程反复 spawn；
-      // 「上次成功时间」单独记在 wifiLastOkAt，不会被这里污染
-      wifiFetchedAt = Date.now();
-      return value;
-    })
-    .finally(() => {
-      wifiInFlight = null;
-    });
-  return wifiInFlight;
+  if (Date.now() - wifiFetchedAt < WIFI_POLL_INTERVAL_MS) {
+    return Promise.resolve(withInternet(wifiCache));
+  }
+  if (!wifiInFlight) {
+    wifiInFlight = queryWifi()
+      // 采集过程中的意外异常同样按瞬时失败处理（不推翻已有缓存）
+      .catch((err): WifiQuery => ({
+        kind: 'transient',
+        reason: err instanceof Error ? err.message : String(err),
+      }))
+      .then((result) => {
+        const value = applyWifiResult(result);
+        // 失败也刷新采集时间戳，避免坏环境下每秒重试造成进程反复 spawn；
+        // 「上次成功时间」单独记在 wifiLastOkAt，不会被这里污染
+        wifiFetchedAt = Date.now();
+        return value;
+      })
+      .finally(() => {
+        wifiInFlight = null;
+      });
+  }
+  return wifiInFlight.then(withInternet);
 }
 
 // ───────────────────────────── 蓝牙（SetupAPI / koffi） ─────────────────────────────
@@ -327,9 +934,9 @@ const DEVPROP_TYPE_BYTE = 0x3;
 const DEVPROP_TYPE_UINT16 = 0x4;
 const DEVPROP_TYPE_UINT32 = 0x5;
 /** SP_DEVINFO_DATA 中的 ULONG_PTR 宽度随架构变化 */
-const PTR_SIZE = process.arch === 'ia32' ? 4 : 8;
+const SP_DEVINFO_DATA_PTR_SIZE = process.arch === 'ia32' ? 4 : 8;
 /** sizeof(SP_DEVINFO_DATA) = DWORD + GUID(16) + DWORD + ULONG_PTR */
-const SP_DEVINFO_DATA_SIZE = 4 + 16 + 4 + PTR_SIZE;
+const SP_DEVINFO_DATA_SIZE = 4 + 16 + 4 + SP_DEVINFO_DATA_PTR_SIZE;
 /** 设备属性出参缓冲大小（属性值最大几十字节，给足余量） */
 const PROP_BUFFER_SIZE = 64;
 /** 友好名出参缓冲大小（UTF-16，512 字符足够） */
@@ -589,4 +1196,14 @@ export function getBluetoothStatus(): Promise<BluetoothStatus | null> {
       btInFlight = null;
     });
   return btInFlight;
+}
+
+// ───────────────────────────── 进程退出清理 ─────────────────────────────
+
+/**
+ * 释放复用的 WLAN 句柄（供主进程退出路径调用，避免句柄泄漏）。
+ * 幂等；未打开过句柄时无副作用。
+ */
+export function disposeNetworkStatus(): void {
+  closeWlanHandle();
 }
