@@ -13,6 +13,11 @@
 - ✨ feat: 悬浮窗顶部电源状态槽 — 放电时闪电图标改为电量百分比数字（<20% 黄、<10% 红），充电/接电显示静态插头图标（充电绿），移除呼吸闪烁；新增 `hw-colors.ts` 电池颜色 role 状态机（临界红/预警黄/充电绿/未知琥珀/常规绿），底部圆点、顶部数字、悬停读数条统一着色，未点亮圆点降为 22% 透明度
 - ✨ feat: 悬浮窗中心新增 Wi-Fi/蓝牙状态图标 — 按 status-trio 优先链渲染（网络错误抢占 > 蓝牙外设 > Wi-Fi 信号格数），自绘三段同心弧信号图标按格数点亮、0.28s 渐隐过渡；新增 `hw-scene.ts` 场景构建器分离判定与渲染；新增 `--color-bluetooth`、`--color-ring-wifi` 颜色 token
 - ✨ feat: 主进程新增 Wi-Fi/蓝牙状态采集 — `network-status.ts`：Wi-Fi 经 netsh 双语+GBK/UTF-8 投票解码解析（2s 缓存），蓝牙经 koffi 进程内 SetupAPI 枚举外设（8s 缓存，含电量读取与本机适配器过滤），并入 `hw-stats` 去抖推送（`HwStats.wifi`/`HwStats.bluetooth` 字段）；悬停读数条新增 Wi-Fi（SSID·信号%）与蓝牙（设备名·电量）条目
+- ✨ feat: 悬浮窗新增有线以太网与无互联网状态显示 — 主进程合并一次 PowerShell（`Get-NetAdapter` + `Get-NetConnectionProfile`，15s 缓存、三态保留、GBK/UTF-8 双投票解码）产出 `HwStats.ethernet` 与 `WifiStatus.hasInternet`；中心优先链重排为 斜杠 > 无互联网（琥珀感叹号叠加）> 以太网 > 蓝牙 > Wi-Fi 格数，Wi-Fi 未关联不再抢占蓝牙
+- ✨ feat: 悬浮窗 Wi-Fi 信号改 WlanAPI 真 RSSI — koffi 进程内调 wlanapi.dll（`WlanQueryInterface` opcode 7）直读连接态/SSID/信号质量，消灭 netsh spawn；失败静默回退 netsh，回退路径信号格阈值同步收紧为 80/50；Wi-Fi 轮询 2s→3s
+- ✨ feat: 悬浮窗支持系统节能模式与暗色主题 — 主进程经 koffi 调 `GetSystemPowerStatus` 读节能模式（`HwStats.powerSaving`，节能中电量角色转黄）、读 `nativeTheme` 下发 `HwStats.theme`；渲染根元素按主题挂 `.hw-dark`（仅 dim 加暗，状态色不变）
+- ✨ feat: 悬浮窗顶部电源槽充电/接电图标拆分 — 充电中显示 Zap 闪电（静态）、接电未充显示 Plug 插头，放电显示百分比；三位数电量字号自适应锁宽防溢出；SSID 命中热点关键词（iPhone/AndroidAP/华为等）时 Wi-Fi 图标换链环
+- ✨ feat: 悬浮窗状态环新增 6 个 mock 调试参数 — `hwinternet=0`、`hweth=1`、`hwcharge=1`、`hwplug=1`、`hwsaver=1`、`hwtheme=dark`，配合既有 `hwmock=1` 可离线复现全部状态组合
 
 ### 修复
 
