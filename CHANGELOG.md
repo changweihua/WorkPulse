@@ -16,6 +16,7 @@
 
 ### 修复
 
+- 🐞 fix: Wi-Fi 采集偶发置空闪断 — netsh 冷启动被杀软拖慢超 2s 超时被杀后无输出，瞬时失败被误判为「无无线网卡」导致中心 Wi-Fi 图标闪断；超时 2s→4s，瞬时失败保留上次有效值（连续 3 次才置空），日志区分瞬时失败与确无接口
 - 🐞 fix: 消除 CompositorAnimationObserver 长时间活跃告警 — 点击原生标题栏关闭按钮后主窗口立即 `hide()`，WinCaptionButton 的 ink-drop 动画被暂停而非取消，观察器持续 active 数十分钟并报 ERROR 日志；`close` 处理改为延迟 300ms 再隐藏，让动画播完
 - 🐞 fix: 满电充电状态查询超时失效 — 部分机器上 powershell.exe 冷启动被杀软拖到 5.8s+，WMI 轮询必超 4s 超时被杀，充电状态恒为未知并回退「插电」导致闪电满电仍闪烁；改用系统自带 cscript+VBScript 查询（冷启动 ~2.2s / 热 ~1s），超时放宽至 10s
 - 🐞 fix: 充电状态采集改用 koffi 进程内调用 — 删除 cscript/VBScript 轮询方案，不再每 5s spawn 进程、不再向 %TEMP% 写 .vbs 脚本，消除杀软误报面；改为经 koffi 进程内 FFI 调用 powrprof.dll 的 `CallNtPowerInformation(SystemBatteryState)`（与 WMI 同源，可区分满电断充），新增 `src/main/battery.ts`；轮询间隔 5s→1s，插拔/满电断充反馈从最长 5s 滞后降到 1s

@@ -23,6 +23,8 @@
  *
  * 轮询缓存：两个函数各自维护「上次采集时间 + 结果 + 进行中的请求」，
  * 未到期直接返回缓存值，多路调用不会叠加系统命令/FFI 开销。
+ * Wi-Fi 侧额外区分「瞬时失败」（超时被杀 / 拿不到输出）与「确无无线接口」：
+ * 前者保留上一次成功值并计数，连续 3 次才置空，避免杀软拖慢 netsh 时中心图标闪断。
  */
 
 import { execFile } from 'child_process';
@@ -33,24 +35,51 @@ import type { BluetoothStatus, WifiStatus } from '../shared/hw-stats';
 const WIFI_POLL_INTERVAL_MS = 2000;
 /** 蓝牙轮询间隔（毫秒）：FFI 枚举比 netsh 贵，放慢到 8s */
 const BT_POLL_INTERVAL_MS = 8000;
-/** netsh 命令超时（毫秒），避免异常环境卡住采样循环 */
-const NETSH_TIMEOUT_MS = 2000;
+/**
+ * netsh 命令超时（毫秒）。
+ * 本项目实测：杀软会把子进程冷启动拖到 5s+（用户日志里出现过两次「无输出」导致的误判），
+ * 而 netsh 正常执行通常 <1s；取 4s 兼顾「异常环境不被一刀切」与「失败后 2s 节奏能及时重试」。
+ */
+const NETSH_TIMEOUT_MS = 4000;
+/**
+ * 连续瞬时失败多少次才放弃上一次成功值。
+ * 单次超时只说明「这一轮没拿到」；3 次 ≈ 6s（2s 轮询节奏）仍拿不到，
+ * 才认定采集面真的坏了——防止「永远显示旧值」把真实的 Wi-Fi 断连藏起来。
+ */
+const WIFI_TRANSIENT_FAIL_LIMIT = 3;
 
 // ───────────────────────────── Wi-Fi ─────────────────────────────
 
-/** Wi-Fi 缓存值（null = 无无线网卡 / netsh 不可用 / 采集失败） */
+/** Wi-Fi 缓存值（null = 无无线网卡 / netsh 不可用 / 连续采集失败） */
 let wifiCache: WifiStatus | null = null;
-/** Wi-Fi 上次实际采集时间（0 = 从未采集） */
+/** Wi-Fi 上次实际采集时间（0 = 从未采集）——瞬时失败也刷新，保持 2s 节奏防 spawn 风暴 */
 let wifiFetchedAt = 0;
+/** 连续瞬时失败次数（成功采集或确认无无线接口时清零） */
+let wifiTransientFails = 0;
+/**
+ * 上次拿到「确定结论」的时间（已连接态 / 确无无线接口都算；0 = 从未成功）。
+ * 连续失败判定本身用 wifiTransientFails（次数已等价表达「距上次成功的失败长度」），
+ * 这个时间戳只用于日志里说明保留的旧值已陈旧多久，两者刻意分开：
+ * wifiFetchedAt 会因为失败而刷新，不能拿来判断「上次成功」。
+ */
+let wifiLastOkAt = 0;
 /** 进行中的 Wi-Fi 采集（并发调用复用同一 Promise，避免重复 spawn） */
 let wifiInFlight: Promise<WifiStatus | null> | null = null;
 
 /**
+ * 一次外部命令捕获的结果。
+ * 失败时携带原因串：netsh 的失败要区分「超时被杀 / 彻底无输出」这类「瞬时」失败，
+ * 不能和「netsh 正常执行但没有无线接口」混为一谈（后者是确定结论，可安全置空）。
+ */
+type CaptureResult = { ok: true; buf: Buffer } | { ok: false; error: string };
+
+/**
  * 执行外部命令并把 stdout 拿成 Buffer。
  * netsh 在没有无线服务/没有无线网卡时会以非 0 退出，但 stdout/stderr 里仍有诊断文本，
- * 因此非 0 退出时只要拿到输出就继续交给解析层判断，彻底拿不到输出才返回 null。
+ * 因此非 0 退出时只要拿到输出就继续交给解析层判断；彻底拿不到输出（超时被杀 / 启动即失败）
+ * 才判为失败，并把 err.message 带出去供调用方记日志。
  */
-function execCapture(file: string, args: string[]): Promise<Buffer | null> {
+function execCapture(file: string, args: string[]): Promise<CaptureResult> {
   return new Promise((resolve) => {
     execFile(
       file,
@@ -64,10 +93,10 @@ function execCapture(file: string, args: string[]): Promise<Buffer | null> {
       (err, stdout) => {
         const buf = Buffer.isBuffer(stdout) ? stdout : Buffer.alloc(0);
         if (err && buf.length === 0) {
-          resolve(null);
+          resolve({ ok: false, error: err.message || '无输出' });
           return;
         }
-        resolve(buf);
+        resolve({ ok: true, buf });
       },
     );
   });
@@ -169,32 +198,94 @@ function parseWlanInterfaces(text: string): WifiStatus | null {
   return found.find((item) => item.connected) ?? found[0];
 }
 
-/** 真正执行一次 Wi-Fi 采集（不含缓存判断） */
-async function queryWifi(): Promise<WifiStatus | null> {
-  if (process.platform !== 'win32') return null;
-  const buf = await execCapture('netsh', ['wlan', 'show', 'interfaces']);
-  if (!buf) {
-    log.warn('[network] netsh wlan show interfaces 无输出，Wi-Fi 状态置空');
-    return null;
+/**
+ * 一次 Wi-Fi 采集的语义化结果——三态必须分开，否则「瞬时失败」会被当成「真无网卡」：
+ * - ok：netsh 正常执行并解析出接口块（连接态 / 未连接都算确定结论）
+ * - no-interface：netsh 正常执行但没有任何接口块（无无线网卡 / WLAN 服务未启动）
+ * - transient：超时被杀、启动失败、彻底拿不到输出（保留上一次成功值的场景）
+ */
+type WifiQuery =
+  | { kind: 'ok'; status: WifiStatus }
+  | { kind: 'no-interface' }
+  | { kind: 'transient'; reason: string };
+
+/** 真正执行一次 Wi-Fi 采集（不含缓存判断，也不改缓存） */
+async function queryWifi(): Promise<WifiQuery> {
+  if (process.platform !== 'win32') return { kind: 'no-interface' };
+  const captured = await execCapture('netsh', ['wlan', 'show', 'interfaces']);
+  if (!captured.ok) return { kind: 'transient', reason: captured.error };
+  const status = parseWlanInterfaces(decodeConsoleText(captured.buf));
+  return status ? { kind: 'ok', status } : { kind: 'no-interface' };
+}
+
+/**
+ * 把一次采集结果应用到缓存，并维护「连续瞬时失败」状态机。
+ *
+ * 为什么不能沿用「失败即置空」：netsh 被超时杀掉时 stdout 为空，与「真的没有无线网卡」
+ * 的输出特征相同，只有 execCapture 的失败标记能区分二者。瞬时失败保留上一次成功值，
+ * 中心图标就不会在杀软拖慢子进程时闪断成「Wi-Fi 关闭 / 不可用」。
+ *
+ * @returns 应用后的缓存值（瞬时失败时 = 上一次成功值）
+ */
+function applyWifiResult(result: WifiQuery): WifiStatus | null {
+  const now = Date.now();
+  switch (result.kind) {
+    case 'ok':
+      wifiCache = result.status;
+      wifiTransientFails = 0;
+      wifiLastOkAt = now;
+      return wifiCache;
+
+    case 'no-interface':
+      // netsh 正常执行且确实没有接口块 = 确定结论，照旧置空并清计数
+      wifiCache = null;
+      wifiTransientFails = 0;
+      wifiLastOkAt = now;
+      return wifiCache;
+
+    default: {
+      wifiTransientFails += 1;
+      if (wifiTransientFails === 1) {
+        // 只在这一轮连续失败的第一枪打日志，避免每 2s 刷一条同样的 warn
+        log.warn(
+          '[network] netsh wlan show interfaces 瞬时失败，保留当前 Wi-Fi 状态:',
+          result.reason,
+        );
+      }
+      if (wifiTransientFails === WIFI_TRANSIENT_FAIL_LIMIT) {
+        const stale =
+          wifiLastOkAt > 0
+            ? `旧值已陈旧 ${Math.round((now - wifiLastOkAt) / 1000)}s`
+            : '此前从未成功采集';
+        const hadValue = wifiCache !== null;
+        wifiCache = null;
+        log.warn(
+          `[network] 连续瞬时失败 ${WIFI_TRANSIENT_FAIL_LIMIT} 次，Wi-Fi 状态置空（${stale}；` +
+            `${hadValue ? '不再沿用上一次成功值' : '此前已为空'}）`,
+        );
+      }
+      return wifiCache;
+    }
   }
-  return parseWlanInterfaces(decodeConsoleText(buf));
 }
 
 /**
  * 读取 Wi-Fi 状态（2s 缓存；到期才真正调用 netsh）。
- * 返回 null 表示无无线网卡 / 无 WLAN 服务 / 采集失败。
+ * 返回 null 表示无无线网卡 / 无 WLAN 服务 / 连续瞬时失败已放弃旧值。
  */
 export function getWifiStatus(): Promise<WifiStatus | null> {
   if (Date.now() - wifiFetchedAt < WIFI_POLL_INTERVAL_MS) return Promise.resolve(wifiCache);
   if (wifiInFlight) return wifiInFlight;
   wifiInFlight = queryWifi()
-    .catch((err) => {
-      log.warn('[network] 读取 Wi-Fi 状态失败:', err);
-      return null;
-    })
-    .then((value) => {
-      wifiCache = value;
-      // 失败也刷新时间戳，避免坏环境下每秒重试造成进程反复 spawn
+    // 采集过程中的意外异常同样按瞬时失败处理（不推翻已有缓存）
+    .catch((err): WifiQuery => ({
+      kind: 'transient',
+      reason: err instanceof Error ? err.message : String(err),
+    }))
+    .then((result) => {
+      const value = applyWifiResult(result);
+      // 失败也刷新采集时间戳，避免坏环境下每秒重试造成进程反复 spawn；
+      // 「上次成功时间」单独记在 wifiLastOkAt，不会被这里污染
       wifiFetchedAt = Date.now();
       return value;
     })
