@@ -6,6 +6,8 @@
 
 ### 修复
 
+- 🐞 fix: 径向菜单展开中段停顿 — 根因是 clip-path circle() 揭示动画非合成器动画：framer-motion 逐帧 JS 写样式导致被裁内容（渐变扇区+图标+tooltip）按半径平方增长的面积每帧重栅格化，动画中段超出帧预算出现「展开一半停一下再续」；改为 wrapper 上 transform: scale(0.55→1)+opacity 合成层揭示（transformOrigin 圆心，扇区/hover/tooltip/玻璃盘观感不变），移除 clip 容器后收起态扇区命中显式关闭；setState 短路窗口改为揭示动画 onAnimationComplete 提前解除（900ms 兜底防泄漏），状态环数据窗口同步放宽到 900ms
+
 - 🐞 fix: 径向菜单展开动画掉帧 — 玻璃盘 opacity 动画拆成两层（外层纯 opacity 合成层 + 内层静态 backdrop-filter，Chromium 不再每帧重采样滤镜链）；展开/收起 ±400ms 动画窗口内挂起 30ms 光标轮询 hover 与 1s 硬件/电量推送的 setState（防止整张状态环 SVG 重建打断弹簧动画），窗口外照常更新
 - 🐞 fix: 展开态 ✕ 关闭图标恢复显示 — 中心字形单开关（`SHOW_CENTER_GLYPH`）拆成两枚：收起态 logo 保持隐藏（`SHOW_CENTER_LOGO = false`），展开态 ✕ 恢复显示（`SHOW_CLOSE_GLYPH = true`），否则菜单无关闭入口
 

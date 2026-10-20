@@ -535,16 +535,17 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   const [battery, setBattery] = useState<{ level: number; charging: boolean } | null>(null);
   const [noBattery, setNoBattery] = useState(false);
 
-  // ─── 展开卡顿修复：进出场动画窗口（±500ms）内挂起数据 setState ───
-  // 环在同一窗口正在做 opacity 淡出/入、RadialMenu 在跑 clip-path 揭示弹簧；
-  // 1s 硬件推送 / 700ms 电量模拟若落进窗口，会触发整张 SVG 重建（双弧 2×17 个渐变 stop
-  // 全部重算）→ 掉帧。窗口外照常更新，数据时效性不受影响（下一轮推送即补上）。
+  // ─── 展开卡顿修复：进出场动画窗口内挂起数据 setState ───
+  // RadialMenu 的揭示弹簧（SPRING_SPRING stiffness 180 / damping 28）实际收尾 ~600-700ms，
+  // 旧 500ms 固定窗口会在动画尾段漏放 1s 硬件推送 / 700ms 电量模拟 → 整张 SVG 重建（双弧
+  // 2×17 个渐变 stop 全部重算）打断动画尾段。这里与 RadialMenu 同步放宽到 900ms 兜底
+  // （环无法直接订阅菜单的 onAnimationComplete）；窗口外照常更新，数据时效性不受影响。
   const transitionUntilRef = useRef(0);
   const prevExpandedRef = useRef(expanded);
   useEffect(() => {
     if (prevExpandedRef.current !== expanded) {
       prevExpandedRef.current = expanded;
-      transitionUntilRef.current = Date.now() + 500;
+      transitionUntilRef.current = Date.now() + 900;
     }
   }, [expanded]);
   const inTransition = (): boolean => Date.now() < transitionUntilRef.current;
