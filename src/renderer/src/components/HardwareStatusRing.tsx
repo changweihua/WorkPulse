@@ -11,7 +11,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Bluetooth, Cpu, EthernetPort, Link, Plug, WifiOff, Zap } from 'lucide-react';
 import type { BluetoothStatus, HwStats, WifiStatus } from '../../../shared/hw-stats';
 import { BATTERY_INACTIVE_ALPHA, batteryRole, type BatteryRole } from './hw-colors';
-import { buildCenterScene } from './hw-scene';
+import { buildCarouselScenes, buildCenterScene } from './hw-scene';
 
 /**
  * 硬件状态显示环 —— 围绕中心圆圈的内环状态层（位于 CENTER_R 24 ~ INNER_R 38 环带内）
@@ -97,6 +97,16 @@ const PLUG_SIZE = 10; // 顶部电源状态槽的插头图标边长（放顶部 
      仍只占 48px 中心玻璃圆的 1/3，顶槽插头（10px）与底部圆点（直径 4.6）不被压过 → 四者配重平衡。 */
 const CENTER_ICON = 18;
 const ALERT_AT = 85; // 告警阈值（%）
+
+/* ── G11 中部槽位轮播 ──
+   中部 48px 留白（CENTER_R 24 直径）在「网络 / 蓝牙图标」与「CPU / 内存 / 电量百分比」之间轮播：
+   - CAROUSEL_INTERVAL_MS：每个场景停留时长（3.2s，太快会显得焦躁，太慢信息熵低）
+   - METRIC_SIZE：数值场景的渲染盒边长（40px，比 18px 图标盒大——数字需要更宽的可读空间，
+     但仍在中心圆 48px 直径之内，距中心按钮内沿 24px 也够放）
+   - 数值颜色沿用负载语义（CPU / 内存 = 青→黄→橙→红 loadColor，电量 = batteryRole 角色色），
+     与双弧 / 圆点的读数语言一致，轮播时用户靠颜色即可联想含义 */
+const CAROUSEL_INTERVAL_MS = 3200;
+const METRIC_SIZE = 40;
 
 /* ── 负载渐变色：低负载冷色 → 高负载暖色（--color-load-* 四档，兜底 = token 默认值）──
    四档语义固定（青 / 黄 / 橙 / 红），不随主窗口 accent 变化 —— 换主题也必须是同一套读数语言 */
@@ -534,6 +544,8 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   const [hw, setHw] = useState<HwStats | null>(null);
   const [battery, setBattery] = useState<{ level: number; charging: boolean } | null>(null);
   const [noBattery, setNoBattery] = useState(false);
+  // ── G11 轮播：当前展示的场景下标（网络错误级锁定 / 单场景时不走定时器）──
+  const [carouselIndex, setCarouselIndex] = useState(0);
 
   // ─── 展开卡顿修复：进出场动画窗口内挂起数据 setState ───
   // RadialMenu 的揭示弹簧（SPRING_SPRING stiffness 180 / damping 28）实际收尾 ~600-700ms，
@@ -590,6 +602,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
           bluetooth: mockBluetooth(), // 中部槽位蓝牙分支（?hwbt=1 时单设备带电量）
           ethernet: mockEthernet(), // 有线分支（?hweth=1）
           theme: MOCK_DARK ? 'dark' : 'light', // G7 主题应用
+          wallpaperLuma: MOCK_DARK ? 0.2 : 0.8, // G11：配合 MOCK_DARK 模拟深/浅壁纸亮度
           ts: Date.now(),
         });
       }, 900);
@@ -765,22 +778,66 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   const topFontSize = topText.length >= 3 ? 8.5 : 10;
   const topTextLength = topText.length >= 3 ? 14 : undefined;
 
-  // ─── 中部槽位场景（优先链只存在于 hw-scene.buildCenterScene 一处）：Wi-Fi / 热点 / 以太网 / 蓝牙 / 留白 ───
-  const center = buildCenterScene(hw);
+  // ─── 中部槽位场景（G11 轮播）：网络永远第一，其后蓝牙 / CPU / 内存 / 电量数值 ───
+  // 正常模式：buildCarouselScenes 生成轮播序列；网络错误级（斜杠 / 无互联网）时
+  // 序列只留网络场景 → 轮播锁定，异常必须一眼可见；首帧无数据返回空 → 中心留白。
+  // MOCK 模式（?hwmock=1）：仍走 buildCenterScene 单一出口，逐个分支静态验证不受轮播干扰。
+  const scenes = MOCK_QUERY
+    ? (() => {
+        const single = buildCenterScene(hw);
+        return single ? [single] : [];
+      })()
+    : buildCarouselScenes(hw, level);
+  // 轮播签名：只含「场景类型序列」，不含数值 —— CPU 从 32%→33% 不应打断轮播节奏，
+  // 只有场景集合本身变化（如断网锁定 / 蓝牙接入 / 电量数据消失）才从头播。
+  const scenesKey = scenes
+    .map((s) =>
+      s.kind === 'metric'
+        ? s.metric
+        : s.kind === 'wifi'
+          ? `wifi:${s.off ? 1 : 0}:${s.hotspot ? 1 : 0}:${s.noInternet ? 1 : 0}`
+          : s.kind,
+    )
+    .join('|');
+  const sceneCount = scenes.length;
+
+  // 场景集合变化（含网络错误级锁定 / 解除）→ 轮播从头开始。
+  // 用 React 官方推荐的「render 期间派生重置」：比较上一次的 scenesKey，
+  // 变化时同步重写 index（不放在 effect 里，避免 effect 内同步 setState 级联重渲染）。
+  const [carouselKey, setCarouselKey] = useState(scenesKey);
+  if (carouselKey !== scenesKey) {
+    setCarouselKey(scenesKey);
+    setCarouselIndex(0);
+  }
+
+  // 轮播定时器：单场景（含网络错误级锁定）不启动，停留在唯一场景上；
+  // 展开态整环淡出（expanded 时 opacity 0）也暂停轮播，避免动画期间无谓的 setState 重渲染
+  useEffect(() => {
+    if (sceneCount <= 1 || expanded) return;
+    const timer = window.setInterval(() => {
+      setCarouselIndex((i) => (i + 1) % sceneCount);
+    }, CAROUSEL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [scenesKey, sceneCount, expanded]);
+
+  const center = scenes[Math.min(carouselIndex, sceneCount - 1)] ?? null;
   // 入场键只按「场景类型 + 斜杠 / 热点」区分：信号格数 3→2 时图标不重放整段淡入淡出，
-  // 只让各自弧的 stroke-opacity 平滑过渡（见 WifiSignal）；无互联网感叹号也不触发重挂载
+  // 只让各自弧的 stroke-opacity 平滑过渡（见 WifiSignal）；无互联网感叹号也不触发重挂载；
+  // 数值场景 key 只含 metric 名（cpu→cpu 数值变化不重放动画，只刷新数字）
   const centerKey =
     center === null
       ? 'none'
-      : center.kind === 'bluetooth'
-        ? 'bluetooth'
-        : center.kind === 'ethernet'
-          ? 'ethernet'
-          : center.off
-            ? 'wifi-off'
-            : center.hotspot
-              ? 'wifi-hotspot'
-              : 'wifi';
+      : center.kind === 'metric'
+        ? `metric-${center.metric}`
+        : center.kind === 'bluetooth'
+          ? 'bluetooth'
+          : center.kind === 'ethernet'
+            ? 'ethernet'
+            : center.off
+              ? 'wifi-off'
+              : center.hotspot
+                ? 'wifi-hotspot'
+                : 'wifi';
 
   /* ── 单条进度弧（带符号 sweep，支持左右镜像生长）──
         轨道 = 淡墨衬边 + 浅灰本体；进度弧 / 告警弧不加衬边，靠渐变 / 红色自身饱和度区分 ── */
@@ -1010,13 +1067,18 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
           </div>
         )}
 
-        {/* ═══ 中部槽位（中心圆半径内的留白）：Wi-Fi / 热点 / 以太网 / 蓝牙状态图标 ═══
-            永远只有一枚，由 buildCenterScene 的优先链决定是哪个场景；切换时 0.2s 淡入淡出
-            （AnimatePresence 默认 sync 模式 + 子项绝对定位叠放 = 交叉淡化，不产生位移）；
-            收起态常显、展开态随整环一起淡出（由外层 motion.div 的 expanded 动画统一处理）；
-            整层 pointer-events: none → 图标不接管点击，中心按钮的点击 / 拖拽 / setShape 全不受影响。
-            无场景（无任何硬件数据）时不渲染任何东西，中心保持留白 ═══ */}
-        <div className="absolute flex items-center justify-center" style={centerBox(CENTER_ICON)}>
+        {/* ═══ 中部槽位（中心圆半径内的留白）：G11 轮播，每个场景停留 3.2s ═══
+             - 网络（Wi-Fi / 热点 / 以太网）永远第一；网络错误级（斜杠 / 无互联网）锁定唯一场景；
+             - 蓝牙外设紧随网络之后；
+             - 最后轮播 CPU / 内存 / 电量百分比数值（无数据自动跳过）；
+             - MOCK 模式保持 buildCenterScene 单一出口，便于静态验证；
+             切换时 0.2s 淡入淡出（AnimatePresence 默认 sync 模式 + 子项绝对定位叠放 = 交叉淡化）；
+             收起态常显、展开态随整环一起淡出；整层 pointer-events: none。
+             无场景（无任何硬件数据）时不渲染任何东西，中心保持留白 ═══ */}
+        <div
+          className="absolute flex items-center justify-center"
+          style={centerBox(center?.kind === 'metric' ? METRIC_SIZE : CENTER_ICON)}
+        >
           <AnimatePresence initial={false}>
             {center && (
               <motion.div
@@ -1028,7 +1090,17 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
                 transition={{ duration: 0.2, ease: 'easeOut' }}
                 aria-hidden
               >
-                {center.kind === 'bluetooth' ? (
+                {center.kind === 'metric' ? (
+                  /* G11 数值场景：CPU / 内存 = 负载渐变（青→黄→橙→红），电量 = batteryRole 角色色 */
+                  <MetricBadge
+                    metric={center.metric}
+                    value={center.value}
+                    size={METRIC_SIZE}
+                    color={
+                      center.metric === 'battery' ? roleColor(role) : loadColor(center.value / 100)
+                    }
+                  />
+                ) : center.kind === 'bluetooth' ? (
                   <OutlineIcon Icon={Bluetooth} size={CENTER_ICON} color={BT_COLOR} />
                 ) : center.kind === 'ethernet' ? (
                   /* 有线：lucide EthernetPort，尺寸 / 描边与 Wi-Fi、蓝牙同规格（同一套图标语言） */
@@ -1136,6 +1208,67 @@ function OutlineIcon({
         aria-hidden
       />
     </span>
+  );
+}
+
+/**
+ * G11 中部槽位数值场景：双层描边百分比数字。
+ * 与顶部电源百分比同一种「淡墨衬边」手法 —— 底层 RIM_INK 粗描保证浅色壁纸可读，
+ * 上层填负载色（CPU / 内存 = 青→黄→橙→红，与进度弧同源）/ 电量角色色；
+ * 字号按位数收缩（"100%" 用 12px，其余 14px），40px 渲染盒在 48px 中心圆内仍有呼吸空间。
+ * <title> 提供场景语义（CPU / 内存 / 电量），屏幕阅读器与调试均可辨识。
+ */
+function MetricBadge({
+  metric,
+  value,
+  size,
+  color,
+}: {
+  metric: 'cpu' | 'mem' | 'battery';
+  value: number;
+  size: number;
+  color: string;
+}): ReactNode {
+  const label = metric === 'cpu' ? 'CPU' : metric === 'mem' ? '内存' : '电量';
+  const text = `${value}%`;
+  const fontSize = text.length >= 4 ? 12 : 14;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="absolute inset-0"
+      aria-hidden
+    >
+      <title>{`${label} ${text}`}</title>
+      <text
+        x={size / 2}
+        y={size / 2}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={fontSize}
+        fontWeight={700}
+        fill="none"
+        stroke={RIM_INK}
+        strokeWidth={2.4}
+        strokeLinejoin="round"
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      >
+        {text}
+      </text>
+      <text
+        x={size / 2}
+        y={size / 2}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={fontSize}
+        fontWeight={700}
+        fill={color}
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      >
+        {text}
+      </text>
+    </svg>
   );
 }
 

@@ -98,12 +98,16 @@ export function RadialMenu(): ReactNode {
   // （30ms 光标轮询、1s 硬件推送）触发的重渲染都会造成掉帧，动画结束后自动放行。
   const transitionUntilRef = useRef(0);
 
-  // ─── 主题标记：硬件状态推送里带 theme → 挂 .hw-dark 到根元素 ───
-  //（RadialTheme.css 的暗色变体靠这个类落位：玻璃底 / 扇区染色的暗色 token 全部挂在 .hw-dark 下，
-  //  不挂类则一律走亮色默认值。仅做标记，硬件数据本体由 HardwareStatusRing 自行订阅。）
+  // ─── 主题标记：硬件状态推送里带 theme 与壁纸亮度 → 挂 .hw-dark + 透传 --wallpaper-luma ───
+  //（RadialTheme.css 的暗色变体靠 .hw-dark 落位：玻璃底 / 扇区染色的暗色 token 全部挂在 .hw-dark 下；
+  //  G11 起玻璃底色由 --wallpaper-luma 的 color-mix 线性驱动，深浅平滑过渡，二值类只兜底。）
   const [dark, setDark] = useState(false);
+  const [wallpaperLuma, setWallpaperLuma] = useState<number | null>(null);
   useEffect(() => {
-    const cleanup = window.radialApi.onHwStats((s) => setDark(s.theme === 'dark'));
+    const cleanup = window.radialApi.onHwStats((s) => {
+      setDark(s.theme === 'dark');
+      setWallpaperLuma(s.wallpaperLuma);
+    });
     return cleanup;
   }, []);
 
@@ -391,6 +395,8 @@ export function RadialMenu(): ReactNode {
         position: 'fixed',
         width: WIDGET_SIZE,
         height: WIDGET_SIZE,
+        // G11：壁纸亮度透传给 RadialTheme.css 的 color-mix（0~1，null 用中性 0.5）
+        ['--wallpaper-luma' as string]: String(wallpaperLuma ?? 0.5),
         left: 0,
         top: 0,
       }}
