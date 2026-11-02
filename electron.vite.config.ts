@@ -34,6 +34,7 @@ export default defineConfig(({ mode }) => {
               obfuscatorPlugin({
                 apply: 'build',
                 options: {
+                  advertisement: false, // 关闭广告
                   compact: true,
                   controlFlowFlattening: true,
                   controlFlowFlatteningThreshold: 0.5,
