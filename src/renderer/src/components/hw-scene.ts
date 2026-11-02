@@ -24,6 +24,14 @@
  * （且以太网已连接时连这个「关机级」状态也不刷屏，改为显示有线网络）。
  *
  * 切换是「完全跟随优先链」的，不轮播、不自动循环。
+ *
+ * G11 轮播扩展（用户需求：中部内容优先展示网络或轮播显示）：
+ * - buildCenterScene 仍保留为「优先链的单一出口」，供网络错误级锁定 /
+ *   MOCK 静态验证使用；
+ * - buildCarouselScenes 在其之上生成轮播序列：网络（优先链场景）排第一，
+ *   其后依次是 CPU / 内存 / 电池数值场景（无数据自动跳过）；
+ * - 网络处于「错误级」（斜杠 Wi-Fi / 已连无互联网）时 isNetworkAlertScene
+ *   为 true，序列只留网络场景 → 组件侧锁定不轮播，网络异常必须一眼可见。
  */
 
 import type { HwStats } from '../../../shared/hw-stats';
@@ -61,11 +69,14 @@ export function isHotspotSsid(ssid: string | null | undefined): boolean {
  *         noInternet = 已连接但无互联网（渲染层叠加琥珀色感叹号）
  * - ethernet：有线网络已连接
  * - bluetooth：蓝牙外设已连接（设备名 / 电量不在此读取，收起态只画图标）
+ * - metric：G11 轮播新增数值场景，中部槽位直接显示百分比数字
+ *           （cpu / mem / battery，value = 0~100 的整数百分比）
  */
 export type CenterScene =
   | { kind: 'wifi'; bars: 0 | 1 | 2 | 3; off: boolean; hotspot: boolean; noInternet: boolean }
   | { kind: 'ethernet' }
-  | { kind: 'bluetooth' };
+  | { kind: 'bluetooth' }
+  | { kind: 'metric'; metric: 'cpu' | 'mem' | 'battery'; value: number };
 
 /** Wi-Fi 场景的构造助手：把不会变的三段布尔值显式写出来，避免每个分支重复六个字段 */
 function wifiScene(
@@ -78,12 +89,22 @@ function wifiScene(
 }
 
 /**
- * 按优先链把硬件状态折叠成「中部槽位」的单一场景。
+ * 「纯网络」优先链：与 buildCenterScene 完全一致，但**不掺蓝牙分支**。
  *
- * @param hw 主进程每秒推送的硬件状态；null = 首帧尚无数据 / IPC 未就绪
- * @returns 中部槽位应渲染的场景；null = 中心留白
+ * 这是 G11 轮播的网络场景来源 —— 轮播要求「网络永远排第一」，
+ * 不能让蓝牙外设把网络场景挤到第二位。buildCenterScene 则在此之上
+ * 保留历史行为（网络正常图标级时允许蓝牙外设接管中部槽位）。
+ *
+ * 优先链（前面的抢占后面的）：
+ * 1. Wi-Fi 关闭 / 不可用（wifi === null 或 available === false）且**没有以太网**
+ *    → 斜杠 Wi-Fi（错误级）
+ * 2. Wi-Fi 已连接但无互联网（hasInternet === false）→ Wi-Fi 图标 + 琥珀色感叹号（错误级）
+ * 3. 以太网已连接 → 以太网图标
+ * 4. Wi-Fi 已连接 → 按信号格数的三段弧；SSID 命中热点关键词时改用链环图标（Link）
+ * 5. Wi-Fi 已开启但未关联任何 SSID → 空心 Wi-Fi
+ * 6. 兜底（无任何硬件数据）→ 斜杠 Wi-Fi
  */
-export function buildCenterScene(hw: HwStats | null): CenterScene | null {
+export function buildNetworkScene(hw: HwStats | null): CenterScene | null {
   // 首帧无任何数据：中心保持空白（不能把「还没采到」误报成「Wi-Fi 不可用」）
   if (!hw) return null;
 
@@ -101,22 +122,96 @@ export function buildCenterScene(hw: HwStats | null): CenterScene | null {
     return wifiScene(wifi.bars, false, isHotspotSsid(wifi.ssid), true);
   }
 
-  // ③ 以太网已连接 → 以太网图标（有线优先于蓝牙 / Wi-Fi 图标：链路最稳）
+  // ③ 以太网已连接 → 以太网图标（链路最稳）
   if (ethernetOn) return { kind: 'ethernet' };
 
-  // ④ 蓝牙已连接外设（外设状态比「Wi-Fi 图标」更值得一眼看到）
-  const bluetooth = hw.bluetooth;
-  if (bluetooth && bluetooth.devices.length > 0) return { kind: 'bluetooth' };
-
-  // ⑤ Wi-Fi 已连接 → 按信号格数点亮；热点 SSID 改画链环图标
+  // ④ Wi-Fi 已连接 → 按信号格数点亮；热点 SSID 改画链环图标
   //   （bars 为 0 = 已连上但信号未知，渲染层按空心处理）
   if (wifi && wifi.connected) {
     return wifiScene(wifi.bars, false, isHotspotSsid(wifi.ssid), false);
   }
 
-  // ⑥ Wi-Fi 已开启但未关联 → 空心 Wi-Fi（不再是错误级状态，也不抢占蓝牙）
+  // ⑤ Wi-Fi 已开启但未关联 → 空心 Wi-Fi（不再是错误级状态）
   if (wifi && wifi.available) return wifiScene(0, false);
 
-  // ⑦ 兜底：无任何可用数据 → 斜杠 Wi-Fi
+  // ⑥ 兜底：无任何可用数据 → 斜杠 Wi-Fi
   return wifiScene(0, true);
+}
+
+/**
+ * 网络场景是否为「错误级」（斜杠 Wi-Fi / 已连无互联网）。
+ *
+ * 轮播组件用它做锁定：只要网络处于错误级，中部槽位必须一眼可见，
+ * 不得被 CPU / 内存 / 电池数值轮播盖过去。
+ */
+export function isNetworkAlertScene(scene: CenterScene | null): boolean {
+  return scene?.kind === 'wifi' && (scene.off || scene.noInternet);
+}
+
+/**
+ * 按优先链把硬件状态折叠成「中部槽位」的单一场景（历史单一出口，行为不变）：
+ * 网络错误级 / 以太网直接返回；网络处于图标级时，蓝牙外设可以接管中部槽位。
+ *
+ * @param hw 主进程每秒推送的硬件状态；null = 首帧尚无数据 / IPC 未就绪
+ * @returns 中部槽位应渲染的场景；null = 中心留白
+ */
+export function buildCenterScene(hw: HwStats | null): CenterScene | null {
+  // 首帧无任何数据：中心保持空白（不能把「还没采到」误报成「Wi-Fi 不可用」）
+  if (!hw) return null;
+
+  const net = buildNetworkScene(hw);
+  if (!net) return null;
+
+  // 网络处于错误级（斜杠 / 无互联网）或以太网已连接 → 直接返回网络场景，
+  // 蓝牙外设不得抢占（错误级必须一眼可见，有线是最优链路）
+  if (net.kind === 'ethernet' || (net.kind === 'wifi' && (net.off || net.noInternet))) return net;
+
+  // 网络正常（Wi-Fi 图标级）→ 蓝牙外设可以接管中部槽位
+  if (hw.bluetooth && hw.bluetooth.devices.length > 0) return { kind: 'bluetooth' };
+
+  return net;
+}
+
+/**
+ * G11 轮播序列：网络永远第一，其后依次是蓝牙外设（若存在）与
+ * CPU / 内存 / 电池数值场景（无数据自动跳过）。
+ *
+ * 网络处于错误级时只返回网络场景 —— 组件据此锁定轮播，让异常一眼可见。
+ *
+ * @param hw 主进程硬件状态（null = 首帧无数据）
+ * @param batteryLevel 电池剩余 0~1；渲染层来自 navigator.getBattery()，
+ *                     为 null 表示无电池数据（台式机 / 采集失败）
+ */
+export function buildCarouselScenes(
+  hw: HwStats | null,
+  batteryLevel: number | null = null,
+): CenterScene[] {
+  // 首帧无任何数据：轮播空序列，组件保持留白
+  if (!hw) return [];
+
+  // 网络场景（纯网络优先链，蓝牙不参与抢占）
+  const net = buildNetworkScene(hw);
+
+  // 网络错误级锁定：只保留网络场景，轮播暂停
+  if (isNetworkAlertScene(net)) return net ? [net] : [];
+
+  const scenes: CenterScene[] = [];
+  if (net) scenes.push(net);
+
+  // 蓝牙外设（非错误级时作为附加信息排在网络之后）
+  if (hw.bluetooth && hw.bluetooth.devices.length > 0) scenes.push({ kind: 'bluetooth' });
+
+  // 数值场景：CPU / 内存 / 电池（无数据自动跳过）
+  if (hw.cpu !== null && hw.cpu !== undefined) {
+    scenes.push({ kind: 'metric', metric: 'cpu', value: Math.round(hw.cpu) });
+  }
+  if (hw.memUsedPct !== undefined) {
+    scenes.push({ kind: 'metric', metric: 'mem', value: Math.round(hw.memUsedPct) });
+  }
+  if (batteryLevel !== null && batteryLevel !== undefined) {
+    const pct = Math.round(Math.min(1, Math.max(0, batteryLevel)) * 100);
+    scenes.push({ kind: 'metric', metric: 'battery', value: pct });
+  }
+
+  return scenes;
 }

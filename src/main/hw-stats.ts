@@ -6,7 +6,9 @@
  * - 充电 / 节能：Windows 下每 1s 经 koffi 进程内调用 powrprof.CallNtPowerInformation +
  *   kernel32.GetSystemPowerStatus（navigator.getBattery().charging 在 Windows 上只是「插电」别名，
  *   无法区分满电断充；改用进程内调用后无 spawn、无临时文件写入，消除了 cscript/VBScript 方案的杀软误报面）
- * - 主题：每 tick 读 nativeTheme.shouldUseDarkColors（Windows 应用模式，跟随系统深浅色）
+ * - 主题 / 壁纸亮度：每 tick 读桌面壁纸平均亮度（SystemParametersInfoW +
+ *   nativeImage，见 wallpaper-luma.ts）；亮度可读时 theme 以壁纸明暗为唯一判据，
+ *   否则回退 nativeTheme.shouldUseDarkColors（Windows 应用模式）
  * - Wi-Fi / 以太网 / 互联网连通性 / 蓝牙：委托 src/main/network-status.ts 采集，
  *   本模块只做异步缓存读取，绝不阻塞 1s 的 CPU/内存采样节奏
  *   （网络模块内部自带 3s / 15s / 8s 轮询缓存）
@@ -23,6 +25,7 @@ import {
 } from '../shared/hw-stats';
 import { readBatteryState, readPowerSaving } from './battery';
 import { getBluetoothStatus, getNetworkProbe, getWifiStatus } from './network-status';
+import { getWallpaperLuma } from './wallpaper-luma';
 
 /** 采样间隔（毫秒） */
 const SAMPLE_INTERVAL_MS = 1000;
@@ -60,6 +63,7 @@ let lastSent: {
   ethernet: string;
   bluetooth: string;
   theme: 'light' | 'dark';
+  wallpaperLuma: string;
 } | null = null;
 /** 上一次实际推送的时间戳（用于时间兜底强制推送） */
 let lastPushAt = 0;
@@ -143,12 +147,19 @@ function sampleOnBattery(): boolean {
   }
 }
 
-/** 当前系统外观（跟随 Windows「应用模式」，无需监听事件，每 tick 读一次开销可忽略） */
-function sampleTheme(): 'light' | 'dark' {
+/**
+ * 采样壁纸亮度与外观主题。
+ * 壁纸亮度可读时以其为唯一判据（0~0.5 = 深色壁纸 → dark，否则 light）——
+ * 悬浮窗浮在壁纸上，玻璃配色必须贴着壁纸明暗走，系统「应用模式」只作降级兜底。
+ */
+function sampleAppearance(): { theme: 'light' | 'dark'; wallpaperLuma: number | null } {
+  const wallpaperLuma = getWallpaperLuma();
+  if (wallpaperLuma !== null)
+    return { theme: wallpaperLuma < 0.5 ? 'dark' : 'light', wallpaperLuma };
   try {
-    return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+    return { theme: nativeTheme.shouldUseDarkColors ? 'dark' : 'light', wallpaperLuma: null };
   } catch {
-    return 'light';
+    return { theme: 'light', wallpaperLuma: null };
   }
 }
 
@@ -229,15 +240,19 @@ function refreshNetworkStatus(): void {
  * null 与空列表需要区分，故显式拼 'null'。
  */
 function networkSignature(
-  stats: Pick<HwStats, 'wifi' | 'ethernet' | 'bluetooth' | 'theme' | 'powerSaving'>,
+  stats: Pick<
+    HwStats,
+    'wifi' | 'ethernet' | 'bluetooth' | 'theme' | 'powerSaving' | 'wallpaperLuma'
+  >,
 ): {
   wifi: string;
   ethernet: string;
   bluetooth: string;
   theme: 'light' | 'dark';
   powerSaving: boolean | null;
+  wallpaperLuma: string;
 } {
-  const { wifi, ethernet, bluetooth, theme, powerSaving } = stats;
+  const { wifi, ethernet, bluetooth, theme, powerSaving, wallpaperLuma } = stats;
   return {
     wifi: wifi
       ? `${wifi.available}|${wifi.connected}|${wifi.ssid ?? ''}|${wifi.bars}|${wifi.hasInternet}`
@@ -248,6 +263,8 @@ function networkSignature(
       : 'null',
     theme,
     powerSaving,
+    // 壁纸亮度取整到 0.05 精度即可驱动自适应（避免缓慢渐变把推送刷爆）
+    wallpaperLuma: wallpaperLuma === null ? 'null' : String(Math.round(wallpaperLuma * 20)),
   };
 }
 
@@ -265,6 +282,7 @@ function tick(): void {
   if (!mem) return; // 内存采样失败，本帧跳过
   // 触发一次异步网络状态刷新（命中缓存时零系统开销），结果在下一帧生效
   refreshNetworkStatus();
+  const appearance = sampleAppearance(); // 壁纸亮度 + 外观主题（一次 FFI 调用同时产出两个字段）
   const stats: HwStats = {
     cpu,
     memUsedPct: mem.memUsedPct,
@@ -276,7 +294,8 @@ function tick(): void {
     wifi: wifiStatus,
     ethernet: ethernetStatus,
     bluetooth: bluetoothStatus,
-    theme: sampleTheme(),
+    theme: appearance.theme,
+    wallpaperLuma: appearance.wallpaperLuma,
     ts: Date.now(),
   };
   const signature = networkSignature(stats);
@@ -295,6 +314,7 @@ function tick(): void {
     const ethernetChanged = signature.ethernet !== lastSent.ethernet;
     const btChanged = signature.bluetooth !== lastSent.bluetooth;
     const themeChanged = signature.theme !== lastSent.theme;
+    const lumaChanged = signature.wallpaperLuma !== lastSent.wallpaperLuma;
     const fallbackDue = Date.now() - lastPushAt >= PUSH_FALLBACK_MS;
     if (
       !cpuChanged &&
@@ -305,6 +325,7 @@ function tick(): void {
       !ethernetChanged &&
       !btChanged &&
       !themeChanged &&
+      !lumaChanged &&
       !fallbackDue
     ) {
       return;
@@ -322,6 +343,7 @@ function tick(): void {
     charging: stats.charging,
     powerSaving: stats.powerSaving,
     theme: stats.theme,
+    wallpaperLuma: signature.wallpaperLuma,
     wifi: signature.wifi,
     ethernet: signature.ethernet,
     bluetooth: signature.bluetooth,

@@ -84,6 +84,13 @@ export interface HwStats extends BatteryInfo {
   bluetooth: BluetoothStatus | null;
   /** 系统当前外观（跟随 Windows 应用模式，供渲染层配色） */
   theme: 'light' | 'dark';
+  /**
+   * 桌面壁纸平均亮度 0~1（0=黑 1=白），主进程经 SystemParametersInfoW +
+   * nativeImage 采集；null = 非 Windows / 纯色背景 / 读取失败。
+   * 主进程已把 theme 优先按它判定（壁纸明暗 > 系统应用模式），此字段
+   * 透传给渲染层，供玻璃通透度等更细的自适应微调。
+   */
+  wallpaperLuma: number | null;
   /** 时间戳 */
   ts: number;
 }

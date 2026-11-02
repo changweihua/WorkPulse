@@ -63,12 +63,25 @@
      扇区无数——若每个扇区 path 各挂一处 backdrop-filter，玻璃审计会按声明数成倍累计，必超预算。
      扇区本体是低 alpha 中性染色叠在玻璃底上（两端 stop）：浅色变体取「浅底 + 墨染」
      （rgb(18 22 32) 0.10/0.06，悬停加深到 0.18），与 .hw-dark 暗色变体「深底 + 白染」
-     （0.12/0.06 → 悬停 0.24）完全对称 —— 差异染色只是与盘底拉开对比，状态色仍不掺进来。 ── */
-  --color-radial-glass-base: rgb(248 249 251 / 0.4);
-  --color-radial-glass-rim: rgb(18 22 32 / 0.1);
-  --color-radial-seg-top: rgb(18 22 32 / 0.1);
-  --color-radial-seg-bottom: rgb(18 22 32 / 0.06);
-  --color-radial-seg-hover: rgb(18 22 32 / 0.18);
+     （0.12/0.06 → 悬停 0.24）完全对称 —— 差异染色只是与盘底拉开对比，状态色仍不掺进来。
+
+     G11 通透强化：玻璃底改为「壁纸亮度驱动」的 color-mix 线性混合 ——
+     主进程把壁纸平均亮度（0~1）透传为 --wallpaper-luma（RadialMenu 根元素内联设置），
+     浅色壁纸（luma≈1）用浅色玻璃、深色壁纸（luma≈0）用深色玻璃，中间平滑过渡，
+     不再依赖 .hw-dark 的二值切换；同时把玻璃底色 alpha 从 0.4 压到 0.3 上下，
+     让桌面内容更多透出来。Electron 45（Chromium ≥111）完整支持 color-mix()。 ── */
+  --wallpaper-luma: 0.5;
+  --color-radial-glass-base-light: rgb(248 249 251 / 0.3);
+  --color-radial-glass-base-dark: rgb(26 29 36 / 0.3);
+  --color-radial-glass-base: color-mix(
+    in srgb,
+    var(--color-radial-glass-base-light) calc(var(--wallpaper-luma) * 100%),
+    var(--color-radial-glass-base-dark)
+  );
+  --color-radial-glass-rim: rgb(18 22 32 / 0.08);
+  --color-radial-seg-top: rgb(18 22 32 / 0.08);
+  --color-radial-seg-bottom: rgb(18 22 32 / 0.04);
+  --color-radial-seg-hover: rgb(18 22 32 / 0.16);
 
   /* ── 悬停 tooltip ── */
   --color-radial-tooltip-bg: rgb(240 242 246 / 0.96);
@@ -76,15 +89,17 @@
   --color-radial-tooltip-text: rgb(39 39 42);
   --shadow-radial-tooltip: 0 4px 16px rgb(0 0 0 / 0.08);
 
-  /* ── 中心按钮（展开 = 实色玻璃，收起 = 斜向淡玻璃渐变）── */
+  /* ── 中心按钮（展开 = 实色玻璃，收起 = 斜向淡玻璃渐变）──
+     G11 通透：收起态渐变整体压淡（0.6/0.4/0.35 → 0.5/0.3/0.25），
+     让壁纸从中心圆透出来更多；描边从 0.28 收到 0.22，边缘更轻盈。 */
   --color-radial-center-solid: rgb(240 242 246 / 0.96);
   --gradient-radial-center-glass: linear-gradient(
     145deg,
-    rgb(255 255 255 / 0.6) 0%,
-    rgb(230 233 240 / 0.4) 50%,
-    rgb(210 215 225 / 0.35) 100%
+    rgb(255 255 255 / 0.5) 0%,
+    rgb(230 233 240 / 0.3) 50%,
+    rgb(210 215 225 / 0.25) 100%
   );
-  --color-radial-center-border: rgb(18 22 32 / 0.28);
+  --color-radial-center-border: rgb(18 22 32 / 0.22);
 
   /* ── 中心关闭叉图标描边 ── */
   --color-radial-icon: rgb(60 64 72 / 0.9);
@@ -116,13 +131,16 @@
   --color-ring-track: rgb(226 232 240 / 0.62);
 
   /* ── 玻璃底暗色变体：深底磨砂，扇区只叠一层很淡的白色微染 ──
-     玻璃盘底色转深（深壁纸上的深色磨砂），rim 压到 0.10 保持「隐约一圈」——
+     玻璃盘底色转深（深壁纸上的深色磨砂），rim 压到 0.08 保持「隐约一圈」——
      描边越实越像黑色线框，通透感全靠弱边缘；
-     扇区染色换白色微染（0.12 / 0.06），悬停提亮到 0.24 ——
-     状态色仍不动，扇区只是「盘面」而不是读数。 ── */
-  --color-radial-glass-base: rgb(26 29 36 / 0.4);
-  --color-radial-glass-rim: rgb(255 255 255 / 0.1);
-  --color-radial-seg-top: rgb(255 255 255 / 0.12);
-  --color-radial-seg-bottom: rgb(255 255 255 / 0.06);
-  --color-radial-seg-hover: rgb(255 255 255 / 0.24);
+     扇区染色换白色微染（0.10 / 0.05），悬停提亮到 0.22 ——
+     状态色仍不动，扇区只是「盘面」而不是读数。
+     glass-base 的 alpha 同步压到 0.3，与亮色档的通透度一致；
+     注：theme 已按壁纸亮度判定（luma<0.5 → dark），因此 .hw-dark 的固定深色
+     与 --wallpaper-luma 驱动的 color-mix 结果一致，覆盖只是为了深色档有确定性兜底。 ── */
+  --color-radial-glass-base: rgb(26 29 36 / 0.3);
+  --color-radial-glass-rim: rgb(255 255 255 / 0.08);
+  --color-radial-seg-top: rgb(255 255 255 / 0.1);
+  --color-radial-seg-bottom: rgb(255 255 255 / 0.05);
+  --color-radial-seg-hover: rgb(255 255 255 / 0.22);
 }
