@@ -1008,6 +1008,13 @@ function SettingsPage(): ReactNode {
                   {(
                     [
                       {
+                        // 系统自动：让 DWM 按窗口类型选择材质（Win11 22H2+ 默认 mica）
+                        value: 'auto',
+                        label: t('settings.materialAuto'),
+                        Icon: Monitor,
+                        color: 'bg-sky-400',
+                      },
+                      {
                         value: 'mica',
                         label: t('settings.materialMica'),
                         Icon: Layers,

@@ -57,7 +57,8 @@ import { buildMenu, setupContextMenu, getShortcuts } from './menu';
 import { createTray, rebuildTrayMenu } from './tray';
 import { createSplashWindow, closeSplashWindow } from './splash';
 import { registerAutoLaunchIpc, setAutoLaunchDeps } from './autoLaunch';
-import { resolveWindowMaterial, windowBackgroundColor } from './window-material';
+import { applyAccentColor, resolveWindowMaterial, windowBackgroundColor } from './window-material';
+import { MicaBrowserWindow } from 'mica-electron';
 import { loadDotNet } from './asar-dotnet-loader';
 import { vectorSearch } from './vector-search';
 import { guardedHandle } from './ipc-guard';
@@ -175,9 +176,12 @@ function registerShortcutIpc(): void {
 // ── 主窗口 ──
 
 function createWindow(): void {
-  // 系统材质（L0）：默认值按 Windows 版本判定，材质为 none 时用不透明原生底色兜底
+  // 系统材质（L0）：默认值按 Windows 版本判定，材质为 none 时用不透明原生底色兜底。
+  // win32 用 MicaBrowserWindow（mica-electron）：支持 'auto' 材质、DWM 边框强调色与 Win10 真 Acrylic。
+  const MainWindowClass: typeof BrowserWindow =
+    process.platform === 'win32' ? MicaBrowserWindow : BrowserWindow;
   const initialMaterial = resolveWindowMaterial(getSetting('window_material'));
-  const mainWindow = new BrowserWindow({
+  const mainWindow = new MainWindowClass({
     width: 800,
     height: 600,
     minWidth: 400,
@@ -198,6 +202,12 @@ function createWindow(): void {
           },
         }
       : {}),
+    ...(process.platform === 'darwin'
+      ? {
+          vibrancy: 'under-window' as const,
+          visualEffectState: 'followWindow' as const,
+        }
+      : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -208,6 +218,9 @@ function createWindow(): void {
       allowRunningInsecureContent: false,
     },
   });
+
+  // 强调色 tint：DWM 边框色 + 原生 setAccentColor（仅 win32 生效）
+  applyAccentColor(mainWindow);
 
   mainWindow.once('ready-to-show', () => {
     closeSplashWindow();

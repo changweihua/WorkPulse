@@ -2,7 +2,7 @@
  * IPC 领域：设置 + LLM Token + 导入导出 + 报告
  * 迁移至 guardedHandle 模式
  */
-import { dialog } from 'electron';
+import { BrowserWindow, dialog } from 'electron';
 import { readFileSync, writeFileSync } from 'fs';
 import {
   getAllWorkLogs,
@@ -34,6 +34,7 @@ import {
 } from '../ipc-schemas';
 import { saveLLMToken, getLLMToken, deleteLLMToken } from '../secureSettings';
 import { showNotification } from '../notification';
+import { applyAccentColor } from '../window-material';
 import { tMain } from '../i18n';
 import {
   getGlobalConfig,
@@ -84,7 +85,7 @@ export function registerSettingsIpc(): void {
     return ok(getSetting(data.key));
   });
 
-  guardedHandle('settings:set', SettingsSetSchema, (data) => {
+  guardedHandle('settings:set', SettingsSetSchema, (data, event) => {
     if (!ALLOWED_SETTINGS_KEYS.has(data.key)) {
       return {
         ok: false,
@@ -95,6 +96,13 @@ export function registerSettingsIpc(): void {
       };
     }
     setSetting(data.key, data.value);
+    // 强调色变更即时同步到主窗口（DWM 边框色 + 原生 setAccentColor）
+    if (data.key === 'ui_accent' && process.platform === 'win32') {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win && !win.isDestroyed()) {
+        applyAccentColor(win);
+      }
+    }
     return ok(undefined);
   });
 

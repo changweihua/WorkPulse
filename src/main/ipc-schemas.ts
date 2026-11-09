@@ -365,7 +365,7 @@ export const CloseActionSchema = z.object({
 });
 
 export const WindowMaterialSchema = z.object({
-  material: z.enum(['none', 'mica', 'tabbed', 'acrylic']),
+  material: z.enum(['none', 'auto', 'mica', 'tabbed', 'acrylic']),
 });
 
 // ─── Daily Summary ───────────────────────────────────────────────────────────

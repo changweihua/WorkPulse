@@ -9,6 +9,8 @@
 - ✨ feat: 悬浮窗适配桌面壁纸明暗 — 主进程新增 `wallpaper-luma.ts`：经 user32 `SystemParametersInfoW` 读取壁纸路径，`nativeImage` 缩至 8×8 计算 Rec.709 平均亮度；`HwStats` 新增 `wallpaperLuma` 字段，主题判定从「系统应用模式」改为「壁纸亮度优先」（亮度 <0.5 判深色，读取失败回退系统主题），浅色壁纸 + 深色系统等错配场景不再对比度翻车
 - ✨ feat: 悬浮窗中部状态轮播 — 中心槽位从单一优先链图标升级为轮播：网络（Wi-Fi / 以太网 / 热点 / 蓝牙）→ CPU → 内存 → 电量百分比，每 3.2s 切换；网络错误级（断网 / 无互联网）时锁定网络图标不轮播，恢复后自动继续
 - ✨ feat: 玻璃底色随壁纸亮度动态混合 — `RadialTheme.css` 用 `color-mix()` 按 `--wallpaper-luma` 在浅色 / 深色玻璃底之间平滑过渡，收起中心圆与展开玻璃盘始终贴合壁纸明暗
+- ✨ feat: 窗口材质新增 Auto（跟随系统）并接入强调色 tint — `WindowMaterial` 扩展 `'auto'`，Win11 22H2+ 由 DWM 自适应窗口类型；`applyAccentColor()` 经 mica-electron DWM 边框色 + 原生 `setAccentColor` 把设置页强调色同步到窗口边框/材质，切换即时生效；macOS 主窗口启用 `vibrancy: 'under-window'` 系统级毛玻璃
+- ✨ feat: 引入 mica-electron 实现 Win10 真 Acrylic — win32 主窗口改用 `MicaBrowserWindow`（Node-API addon，预编译 x64/ia32/arm64，`asarUnpack` 解包），Win10 经 `SetWindowCompositionAttribute` 提供真 Acrylic，Win11 继续走原生 `backgroundMaterial`
 
 ### 变更
 
@@ -17,6 +19,7 @@
 - 📦 deps: 增量升级 npm 依赖至 semver 范围内最新版 — electron 45.2.3、vite 8.3.6、openai 7.53、motion 14.10.1、zustand 5.1、mermaid 12.3、oxlint 1.92 等 20 个包；oxfmt 0.75→0.77 并同步格式化 splash.html 与 daily-summary.html
 - 🔧 build: 关闭混淆器广告注入 — `electron.vite.config.ts` 的 javascript-obfuscator 插件新增 `advertisement: false`，构建产物不再注入广告
 - 📃 docs: 新增液态玻璃整体风格接入技术规范 — `docs/SPECS/liquid-glass-style-adoption.md`：不做全屏接管与 DOM→纹理折射，按 L0 系统材质 / L1 CSS 增强 / L2 导航层覆盖 / L3 演示页锁定四层路由，附硬约束 C1-C10、分阶段实施、性能门控与风险登记
+- 📃 docs: 新增 Electron 毛玻璃与液体玻璃集成调研报告 — `docs/SPECS/electron-glass-effects-research.md`：基于 Electron 45 本地权威类型声明与 GitHub API 生态核验，确认原生 `backgroundMaterial`（含新增 `'auto'` 值）与 `setAccentColor` 为最轻量通道，第三方库已基本死亡（唯一活跃 mica-electron 不引入），并给出 macOS vibrancy 与 Win10 降级的增量建议
 
 ## [0.3.10] - 2026-10-20
 

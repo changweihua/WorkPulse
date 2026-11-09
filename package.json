@@ -53,6 +53,9 @@
     "productName": "WorkPulse",
     "copyright": "Copyright © 2026",
     "asar": true,
+    "asarUnpack": [
+      "node_modules/mica-electron/**/*"
+    ],
     "directories": {
       "buildResources": "resources",
       "output": "dist"
@@ -228,6 +231,7 @@
     "feedsmith": "^3.0.1",
     "gpt-tokenizer": "^4.1.0",
     "koffi": "^3.3.6",
+    "mica-electron": "^1.5.18",
     "node-api-dotnet": "^0.9.36",
     "openai": "^7.47.0",
     "pinyin-pro": "^3.29.5",

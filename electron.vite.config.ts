@@ -65,6 +65,10 @@ export default defineConfig(({ mode }) => {
             'sharp',
             '@huggingface/tokenizers',
             '@huggingface/jinja',
+            // mica-electron 是原生 Node-API addon：main.js 运行时动态 require
+            // src/micaElectron_<arch>.node，必须保持 external 由运行时从 node_modules
+            // 加载（配合 electron-builder asarUnpack 解包），否则内联打包会破坏路径。
+            'mica-electron',
           ],
           exclude: ['feedsmith'],
         },
