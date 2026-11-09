@@ -14,6 +14,7 @@
 
 - 🌈 style: 悬浮窗玻璃进一步通透 — 玻璃盘底色与 rim 整体压淡（rim 0.10→0.08、扇区常态染色 0.10/0.06→0.08/0.04、悬停 0.18→0.16），中心玻璃渐变压淡（0.6/0.4/0.35→0.5/0.3/0.25）且描边 0.28→0.22，深色档同比例减淡，壁纸透出更多
 - 📦 deps: 全量升级 npm 依赖至最新稳定版 — electron 45、vite 8、typescript 7、openai 7、three 0.187、motion 14.9、lucide-react 1.66、koffi 3.3、oxlint 1.90 等（`npm-check-updates -u` 后 `npm install`）
+- 📦 deps: 增量升级 npm 依赖至 semver 范围内最新版 — electron 45.2.3、vite 8.3.6、openai 7.53、motion 14.10.1、zustand 5.1、mermaid 12.3、oxlint 1.92 等 20 个包；oxfmt 0.75→0.77 并同步格式化 splash.html 与 daily-summary.html
 - 🔧 build: 关闭混淆器广告注入 — `electron.vite.config.ts` 的 javascript-obfuscator 插件新增 `advertisement: false`，构建产物不再注入广告
 - 📃 docs: 新增液态玻璃整体风格接入技术规范 — `docs/SPECS/liquid-glass-style-adoption.md`：不做全屏接管与 DOM→纹理折射，按 L0 系统材质 / L1 CSS 增强 / L2 导航层覆盖 / L3 演示页锁定四层路由，附硬约束 C1-C10、分阶段实施、性能门控与风险登记
 

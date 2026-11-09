@@ -281,7 +281,7 @@
     "mermaid": "^12.2.0",
     "motion": "^14.9.0",
     "onnxruntime-web": "^1.31.1",
-    "oxfmt": "^0.75.0",
+    "oxfmt": "^0.77.0",
     "oxlint": "^1.90.0",
     "rcedit": "^5.0.2",
     "react": "^19.3.1",
