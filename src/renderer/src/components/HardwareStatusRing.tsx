@@ -603,6 +603,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
           ethernet: mockEthernet(), // 有线分支（?hweth=1）
           theme: MOCK_DARK ? 'dark' : 'light', // G7 主题应用
           wallpaperLuma: MOCK_DARK ? 0.2 : 0.8, // G11：配合 MOCK_DARK 模拟深/浅壁纸亮度
+          accent: '#3b82f6', // 默认蓝强调色（与主进程推送字段对齐）
           ts: Date.now(),
         });
       }, 900);

@@ -91,6 +91,8 @@ export interface HwStats extends BatteryInfo {
    * 透传给渲染层，供玻璃通透度等更细的自适应微调。
    */
   wallpaperLuma: number | null;
+  /** 强调色（与主窗口材质 accent 对齐的 hex，如 '#3b82f6'，供玻璃 tint 统一） */
+  accent: string;
   /** 时间戳 */
   ts: number;
 }

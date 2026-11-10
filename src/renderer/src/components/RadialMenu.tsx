@@ -103,10 +103,13 @@ export function RadialMenu(): ReactNode {
   //  G11 起玻璃底色由 --wallpaper-luma 的 color-mix 线性驱动，深浅平滑过渡，二值类只兜底。）
   const [dark, setDark] = useState(false);
   const [wallpaperLuma, setWallpaperLuma] = useState<number | null>(null);
+  // 强调色（主进程随 hw-stats 推送，与主窗口材质 accent 对齐）
+  const [accent, setAccent] = useState<string>('#3b82f6');
   useEffect(() => {
     const cleanup = window.radialApi.onHwStats((s) => {
       setDark(s.theme === 'dark');
       setWallpaperLuma(s.wallpaperLuma);
+      setAccent(s.accent);
     });
     return cleanup;
   }, []);
@@ -397,6 +400,8 @@ export function RadialMenu(): ReactNode {
         height: WIDGET_SIZE,
         // G11：壁纸亮度透传给 RadialTheme.css 的 color-mix（0~1，null 用中性 0.5）
         ['--wallpaper-luma' as string]: String(wallpaperLuma ?? 0.5),
+        // 强调色透传（关闭按钮玻璃 tint 与主窗口 accent 统一）
+        ['--color-radial-accent' as string]: accent,
         left: 0,
         top: 0,
       }}
@@ -622,17 +627,19 @@ export function RadialMenu(): ReactNode {
             {
               width: CENTER_SIZE,
               height: CENTER_SIZE,
-              // 展开 = 实色玻璃 / 收起 = 斜向淡玻璃渐变（RadialTheme.css 的 --gradient-radial-center-glass）
+              // 展开 = 强调色 tint 玻璃（与主窗口材质 accent 统一）/ 收起 = 斜向淡玻璃渐变
               background: expanded
-                ? 'var(--color-radial-center-solid)'
+                ? 'var(--color-radial-center-glass)'
                 : 'var(--gradient-radial-center-glass)',
               // 玻璃预算硬约束：单声明仅 1 处 blur、radius ≤24px、≤2 个滤镜函数（统一 blur(12px) saturate(150%)）
               backdropFilter: 'blur(12px) saturate(150%)',
               WebkitBackdropFilter: 'blur(12px) saturate(150%)',
               boxShadow: expanded
-                ? 'inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)'
+                ? '0 0 14px color-mix(in srgb, var(--color-radial-accent) 28%, transparent), inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)'
                 : 'inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -2px 3px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.08)',
-              border: '1px solid var(--color-radial-center-border)',
+              border: expanded
+                ? '1px solid color-mix(in srgb, var(--color-radial-accent) 55%, transparent)'
+                : '1px solid var(--color-radial-center-border)',
               cursor: expanded ? 'pointer' : 'grab',
               transition: 'transform 0.15s ease, background 0.2s ease',
             } as React.CSSProperties

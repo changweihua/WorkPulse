@@ -26,6 +26,7 @@ import {
 import { readBatteryState, readPowerSaving } from './battery';
 import { getBluetoothStatus, getNetworkProbe, getWifiStatus } from './network-status';
 import { getWallpaperLuma } from './wallpaper-luma';
+import { currentAccentColor } from './window-material';
 
 /** 采样间隔（毫秒） */
 const SAMPLE_INTERVAL_MS = 1000;
@@ -64,6 +65,7 @@ let lastSent: {
   bluetooth: string;
   theme: 'light' | 'dark';
   wallpaperLuma: string;
+  accent: string;
 } | null = null;
 /** 上一次实际推送的时间戳（用于时间兜底强制推送） */
 let lastPushAt = 0;
@@ -296,6 +298,7 @@ function tick(): void {
     bluetooth: bluetoothStatus,
     theme: appearance.theme,
     wallpaperLuma: appearance.wallpaperLuma,
+    accent: currentAccentColor(),
     ts: Date.now(),
   };
   const signature = networkSignature(stats);
@@ -315,6 +318,7 @@ function tick(): void {
     const btChanged = signature.bluetooth !== lastSent.bluetooth;
     const themeChanged = signature.theme !== lastSent.theme;
     const lumaChanged = signature.wallpaperLuma !== lastSent.wallpaperLuma;
+    const accentChanged = stats.accent !== lastSent.accent;
     const fallbackDue = Date.now() - lastPushAt >= PUSH_FALLBACK_MS;
     if (
       !cpuChanged &&
@@ -326,6 +330,7 @@ function tick(): void {
       !btChanged &&
       !themeChanged &&
       !lumaChanged &&
+      !accentChanged &&
       !fallbackDue
     ) {
       return;
@@ -344,6 +349,7 @@ function tick(): void {
     powerSaving: stats.powerSaving,
     theme: stats.theme,
     wallpaperLuma: signature.wallpaperLuma,
+    accent: stats.accent,
     wifi: signature.wifi,
     ethernet: signature.ethernet,
     bluetooth: signature.bluetooth,

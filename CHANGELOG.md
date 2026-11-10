@@ -11,6 +11,7 @@
 - ✨ feat: 玻璃底色随壁纸亮度动态混合 — `RadialTheme.css` 用 `color-mix()` 按 `--wallpaper-luma` 在浅色 / 深色玻璃底之间平滑过渡，收起中心圆与展开玻璃盘始终贴合壁纸明暗
 - ✨ feat: 窗口材质新增 Auto（跟随系统）并接入强调色 tint — `WindowMaterial` 扩展 `'auto'`，Win11 22H2+ 由 DWM 自适应窗口类型；`applyAccentColor()` 经 mica-electron DWM 边框色 + 原生 `setAccentColor` 把设置页强调色同步到窗口边框/材质，切换即时生效；macOS 主窗口启用 `vibrancy: 'under-window'` 系统级毛玻璃
 - ✨ feat: 引入 mica-electron 实现 Win10 真 Acrylic — win32 主窗口改用 `MicaBrowserWindow`（Node-API addon，预编译 x64/ia32/arm64，`asarUnpack` 解包），Win10 经 `SetWindowCompositionAttribute` 提供真 Acrylic，Win11 继续走原生 `backgroundMaterial`
+- ✨ feat: 悬浮窗材质统一到强调色体系 — `HwStats` 新增 `accent` 字段随硬件推送下发，`RadialTheme.css` 新增 `--color-radial-accent` token；展开态中心关闭按钮背景从近实色改为「浅色玻璃 + 强调色 tint」，描边与外辉光同步强调色，与主窗口材质 accent 对齐
 
 ### 变更
 

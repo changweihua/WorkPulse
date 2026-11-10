@@ -89,9 +89,19 @@
   --color-radial-tooltip-text: rgb(39 39 42);
   --shadow-radial-tooltip: 0 4px 16px rgb(0 0 0 / 0.08);
 
-  /* ── 中心按钮（展开 = 实色玻璃，收起 = 斜向淡玻璃渐变）──
-     G11 通透：收起态渐变整体压淡（0.6/0.4/0.35 → 0.5/0.3/0.25），
-     让壁纸从中心圆透出来更多；描边从 0.28 收到 0.22，边缘更轻盈。 */
+  /* ── 强调色：主进程随 hw-stats 推送（与主窗口材质 accent 对齐），
+     推送前/失败时回落默认蓝（与 ACCENT_COLORS.blue 一致）── */
+  --color-radial-accent: #3b82f6;
+
+  /* ── 中心按钮（展开 = 强调色 tint 玻璃，收起 = 斜向淡玻璃渐变）──
+     统一到主窗口的 accent 体系：浅色玻璃底（0.72 alpha 保证关闭字形对比）
+     叠 15% 强调色染色，展开态描边与外辉光也走强调色；
+     收起态渐变保持 G11 通透设定（0.5/0.3/0.25），描边轻盈。 */
+  --color-radial-center-glass: color-mix(
+    in srgb,
+    rgb(248 249 251 / 0.72) 85%,
+    color-mix(in srgb, var(--color-radial-accent) 15%, transparent)
+  );
   --color-radial-center-solid: rgb(240 242 246 / 0.96);
   --gradient-radial-center-glass: linear-gradient(
     145deg,
