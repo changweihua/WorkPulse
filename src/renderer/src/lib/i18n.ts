@@ -293,6 +293,14 @@ export const translations = {
     'settings.materialPreviewHint': '正在预览新材质，尚未保存。点击「应用」保存，或「取消」恢复。',
     'settings.materialApply': '应用',
     'settings.materialCancel': '取消',
+    'settings.fontFamily': '界面字体',
+    'settings.fontFamilyHelp':
+      '默认 JetBrains Maple Mono（等宽，数字不跳动）。切换后立即应用到所有窗口；若本机未安装该字体，会按回退链使用系统中文字体。',
+    'settings.fontSize': '基础字号',
+    'settings.fontSizeHelp':
+      '主窗口正文字号（px）。悬浮工具栏保持 12px 紧凑排版，标题层级保留相对比例。',
+    'settings.fontPreview': 'WorkPulse 预览 Aa 中文 0123',
+    'settings.fontChanged': '字体已切换',
     'settings.language': '界面语言',
     'settings.languageHelp': '默认跟随系统语言。支持中文和英语，Windows 会使用系统区域语言判断。',
     'settings.languageSystem': '跟随系统',
@@ -629,6 +637,14 @@ export const translations = {
       'Previewing a new material (not saved). Click Apply to save, or Cancel to revert.',
     'settings.materialApply': 'Apply',
     'settings.materialCancel': 'Cancel',
+    'settings.fontFamily': 'Interface Font',
+    'settings.fontFamilyHelp':
+      'Defaults to JetBrains Maple Mono (monospaced, no digit jitter). Applies to all windows instantly; falls back to a system CJK font if not installed.',
+    'settings.fontSize': 'Base Font Size',
+    'settings.fontSizeHelp':
+      'Body text size in px for the main window. The floating toolbar stays at a compact 12px; heading levels keep their relative scale.',
+    'settings.fontPreview': 'WorkPulse Preview Aa 0123',
+    'settings.fontChanged': 'Font changed',
     'settings.language': 'Interface language',
     'settings.languageHelp':
       'Defaults to the system language. Supports English and Chinese; Windows uses the system locale.',

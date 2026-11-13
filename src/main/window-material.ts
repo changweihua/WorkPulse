@@ -18,8 +18,9 @@ import log from 'electron-log/main';
 import { IS_WINDOWS_11, PARAMS, VALUE } from 'mica-electron';
 import { getSetting } from './db';
 
-/** 系统材质取值：auto = 跟随系统默认（Win11 22H2+ 才有效），none = 不透明（GPU 合成异常时的降级项） */
-export type WindowMaterial = 'none' | 'auto' | 'mica' | 'tabbed' | 'acrylic';
+// 取值定义在 shared，Touch Bar 渲染层按同一份字面量集合切换背景预设
+import type { WindowMaterial } from '../shared/touchbar';
+export type { WindowMaterial };
 
 /** 材质透出所需的透明窗口背景色 */
 const TRANSPARENT_BG = '#00000000';

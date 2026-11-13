@@ -4,13 +4,23 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+/* 全局基础正文字号 12px；设置页切换后主进程注入 --app-font-size 与
+   body{font-size:!important}，此处作为源码默认值（注入失败也不至于失配） */
+body {
+  font-size: var(--app-font-size, 12px);
+}
+
 @theme {
-  /* 字体族 */
-  --font-sans:
-    'JetBrains Maple Mono', 'Maple Mono NF CN', 'Source Han Serif SC', '思源宋体', sans-serif;
-  --font-serif:
-    'JetBrains Maple Mono', 'Maple Mono NF CN', 'Source Han Serif SC', '思源宋体', serif;
-  --font-mono: 'JetBrains Maple Mono', monospace;
+  /* 字体族：全程序默认 JetBrains Maple Mono（本机已安装；未安装时按链回退） */
+  --font-sans: 'JetBrains Maple Mono', 'Maple Mono NF CN', 'Microsoft YaHei UI', sans-serif;
+  --font-serif: 'JetBrains Maple Mono', 'Maple Mono NF CN', 'Microsoft YaHei UI', sans-serif;
+  --font-mono: 'JetBrains Maple Mono', 'Maple Mono NF CN', monospace;
+
+  /* Tailwind v4 preflight 里 html 的 font-family 取自 --default-font-family。
+     指向 --font-sans 后，设置页切换字体只需覆盖 --font-sans 就能联动生效，
+     不再出现「@theme 写了 Maple Mono、实际渲染却是系统 UI」的错配。 */
+  --default-font-family: var(--font-sans);
+  --default-mono-font-family: var(--font-mono);
 
   /* Fluent Design shadows */
   --shadow-fluent: 0 2px 4px rgb(0 0 0 / 4%), 0 8px 16px rgb(0 0 0 / 6%);
@@ -2008,4 +2018,31 @@ input[type='email'],
 input[type='url'],
 textarea {
   border-radius: var(--radius-md);
+}
+
+/* ── 悬浮窗入口统一图标底座（设置页「悬浮窗」两列） ──
+   与 Touch Bar 的 .tb-app-tile 共用同一套 tint 变量与配色口径，
+   只是尺寸缩到 24px 以贴合列表行高；主题色由 WidgetIcon 内联注入。 */
+.widget-icon-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  color: var(--widget-tint, #3b82f6);
+  background: color-mix(in srgb, var(--widget-tint, #3b82f6) 15%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--widget-tint, #3b82f6) 24%, transparent);
+}
+
+.dark .widget-icon-tile {
+  color: color-mix(in srgb, var(--widget-tint, #3b82f6) 72%, white);
+  background: color-mix(in srgb, var(--widget-tint, #3b82f6) 22%, transparent);
+}
+
+/* 自定义程序保留 emoji 时的行框：与 Touch Bar 一致，避免字形被裁 */
+.tb-app-emoji {
+  font-size: 16px;
+  line-height: 20px;
 }

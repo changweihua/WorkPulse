@@ -23,10 +23,24 @@ import {
   Settings,
 } from 'lucide-react';
 import { useToast } from '../components/Toast';
+import WidgetIcon from '../components/WidgetIcon';
 import { useThemeStore, ACCENTS, type Theme } from '../stores/themeStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useI18n, useLanguageStore } from '../stores/languageStore';
 import type { AppLanguage, ResolvedLanguage } from '../lib/i18n';
+import { TOUCHBAR_DEFAULT_ITEMS, type TouchbarItem } from '../../../shared/touchbar';
+import {
+  FONT_FAMILY_SETTING_KEY,
+  FONT_PRESETS,
+  FONT_SIZES,
+  FONT_SIZE_SETTING_KEY,
+  DEFAULT_FONT_ID,
+  DEFAULT_FONT_SIZE,
+  normalizeFontId,
+  normalizeFontSize,
+  resolveFontStack,
+  type FontSize,
+} from '../../../shared/typography';
 
 // Convert a KeyboardEvent to an Electron-style accelerator string
 function eventToAccelerator(e: KeyboardEvent): string | null {
@@ -247,6 +261,10 @@ function SettingsPage(): ReactNode {
   ]);
   const [addingProgram, setAddingProgram] = useState(false);
 
+  // 悬浮窗形态（径向菜单 / Touch Bar）
+  const [widgetMode, setWidgetMode] = useState<'radial' | 'touchbar'>('radial');
+  const [touchbarItems, setTouchbarItems] = useState<TouchbarItem[]>(TOUCHBAR_DEFAULT_ITEMS);
+
   // loadSettings 的兜底默认值在挂载时取一次（与上面 reportLanguage/style 的初始值一致），
   // 避免回调捕获每次渲染变化的 resolvedLanguage/t，保证引用稳定
   const [defaultReportLanguage] = useState(() => (resolvedLanguage === 'zh' ? '中文' : 'English'));
@@ -342,6 +360,26 @@ function SettingsPage(): ReactNode {
           const savedKeys = new Set(saved.map((i) => i.key));
           const newBuiltins = builtinDefaults.filter((d) => !savedKeys.has(d.key));
           setRadialItems([...newBuiltins, ...saved]);
+        } catch {}
+      }
+    });
+
+    // 加载悬浮窗形态
+    void window.api.settings.get('widget_mode').then((v) => {
+      if (v === 'radial' || v === 'touchbar') setWidgetMode(v);
+    });
+
+    // 加载 Touch Bar 项配置
+    void window.api.settings.get('touchbar_items').then((v) => {
+      if (v) {
+        try {
+          // media 媒体控制组已整体移除：旧配置里可能仍残留该项，加载时过滤掉
+          const saved: TouchbarItem[] = (JSON.parse(v) as TouchbarItem[]).filter(
+            (i) => i.key !== 'media',
+          );
+          const savedKeys = new Set(saved.map((i) => i.key));
+          const newDefaults = TOUCHBAR_DEFAULT_ITEMS.filter((d) => !savedKeys.has(d.key));
+          setTouchbarItems([...newDefaults, ...saved]);
         } catch {}
       }
     });
@@ -526,15 +564,59 @@ function SettingsPage(): ReactNode {
     window.api?.window?.previewMaterial?.(value)?.catch(() => {});
   };
 
-  // 「应用」：落盘保存（走原 setMaterial IPC）并结束预览态
+  // 「应用」：落盘保存并结束预览态。
+  // 注意：preload 的 invoke 已 unwrap IpcResult，失败时直接 throw；这里以 Promise
+  // 是否 resolve 为准，不再依赖 res.success（旧版主进程返回 ok(undefined)，
+  // res 恒为 undefined，导致点击「应用」什么都不发生）
   const handleMaterialApply = async (): Promise<void> => {
     if (previewMaterial === null) return;
-    const res = await window.api?.window?.setMaterial?.(previewMaterial);
-    if (res?.success) {
+    try {
+      await window.api.window.setMaterial(previewMaterial);
       setMaterial(previewMaterial);
       setPreviewMaterial(null);
       toast.success(t('settings.materialChanged'));
+    } catch {
+      toast.error('❌ 窗口材质应用失败，请重试');
     }
+  };
+
+  // ---------- 全局字体（字体族 + 基础字号） ----------
+  // 值存在 settings 里；主进程 settings:set 收到这两个 key 会广播 FONT_CHANGED，
+  // 由 font-preferences.ts 给所有窗口重新注入 CSS，因此点选即生效、无需重启。
+  const [fontId, setFontId] = useState<string>(DEFAULT_FONT_ID);
+  const [fontSize, setFontSize] = useState<FontSize>(DEFAULT_FONT_SIZE);
+
+  useEffect(() => {
+    window.api?.settings
+      ?.get?.(FONT_FAMILY_SETTING_KEY)
+      .then((v) => setFontId(normalizeFontId(v)))
+      .catch(() => {});
+    window.api?.settings
+      ?.get?.(FONT_SIZE_SETTING_KEY)
+      .then((v) => setFontSize(normalizeFontSize(v)))
+      .catch(() => {});
+  }, []);
+
+  const persistFont = useCallback(
+    async (key: string, value: string): Promise<void> => {
+      try {
+        await window.api.settings.set(key, value);
+        toast.success(t('settings.fontChanged'));
+      } catch {
+        toast.error('❌ 字体设置保存失败，请重试');
+      }
+    },
+    [t],
+  );
+
+  const handleFontFamilyChange = (value: string): void => {
+    setFontId(value);
+    void persistFont(FONT_FAMILY_SETTING_KEY, value);
+  };
+
+  const handleFontSizeChange = (value: FontSize): void => {
+    setFontSize(value);
+    void persistFont(FONT_SIZE_SETTING_KEY, String(value));
   };
 
   const handleSystemPromptBlur = async (): Promise<void> => {
@@ -686,6 +768,30 @@ function SettingsPage(): ReactNode {
       await window.api.radial?.setConfig?.(items);
     } catch (err) {
       console.error('Failed to save radial items:', err);
+    }
+  };
+
+  // 切换悬浮窗形态（径向菜单 / Touch Bar）
+  const handleSaveWidgetMode = async (mode: 'radial' | 'touchbar'): Promise<void> => {
+    setWidgetMode(mode);
+    try {
+      // 1) 先经 settings 通道持久化（老 preload 也支持），保证主进程下次读取 widget_mode 时生效
+      await window.api.settings.set('widget_mode', mode);
+      // 2) 再通知主进程即时切换并广播（touchbar:set-mode 会写 DB 并广播 WIDGET_MODE_CHANGED）
+      await window.api.touchbar?.setMode?.(mode);
+    } catch (err) {
+      console.error('Failed to switch widget mode:', err);
+    }
+  };
+
+  // 保存 Touch Bar 项配置
+  const handleSaveTouchbarItems = async (items: TouchbarItem[]): Promise<void> => {
+    try {
+      await window.api.settings.set('touchbar_items', JSON.stringify(items));
+      setTouchbarItems(items);
+      await window.api.touchbar?.setConfig?.(items);
+    } catch (err) {
+      console.error('Failed to save touchbar items:', err);
     }
   };
 
@@ -1105,6 +1211,61 @@ function SettingsPage(): ReactNode {
                   </div>
                 )}
               </div>
+
+              {/* ── 全局字体 ── */}
+              <div className="mt-5 pt-4 border-t border-zinc-200/60 dark:border-zinc-700/50">
+                <label
+                  htmlFor="app-font-family"
+                  className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1"
+                >
+                  {t('settings.fontFamily')}
+                </label>
+                <p className="text-xs text-zinc-400 mb-2">{t('settings.fontFamilyHelp')}</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <select
+                    id="app-font-family"
+                    value={fontId}
+                    onChange={(e) => handleFontFamilyChange(e.target.value)}
+                    className="px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100"
+                  >
+                    {FONT_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span
+                    className="px-3 py-2 rounded-md border border-dashed border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-300"
+                    style={{ fontFamily: resolveFontStack(fontId) }}
+                  >
+                    {t('settings.fontPreview')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  {t('settings.fontSize')}
+                </label>
+                <p className="text-xs text-zinc-400 mb-2">{t('settings.fontSizeHelp')}</p>
+                <div className="flex flex-wrap gap-2">
+                  {FONT_SIZES.map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => handleFontSizeChange(size)}
+                      aria-pressed={fontSize === size}
+                      className={`min-w-[3rem] px-3 py-2 rounded-md border transition-colors ${
+                        fontSize === size
+                          ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                          : 'border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                      }`}
+                      style={{ fontSize: `${size}px` }}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </section>
 
             {/* 开机启动 */}
@@ -1225,75 +1386,165 @@ function SettingsPage(): ReactNode {
             {/* 径向菜单 */}
             <section className="surface-card p-5">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
-                径向菜单
+                悬浮窗
               </h2>
               <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
-              <div className="flex items-center justify-between">
+
+              {/* 形态切换：径向菜单 / Touch Bar */}
+              <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-300">启用径向菜单</p>
-                  <p className="text-xs text-zinc-400">在快速操作入口显示径向菜单</p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-300">悬浮窗形态</p>
+                  <p className="text-xs text-zinc-400">
+                    Touch Bar 模式参考 macOS 触控栏，系统状态常驻底部
+                  </p>
                 </div>
-                <button
-                  onClick={() => void handleSaveRadialEnabled(!radialEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${
-                    radialEnabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      radialEnabled ? 'translate-x-6' : 'translate-x-1'
+                <div className="flex rounded-lg p-0.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                  <button
+                    onClick={() => void handleSaveWidgetMode('radial')}
+                    className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                      widgetMode === 'radial'
+                        ? 'bg-blue-500 text-white'
+                        : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
                     }`}
-                  />
-                </button>
+                  >
+                    径向菜单
+                  </button>
+                  <button
+                    onClick={() => void handleSaveWidgetMode('touchbar')}
+                    className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                      widgetMode === 'touchbar'
+                        ? 'bg-blue-500 text-white'
+                        : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    Touch Bar
+                  </button>
+                </div>
               </div>
 
-              {radialEnabled && (
+              {widgetMode === 'radial' && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-300">启用径向菜单</p>
+                    <p className="text-xs text-zinc-400">在快速操作入口显示径向菜单</p>
+                  </div>
+                  <button
+                    onClick={() => void handleSaveRadialEnabled(!radialEnabled)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${
+                      radialEnabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        radialEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+
+              {(widgetMode === 'radial' ? radialEnabled : widgetMode === 'touchbar') && (
                 <div className="mt-4 flex gap-4">
-                  {/* 左列：菜单项 */}
+                  {/* 左列：菜单项 / Touch Bar 项 */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-zinc-400 mb-2">
-                      菜单项（顺序即显示顺序，可单独开关）
-                    </p>
-                    <div className="space-y-1.5">
-                      {radialItems
-                        .filter((item) => item.type !== 'program')
-                        .map((item, index) => (
-                          <div
-                            key={item.key}
-                            className="flex items-center justify-between px-3 py-2 surface-inset rounded-lg"
-                          >
-                            <div className="flex items-center gap-2">
-                              {item.icon ? (
-                                <img src={item.icon} alt="" className="w-5 h-5 rounded" />
-                              ) : (
-                                <span className="text-base leading-none">{item.emoji}</span>
-                              )}
-                              <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                                {item.label}
-                              </span>
-                              <span className="text-xs text-zinc-400">#{index + 1}</span>
-                            </div>
-                            <button
-                              onClick={() => {
-                                const next = radialItems.map((it) =>
-                                  it.key === item.key ? { ...it, enabled: !it.enabled } : it,
-                                );
-                                void handleSaveRadialItems(next);
-                              }}
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${item.enabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
+                    {widgetMode === 'radial' ? (
+                      <>
+                        <p className="text-xs text-zinc-400 mb-2">
+                          菜单项（顺序即显示顺序，可单独开关）
+                        </p>
+                        <div className="space-y-1.5">
+                          {radialItems
+                            .filter((item) => item.type !== 'program')
+                            .map((item, index) => (
+                              <div
+                                key={item.key}
+                                className="flex items-center justify-between px-3 py-2 surface-inset rounded-lg"
+                              >
+                                <div className="flex items-center gap-2">
+                                  {item.icon ? (
+                                    <img src={item.icon} alt="" className="w-5 h-5 rounded" />
+                                  ) : (
+                                    <WidgetIcon
+                                      itemKey={item.key}
+                                      isProgram={item.type === 'program'}
+                                      emoji={item.emoji}
+                                      variant="settings"
+                                    />
+                                  )}
+                                  <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                                    {item.label}
+                                  </span>
+                                  <span className="text-xs text-zinc-400">#{index + 1}</span>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    const next = radialItems.map((it) =>
+                                      it.key === item.key ? { ...it, enabled: !it.enabled } : it,
+                                    );
+                                    void handleSaveRadialItems(next);
+                                  }}
+                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${item.enabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
+                                >
+                                  <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.enabled ? 'translate-x-6' : 'translate-x-1'}`}
+                                  />
+                                </button>
+                              </div>
+                            ))}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-zinc-400 mb-2">
+                          Touch Bar 项（系统状态常驻底栏，应用入口在展开面板）
+                        </p>
+                        <div className="space-y-1.5">
+                          {touchbarItems.map((item) => (
+                            <div
+                              key={item.key}
+                              className="flex items-center justify-between px-3 py-2 surface-inset rounded-lg"
                             >
-                              <span
-                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.enabled ? 'translate-x-6' : 'translate-x-1'}`}
-                              />
-                            </button>
-                          </div>
-                        ))}
-                    </div>
+                              <div className="flex items-center gap-2">
+                                <WidgetIcon
+                                  itemKey={item.key}
+                                  isProgram={item.type === 'program'}
+                                  emoji={item.emoji}
+                                  variant="settings"
+                                />
+                                <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                                  {item.label}
+                                </span>
+                                <span className="text-xs text-zinc-400">
+                                  {item.type === 'system'
+                                    ? '常驻'
+                                    : item.type === 'program'
+                                      ? '程序'
+                                      : '面板'}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  const next = touchbarItems.map((it) =>
+                                    it.key === item.key ? { ...it, enabled: !it.enabled } : it,
+                                  );
+                                  void handleSaveTouchbarItems(next);
+                                }}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 ${item.enabled ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-600'}`}
+                              >
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.enabled ? 'translate-x-6' : 'translate-x-1'}`}
+                                />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  {/* 右列：自定义程序 */}
+                  {/* 右列：自定义程序（两种形态共用） */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-zinc-400 mb-2">自定义程序</p>
+                    <p className="text-xs text-zinc-400 mb-2">自定义程序（两种形态共用）</p>
                     <div className="space-y-1.5">
                       {radialItems
                         .filter((item) => item.type === 'program')
@@ -1306,7 +1557,12 @@ function SettingsPage(): ReactNode {
                               {item.icon ? (
                                 <img src={item.icon} alt="" className="w-5 h-5 rounded" />
                               ) : (
-                                <span className="text-base leading-none">📦</span>
+                                <WidgetIcon
+                                  itemKey={item.key}
+                                  isProgram
+                                  emoji={item.emoji}
+                                  variant="settings"
+                                />
                               )}
                               <span className="text-sm text-zinc-700 dark:text-zinc-300">
                                 {item.label}

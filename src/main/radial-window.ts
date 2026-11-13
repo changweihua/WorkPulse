@@ -1,11 +1,17 @@
-import { BrowserWindow, screen, ipcMain, shell } from 'electron';
+import { BrowserWindow, screen, ipcMain } from 'electron';
 import { join } from 'path';
 import { is } from '@electron-toolkit/utils';
 import { getSetting, setSetting } from './db';
-import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus';
+import {
+  appBus,
+  SHOW_MAIN,
+  SHOW_RADIAL,
+  RADIAL_SCREENSHOT,
+  WIDGET_VISIBILITY_CHANGED,
+} from './event-bus';
 import { setMoveCursor, restoreCursor } from './cursor';
 import { startHwStats, stopHwStats } from './hw-stats';
-import log from 'electron-log/main';
+import { launchProgramPath, getFileIconBase64 } from './program-utils';
 
 let radialWindow: BrowserWindow | null = null;
 let mainWin: BrowserWindow | null = null;
@@ -35,7 +41,7 @@ export function setMainWindow(win: BrowserWindow): void {
   mainWin = win;
 }
 
-function getMainWindow(): BrowserWindow | null {
+export function getMainWindow(): BrowserWindow | null {
   return mainWin && !mainWin.isDestroyed() ? mainWin : null;
 }
 
@@ -130,14 +136,7 @@ function collapseRadial(): void {
 function fireRadialAction(key: string, item?: any): void {
   // Program-type items: launch via shell
   if (item?.type === 'program' && item?.programPath) {
-    // .lnk 快捷方式：解析 TargetPath 后启动
-    if (item.programPath.toLowerCase().endsWith('.lnk')) {
-      resolveLnkTargetPath(item.programPath).then((target) => {
-        shell.openPath(target || item.programPath);
-      });
-    } else {
-      shell.openPath(item.programPath);
-    }
+    void launchProgramPath(item.programPath);
     return;
   }
   if (key === 'screenshot') {
@@ -268,7 +267,7 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
   radialWindow.on('closed', () => {
     clearInterval(topInterval);
     stopCursorPolling();
-    stopHwStats();
+    stopHwStats(radialWindow);
     if (saveTimer) clearTimeout(saveTimer);
     isDragging = false;
   });
@@ -444,19 +443,8 @@ guardedHandle('radial:navigate-to', RadialNavigateToSchema, (data) => {
 
 guardedHandle('radial:set-enabled', RadialSetEnabledSchema, (data) => {
   setSetting('radial_enabled', data.enabled ? '1' : '0');
-  if (data.enabled) {
-    if (!radialWindow || radialWindow.isDestroyed()) {
-      const main = getMainWindow();
-      if (main) createRadialWindow(main);
-    } else {
-      showRadialWindow();
-    }
-  } else {
-    if (radialWindow && !radialWindow.isDestroyed()) {
-      if (expanded) collapseRadial();
-      hideRadialWindow();
-    }
-  }
+  // 由 index.ts 统一调度：仅径向模式且启用时创建/显示，禁用时隐藏
+  appBus.emit(WIDGET_VISIBILITY_CHANGED);
   return ok(true);
 });
 
@@ -466,95 +454,6 @@ guardedQuery('radial:close', () => {
 });
 
 // ─── 程序配置 IPC ───
-
-/** 解析 .lnk 快捷方式的 TargetPath（用于启动） */
-async function resolveLnkTargetPath(lnkPath: string): Promise<string | null> {
-  try {
-    const { execFile } = require('child_process') as typeof import('child_process');
-    const ps = `$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${lnkPath.replace(/'/g, "''")}')\nWrite-Output $s.TargetPath`;
-    return await new Promise<string | null>((resolve) => {
-      execFile(
-        'powershell.exe',
-        ['-NoProfile', '-Command', ps],
-        { timeout: 5000 },
-        (err, stdout) => {
-          if (err || !stdout) {
-            resolve(null);
-            return;
-          }
-          const target = stdout.trim();
-          resolve(target || null);
-        },
-      );
-    });
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 解析 .lnk 快捷方式的图标源路径。
- * 返回 IconLocation 指定的路径（如有），否则返回 TargetPath。
- * 调用方再对此路径调用 app.getFileIcon() 获取真实图标。
- */
-async function resolveLnkIconSource(lnkPath: string): Promise<string | null> {
-  try {
-    const { execFile } = require('child_process') as typeof import('child_process');
-    const ps = [
-      `$s = (New-Object -ComObject WScript.Shell).CreateShortcut('${lnkPath.replace(/'/g, "''")}')`,
-      `$i = $s.IconLocation`,
-      `$t = $s.TargetPath`,
-      `# IconLocation 格式: "path,index" 或 "path," 或 ",index" 或空`,
-      `if ($i) { $parts = $i -split ','; if ($parts[0] -ne '') { Write-Output $parts[0]; exit } }`,
-      `if ($t) { Write-Output $t; exit }`,
-      `Write-Output ''`,
-    ].join('\n');
-    return await new Promise<string | null>((resolve) => {
-      execFile(
-        'powershell.exe',
-        ['-NoProfile', '-Command', ps],
-        { timeout: 5000 },
-        (err, stdout) => {
-          if (err || !stdout) {
-            resolve(null);
-            return;
-          }
-          const result = stdout.trim();
-          resolve(result || null);
-        },
-      );
-    });
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 获取文件图标 base64 data URL。
- * - .lnk：使用 extract-file-icon 原生库（SHGetFileInfo），直接提取快捷方式的真实程序图标
- * - .exe 等：使用 app.getFileIcon()
- */
-async function getFileIconBase64(filePath: string): Promise<string | null> {
-  try {
-    // .lnk 快捷方式：extract-file-icon 底层调用 SHGetFileInfo，能直接从 .lnk 提取真实程序图标
-    if (filePath.toLowerCase().endsWith('.lnk')) {
-      const extractIcon = require('extract-file-icon');
-      const buffer: Buffer = extractIcon(filePath, 64) as Buffer;
-      if (buffer && buffer.length > 0) {
-        return `data:image/png;base64,${buffer.toString('base64')}`;
-      }
-    }
-
-    // .exe 等其他文件：app.getFileIcon 足够
-    const { app } = require('electron');
-    const icon = await app.getFileIcon(filePath, { size: 'normal' });
-    const buffer = icon.toPNG();
-    return `data:image/png;base64,${buffer.toString('base64')}`;
-  } catch (err) {
-    log.error('Failed to get file icon:', err);
-    return null;
-  }
-}
 
 guardedQuery('radial:pick-program', async () => {
   const { dialog } = require('electron');
@@ -582,11 +481,6 @@ guardedHandle('radial:get-file-icon', RadialGetFileIconSchema, async (data) => {
 });
 
 guardedHandle('radial:launch-program', RadialLaunchProgramSchema, async (data) => {
-  let launchPath = data.programPath;
-  if (data.programPath.toLowerCase().endsWith('.lnk')) {
-    const target = await resolveLnkTargetPath(data.programPath);
-    if (target) launchPath = target;
-  }
-  await shell.openPath(launchPath);
+  await launchProgramPath(data.programPath);
   return ok(true);
 });

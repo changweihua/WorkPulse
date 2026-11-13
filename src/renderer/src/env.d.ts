@@ -2,6 +2,7 @@
 /// <reference types="vite/client" />
 
 import type { HwStats } from '../../shared/hw-stats';
+import type { DeviceDetails, WindowMaterial } from '../../shared/touchbar';
 
 interface ImportMetaEnv {
   readonly VITE_APP_TITLE: string;
@@ -40,6 +41,54 @@ interface RadialApi {
   setConfig: (items: unknown) => Promise<boolean>;
   // 配置变更监听（与 preload/radial.ts 暴露的实现对齐），返回取消订阅函数
   onConfigChanged?: (cb: (items?: unknown) => void) => () => void;
+}
+
+interface TouchbarApi {
+  // 状态监听（main → renderer）
+  onState: (cb: (state: { expanded: boolean }) => void) => () => void;
+  onHwStats: (cb: (stats: HwStats) => void) => () => void;
+  onConfigChanged: (cb: (items?: unknown) => void) => () => void;
+  onMaterialChanged: (cb: (material: WindowMaterial) => void) => () => void;
+  onPinnedChanged: (cb: (pinned: boolean) => void) => () => void;
+  onDetailsChanged: (cb: (details: DeviceDetails) => void) => () => void;
+  onPopoverReset: (cb: () => void) => () => void;
+  // 交互动作（renderer → main）
+  itemClick: (key: string, item?: unknown) => void;
+  toggleExpand: () => void;
+  dragStart: () => void;
+  dragMove: () => void;
+  dragEnd: () => void;
+  // 配置
+  getConfig: () => Promise<unknown[]>;
+  setConfig: (items: unknown) => Promise<{ ok: boolean }>;
+  getPrograms: () => Promise<unknown[]>;
+  // 悬停详情卡片
+  getDetails: () => Promise<DeviceDetails>;
+  setPopover: (open: boolean) => Promise<{ ok: boolean }>;
+  openTaskManager: () => Promise<{ ok: boolean }>;
+  // 窗口材质 / 置顶
+  getMaterial: () => Promise<WindowMaterial>;
+  getPinned: () => Promise<boolean>;
+  setPinned: (pinned: boolean) => Promise<boolean>;
+  // 形态切换
+  getMode: () => Promise<'radial' | 'touchbar'>;
+  setMode: (mode: 'radial' | 'touchbar') => Promise<{ ok: boolean }>;
+  // 系统快捷控制
+  volumeGet: () => Promise<{ level: number | null }>;
+  volumeSet: (level: number) => Promise<{ success: boolean }>;
+  volumeStep: (delta: number) => Promise<{ level: number | null }>;
+  volumeMute: () => void;
+  brightnessStep: (delta: number) => Promise<{ current: number | null; supported: boolean }>;
+  toggleWifi: () => Promise<{ enabled: boolean | null; needsSettings: boolean; message?: string }>;
+  toggleBluetooth: () => Promise<{
+    enabled: boolean | null;
+    needsSettings: boolean;
+    message?: string;
+  }>;
+  openSettings: (uri: string) => Promise<{ ok: boolean }>;
+  // 导航 / 关闭
+  navigateTo: (page: string) => Promise<{ ok: boolean }>;
+  close: () => Promise<{ ok: boolean }>;
 }
 
 /** 选区矩形（绝对全局 DIP，w/h；crop 上报时转 width/height） */
@@ -89,6 +138,7 @@ declare global {
   interface Window {
     radialApi: RadialApi;
     screenshotOverlayApi: ScreenshotOverlayApi;
+    touchbarApi: TouchbarApi;
   }
 }
 

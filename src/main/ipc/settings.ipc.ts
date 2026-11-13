@@ -4,6 +4,9 @@
  */
 import { BrowserWindow, dialog } from 'electron';
 import { readFileSync, writeFileSync } from 'fs';
+import log from 'electron-log/main';
+import { appBus, FONT_CHANGED, WIDGET_MODE_CHANGED } from '../event-bus';
+import { FONT_FAMILY_SETTING_KEY, FONT_SIZE_SETTING_KEY } from '../../shared/typography';
 import {
   getAllWorkLogs,
   getSetting,
@@ -68,6 +71,10 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'daily_summary_last_shown',
   'api_key',
   'search_mode',
+  'widget_mode',
+  'touchbar_items',
+  FONT_FAMILY_SETTING_KEY,
+  FONT_SIZE_SETTING_KEY,
 ]);
 
 export function registerSettingsIpc(): void {
@@ -102,6 +109,16 @@ export function registerSettingsIpc(): void {
       if (win && !win.isDestroyed()) {
         applyAccentColor(win);
       }
+    }
+    // 悬浮窗形态切换（widget_mode）：即使渲染层旧 preload 没有 touchbar API，
+    // 也能经 settings 通道触发主进程隐藏旧窗口并按新模式重建
+    if (data.key === 'widget_mode') {
+      log.info(`[TouchBar] settings:set widget_mode=${data.value}`);
+      appBus.emit(WIDGET_MODE_CHANGED);
+    }
+    // 字体族 / 基础字号：广播给所有窗口重新注入 CSS（含设置页自身，实现即时预览）
+    if (data.key === FONT_FAMILY_SETTING_KEY || data.key === FONT_SIZE_SETTING_KEY) {
+      appBus.emit(FONT_CHANGED);
     }
     return ok(undefined);
   });

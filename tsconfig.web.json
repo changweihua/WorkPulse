@@ -9,12 +9,12 @@
     "esModuleInterop": true,
     "outDir": "./out",
     "tsBuildInfoFile": "./out/tsconfig.web.tsbuildinfo",
-    "rootDir": "./src/renderer/src",
+    "rootDir": ".",
     "strict": true,
     "skipLibCheck": true,
     "paths": {
       "@/*": ["./src/renderer/src/*"]
     }
   },
-  "include": ["src/renderer/src/**/*.ts", "src/renderer/src/**/*.tsx"]
+  "include": ["src/renderer/src/**/*.ts", "src/renderer/src/**/*.tsx", "src/shared/**/*.ts"]
 }

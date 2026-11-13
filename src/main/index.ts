@@ -27,6 +27,7 @@ import { Readable } from 'stream';
 import { getModelsDir } from './model-files';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { initDatabase, getSetting, setSetting, getDatabase } from './db';
+import { registerFontPreferences } from './font-preferences';
 import { STARTUP_DEFER_MS } from './db/index';
 import { registerAttachmentProtocol } from './attachments';
 import { startScheduler, stopScheduler } from './scheduler';
@@ -42,7 +43,21 @@ import {
   createRadialWindow,
   isRadialEnabled,
 } from './radial-window';
-import { appBus, SHOW_MAIN, SHOW_RADIAL, RADIAL_SCREENSHOT } from './event-bus';
+import {
+  hideTouchbarWindow,
+  showTouchbarWindow,
+  getTouchbarWindow,
+  createTouchbarWindow,
+} from './touchbar-window';
+import { getWidgetMode } from './widget-mode';
+import {
+  appBus,
+  SHOW_MAIN,
+  SHOW_RADIAL,
+  RADIAL_SCREENSHOT,
+  WIDGET_MODE_CHANGED,
+  WIDGET_VISIBILITY_CHANGED,
+} from './event-bus';
 import {
   initNotifications,
   showNotification,
@@ -460,6 +475,8 @@ app.whenReady().then(async () => {
 
   // Phase 3: 数据库 + 调度 + IPC
   initDatabase();
+  // 全局字体：注册 web-contents-created 钩子，必须早于 Phase 7 创建任何窗口
+  registerFontPreferences();
   startScheduler(getMainWindow);
   registerAutoLaunchIpc();
   setAutoLaunchDeps(getMainWindow, APP_ICON_PATH);
@@ -522,9 +539,10 @@ app.whenReady().then(async () => {
     }, 2000);
   });
 
-  // Phase 6: 事件驱动 — 主窗口 ↔ 径向菜单互斥显示
+  // Phase 6: 事件驱动 — 主窗口 ↔ 悬浮窗（径向菜单 / Touch Bar）互斥显示
   appBus.on(SHOW_MAIN, () => {
     hideRadialWindow();
+    hideTouchbarWindow();
     const main = getMainWindow();
     if (main) {
       if (!main.isVisible()) main.show();
@@ -532,10 +550,59 @@ app.whenReady().then(async () => {
     }
   });
 
-  appBus.on(SHOW_RADIAL, (parent?: BrowserWindow) => {
-    if (!isRadialEnabled()) return;
+  // 按当前形态创建/显示对应悬浮窗（主窗口隐藏时生效）
+  const showActiveWidget = (parent?: BrowserWindow): void => {
     const main = parent && !parent.isDestroyed() ? parent : getMainWindow();
+    log.info(
+      `[TouchBar] showActiveWidget mode=${getWidgetMode()} hasTouchbar=${!!getTouchbarWindow()} hasMain=${!!main} isDev=${is.dev} rendererUrl=${process.env['ELECTRON_RENDERER_URL'] ?? '(none)'}`,
+    );
+    if (getWidgetMode() === 'touchbar') {
+      if (!getTouchbarWindow()) {
+        if (main) createTouchbarWindow(main);
+      }
+      showTouchbarWindow();
+    } else {
+      if (!isRadialEnabled()) return;
+      if (!getRadialWindow()) {
+        if (main) createRadialWindow(main);
+      }
+      showRadialWindow();
+    }
+  };
+
+  appBus.on(SHOW_RADIAL, (parent?: BrowserWindow) => {
+    const main = parent && !parent.isDestroyed() ? parent : getMainWindow();
+    log.info(
+      `[TouchBar] SHOW_RADIAL mainVisible=${!!main && main.isVisible()} mode=${getWidgetMode()} hasTouchbar=${!!getTouchbarWindow()}`,
+    );
     if (main && main.isVisible()) main.hide();
+    showActiveWidget(main ?? undefined);
+  });
+
+  // 形态切换：隐藏旧窗口并立即显示新模式
+  appBus.on(WIDGET_MODE_CHANGED, () => {
+    log.info(
+      `[TouchBar] WIDGET_MODE_CHANGED mainVisible=${(() => {
+        const m = getMainWindow();
+        return !!m && m.isVisible();
+      })()} mode=${getWidgetMode()}`,
+    );
+    hideRadialWindow();
+    hideTouchbarWindow();
+    const main = getMainWindow();
+    if (main && main.isVisible()) return;
+    showActiveWidget(main ?? undefined);
+  });
+
+  // 径向菜单启用开关变化（仅径向模式生效）
+  appBus.on(WIDGET_VISIBILITY_CHANGED, () => {
+    if (getWidgetMode() !== 'radial') return;
+    if (!isRadialEnabled()) {
+      hideRadialWindow();
+      return;
+    }
+    const main = getMainWindow();
+    if (main && main.isVisible()) return;
     if (!getRadialWindow()) {
       if (main) createRadialWindow(main);
     }
@@ -543,6 +610,7 @@ app.whenReady().then(async () => {
   });
 
   appBus.on(RADIAL_SCREENSHOT, () => {
+    hideTouchbarWindow();
     startScreenshotCapture();
   });
 

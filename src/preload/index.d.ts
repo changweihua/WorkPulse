@@ -295,6 +295,13 @@ interface API {
     launchProgram?: (programPath: string) => Promise<boolean>;
     onConfigChanged?: (cb: (items?: unknown) => void) => () => void;
   };
+  touchbar: {
+    setMode: (mode: 'radial' | 'touchbar') => Promise<boolean>;
+    getMode?: () => Promise<'radial' | 'touchbar'>;
+    setConfig?: (items: unknown) => Promise<boolean>;
+    getConfig?: () => Promise<unknown>;
+    getPrograms?: () => Promise<unknown>;
+  };
   notification: {
     show: (options: {
       title: string;

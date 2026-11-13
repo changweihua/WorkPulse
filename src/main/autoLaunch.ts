@@ -9,6 +9,7 @@ import { guardedHandle, guardedQuery } from './ipc-guard';
 import { ok } from '../shared/ipc-result';
 import { AutoLaunchSchema, CloseActionSchema, WindowMaterialSchema } from './ipc-schemas';
 import { applyWindowMaterial, resolveWindowMaterial, type WindowMaterial } from './window-material';
+import { appBus, WINDOW_MATERIAL_CHANGED } from './event-bus';
 
 let mainWinGetter: () => BrowserWindow | null = () => null;
 let appIconPath = '';
@@ -26,6 +27,8 @@ function applyMaterialToMainWindow(material: WindowMaterial): void {
       log.error('[Main] setIcon failed:', err);
     }
   }
+  // 预览与保存都广播：Touch Bar 不落盘但读取同一套材质预设，保持与设置页一致
+  appBus.emit(WINDOW_MATERIAL_CHANGED, material);
 }
 
 export function setAutoLaunchDeps(
@@ -92,12 +95,14 @@ export function registerAutoLaunchIpc(): void {
   guardedHandle('set-window-material', WindowMaterialSchema, (data) => {
     setSetting('window_material', data.material);
     applyMaterialToMainWindow(data.material);
-    return ok(undefined);
+    // 必须返回 { success: true }：preload 会 unwrap IpcResult，设置页按 res?.success
+    // 判定是否落盘成功；返回 ok(undefined) 会让「应用」按钮静默无反应
+    return ok({ success: true });
   });
 
   // 预览材质：仅即时应用效果到窗口，不调 setSetting（不落盘）；保存仍走 set-window-material
   guardedHandle('preview-window-material', WindowMaterialSchema, (data) => {
     applyMaterialToMainWindow(data.material);
-    return ok(undefined);
+    return ok({ success: true });
   });
 }

@@ -435,6 +435,45 @@ export const RadialNavigateToSchema = z.object({
   page: z.string().min(1),
 });
 
+// ─── Touch Bar ───────────────────────────────────────────────────────────────
+
+export const TouchbarSetConfigSchema = z.object({
+  items: z.array(z.record(z.string(), z.unknown())),
+});
+
+export const TouchbarSetModeSchema = z.object({
+  mode: z.enum(['radial', 'touchbar']),
+});
+
+export const TouchbarSetPinnedSchema = z.object({
+  pinned: z.boolean(),
+});
+
+/** 悬停详情卡片开关：主进程据此扩窗 / 复原窗口高度 */
+export const TouchbarSetPopoverSchema = z.object({
+  open: z.boolean(),
+});
+
+export const TouchbarVolumeSetSchema = z.object({
+  level: z.number().min(0).max(100),
+});
+
+export const TouchbarVolumeStepSchema = z.object({
+  delta: z.number().min(-100).max(100),
+});
+
+export const TouchbarBrightnessStepSchema = z.object({
+  delta: z.number().min(-100).max(100),
+});
+
+export const TouchbarNavigateToSchema = z.object({
+  page: z.string().min(1),
+});
+
+export const TouchbarOpenSettingsSchema = z.object({
+  uri: z.string().min(1),
+});
+
 // ─── AI Usage Schemas ────────────────────────────────────────────────────────
 
 export const AiUsageLogSchema = z.object({

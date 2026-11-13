@@ -284,6 +284,13 @@ const api = {
     launchProgram: (programPath: string) =>
       invoke(ipcRenderer.invoke('radial:launch-program', programPath)),
   },
+  touchbar: {
+    setMode: (mode: 'radial' | 'touchbar') => invoke(ipcRenderer.invoke('touchbar:set-mode', mode)),
+    getMode: () => invoke(ipcRenderer.invoke('touchbar:get-mode')),
+    setConfig: (items: unknown) => invoke(ipcRenderer.invoke('touchbar:set-config', items)),
+    getConfig: () => invoke(ipcRenderer.invoke('touchbar:get-config')),
+    getPrograms: () => invoke(ipcRenderer.invoke('touchbar:get-programs')),
+  },
   notification: {
     show: (options: {
       title: string;

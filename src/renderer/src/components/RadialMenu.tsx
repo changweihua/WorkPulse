@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo, type ReactNode } fro
 import { motion, AnimatePresence } from 'motion/react';
 import { SPRING_SPRING } from './Motion';
 import { HardwareStatusRing } from './HardwareStatusRing';
+import WidgetIcon from './WidgetIcon';
 // 径向 overlay 专用 token 层：本组件跑在独立透明窗口（radial.html → radial-entry.tsx），
 // 该窗口只加载 radial-only.css、不加载 index.css，也没有 .dark / data-accent，
 // 因此由 RadialTheme.css 提供同名语义 token；HardwareStatusRing 也在首帧 getComputedStyle 读取它。
@@ -578,7 +579,12 @@ export function RadialMenu(): ReactNode {
                   /* 不加 drop-shadow：透明悬浮窗禁阴影（截图规范），玻璃底的透亮感也足够衬托图标 */
                 />
               ) : (
-                <span className="text-2xl">{item.emoji ?? '📦'}</span>
+                <WidgetIcon
+                  itemKey={item.key}
+                  isProgram={item.type === 'program'}
+                  emoji={item.emoji}
+                  variant="radial"
+                />
               )}
             </motion.div>
           );

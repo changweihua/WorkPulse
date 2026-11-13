@@ -1,0 +1,746 @@
+@import 'tailwindcss';
+
+@variant dark (&:where(.dark, .dark *));
+
+/* ── 窗口基础 ── */
+html,
+body,
+#touchbar-root {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── 容器 ── */
+.touchbar-root {
+  position: relative;
+  width: 560px;
+  user-select: none;
+  -webkit-user-select: none;
+  /* 未收到 hw-stats 时默认按浅色壁纸，避免 0.5 混出一条中灰 */
+  --wallpaper-luma: 1;
+
+  /* ── 同心圆角（concentric radius，Apple HIG / SwiftUI ConcentricRectangle） ──
+     规则：内圆角 = 外圆角 − d，d 是内层矩形到外层矩形「四边」的同一个距离。
+     旧版水平留白 18px、垂直留白 9px 却统一用 9px 内圆角，左右两条弧线
+     与外框不同心，看起来就是「窗体和内容的圆角大小不一致」。
+     现在所有方向统一 --tb-inset，且主面板 / 悬停卡片共用同一外圆角，
+     于是每一层弧线都严格平行：
+       --tb-radius       外圆角（面板、卡片一致）
+       --tb-inset        内容到外框上下左右的统一距离
+       --tb-control-radius  内部控件圆角 = 20 - 10 = 10px
+     行高由 shared/touchbar.ts 统一定义：底栏 56 / 展开行 72；
+     控件高 = 行高 − 2 × inset（36 / 52），四边正好都是 10px。 */
+  --tb-radius: 20px;
+  --tb-inset: 10px;
+  --tb-control-radius: calc(var(--tb-radius) - var(--tb-inset));
+  --tb-tile-radius: 9px;
+
+  /* 字体族跟随设置页的全局选择；字号固定 12px，悬浮工具栏保持紧凑排版，
+     不受主窗口正文字号切换影响（避免大字号把 560px 宽的底栏挤爆）。 */
+  font-family: var(
+    --app-font-family,
+    'JetBrains Maple Mono',
+    'Maple Mono NF CN',
+    'Microsoft YaHei UI',
+    sans-serif
+  );
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 背景跟随设置页「窗口材质」。主窗体由 DWM 合成系统材质，而悬浮窗是
+   transparent + frameless，拿不到 DWM 材质（见 docs/SPECS/electron-glass-effects-research.md），
+   因此按同一份 material 取值把每种材质的观感映射成 CSS 预设：
+     none    → 与主进程 opaqueFallbackBg() 完全一致的不透明底色
+     auto/mica → 壁纸亮度驱动的浅蓝灰 / 深墨（DWM Mica 的口径）
+     tabbed  → 叠加强调色 tint（Mica Tabbed 的更强染色）
+     acrylic → 更高通透度 + 磨砂高光（透明窗无法采样桌面做实时模糊，用视觉近似）
+   统一用 wallpaperLuma 在浅/深两套底之间插值，圆角仍由 border-radius 抗锯齿。 */
+/* 玻璃底色抽成共享类：底栏面板与悬停卡片用同一套材质预设，避免两处色值漂移 */
+.touchbar-surface {
+  --tb-glass-light: rgb(237 241 249 / 0.86);
+  --tb-glass-dark: rgb(20 23 31 / 0.86);
+  --tb-rim-light: rgb(18 22 32 / 0.1);
+  --tb-rim-dark: rgb(255 255 255 / 0.14);
+  --tb-accent-mix: 0%;
+  background: color-mix(
+    in srgb,
+    var(--color-radial-accent, #3b82f6) var(--tb-accent-mix),
+    color-mix(
+      in srgb,
+      var(--tb-glass-light) calc(var(--wallpaper-luma) * 100%),
+      var(--tb-glass-dark)
+    )
+  );
+  /* 外阴影会被透明窗口边界裁断，形成一圈发虚的灰晕；改用内描边 + 顶部高光收边 */
+  box-shadow:
+    inset 0 0 0 1px var(--tb-rim-light),
+    inset 0 1px 0 rgb(255 255 255 / 0.4);
+  /* 透明窗口上的 backdrop-filter 会在圆角外扩一圈模糊采样，形成羽毛边 */
+  isolation: isolate;
+}
+
+.hw-dark .touchbar-surface {
+  box-shadow:
+    inset 0 0 0 1px var(--tb-rim-dark),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.touchbar-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--tb-radius);
+  overflow: hidden;
+}
+
+/* ── 材质预设 ── */
+.touchbar-root[data-material='none'] .touchbar-surface {
+  background: #eef4ff;
+}
+
+.touchbar-root.hw-dark[data-material='none'] .touchbar-surface {
+  background: #0d0d14;
+}
+
+.touchbar-root[data-material='tabbed'] .touchbar-surface {
+  --tb-accent-mix: 13%;
+}
+
+.touchbar-root[data-material='acrylic'] .touchbar-surface {
+  --tb-glass-light: rgb(228 236 250 / 0.68);
+  --tb-glass-dark: rgb(16 20 30 / 0.68);
+  --tb-accent-mix: 6%;
+  background-image: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.24),
+    rgb(255 255 255 / 0) 46%,
+    rgb(255 255 255 / 0.1)
+  );
+}
+
+/* ── 底栏 ── */
+.touchbar-bar-row {
+  display: flex;
+  align-items: center;
+  /* 行高来自 shared/touchbar.ts（渲染层注入 CSS 变量），控件高 = 行高 − 2 × inset */
+  height: var(--tb-bar-h, 56px);
+  padding: 0 var(--tb-inset);
+  gap: 4px;
+  min-width: 0;
+}
+
+.touchbar-flex-spacer {
+  flex: 1;
+}
+
+/* 悬停触发区：包裹系统项，不改变底栏的 flex 排布 */
+.touchbar-hover-slot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+/* ── 系统项按钮 ── */
+.touchbar-sys-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: calc(var(--tb-bar-h, 56px) - var(--tb-inset) - var(--tb-inset));
+  padding: 0 8px;
+  border: none;
+  /* 同心圆角：20px 外圆角 − 10px 四边留白 = 10px */
+  border-radius: var(--tb-control-radius);
+  background: rgb(255 255 255 / 0.62);
+  box-shadow: inset 0 0 0 1px rgb(18 22 32 / 0.05);
+  color: var(--color-radial-icon, #1e293b);
+  font-size: 1em;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.15s ease;
+}
+
+/* 图标槽固定：SVG 不被 flex 压缩，切换图标（Wi-Fi / Loader / 电池充电）
+   时槽宽不变，是「不抖动」的第一层保证 */
+.touchbar-sys-btn svg,
+.touchbar-expand-btn svg {
+  flex: 0 0 auto;
+}
+
+/* ── 数值定宽槽：位数变化不再改变按钮宽度 ──
+   9% / 100% / --% 都落在同一个 4ch 的右对齐槽里；配合等宽的 Maple Mono
+   与 tabular-nums，CPU/内存/电池/音量每秒刷新时整条底栏不会左右跳动。 */
+.tb-num {
+  display: inline-block;
+  min-width: 4ch;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 音量不带 % 后缀，3 位足够（0-100 / --） */
+.tb-num-short {
+  min-width: 3ch;
+}
+
+.hw-dark .touchbar-sys-btn {
+  background: rgb(255 255 255 / 0.08);
+  color: #e2e8f0;
+}
+
+.touchbar-sys-btn:hover {
+  background: rgb(255 255 255 / 0.8);
+  box-shadow: 0 0 0 1px rgb(59 130 246 / 0.35);
+}
+
+.hw-dark .touchbar-sys-btn:hover {
+  background: rgb(255 255 255 / 0.16);
+}
+
+.touchbar-sys-btn:active {
+  transform: scale(0.96);
+}
+
+.touchbar-sys-btn.dim,
+.touchbar-sys-btn .dim {
+  opacity: 0.45;
+}
+
+.touchbar-clock {
+  display: inline-block;
+  min-width: 5ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* ── 右侧图标按钮（别针 / 展开） ── */
+.touchbar-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: calc(var(--tb-bar-h, 56px) - var(--tb-inset) - var(--tb-inset));
+  border: none;
+  border-radius: var(--tb-control-radius);
+  background: transparent;
+  color: var(--color-radial-icon, #1e293b);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.hw-dark .touchbar-expand-btn {
+  color: #e2e8f0;
+}
+
+.touchbar-expand-btn:hover {
+  background: rgb(255 255 255 / 0.5);
+}
+
+.hw-dark .touchbar-expand-btn:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+/* 别针：置顶态用强调色高亮，非置顶态淡出 */
+.touchbar-pin-btn.is-pinned {
+  color: var(--color-radial-accent, #3b82f6);
+  background: color-mix(in srgb, var(--color-radial-accent, #3b82f6) 14%, transparent);
+}
+
+.touchbar-pin-btn.is-pinned:hover {
+  background: color-mix(in srgb, var(--color-radial-accent, #3b82f6) 24%, transparent);
+}
+
+.touchbar-pin-btn:not(.is-pinned) {
+  opacity: 0.55;
+}
+
+/* ── 展开面板 ── */
+.touchbar-panel-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* 72 = 52 控件 + 上下各 10 留白：图标底座 28px + 3px 间距 + 15px 标签
+     只剩 46px 内容高，52px 控件里还有 6px 呼吸空间，不会再被挤到裁切 */
+  height: var(--tb-panel-h, 72px);
+  /* 与底栏同一条内容安全线，展开态上下两行的左右留白严格对齐 */
+  padding: 0 var(--tb-inset);
+  min-width: 0;
+  border-bottom: 1px solid rgb(0 0 0 / 0.06);
+}
+
+.hw-dark .touchbar-panel-row {
+  border-bottom-color: rgb(255 255 255 / 0.08);
+}
+
+.touchbar-app-btn {
+  /* 按窗口宽度等分整行：无论入口数量多少都均匀填满 */
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: calc(var(--tb-panel-h, 72px) - var(--tb-inset) - var(--tb-inset));
+  border: none;
+  border-radius: var(--tb-control-radius);
+  /* 底色比系统项更淡，让彩色图标底座成为视觉焦点 */
+  background: rgb(255 255 255 / 0.36);
+  box-shadow: inset 0 0 0 1px rgb(18 22 32 / 0.045);
+  color: var(--color-radial-icon, #1e293b);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.hw-dark .touchbar-app-btn {
+  background: rgb(255 255 255 / 0.055);
+  color: #e2e8f0;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+.touchbar-app-btn:hover {
+  background: rgb(255 255 255 / 0.72);
+}
+
+.hw-dark .touchbar-app-btn:hover {
+  background: rgb(255 255 255 / 0.13);
+}
+
+.touchbar-app-btn:active {
+  transform: scale(0.95);
+}
+
+/* ── 快捷入口图标底座 ──
+   统一 28×28 squircle：淡主题色底 + 同色细描边 + 1.9 线宽矢量图标。
+   固定尺寸且 flex:0 0 auto，图标不会被列布局压缩；底座不设 overflow:hidden，
+   自定义程序用彩色 emoji 时字形也不会被裁掉上下半截。 */
+.tb-app-tile {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--tb-tile-radius);
+  color: var(--tb-tint, #3b82f6);
+  background: color-mix(in srgb, var(--tb-tint, #3b82f6) 15%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tb-tint, #3b82f6) 24%, transparent);
+  transition:
+    background 0.16s ease,
+    transform 0.16s ease;
+}
+
+.tb-app-tile svg {
+  flex: 0 0 auto;
+}
+
+.touchbar-app-btn:hover .tb-app-tile {
+  background: color-mix(in srgb, var(--tb-tint, #3b82f6) 28%, transparent);
+  transform: translateY(-1px) scale(1.06);
+}
+
+.hw-dark .tb-app-tile {
+  /* 深色壁纸下把主题色向白提亮，保证与底色有足够对比 */
+  color: color-mix(in srgb, var(--tb-tint, #3b82f6) 72%, white);
+  background: color-mix(in srgb, var(--tb-tint, #3b82f6) 22%, transparent);
+}
+
+.tb-app-emoji {
+  /* 行框显式大于字形，避免 Segoe Color Emoji 在 line-height:1 下被裁 */
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.touchbar-app-label {
+  font-size: 12px;
+  line-height: 15px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.touchbar-panel-empty {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-dim, rgb(18 22 32 / 0.5));
+}
+
+/* ── 悬停详情卡片 ── */
+/* 卡片在 .touchbar-panel 之外，避免被面板 overflow:hidden 裁掉；
+   overflow 保持 visible，让底部指向图标的小箭头能画到卡片外面 */
+.touchbar-popover {
+  position: absolute;
+  width: 264px;
+  max-height: 178px;
+  /* 与主面板共用同一外圆角 + 四边 10px 留白，卡片内部按钮也用 10px 圆角：
+     两张玻璃面的弧线层级完全一致，不再出现「卡片比窗体圆 / 方」的错位 */
+  padding: var(--tb-inset) var(--tb-inset) calc(var(--tb-inset) - 1px);
+  border-radius: var(--tb-radius);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: visible;
+  color: var(--color-radial-icon, #1e293b);
+  font-size: 11px;
+  z-index: 5;
+  transform-origin: bottom center;
+  /* 进场：淡入 + 从底栏方向轻微上滑 + 缩放，避免「啪」地一下硬出现 */
+  animation: touchbar-popover-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 离场淡出：淡出期间卡片仍挂载并占着扩窗高度，动画结束才卸载 + 收窗 */
+.touchbar-popover.is-leaving {
+  animation: touchbar-popover-out 0.16s ease-in both;
+  pointer-events: none;
+}
+
+/* 卡片承载多行文字，比底栏更实心：把玻璃底 alpha 提到 0.97，
+   避免背后窗口的内容透过玻璃与卡片文字叠在一起；材质 tint 仍沿用同一套变量 */
+.touchbar-root .touchbar-popover.touchbar-surface {
+  --tb-glass-light: rgb(237 241 249 / 0.97);
+  --tb-glass-dark: rgb(20 23 31 / 0.97);
+}
+
+.hw-dark .touchbar-popover {
+  color: #e2e8f0;
+}
+
+.touchbar-popover-arrow {
+  position: absolute;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  /* 卡片内容切换时箭头平滑跟随触发图标，而不是瞬移 */
+  transition: left 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(-50%) rotate(45deg);
+  background: inherit;
+  border-right: 1px solid var(--tb-rim-light, rgb(18 22 32 / 0.1));
+  border-bottom: 1px solid var(--tb-rim-light, rgb(18 22 32 / 0.1));
+}
+
+.hw-dark .touchbar-popover-arrow {
+  border-right-color: var(--tb-rim-dark, rgb(255 255 255 / 0.14));
+  border-bottom-color: var(--tb-rim-dark, rgb(255 255 255 / 0.14));
+}
+
+.touchbar-popover-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tb-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tb-title svg {
+  color: var(--color-radial-accent, #3b82f6);
+}
+
+.tb-badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  /* 卡片里的数值徽标定宽，音量 9%→100% 时标题行不会左右抽动 */
+  min-width: 5ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  background: rgb(255 255 255 / 0.55);
+}
+
+.tb-badge-ok {
+  background: color-mix(in srgb, var(--color-radial-accent, #3b82f6) 18%, transparent);
+}
+
+.tb-badge-warn {
+  background: rgb(217 119 6 / 0.18);
+  color: #b45309;
+}
+
+.hw-dark .tb-badge-warn {
+  color: #fbbf24;
+}
+
+.touchbar-popover-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  /* 由 key={itemKey} 触发：在图标间切换卡片内容时淡入，实时数值刷新不重放 */
+  animation: tb-body-in 0.2s ease both;
+}
+
+.tb-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 15px;
+}
+
+.tb-row-label {
+  flex: 0 0 auto;
+  opacity: 0.6;
+}
+
+.tb-row-value {
+  min-width: 0;
+  max-width: 168px;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.tb-meter {
+  height: 5px;
+  border-radius: 999px;
+  background: rgb(18 22 32 / 0.1);
+  overflow: hidden;
+}
+
+.hw-dark .tb-meter {
+  background: rgb(255 255 255 / 0.16);
+}
+
+.tb-meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-radial-accent, #3b82f6);
+  transition: width 0.2s ease;
+}
+
+.tb-slider {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--color-radial-accent, #3b82f6);
+  cursor: pointer;
+}
+
+.tb-device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tb-device {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 16px;
+}
+
+.tb-device-icon {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+.tb-device-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-device-battery {
+  flex: 0 0 auto;
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.tb-empty {
+  padding: 2px 0;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.touchbar-popover-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: auto;
+}
+
+.tb-action {
+  flex: 1 1 0;
+  min-width: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 25px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--tb-control-radius);
+  background: rgb(255 255 255 / 0.62);
+  box-shadow: inset 0 0 0 1px rgb(18 22 32 / 0.07);
+  color: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.hw-dark .tb-action {
+  background: rgb(255 255 255 / 0.09);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+.tb-action:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.9);
+}
+
+.hw-dark .tb-action:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.18);
+}
+
+.tb-action:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.tb-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+@keyframes touchbar-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes touchbar-popover-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes tb-body-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 系统开启「减少动态效果」时只保留瞬时显隐，进出逻辑本身不变 */
+@media (prefers-reduced-motion: reduce) {
+  .touchbar-popover,
+  .touchbar-popover.is-leaving,
+  .touchbar-popover-body {
+    animation-duration: 0.01ms;
+  }
+
+  .touchbar-popover-arrow {
+    transition: none;
+  }
+}
+
+/* ── Toast 反馈 ── */
+.touchbar-toast {
+  position: absolute;
+  top: -34px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  color: #fff;
+  background: rgb(15 23 42 / 0.85);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.25);
+  animation: touchbar-toast-in 0.18s ease;
+}
+
+.touchbar-toast-warn {
+  background: rgb(217 119 6 / 0.95);
+}
+
+@keyframes touchbar-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ── 通用 ── */
+.spin {
+  animation: touchbar-spin 0.8s linear infinite;
+}
+
+@keyframes touchbar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 告警脉冲（Wi-Fi 无互联网等错误级状态） */
+.hw-alert-pulse {
+  animation: touchbar-alert-pulse 0.9s ease-in-out infinite;
+  color: #f43f5e;
+}
+
+@keyframes touchbar-alert-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

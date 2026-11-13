@@ -2,6 +2,47 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。每次发布（`npm run release` 或手动打 `v*` 标签）时同步更新本文件。
 
+## [未发布]
+
+### 新增
+
+- ✨ feat: 新增 Touch Bar 悬浮窗形态 — 参考 macOS Touch Bar 的常驻长条底栏（560×56，展开向上生长至 128）：系统状态常驻（时钟 / CPU / 内存 / 电池电量）、快捷开关（点击 Wi-Fi / 蓝牙图标直接切换，主进程经 wlanapi / netsh 与 PnP 命令实现）、音量 / 亮度控制（点击进系统设置、滚轮调节）、WorkPulse 功能入口与自定义程序启动
+- ✨ feat: 悬浮窗支持形态切换 — 设置「悬浮窗」新增「径向菜单 / Touch Bar」切换（`widget_mode`），切换即时生效并持久化；Touch Bar 显示项可单独开关，自定义程序与径向菜单共用
+- ✨ feat: 主进程新增系统快捷控制模块 — `system-controls.ts` 提供系统音量（winmm）、媒体键与音量键（user32）、显示器亮度（WMI）、Wi-Fi 开关（wlanapi `WlanSetInterface` + netsh 回退）、蓝牙开关（PnP 设备命令）能力，供 Touch Bar 与后续功能复用
+- ✨ feat: Touch Bar 背景跟随设置页「窗口材质」 — 主进程在预览 / 应用材质时经 `appBus` 广播同一份 `window_material`，悬浮窗按 `data-material` 切换 CSS 预设：`none` 与主进程 `opaqueFallbackBg()` 同色不透明底、`auto`/`mica` 壁纸亮度驱动的浅蓝灰 / 深墨、`tabbed` 叠强调色 tint、`acrylic` 提高通透度并加磨砂高光（透明 frameless 窗口拿不到 DWM 材质，按项目玻璃效果规范做同口径视觉对齐）
+- ✨ feat: Touch Bar 新增别针按钮支持置顶 / 非置顶切换 — `touchbar:get-pinned` / `touchbar:set-pinned` IPC 控制 `setAlwaysOnTop`，状态持久化到 `touchbar_pinned`；置顶态用强调色高亮 `Pin`，非置顶态显示 `PinOff`，并修正原先 `enforceOnTop` / `showTouchbarWindow` 无条件抬到 `screen-saver` 层级导致切换被立刻覆盖的问题
+- 🌈 style: Touch Bar 展开面板的快捷入口改为按窗口宽度等分 — `flex: 1 1 0` 让所有入口按钮均匀填满整行，入口数量变化时不再固定 58px 堆叠
+- ✨ feat: Touch Bar 系统项新增悬停详情卡片 — 鼠标停在 Wi-Fi / 蓝牙 / 音量 / 电池 / CPU / 内存 / 亮度 / 时钟上向上弹出卡片，展示当前连接设备与实时数值：Wi-Fi（SSID / 信号 / 互联网 / 本机 IPv4 / 有线网）、蓝牙（已连接外设名称与电量）、音量（默认输出设备 + 可拖动滑块）、电池（充电 / 供电 / 节能）、CPU 与内存（型号 / 核心数 / 已用总量）、亮度、完整日期时间；每张卡片附快捷操作（开关 Wi-Fi / 蓝牙、音量 ±10 与静音、亮度 ±10%、系统设置页、任务管理器）
+- ✨ feat: 主进程新增设备详情采集 — `device-details.ts` 汇总默认音频输出设备名（winmm `waveOutGetDevCapsW`）、本机 IPv4、CPU 型号与核心数、显示器亮度（WMI 只读），亮度走「后台预取 + 30s 缓存 + 回填广播」，卡片首帧无等待；`system-controls.ts` 同步补上只读亮度与打开任务管理器能力
+- ✨ feat: 悬停卡片与透明窗口协同扩窗 — 新增 `touchbar:set-popover` IPC 与共享高度常量 `TOUCHBAR_POPOVER_H`，卡片出现时主进程把窗口向上扩展、底栏屏幕位置不变；窗口隐藏 / 重载时自动复位卡片，避免残留透明区域
+- ✨ feat: 全程序统一 JetBrains Maple Mono / 12px，并在设置页新增字体与字号选择 — `shared/typography.ts` 定义 7 组字体预设与字号白名单（settings 只存预设 id，主进程按白名单映射 font-family 链后再注入，避免任意 CSS 注入）；主进程 `font-preferences.ts` 经 `app.on('web-contents-created')` + `did-finish-load` 对所有窗口 `insertCSS`，覆盖主窗口 / Touch Bar / 径向菜单 / 每日摘要 / 截图浮层；切换时经 `FONT_CHANGED` 广播即时重刷（先移除旧 CSS key 再插入，不叠加），配置持久化到 `app_font_family` / `app_font_size`
+- 🌈 style: Tailwind v4 `--default-font-family` 指向 `--font-sans` — 此前 `@theme` 虽写了 Maple Mono，但 preflight 的 `html` 字体取自默认变量，实际渲染仍是系统 UI；修正后源码默认值与运行时注入值口径一致
+- 🌈 style: 重新设计 Touch Bar 快捷入口图标 — 6 个内置入口由彩色 emoji 改为统一 1.9 线宽的矢量线性图标（`NotebookPen` / `ListTodo` / `CalendarDays` / `Sparkles` / `ScanLine` / `Settings2`），外套 28×28 圆角底座，每个入口一个主题色（浅色底用深色 tint、深色壁纸下自动向白提亮），hover 时底座加深并轻微上浮；自定义程序保留用户设置的 emoji 但套用同一底座，未设置时用 `AppWindow` 兜底
+- 🌈 style: 悬浮窗图标改为单一数据源 — 新增 `WidgetIcon.tsx`（14 个内置 key 的图标 / 主题色 / 短标签 + 程序兜底），Touch Bar 底栏系统项、展开面板快捷入口、径向菜单扇区、设置页「悬浮窗」两列全部从同一张表取图标；设置页 8 个系统项不再统一显示 ⚙️，径向菜单不再用彩色 emoji，三处风格与配色完全一致。底座按场景分三种尺寸（28 / 24 / 无底座），`memo` 掉纯展示节点避免每秒 `hw-stats` 推送时重渲染
+
+### 修复
+
+- 🐞 fix: 修复 Touch Bar 悬浮窗空白不显示 — preload 直接把 `ipcRenderer.invoke` 的原始 `IpcResult`（`{ ok, data }`）交给渲染层，组件当数组用触发 `items.filter is not a function` 并中断整棵 React 树；`preload/touchbar.ts` 全部 IPC 调用统一经 `invoke()` 解出 `.data`，与 `window.api` 行为对齐
+- 🐞 fix: 修复 Touch Bar 读取电池失败 — `navigator.getBattery` 被解构后单独调用丢失 `this`，报 `Illegal invocation`；改为挂 `navigator` 上调用，并补 `catch` 兜底与监听解绑
+- 🐞 fix: 修复媒体键与静音按键无效 — `system-controls.ts` 的 `keybd_event` 签名使用 koffi 不支持的 `byte` 类型，签名解析失败导致 `sendVirtualKey` 全程空转；改为 `uint8`/`uint32` 后可正常发送 `VK_MEDIA_*` 与 `VK_VOLUME_MUTE`
+- 🐞 fix: 修复 Touch Bar 圆角呈阶梯、边缘发虚 — 主进程原用每行 1px 的矩形条带拼圆角 `setShape`，Windows 逐条合成出锯齿与灰色羽化边，外阴影又被窗口区域裁断形成一圈灰晕；改为完整矩形窗口 + CSS `border-radius`/`overflow:hidden` 抗锯齿，去掉外阴影与透明窗上的 `backdrop-filter`，改用 1px 内描边 + 顶部高光收边
+- 🌈 style: Touch Bar 背景对齐主窗体 mica — 玻璃底改为壁纸亮度驱动的浅蓝灰 / 深墨插值，壁纸亮度采集失败时不再取 0.5（会混成中灰）而跟随系统主题；底栏与应用按钮补淡描边，保证浅底上的层次
+- 🐞 fix: 修复 Touch Bar 展开 / 悬停卡片时位置记忆被写偏 — 窗口向上扩高后 `savePosition()` 直接存 `bounds.y`，下次启动会把底栏放到偏上的位置；改为换算并保存「底栏顶边」的 y，与创建窗口时的坐标口径一致
+- 🐞 fix: 修复设置页「窗口材质 → 应用」按钮点击无反应 — 主进程 `set-window-material` 返回 `ok(undefined)`，preload unwrap 后为 `undefined`，而设置页按 `res?.success` 判定成功，导致材质其实已落盘生效但页面不更新选中态、不结束预览态、不弹提示；主进程改为返回 `ok({ success: true })`，设置页改为以 Promise 是否 resolve 判定成功（失败由 preload 直接 throw）并补错误提示
+- 🐞 fix: 修复 Touch Bar 数值位数变化导致整条底栏左右抖动 — CPU / 内存 / 电池 / 音量的百分比此前是自由宽度文本，`9%` ↔ `100%` 会改变按钮宽度并挤压 spacer，右侧别针 / 展开按钮跟着位移；新增 `.tb-num` 定宽槽（`min-width: 4ch` + `tabular-nums` + 右对齐）、时钟 `5ch`、图标槽 `flex: 0 0 auto`，亮度 busy 由插入 `…` 字符改为图标旋转，卡片数值徽标同步定宽
+- 🌈 style: Touch Bar 按主流同心圆角（concentric radius）重做内边距 — 依 Apple HIG / SwiftUI `ConcentricRectangle` 的「内圆角 = 外圆角 − d」，d 是内容到外框四边的**同一个**距离。最终口径：外圆角 20px（主面板与悬停卡片统一）、四边留白 10px、内部控件 10px；行高 56 / 72，控件高 = 行高 − 2×10（36 / 52）
+- 🐞 fix: 修复「窗体圆角与内部内容圆角不协调」 — 旧版水平留白 18px、垂直留白 9px 却统一套 9px 内圆角，左右两条弧线与外框不同心；且卡片用 16px 外圆角、主面板 18px，两张玻璃面圆角层级不一致。现改为四边等距 10px + 主面板 / 卡片共用 20px 外圆角 + 同一组内部控件圆角 token，每层弧线严格平行，底栏与展开行左右留白也对齐
+- 🐞 fix: 修复快捷入口图标被裁掉上半截 — 展开行仅 54px、按钮 36px，却要塞进 18px 彩色 emoji（`line-height: 1` 下字形实际更高）与 10px 标签，flex 列把图标挤到溢出、上下被切；展开行加高到 72px（按钮 52px），图标换成固定 28×28 底座且 `flex: 0 0 auto`、底座不设 `overflow: hidden`，标签 12px/15px 行高，内容 46px 仍有 6px 呼吸空间
+- 🐞 fix: Touch Bar 几何改为单一数据源 — `shared/touchbar.ts` 新增 `TOUCHBAR_W` / `TOUCHBAR_BAR_H` / `TOUCHBAR_PANEL_H` / `TOUCHBAR_EXPANDED_H`，主进程 bounds 与渲染层 root 高度共用；行高再以 CSS 变量 `--tb-bar-h` / `--tb-panel-h` 注入，控件高度由 CSS `calc()` 反算，改高度不必再同步四处硬编码。展开态窗口高度 110 → 128，卡片叠加时 128 → 324
+- 🐞 fix: 移除 Touch Bar 上残留的原生 `title` 提示（别针 / 展开 / 快捷入口） — 悬浮窗是 `focusable: false` 的透明窗，原生 tooltip 会以系统白框浮在窗口外、破坏观感；改为 `aria-label` 保留无障碍语义
+- ⚡ perf: Touch Bar 悬停详情卡片全面防抖节流 — 旧实现 `mouseenter` 立即弹卡片，鼠标扫过 8 个系统项会连续触发扩窗 IPC → 主进程反复 `setBounds` → `move` 事件 → 写位置记忆，透明窗口持续重合成导致明显卡顿。现在：① 只有首次展开发一次 `setPopover(true)`，图标间切换走 90ms 短防抖且只换内容、不重复扩窗；② `key/left/arrow` 合并成一个 state，一次 hover 只触发一次重渲染；③ 事件回调引用稳定 + `WidgetIcon` memo，配合每秒 `hw-stats` 不再重绑 8 个闭包；④ 主进程按「请求的几何」去重，同一状态只下发一次 `setBounds`；⑤ 窗口隐藏 / 组件卸载时清理全部定时器
+- 🐞 fix: 回退「悬停 2 秒再显示」并修复卡片显示后自动关闭 — 2 秒计时与透明窗扩高重排相撞，Chromium 重新做鼠标命中测试时会误派一次 `mouseleave`，鼠标仍停在图标上却触发关闭宽限，卡片弹出后自己收起。改为移入即显示；关闭只由「离开整个 root」触发，并在短宽限后连续 3 次复核浏览器自己维护的 `:hover` 真实状态（淡出结束前再复核一次），过滤瞬时假离开；鼠标折返可直接取消淡出
+- 🌈 style: 悬停卡片加入过渡动画 — 进场 0.22s 淡入 + 上滑 8px + 轻微缩放（`cubic-bezier(0.16,1,0.3,1)`），离场 0.16s 淡出；图标间切换时内容区按 `key` 淡入、箭头位置 0.2s 平滑跟随；淡出期间卡片保持挂载与扩窗高度，动画结束才卸载并收窗；`prefers-reduced-motion` 下自动跳过动画等待
+
+### 移除
+
+- 🗑️ remove: 移除整个 Touch Bar 媒体控制组 — 删除底栏上一曲 / 下一曲按钮、`media` 显示项与 `touchbar:media` IPC、`VK_MEDIA_*` 常量；旧配置中残留的 `media` 项在读取与保存时自动过滤，设置页不再显示该开关
+
 ## [0.3.11] - 2026-11-10
 
 ### 新增

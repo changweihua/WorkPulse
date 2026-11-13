@@ -43,8 +43,8 @@ const DEBOUNCE_THRESHOLD_PCT = 1;
 /** 推送时间兜底（毫秒）：距上次推送达到该时长即使无变化也强制推送，避免缓慢连续变化被饿死 */
 const PUSH_FALLBACK_MS = 3000;
 
-/** 推送目标窗口 */
-let targetWin: BrowserWindow | null = null;
+/** 推送目标窗口集合（径向菜单 / Touch Bar 可能并存，广播给全部存活窗口） */
+const targetWins = new Set<BrowserWindow>();
 /** 采样定时器（主进程定时器，非渲染进程） */
 let timer: ReturnType<typeof setInterval> | null = null;
 /** suspend/resume 监听是否已注册（避免重复注册） */
@@ -270,13 +270,18 @@ function networkSignature(
   };
 }
 
-/** 执行一次采样，按去抖规则推送到目标窗口 */
+/** 执行一次采样，按去抖规则推送到全部目标窗口 */
 function tick(): void {
-  const win = targetWin;
-  if (!win || win.isDestroyed()) {
-    // 窗口已销毁：停止采样并清理状态
+  // 清理已销毁的窗口；没有存活窗口则停止采样
+  let alive = false;
+  for (const win of targetWins) {
+    if (!win.isDestroyed()) {
+      alive = true;
+      break;
+    }
+  }
+  if (!alive) {
     stopHwStats();
-    targetWin = null;
     return;
   }
   const cpu = sampleCpu();
@@ -336,12 +341,10 @@ function tick(): void {
       return;
     }
   }
-  if (win.isDestroyed() || win.webContents.isDestroyed()) {
-    stopHwStats();
-    targetWin = null;
-    return;
+  for (const win of targetWins) {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) continue;
+    win.webContents.send(HW_STATS_CHANNEL, stats);
   }
-  win.webContents.send(HW_STATS_CHANNEL, stats);
   lastSent = {
     cpu: stats.cpu,
     memUsedPct: stats.memUsedPct,
@@ -363,19 +366,25 @@ function bindPowerListeners(): void {
   powerBound = true;
   // 休眠时暂停采样
   powerMonitor.on('suspend', () => stopHwStats());
-  // 恢复后重启采样（窗口仍存活才重启）
+  // 恢复后重启采样（有存活窗口才重启）
   powerMonitor.on('resume', () => {
-    const win = targetWin;
-    if (win && !win.isDestroyed()) startHwStats(win);
+    let anyAlive = false;
+    for (const win of targetWins) {
+      if (!win.isDestroyed()) {
+        anyAlive = true;
+        break;
+      }
+    }
+    if (anyAlive) startHwStats();
   });
 }
 
 /**
  * 启动硬件状态采样与推送。
- * 重复调用只切换目标窗口，不会叠加定时器。
+ * 重复调用只是登记新窗口，不会叠加定时器。
  */
-export function startHwStats(win: BrowserWindow): void {
-  targetWin = win;
+export function startHwStats(win?: BrowserWindow | null): void {
+  if (win) targetWins.add(win);
   bindPowerListeners();
   startChargingPoll(); // 充电 / 节能状态轮询（1s，独立于采样定时器，幂等）
   if (timer) return; // 已在采样中
@@ -384,8 +393,15 @@ export function startHwStats(win: BrowserWindow): void {
   tick(); // 立即推送首帧，避免 UI 等待 1 秒
 }
 
-/** 停止硬件状态采样（系统休眠 / 窗口销毁时调用），并复位采样状态避免二次启动沿用旧数据 */
-export function stopHwStats(): void {
+/** 停止硬件状态采样：可指定窗口（径向 / Touch Bar 各自销毁时只注销自己） */
+export function stopHwStats(win?: BrowserWindow | null): void {
+  if (win) {
+    targetWins.delete(win);
+    // 仍有其他目标窗口存活：保持采样继续
+    for (const w of targetWins) {
+      if (!w.isDestroyed()) return;
+    }
+  }
   stopChargingPoll(); // 停充电 / 节能轮询并复位缓存值
   if (timer) {
     clearInterval(timer);

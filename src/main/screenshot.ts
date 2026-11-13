@@ -27,6 +27,8 @@ import { homedir } from 'os';
 import { is } from '@electron-toolkit/utils';
 import log from 'electron-log/main';
 import { hideRadialWindow, getRadialWindow, isRadialEnabled } from './radial-window';
+import { hideTouchbarWindow, getTouchbarWindow } from './touchbar-window';
+import { getWidgetMode } from './widget-mode';
 import { showNotification } from './notification';
 import { guardedHandle, guardedQuery, assertValidSender } from './ipc-guard';
 import { ok } from '../shared/ipc-result';
@@ -124,8 +126,9 @@ async function startScreenshotCapture(): Promise<{ ok: boolean; error?: string }
   screenshotBusy = true;
 
   try {
-    // 1. 隐藏径向菜单（不销毁，便于后续重新显示）
+    // 1. 隐藏悬浮窗（径向菜单 / Touch Bar，不销毁，便于后续重新显示）
     hideRadialWindow();
+    hideTouchbarWindow();
     clearPendingClose();
     if (screenshotDestroyTimer) {
       clearTimeout(screenshotDestroyTimer);
@@ -628,7 +631,12 @@ function cancelScreenshot(): void {
   }
 
   screenshotBusy = false;
-  if (isRadialEnabled()) {
+  if (getWidgetMode() === 'touchbar') {
+    const tb = getTouchbarWindow();
+    if (tb && !tb.isDestroyed()) {
+      tb.show();
+    }
+  } else if (isRadialEnabled()) {
     const radial = getRadialWindow();
     if (radial && !radial.isDestroyed()) {
       radial.show();
