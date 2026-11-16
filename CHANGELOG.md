@@ -20,6 +20,10 @@
 - 🌈 style: 重新设计 Touch Bar 快捷入口图标 — 6 个内置入口由彩色 emoji 改为统一 1.9 线宽的矢量线性图标（`NotebookPen` / `ListTodo` / `CalendarDays` / `Sparkles` / `ScanLine` / `Settings2`），外套 28×28 圆角底座，每个入口一个主题色（浅色底用深色 tint、深色壁纸下自动向白提亮），hover 时底座加深并轻微上浮；自定义程序保留用户设置的 emoji 但套用同一底座，未设置时用 `AppWindow` 兜底
 - 🌈 style: 悬浮窗图标改为单一数据源 — 新增 `WidgetIcon.tsx`（14 个内置 key 的图标 / 主题色 / 短标签 + 程序兜底），Touch Bar 底栏系统项、展开面板快捷入口、径向菜单扇区、设置页「悬浮窗」两列全部从同一张表取图标；设置页 8 个系统项不再统一显示 ⚙️，径向菜单不再用彩色 emoji，三处风格与配色完全一致。底座按场景分三种尺寸（28 / 24 / 无底座），`memo` 掉纯展示节点避免每秒 `hw-stats` 推送时重渲染
 
+### 变更
+
+- 📦 deps: 升级 npm 依赖至最新稳定版并同步 package.json 版本范围 — 经 `npm-check-updates -u` 升级 22 个直接依赖（12 patch + 10 minor，无 major 破坏性变更）并重写版本范围后 `npm install`：electron 45.2.3→45.3.2、vite 8.3.5→8.3.8、`@vitejs/plugin-react` 6.2.0→6.3.0、better-sqlite3 13.0.3→13.2.0、koffi 3.3.6→3.3.8、openai 7.47.0→7.57.0、motion 14.9.0→14.14.0、lucide-react 1.66.0→1.73.0、zustand 5.0.16→5.1.0、mermaid 12.2.0→12.3.0、oxlint 1.90.0→1.93.0、javascript-obfuscator 5.9.1→5.10.1、lint-staged 17.6.0→17.6.1、`@iconify-json/lucide` 1.2.150→1.2.155、`@iconify-json/thesvg-color` 1.2.23→1.2.27、`@iconify-json/logos` 1.2.18→1.2.20、tailwindcss 与 `@tailwindcss/vite` 4.3.3→4.3.5、dotenv 18.0.9→18.0.10、feedparser 2.6.0→2.6.1、gpt-tokenizer 4.1.0→4.1.2、lunar-typescript 1.8.6→1.8.7；oxfmt 0.77.0→0.78.0 越过 `^0.77.0` 单独调整范围。npm 新版 `install-scripts` 拦截的原生模块脚本（extract-file-icon / onnxruntime-node / protobufjs）已放行（allowScripts 按包名批准、不锁版本）并 `npm rebuild` 完成。`typecheck` / `lint` / `build` / `format:check` 全部通过
+
 ### 修复
 
 - 🐞 fix: 修复 Touch Bar 悬浮窗空白不显示 — preload 直接把 `ipcRenderer.invoke` 的原始 `IpcResult`（`{ ok, data }`）交给渲染层，组件当数组用触发 `items.filter is not a function` 并中断整棵 React 树；`preload/touchbar.ts` 全部 IPC 调用统一经 `invoke()` 解出 `.data`，与 `window.api` 行为对齐
