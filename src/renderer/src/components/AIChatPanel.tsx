@@ -28,12 +28,13 @@ import { useAIPanelStore } from '../stores/aiPanelStore';
 import { useShallow } from 'zustand/react/shallow';
 import {
   recoverConversations,
+  recoverConfigs,
   saveConversation,
   onSyncEvent,
   deleteConversation as deleteConversationFromDB,
 } from '../lib/chat-storage';
 import { useStreamingReveal } from '../hooks/useStreamingReveal';
-import { encode as cl100kEncode } from 'gpt-tokenizer/encoding/cl100k_base';
+import { estimateTokens } from '../lib/tokenizer';
 
 // ─── Constants ────────────────────────────────────────────────────────────
 const INITIAL_MESSAGE_COUNT = 50;
@@ -114,21 +115,6 @@ interface Conversation {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────
-
-function estimateTokens(text: string): number {
-  if (!text) return 0;
-  try {
-    return cl100kEncode(text).length;
-  } catch {
-    let count = 0;
-    for (const ch of text) {
-      if (/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch)) count += 1.5;
-      else if (/[\u0800-\uFFFF]/.test(ch)) count += 2.5;
-      else count += 0.25;
-    }
-    return Math.ceil(count);
-  }
-}
 
 // ─── Sub-components ───────────────────────────────────────────────────────
 
@@ -359,7 +345,6 @@ export default function AIChatPanel() {
           loadedConfigId = globalConfig.activeChatConfigId || globalConfig.chatConfigs[0]?.id || '';
         } else {
           // 2. 全局配置为空，从旧 localStorage 恢复配置
-          const { recoverConfigs } = await import('../lib/chat-storage');
           const savedConfigs = await recoverConfigs('chatPanel');
           if (savedConfigs.length > 0) {
             // 从加密存储恢复 token
@@ -414,7 +399,6 @@ export default function AIChatPanel() {
         }
 
         // 4. 恢复会话列表
-        const { recoverConversations } = await import('../lib/chat-storage');
         const savedConversations = await recoverConversations('chatPanel');
         if (savedConversations.length > 0) {
           setConversations(savedConversations);

@@ -6,6 +6,9 @@
 
 ### 新增
 
+- ✨ feat: 报告页与周报页新增语音 TTS 播报 — 基于 Web Speech API 新增 `useTTS` hook 与 `TTSButtons` 按钮组（播报 / 暂停 / 继续 / 停止）：报告页播报 AI 报告正文（自动剥离 markdown、分句分片朗读、中英文语音自动匹配），周报页把结构化周报拼成朗读文案播报（统计概览、高光时刻、每日明细）；切换报告 / 重新生成时自动停止播报
+- ✨ feat: 设置页新增「语音播报」配置 — 音色（系统语音下拉，支持自动匹配）、音量、语速、音调滑块与试听按钮；配置存 `tts_voice` / `tts_volume` / `tts_rate` / `tts_pitch`（已加入 settings 白名单），每次播报前实时读取，保存后立即生效；指定音色失效时自动回退语言匹配
+
 - ✨ feat: 新增 Touch Bar 悬浮窗形态 — 参考 macOS Touch Bar 的常驻长条底栏（560×56，展开向上生长至 128）：系统状态常驻（时钟 / CPU / 内存 / 电池电量）、快捷开关（点击 Wi-Fi / 蓝牙图标直接切换，主进程经 wlanapi / netsh 与 PnP 命令实现）、音量 / 亮度控制（点击进系统设置、滚轮调节）、WorkPulse 功能入口与自定义程序启动
 - ✨ feat: 悬浮窗支持形态切换 — 设置「悬浮窗」新增「径向菜单 / Touch Bar」切换（`widget_mode`），切换即时生效并持久化；Touch Bar 显示项可单独开关，自定义程序与径向菜单共用
 - ✨ feat: 主进程新增系统快捷控制模块 — `system-controls.ts` 提供系统音量（winmm）、媒体键与音量键（user32）、显示器亮度（WMI）、Wi-Fi 开关（wlanapi `WlanSetInterface` + netsh 回退）、蓝牙开关（PnP 设备命令）能力，供 Touch Bar 与后续功能复用
@@ -22,6 +25,8 @@
 
 ### 变更
 
+- 🎈 perf: 延迟加载 cl100k_base 编码器，渲染主 chunk 从 3.98MB 降至 2.71MB（-32%） — 新增 `lib/tokenizer.ts` 统一管理 Token 估算：首次调用以字符数启发式快速估算并后台动态 import 3.2MB 的 cl100k_base 编码表，加载完成后自动切换精确计数；AIChatPanel 与 ChatPage 不再静态导入编码器，编码表拆成独立 1.3MB 异步 chunk 按需加载（Token 数仅用于界面估算展示，不参与计费）
+- 🦄 refactor: 消除 `INEFFECTIVE_DYNAMIC_IMPORT` 构建警告 — AIChatPanel 的动态 `import('../lib/chat-storage')` 改为复用顶部静态导入的 `recoverConfigs` / `recoverConversations`，ModelConfigPage 同理由动态改静态，避免同一模块动态 + 静态混合导入导致分包失效
 - 📦 deps: 升级 npm 依赖至最新稳定版并同步 package.json 版本范围 — 经 `npm-check-updates -u` 升级 22 个直接依赖（12 patch + 10 minor，无 major 破坏性变更）并重写版本范围后 `npm install`：electron 45.2.3→45.3.2、vite 8.3.5→8.3.8、`@vitejs/plugin-react` 6.2.0→6.3.0、better-sqlite3 13.0.3→13.2.0、koffi 3.3.6→3.3.8、openai 7.47.0→7.57.0、motion 14.9.0→14.14.0、lucide-react 1.66.0→1.73.0、zustand 5.0.16→5.1.0、mermaid 12.2.0→12.3.0、oxlint 1.90.0→1.93.0、javascript-obfuscator 5.9.1→5.10.1、lint-staged 17.6.0→17.6.1、`@iconify-json/lucide` 1.2.150→1.2.155、`@iconify-json/thesvg-color` 1.2.23→1.2.27、`@iconify-json/logos` 1.2.18→1.2.20、tailwindcss 与 `@tailwindcss/vite` 4.3.3→4.3.5、dotenv 18.0.9→18.0.10、feedparser 2.6.0→2.6.1、gpt-tokenizer 4.1.0→4.1.2、lunar-typescript 1.8.6→1.8.7；oxfmt 0.77.0→0.78.0 越过 `^0.77.0` 单独调整范围。npm 新版 `install-scripts` 拦截的原生模块脚本（extract-file-icon / onnxruntime-node / protobufjs）已放行（allowScripts 按包名批准、不锁版本）并 `npm rebuild` 完成。`typecheck` / `lint` / `build` / `format:check` 全部通过
 
 ### 修复
@@ -42,6 +47,12 @@
 - ⚡ perf: Touch Bar 悬停详情卡片全面防抖节流 — 旧实现 `mouseenter` 立即弹卡片，鼠标扫过 8 个系统项会连续触发扩窗 IPC → 主进程反复 `setBounds` → `move` 事件 → 写位置记忆，透明窗口持续重合成导致明显卡顿。现在：① 只有首次展开发一次 `setPopover(true)`，图标间切换走 90ms 短防抖且只换内容、不重复扩窗；② `key/left/arrow` 合并成一个 state，一次 hover 只触发一次重渲染；③ 事件回调引用稳定 + `WidgetIcon` memo，配合每秒 `hw-stats` 不再重绑 8 个闭包；④ 主进程按「请求的几何」去重，同一状态只下发一次 `setBounds`；⑤ 窗口隐藏 / 组件卸载时清理全部定时器
 - 🐞 fix: 回退「悬停 2 秒再显示」并修复卡片显示后自动关闭 — 2 秒计时与透明窗扩高重排相撞，Chromium 重新做鼠标命中测试时会误派一次 `mouseleave`，鼠标仍停在图标上却触发关闭宽限，卡片弹出后自己收起。改为移入即显示；关闭只由「离开整个 root」触发，并在短宽限后连续 3 次复核浏览器自己维护的 `:hover` 真实状态（淡出结束前再复核一次），过滤瞬时假离开；鼠标折返可直接取消淡出
 - 🌈 style: 悬停卡片加入过渡动画 — 进场 0.22s 淡入 + 上滑 8px + 轻微缩放（`cubic-bezier(0.16,1,0.3,1)`），离场 0.16s 淡出；图标间切换时内容区按 `key` 淡入、箭头位置 0.2s 平滑跟随；淡出期间卡片保持挂载与扩窗高度，动画结束才卸载并收窗；`prefers-reduced-motion` 下自动跳过动画等待
+- 🐞 fix: 修复 AI 模型配置保存后页面崩溃（`Cannot read properties of null (reading 'provider')`） — 新增模型保存后 `saveChat`/`saveEmbed` 只清空 `editing` 未复位 `chatIsNew`/`embedIsNew`，弹窗条件 `(editingChat || chatIsNew)` 仍成立，表单经非空断言拿到 null 读取 `provider` 崩溃；保存时同步复位新增标记，弹窗改为仅在 `editing` 非空时挂载，`onChange` 类型收紧为不可传 null
+- 🐞 fix: 消除 `console-message` 弃用警告 — Touch Bar 悬浮窗的控制台转发改用 Electron 新版 `Event<WebContentsConsoleMessageEventParams>` 事件对象签名（`level` 为字符串枚举、行号字段 `lineNumber`），不再使用已弃用的位置参数，dev / build 启动时不再打印 `(electron) 'console-message' arguments are deprecated`
+- 🔒 security: 加固 `read-model-file` IPC 与 `appmodel` 协议路径穿越 — 新增 `isPathInside()` 用 `path.relative` 判定目标是否落在根目录内（避免 `startsWith` 前缀绕过），`ReadModelFileSchema.fileName` 拒绝绝对路径与 `..` 段；模型文件读取与协议处理统一经守卫，防止越权读取任意本地文件
+- 🔒 security: 收窄 `dotnet:invoke` 方法调用面 — `DotnetInvokeSchema.method` 从任意字符串改为 z.enum 白名单（仅 Bridge.cs 暴露的 6 个方法），主进程再加 `DOTNET_ALLOWED_METHODS` 二次校验，禁止渲染进程枚举/调用 NativeBridge 上的任意方法
+- 🐞 fix: 解除 `.env` 的 git 跟踪（`git rm --cached`） — 该文件含 BARK_KEY 等本地密钥，虽已在 `.gitignore` 中但自 init 起被跟踪，一旦填入真实密钥即会入库；现从索引移除并保留工作区文件，杜绝误提交
+- 🌈 style: 消除全部 8 个 React lint 告警 — SettingsPage 的两处 ref 同步移入 effect、`persistFont` 补全 `toast` 依赖；screenshot-overlay 与 WorkLogPage 的 4 处渲染期读写 ref / effect 内 setState 属刻意的跨系统同步，加带理由的行级抑制注释；`oxlint` 现为 0 warning / 0 error
 
 ### 移除
 

@@ -129,6 +129,16 @@ function sendToRenderer(channel: string): void {
   }
 }
 
+/**
+ * 判断 target 是否位于 root 目录内（含 root 本身）。
+ * 用 path.relative 而非 startsWith，避免前缀绕过（如 /a/models-evil 会被误判落在 /a/models 内），
+ * 同时拦截 `..` 穿越与绝对路径逃逸。模型文件读取 IPC 与 appmodel 协议共用此守卫。
+ */
+function isPathInside(root: string, target: string): boolean {
+  const rel = path.relative(path.resolve(root), path.resolve(target));
+  return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
+}
+
 // ── 全局快捷键 ──
 
 function registerShortcut(accelerator: string, channel: string): boolean {
@@ -311,8 +321,22 @@ async function ensureDotNet(): Promise<void> {
   }
 }
 
+// Bridge.cs 通过 [JSExport] 暴露的方法白名单（camelCase），与 ipc-schemas 的 DotnetInvokeSchema 一致
+const DOTNET_ALLOWED_METHODS: ReadonlySet<string> = new Set([
+  'sayHello',
+  'getSystemInfo',
+  'getMemoryUsageMB',
+  'getPerformanceInfo',
+  'computeHash',
+  'computeFileHash',
+]);
+
 function registerDotnetIpc(): void {
   guardedHandle('dotnet:invoke', DotnetInvokeSchema, async (data) => {
+    // 显式白名单：禁止渲染进程枚举/调用 NativeBridge 上的任意方法
+    if (!DOTNET_ALLOWED_METHODS.has(data.method)) {
+      return fail('PERMISSION_DENIED', `方法不在白名单: ${data.method}`);
+    }
     await ensureDotNet();
     if (!dotnetLib?.NativeBridge) return fail('BUSINESS_ERROR', '.NET Bridge not loaded');
     const fn = dotnetLib.NativeBridge[data.method];
@@ -339,6 +363,10 @@ function registerModelFileIpc(): void {
       ? path.join(process.resourcesPath, 'models')
       : path.join(app.getAppPath(), 'resources', 'models');
     const filePath = path.join(basePath, data.fileName);
+    // 路径穿越防护：fileName 可能含子目录（如 ppocrv6-tiny/det.onnx），但不得逃出模型根目录
+    if (!isPathInside(basePath, filePath)) {
+      return fail('PERMISSION_DENIED', '非法模型文件路径');
+    }
     const buffer = await fs.readFile(filePath);
     return ok(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
   });
@@ -445,7 +473,7 @@ app.whenReady().then(async () => {
       let hit: { target: string; size: number } | null = null;
       for (const root of roots) {
         const target = path.normalize(path.join(root, rel));
-        if (!target.startsWith(root)) return new Response('Forbidden', { status: 403 });
+        if (!isPathInside(root, target)) return new Response('Forbidden', { status: 403 });
         let st: Awaited<ReturnType<typeof fs.stat>>;
         try {
           st = await fs.stat(target);

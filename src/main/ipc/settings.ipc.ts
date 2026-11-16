@@ -73,6 +73,11 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'search_mode',
   'widget_mode',
   'touchbar_items',
+  // 语音播报（TTS）：音色 voiceURI 与音量/语速/音调（百分比字符串）
+  'tts_voice',
+  'tts_volume',
+  'tts_rate',
+  'tts_pitch',
   FONT_FAMILY_SETTING_KEY,
   FONT_SIZE_SETTING_KEY,
 ]);

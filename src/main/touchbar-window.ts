@@ -349,9 +349,13 @@ export function createTouchbarWindow(_parent: BrowserWindow): BrowserWindow {
       `[TouchBar] render-process-gone reason=${details.reason} exitCode=${details.exitCode}`,
     );
   });
-  touchbarWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
-    if (level >= 2) {
-      log.warn(`[TouchBar] console[${level}] ${message} (${sourceId}:${line})`);
+  touchbarWindow.webContents.on('console-message', (details) => {
+    // 新版签名：参数集中在事件对象上（level 为 'info' | 'warning' | 'error' | 'debug' 字符串），
+    // 仅记录 warning / error 级别，与旧版 level >= 2 的过滤口径保持一致
+    if (details.level === 'warning' || details.level === 'error') {
+      log.warn(
+        `[TouchBar] console[${details.level}] ${details.message} (${details.sourceId}:${details.lineNumber})`,
+      );
     }
   });
 

@@ -538,6 +538,7 @@ function ScreenshotOverlay(): React.ReactNode {
               boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
             }}
           >
+            {/* oxlint-disable-next-line react/refs -- TOOLS 的 run 回调只在点击事件中执行，React Compiler 误判为渲染期读 ref，仅跳过优化不影响正确性 */}
             {TOOLS.map((t, i) => (
               <React.Fragment key={t.key}>
                 <ToolButton def={t} />

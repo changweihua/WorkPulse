@@ -2,6 +2,7 @@
  * IPC Input Validation Schemas
  * Validates all renderer→main IPC parameters at the boundary.
  */
+import path from 'path';
 import { z } from 'zod';
 
 // ─── Helper ────────────────────────────────────────────────────────────────
@@ -422,13 +423,28 @@ export const AppLanguageUpdateSchema = z.object({
   language: z.enum(['system', 'zh', 'en']),
 });
 
+// 与 index.ts 的 DOTNET_ALLOWED_METHODS 保持一致：仅允许 Bridge.cs [JSExport] 暴露的 6 个方法
 export const DotnetInvokeSchema = z.object({
-  method: z.string().min(1),
+  method: z.enum([
+    'sayHello',
+    'getSystemInfo',
+    'getMemoryUsageMB',
+    'getPerformanceInfo',
+    'computeHash',
+    'computeFileHash',
+  ]),
   args: z.array(z.unknown()).optional(),
 });
 
+// 拒绝绝对路径与 .. 穿越段（真正的根目录约束在 handler 内用 path.relative 完成）
 export const ReadModelFileSchema = z.object({
-  fileName: z.string().min(1),
+  fileName: z
+    .string()
+    .min(1)
+    .refine(
+      (name) => !path.isAbsolute(name) && !name.split(/[\\/]/).includes('..'),
+      '模型文件路径不合法',
+    ),
 });
 
 export const RadialNavigateToSchema = z.object({

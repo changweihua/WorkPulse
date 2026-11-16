@@ -12,6 +12,8 @@ import {
 import { getDateRange, type DatePreset } from '../lib/dateUtils';
 import { useI18n } from '../stores/languageStore';
 import { FadeIn } from '../components/Motion';
+import TTSButtons from '../components/common/TTSButtons';
+import { useTTS } from '../hooks/useTTS';
 
 interface WeeklyReport {
   period: { start: string; end: string };
@@ -68,7 +70,42 @@ function ReportsPage(): ReactNode {
   const [end, setEnd] = useState(() => getDateRange('this_week').to);
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<WeeklyReport | null>(null);
-  const { t } = useI18n();
+  const { t, resolvedLanguage } = useI18n();
+  // 语音播报控制器：重新生成时停止朗读
+  const tts = useTTS();
+
+  // 把结构化周报拼成适合朗读的纯文本（分隔符随界面语言切换）
+  const buildNarration = (data: WeeklyReport): string => {
+    const listSep = resolvedLanguage === 'zh' ? '、' : ', ';
+    const itemSep = resolvedLanguage === 'zh' ? '；' : '; ';
+    const parts: string[] = [
+      t('tts.weeklyIntro', { start: data.period.start, end: data.period.end }),
+      t('tts.weeklySummary', {
+        logs: data.summary.totalLogs,
+        done: data.summary.totalTasksDone,
+        active: data.summary.totalTasksActive,
+        meetings: data.summary.meetingsAttended,
+        days: data.summary.activeDays,
+      }),
+    ];
+    if (data.highlights.length > 0) {
+      parts.push(`${t('tts.weeklyHighlights')}${data.highlights.join(listSep)}`);
+    }
+    if (data.dailyBreakdown.length > 0) {
+      const days = data.dailyBreakdown
+        .map((d) =>
+          t('tts.weeklyDay', {
+            date: d.date,
+            logs: d.logs,
+            done: d.tasksDone,
+            meetings: d.meetings,
+          }),
+        )
+        .join(itemSep);
+      parts.push(`${t('tts.weeklyDaily')}${days}`);
+    }
+    return parts.join('\n');
+  };
 
   const applyPreset = (p: DatePreset): void => {
     setPreset(p);
@@ -79,6 +116,7 @@ function ReportsPage(): ReactNode {
 
   const handleGenerate = async (): Promise<void> => {
     if (!start || !end) return;
+    tts.stop();
     setLoading(true);
     try {
       const data = await window.api.report.weekly(start, end);
@@ -203,6 +241,7 @@ function ReportsPage(): ReactNode {
                 <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                   {t('reports.period')}: {report.period.start} {t('common.to')} {report.period.end}
                 </h3>
+                <TTSButtons tts={tts} text={buildNarration(report)} className="ml-auto" />
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                 <SummaryCard

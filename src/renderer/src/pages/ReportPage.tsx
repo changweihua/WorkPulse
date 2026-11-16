@@ -18,6 +18,8 @@ import { getDateRange, type DatePreset } from '../lib/dateUtils';
 import { useToast } from '../components/Toast';
 import { useI18n } from '../stores/languageStore';
 import { StreamedMarkdown, useStreamChat } from '../components/StreamedMarkdown';
+import TTSButtons from '../components/common/TTSButtons';
+import { useTTS } from '../hooks/useTTS';
 
 interface Report {
   id: number;
@@ -55,6 +57,8 @@ function ReportPage(): ReactNode {
   } = useStreamChat();
 
   const saveLockRef = useRef(false);
+  // 语音播报控制器：切换报告 / 重新生成时停止朗读
+  const tts = useTTS();
 
   // 历史列表加载：稳定引用，供挂载 effect 与保存流程复用
   const loadHistory = useCallback(async (): Promise<void> => {
@@ -161,6 +165,7 @@ function ReportPage(): ReactNode {
   const handleGenerate = async (): Promise<void> => {
     if (!dateFrom || !dateTo) return;
 
+    tts.stop();
     setStatus('generating');
     setReportContent('');
     setErrorMsg('');
@@ -216,6 +221,7 @@ function ReportPage(): ReactNode {
   };
 
   const handleViewReport = (report: Report): void => {
+    tts.stop();
     setViewingReport(report);
     setActiveReport(report);
     setReportContent(report.content);
@@ -224,6 +230,7 @@ function ReportPage(): ReactNode {
   };
 
   const handleBackToNew = (): void => {
+    tts.stop();
     setViewingReport(null);
     setActiveReport(null);
     setReportContent('');
@@ -450,6 +457,8 @@ function ReportPage(): ReactNode {
                     </>
                   )}
                 </button>
+                {/* 流式生成中内容不完整，完成后才允许播报 */}
+                {!isStreaming && <TTSButtons tts={tts} text={reportContent} />}
                 <button
                   onClick={async () => {
                     const range = viewingReport

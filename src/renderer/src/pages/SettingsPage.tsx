@@ -21,6 +21,7 @@ import {
   Plus,
   Loader2,
   Settings,
+  Volume2,
 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import WidgetIcon from '../components/WidgetIcon';
@@ -29,6 +30,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useI18n, useLanguageStore } from '../stores/languageStore';
 import type { AppLanguage, ResolvedLanguage } from '../lib/i18n';
 import { TOUCHBAR_DEFAULT_ITEMS, type TouchbarItem } from '../../../shared/touchbar';
+import { loadVoices, TTS_VOLUME_RANGE, TTS_RATE_RANGE, TTS_PITCH_RANGE } from '../hooks/useTTS';
 import {
   FONT_FAMILY_SETTING_KEY,
   FONT_PRESETS,
@@ -265,6 +267,18 @@ function SettingsPage(): ReactNode {
   const [widgetMode, setWidgetMode] = useState<'radial' | 'touchbar'>('radial');
   const [touchbarItems, setTouchbarItems] = useState<TouchbarItem[]>(TOUCHBAR_DEFAULT_ITEMS);
 
+  // ── 语音播报（TTS）──
+  // 音色存 voiceURI（空=自动匹配）；音量/语速/音调存百分比整数
+  const [ttsVoice, setTtsVoice] = useState('');
+  const [ttsVolume, setTtsVolume] = useState<number>(TTS_VOLUME_RANGE.default);
+  const [ttsRate, setTtsRate] = useState<number>(TTS_RATE_RANGE.default);
+  const [ttsPitch, setTtsPitch] = useState<number>(TTS_PITCH_RANGE.default);
+  const [ttsVoices, setTtsVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const ttsSupported =
+    typeof window !== 'undefined' &&
+    'speechSynthesis' in window &&
+    'SpeechSynthesisUtterance' in window;
+
   // loadSettings 的兜底默认值在挂载时取一次（与上面 reportLanguage/style 的初始值一致），
   // 避免回调捕获每次渲染变化的 resolvedLanguage/t，保证引用稳定
   const [defaultReportLanguage] = useState(() => (resolvedLanguage === 'zh' ? '中文' : 'English'));
@@ -300,7 +314,20 @@ function SettingsPage(): ReactNode {
     if (st) setShortcutTask(st);
     const sm = await window.api.settings.get('search_mode');
     if (sm === 'vector' || sm === 'like') setSearchMode(sm);
-  }, [defaultReportLanguage, defaultStyle]);
+    // 语音播报配置（数值为百分比字符串，非法/缺省时保持默认）
+    const tv = await window.api.settings.get('tts_voice');
+    if (tv) setTtsVoice(tv);
+    const tvo = Number(await window.api.settings.get('tts_volume'));
+    if (Number.isFinite(tvo)) setTtsVolume(tvo);
+    const tr = Number(await window.api.settings.get('tts_rate'));
+    if (Number.isFinite(tr)) setTtsRate(tr);
+    const tp = Number(await window.api.settings.get('tts_pitch'));
+    if (Number.isFinite(tp)) setTtsPitch(tp);
+    // 系统语音列表（Chrome 下异步就绪，loadVoices 内部已处理）
+    if (ttsSupported) {
+      void loadVoices().then(setTtsVoices);
+    }
+  }, [defaultReportLanguage, defaultStyle, ttsSupported]);
 
   useEffect(() => {
     // async IIFE 包裹：仍在同一 tick 内同步发起加载，行为与直接调用一致，
@@ -440,6 +467,38 @@ function SettingsPage(): ReactNode {
     await window.api.settings.set('search_mode', mode);
   };
 
+  // ── 语音播报（TTS）配置：改动即保存，报告页下次播报立即生效 ──
+  const handleTtsVoiceChange = async (value: string): Promise<void> => {
+    setTtsVoice(value);
+    await window.api.settings.set('tts_voice', value);
+  };
+
+  const handleTtsRangeChange = async (
+    key: 'tts_volume' | 'tts_rate' | 'tts_pitch',
+    setter: (v: number) => void,
+    value: number,
+  ): Promise<void> => {
+    setter(value);
+    await window.api.settings.set(key, String(value));
+  };
+
+  // 试听：用当前表单值（含未保存调整）朗读示例文本
+  const handleTtsPreview = (): void => {
+    if (!ttsSupported) return;
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    const utter = new SpeechSynthesisUtterance(t('settings.ttsPreviewText'));
+    utter.lang = resolvedLanguage === 'zh' ? 'zh-CN' : 'en-US';
+    if (ttsVoice) {
+      const chosen = ttsVoices.find((v) => v.voiceURI === ttsVoice);
+      if (chosen) utter.voice = chosen;
+    }
+    utter.volume = ttsVolume / 100;
+    utter.rate = ttsRate / 100;
+    utter.pitch = ttsPitch / 100;
+    synth.speak(utter);
+  };
+
   const maskKey = (key: string): string => {
     if (key.length <= 8) return '****';
     return key.slice(0, 4) + '****' + key.slice(-4);
@@ -529,8 +588,12 @@ function SettingsPage(): ReactNode {
   // 供卸载 cleanup 读取最新值（避免闭包拿到旧值）
   const materialRef = useRef(material);
   const previewMaterialRef = useRef(previewMaterial);
-  materialRef.current = material;
-  previewMaterialRef.current = previewMaterial;
+  // 在 commit 后同步到 ref；cleanup 只在卸载时读取，此时已拿到最后一次提交的值。
+  // 不在渲染期直接写 ref，避免破坏 React 渲染 purity（会触发 react(refs) 告警）。
+  useEffect(() => {
+    materialRef.current = material;
+    previewMaterialRef.current = previewMaterial;
+  }, [material, previewMaterial]);
 
   useEffect(() => {
     window.api?.window
@@ -606,7 +669,7 @@ function SettingsPage(): ReactNode {
         toast.error('❌ 字体设置保存失败，请重试');
       }
     },
-    [t],
+    [t, toast],
   );
 
   const handleFontFamilyChange = (value: string): void => {
@@ -984,6 +1047,109 @@ function SettingsPage(): ReactNode {
                   ))}
                 </div>
               </div>
+            </section>
+
+            {/* TTS 语音播报 */}
+            <section className="surface-card p-5">
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
+                {t('settings.tts')}
+              </h2>
+              <div className="h-px bg-zinc-200/50 dark:bg-zinc-700/50 mb-4" />
+              {!ttsSupported ? (
+                <p className="text-xs text-zinc-400">{t('settings.ttsUnavailable')}</p>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                      {t('settings.ttsVoice')}
+                    </label>
+                    <p className="text-xs text-zinc-400 mb-2">{t('settings.ttsVoiceHelp')}</p>
+                    <select
+                      value={ttsVoice}
+                      onChange={(e) => void handleTtsVoiceChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-md text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/40 surface-input dark:text-zinc-100"
+                    >
+                      <option value="">{t('settings.ttsVoiceAuto')}</option>
+                      {ttsVoices.map((v) => (
+                        <option key={v.voiceURI} value={v.voiceURI}>
+                          {v.name} ({v.lang})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        {t('settings.ttsVolume')}
+                      </label>
+                      <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {ttsVolume}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={TTS_VOLUME_RANGE.min}
+                      max={TTS_VOLUME_RANGE.max}
+                      value={ttsVolume}
+                      onChange={(e) =>
+                        void handleTtsRangeChange(
+                          'tts_volume',
+                          setTtsVolume,
+                          Number(e.target.value),
+                        )
+                      }
+                      className="w-full accent-blue-600"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        {t('settings.ttsRate')}
+                      </label>
+                      <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                        ×{(ttsRate / 100).toFixed(1)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={TTS_RATE_RANGE.min}
+                      max={TTS_RATE_RANGE.max}
+                      value={ttsRate}
+                      onChange={(e) =>
+                        void handleTtsRangeChange('tts_rate', setTtsRate, Number(e.target.value))
+                      }
+                      className="w-full accent-blue-600"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        {t('settings.ttsPitch')}
+                      </label>
+                      <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                        ×{(ttsPitch / 100).toFixed(1)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={TTS_PITCH_RANGE.min}
+                      max={TTS_PITCH_RANGE.max}
+                      value={ttsPitch}
+                      onChange={(e) =>
+                        void handleTtsRangeChange('tts_pitch', setTtsPitch, Number(e.target.value))
+                      }
+                      className="w-full accent-blue-600"
+                    />
+                  </div>
+                  <button
+                    onClick={handleTtsPreview}
+                    className="flex items-center gap-2 px-4 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 text-sm rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                    {t('settings.ttsPreview')}
+                  </button>
+                </>
+              )}
             </section>
 
             {/* Search Mode */}

@@ -12,6 +12,7 @@ import { Icon } from '@iconify/react';
 import defaultModelSvg from '../assets/icons/default-model.svg';
 import { useToast } from '../components/Toast';
 import { useThemeStore } from '../stores/themeStore';
+import { recoverConfigs } from '../lib/chat-storage';
 
 // ── 类型 ──
 interface ChatModel {
@@ -248,7 +249,7 @@ function ChatEditForm({
 }: {
   editing: ChatModel;
   isNew: boolean;
-  onChange: (v: ChatModel | null) => void;
+  onChange: (v: ChatModel) => void;
   onSave: () => void;
   onCancel: () => void;
 }) {
@@ -522,7 +523,7 @@ function EmbedEditForm({
 }: {
   editing: EmbeddingModel;
   isNew: boolean;
-  onChange: (v: EmbeddingModel | null) => void;
+  onChange: (v: EmbeddingModel) => void;
   onSave: () => void;
   onCancel: () => void;
 }) {
@@ -756,7 +757,6 @@ export default function ModelConfigPage(): ReactNode {
 
     if (dbChatCount === 0) {
       try {
-        const { recoverConfigs } = await import('../lib/chat-storage');
         const savedChat = await recoverConfigs('chat');
         const savedPanel = await recoverConfigs('chatPanel');
         const allSaved = [...savedChat];
@@ -873,6 +873,9 @@ export default function ModelConfigPage(): ReactNode {
     setChatConfigs(next);
     setActiveChatId(active);
     setEditingChat(null);
+    // 保存成功后必须同步复位新增标记，否则弹窗条件 (editingChat || chatIsNew)
+    // 在 editingChat 为 null 时仍成立，表单会拿到 null 崩溃
+    setChatIsNew(false);
     await saveGlobal(next, active, embedConfigs, activeEmbedId);
     await (window as any).api?.models?.setActiveChat?.(active);
     toast.success(chatIsNew ? 'Chat 模型已添加' : 'Chat 模型已保存');
@@ -904,6 +907,8 @@ export default function ModelConfigPage(): ReactNode {
     setEmbedConfigs(next);
     setActiveEmbedId(active);
     setEditingEmbed(null);
+    // 同 saveChat：保存后复位新增标记，避免空 editing 触发崩溃
+    setEmbedIsNew(false);
     await saveGlobal(chatConfigs, activeChatId, next, active);
     toast.success(embedIsNew ? 'Embedding 模型已添加' : 'Embedding 模型已保存');
   };
@@ -1303,8 +1308,8 @@ export default function ModelConfigPage(): ReactNode {
         </div>
       </main>
 
-      {/* Chat 编辑弹窗 */}
-      {(editingChat || chatIsNew) && (
+      {/* Chat 编辑弹窗 — 仅在 editingChat 非空时挂载，杜绝 null 传入表单 */}
+      {editingChat && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/30 backdrop-blur-xl"
@@ -1315,7 +1320,7 @@ export default function ModelConfigPage(): ReactNode {
           />
           <div className="relative bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-white/10 w-full max-w-2xl h-full max-h-[85vh] mx-4 flex flex-col overflow-hidden">
             <ChatEditForm
-              editing={editingChat!}
+              editing={editingChat}
               isNew={chatIsNew}
               onChange={setEditingChat}
               onSave={saveChat}
@@ -1328,8 +1333,8 @@ export default function ModelConfigPage(): ReactNode {
         </div>
       )}
 
-      {/* Embedding 编辑弹窗 */}
-      {(editingEmbed || embedIsNew) && (
+      {/* Embedding 编辑弹窗 — 仅在 editingEmbed 非空时挂载，杜绝 null 传入表单 */}
+      {editingEmbed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/30 backdrop-blur-xl"
@@ -1340,7 +1345,7 @@ export default function ModelConfigPage(): ReactNode {
           />
           <div className="relative bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-white/10 w-full max-w-2xl h-full max-h-[85vh] mx-4 flex flex-col overflow-hidden">
             <EmbedEditForm
-              editing={editingEmbed!}
+              editing={editingEmbed}
               isNew={embedIsNew}
               onChange={setEditingEmbed}
               onSave={saveEmbed}

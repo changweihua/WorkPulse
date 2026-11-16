@@ -576,6 +576,7 @@ function WorkLogPage(): ReactNode {
   const [prevT, setPrevT] = useState<typeof t>(() => t);
   if (prevT !== t) {
     setPrevT(t);
+    // oxlint-disable-next-line react/refs -- 渲染期派生同步：memo 化的 LogEntry 需在语言切换当帧从 stableT 读到新 t，延后到 effect 会停留旧语言一帧
     tRef.current = t;
   }
   const stableT = useCallback(
@@ -612,6 +613,7 @@ function WorkLogPage(): ReactNode {
   useEffect(() => {
     const q = searchParams.get('q')?.trim();
     if (!q) return;
+    // oxlint-disable-next-line react/set-state-in-effect -- URL ?q= 是外部输入源，effect 内同步 search state 再触发搜索是刻意的跨系统同步，非渲染派生
     setSearch(q);
     clearTimeout(searchTimerRef.current);
     searchLogs(q);

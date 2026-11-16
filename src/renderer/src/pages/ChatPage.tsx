@@ -90,19 +90,8 @@ interface TokenStats {
   avgTokensPerMessage: number;
 }
 
-// ---------- Token 估算 ----------
-import { encode as cl100kEncode } from 'gpt-tokenizer/encoding/cl100k_base';
-
-function estimateTokens(text: string): number {
-  if (!text) return 0;
-  try {
-    return cl100kEncode(text).length;
-  } catch {
-    const cjkChars = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
-    const otherChars = text.length - cjkChars;
-    return Math.ceil(cjkChars / 1.5) + Math.ceil(otherChars / 4);
-  }
-}
+// ---------- Token 估算（共享延迟加载编码器，见 lib/tokenizer） ----------
+import { estimateTokens } from '../lib/tokenizer';
 
 // ---------- 日期格式化 ----------
 function formatTime(ts: number): string {
