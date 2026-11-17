@@ -6,6 +6,7 @@
 
 ### 新增
 
+- ✨ feat: 日程节假日接入 NewLife.Holiday .NET 离线库并实现多源合并 — Bridge 新增 `getChinaHolidays`（经 node-api-dotnet 调用 NewLife.Holiday 内置假期库，放假/调休映射为既有 HolidayMap），native 产物按需携带 NewLife.Core / NewLife.Holiday 程序集；`holiday.ts` 改为 timor / holiday-cn / NewLife / 内置表四源并行拉取、按优先级合并互补，每条记录标注 `source`；日历格子徽标 tooltip 与选中日期卡片显示数据来源，缓存键升级到 v2 避免旧格式污染
 - ✨ feat: 报告页与周报页新增语音 TTS 播报 — 基于 Web Speech API 新增 `useTTS` hook 与 `TTSButtons` 按钮组（播报 / 暂停 / 继续 / 停止）：报告页播报 AI 报告正文（自动剥离 markdown、分句分片朗读、中英文语音自动匹配），周报页把结构化周报拼成朗读文案播报（统计概览、高光时刻、每日明细）；切换报告 / 重新生成时自动停止播报
 - ✨ feat: 设置页新增「语音播报」配置 — 音色（系统语音下拉，支持自动匹配）、音量、语速、音调滑块与试听按钮；配置存 `tts_voice` / `tts_volume` / `tts_rate` / `tts_pitch`（已加入 settings 白名单），每次播报前实时读取，保存后立即生效；指定音色失效时自动回退语言匹配
 

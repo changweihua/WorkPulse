@@ -19,6 +19,17 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.9.21" />
     <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.9.21" />
+    <PackageReference Include="NewLife.Holiday" Version="1.5.2026.1024" />
   </ItemGroup>
+
+  <!-- 只把 NewLife 的运行时程序集复制到 native/，避免 CopyLocalLockFileAssemblies 把
+       编译期的 Roslyn 依赖与一堆本地化资源目录也带进安装包。版本号用通配符匹配。 -->
+  <Target Name="CopyNewLifeAssemblies" AfterTargets="Build">
+    <ItemGroup>
+      <NewLifeRuntimeDll Include="$(NuGetPackageRoot)newlife.holiday/**/lib/netstandard2.1/NewLife.Holiday.dll" />
+      <NewLifeRuntimeDll Include="$(NuGetPackageRoot)newlife.core/**/lib/net10.0/NewLife.Core.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(NewLifeRuntimeDll)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

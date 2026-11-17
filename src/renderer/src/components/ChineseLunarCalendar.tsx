@@ -5,6 +5,7 @@ import {
   isHolidayDate,
   isWorkdaySwap,
   getHolidayName,
+  getHolidaySourceLabel,
   type HolidayMap,
 } from '../lib/holiday';
 
@@ -215,6 +216,9 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({
     const holidayName = dateStr ? getHolidayName(holidays, dateStr) : '';
     const isHolidayDay = dateStr ? isHolidayDate(holidays, dateStr) : false;
     const isWorkdayDay = dateStr ? isWorkdaySwap(holidays, dateStr) : false;
+    // 节假日数据来源标签（多源合并后每条记录带 source），仅假日/调休日有值
+    const sourceLabel =
+      dateStr && (isHolidayDay || isWorkdayDay) ? getHolidaySourceLabel(holidays, dateStr) : '';
     const isWeekend = (dow === 0 || dow === 6) && isCurrent;
     const marks = dateStr ? eventMarks?.[dateStr] : undefined;
     const pendingTodo = marks ? marks.todo - marks.done : 0;
@@ -258,15 +262,23 @@ const ChineseLunarCalendar: React.FC<ChineseLunarCalendarProps> = ({
           >
             {date.getDate()}
           </span>
-          {/* 休/班 badge 挂右上，不参与居中布局 */}
+          {/* 休/班 badge 挂右上，不参与居中布局；tooltip 标注数据来源 */}
           <div className="absolute -top-0.5 -right-0.5 flex gap-0.5">
             {isHolidayDay && (
-              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-red-500 text-white shadow-sm">
+              <span
+                className="text-[9px] font-bold px-1 py-0.5 rounded bg-red-500 text-white shadow-sm"
+                title={
+                  sourceLabel ? `${holidayName || '法定假日'} · 来源：${sourceLabel}` : undefined
+                }
+              >
                 休
               </span>
             )}
             {isWorkdayDay && (
-              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-emerald-500 text-white shadow-sm">
+              <span
+                className="text-[9px] font-bold px-1 py-0.5 rounded bg-emerald-500 text-white shadow-sm"
+                title={sourceLabel ? `调休上班 · 来源：${sourceLabel}` : undefined}
+              >
                 班
               </span>
             )}

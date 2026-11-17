@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import ChineseLunarCalendar, { type EventMark } from '../components/ChineseLunarCalendar';
-import { useHolidays, isHolidayDate, isWorkdaySwap, getHolidayName } from '../lib/holiday';
+import {
+  useHolidays,
+  isHolidayDate,
+  isWorkdaySwap,
+  getHolidayName,
+  getHolidaySourceLabel,
+} from '../lib/holiday';
 import { Fade } from '../components/Motion';
 import { SkeletonLine, SkeletonRect } from '../components/Skeleton';
 import {
@@ -62,6 +68,10 @@ const CalendarPage: React.FC = () => {
   const [currentYear] = useState(() => new Date().getFullYear());
   const selectedYear = selectedDate ? Number(selectedDate.dateStr.slice(0, 4)) : currentYear;
   const holidays = useHolidays(selectedYear);
+  // 节假日数据来源标签（多源合并后每条记录带 source）
+  const holidaySourceLabel = selectedDate
+    ? getHolidaySourceLabel(holidays, selectedDate.dateStr)
+    : '';
 
   // ---------- 左侧日历联动：当月事件标记 ----------
   const [monthMarks, setMonthMarks] = useState<Record<string, EventMark>>({});
@@ -260,23 +270,30 @@ const CalendarPage: React.FC = () => {
                   {selectedDate ? `${selectedDate.dateStr} ${weekDay}` : '\u00A0'}
                 </p>
               </div>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 text-right">
-                {selectedDate ? (
-                  isHolidayDate(holidays, selectedDate.dateStr) ? (
-                    <span className="text-red-500 dark:text-red-400">
-                      🏖️ {getHolidayName(holidays, selectedDate.dateStr) || '法定假日'}
-                    </span>
-                  ) : isWorkdaySwap(holidays, selectedDate.dateStr) ? (
-                    <span className="text-emerald-600 dark:text-emerald-400">
-                      💼 调休上班（{holidays[selectedDate.dateStr]?.name}）
-                    </span>
+              <div className="text-right">
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {selectedDate ? (
+                    isHolidayDate(holidays, selectedDate.dateStr) ? (
+                      <span className="text-red-500 dark:text-red-400">
+                        🏖️ {getHolidayName(holidays, selectedDate.dateStr) || '法定假日'}
+                      </span>
+                    ) : isWorkdaySwap(holidays, selectedDate.dateStr) ? (
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        💼 调休上班（{holidays[selectedDate.dateStr]?.name}）
+                      </span>
+                    ) : (
+                      '📅 普通日'
+                    )
                   ) : (
-                    '📅 普通日'
-                  )
-                ) : (
-                  ''
+                    ''
+                  )}
+                </p>
+                {holidaySourceLabel && (
+                  <p className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                    数据来源：{holidaySourceLabel}
+                  </p>
                 )}
-              </p>
+              </div>
             </div>
             {/* 当日概览 */}
             <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--color-border)] text-xs text-zinc-500 dark:text-zinc-400">

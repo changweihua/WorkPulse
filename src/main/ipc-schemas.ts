@@ -423,7 +423,7 @@ export const AppLanguageUpdateSchema = z.object({
   language: z.enum(['system', 'zh', 'en']),
 });
 
-// 与 index.ts 的 DOTNET_ALLOWED_METHODS 保持一致：仅允许 Bridge.cs [JSExport] 暴露的 6 个方法
+// 与 index.ts 的 DOTNET_ALLOWED_METHODS 保持一致：仅允许 Bridge.cs [JSExport] 暴露的方法
 export const DotnetInvokeSchema = z.object({
   method: z.enum([
     'sayHello',
@@ -432,6 +432,7 @@ export const DotnetInvokeSchema = z.object({
     'getPerformanceInfo',
     'computeHash',
     'computeFileHash',
+    'getChinaHolidays',
   ]),
   args: z.array(z.unknown()).optional(),
 });

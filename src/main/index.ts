@@ -329,6 +329,7 @@ const DOTNET_ALLOWED_METHODS: ReadonlySet<string> = new Set([
   'getPerformanceInfo',
   'computeHash',
   'computeFileHash',
+  'getChinaHolidays',
 ]);
 
 function registerDotnetIpc(): void {

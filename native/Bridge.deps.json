@@ -9,7 +9,8 @@
       "Bridge/1.0.0": {
         "dependencies": {
           "Microsoft.JavaScript.NodeApi": "0.9.21",
-          "Microsoft.JavaScript.NodeApi.Generator": "0.9.21"
+          "Microsoft.JavaScript.NodeApi.Generator": "0.9.21",
+          "NewLife.Holiday": "1.5.2026.1024"
         },
         "runtime": {
           "Bridge.dll": {}
@@ -19,48 +20,62 @@
         "runtime": {
           "lib/netcoreapp3.1/Microsoft.CodeAnalysis.dll": {
             "assemblyVersion": "4.1.0.0",
-            "fileVersion": "4.100.22.11411"
+            "fileVersion": "4.100.22.11411",
+            "localPath": "Microsoft.CodeAnalysis.dll"
           }
         },
         "resources": {
           "lib/netcoreapp3.1/cs/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "cs"
+            "locale": "cs",
+            "localPath": "cs/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/de/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "de"
+            "locale": "de",
+            "localPath": "de/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/es/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "es"
+            "locale": "es",
+            "localPath": "es/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/fr/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "fr"
+            "locale": "fr",
+            "localPath": "fr/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/it/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "it"
+            "locale": "it",
+            "localPath": "it/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/ja/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "ja"
+            "locale": "ja",
+            "localPath": "ja/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/ko/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "ko"
+            "locale": "ko",
+            "localPath": "ko/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/pl/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "pl"
+            "locale": "pl",
+            "localPath": "pl/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/pt-BR/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "pt-BR"
+            "locale": "pt-BR",
+            "localPath": "pt-BR/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/ru/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "ru"
+            "locale": "ru",
+            "localPath": "ru/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/tr/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "tr"
+            "locale": "tr",
+            "localPath": "tr/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/zh-Hans/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "zh-Hans"
+            "locale": "zh-Hans",
+            "localPath": "zh-Hans/Microsoft.CodeAnalysis.resources.dll"
           },
           "lib/netcoreapp3.1/zh-Hant/Microsoft.CodeAnalysis.resources.dll": {
-            "locale": "zh-Hant"
+            "locale": "zh-Hant",
+            "localPath": "zh-Hant/Microsoft.CodeAnalysis.resources.dll"
           }
         }
       },
@@ -71,48 +86,62 @@
         "runtime": {
           "lib/netcoreapp3.1/Microsoft.CodeAnalysis.CSharp.dll": {
             "assemblyVersion": "4.1.0.0",
-            "fileVersion": "4.100.22.11411"
+            "fileVersion": "4.100.22.11411",
+            "localPath": "Microsoft.CodeAnalysis.CSharp.dll"
           }
         },
         "resources": {
           "lib/netcoreapp3.1/cs/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "cs"
+            "locale": "cs",
+            "localPath": "cs/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/de/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "de"
+            "locale": "de",
+            "localPath": "de/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/es/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "es"
+            "locale": "es",
+            "localPath": "es/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/fr/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "fr"
+            "locale": "fr",
+            "localPath": "fr/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/it/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "it"
+            "locale": "it",
+            "localPath": "it/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/ja/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "ja"
+            "locale": "ja",
+            "localPath": "ja/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/ko/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "ko"
+            "locale": "ko",
+            "localPath": "ko/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/pl/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "pl"
+            "locale": "pl",
+            "localPath": "pl/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/pt-BR/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "pt-BR"
+            "locale": "pt-BR",
+            "localPath": "pt-BR/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/ru/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "ru"
+            "locale": "ru",
+            "localPath": "ru/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/tr/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "tr"
+            "locale": "tr",
+            "localPath": "tr/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/zh-Hans/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "zh-Hans"
+            "locale": "zh-Hans",
+            "localPath": "zh-Hans/Microsoft.CodeAnalysis.CSharp.resources.dll"
           },
           "lib/netcoreapp3.1/zh-Hant/Microsoft.CodeAnalysis.CSharp.resources.dll": {
-            "locale": "zh-Hant"
+            "locale": "zh-Hant",
+            "localPath": "zh-Hant/Microsoft.CodeAnalysis.CSharp.resources.dll"
           }
         }
       },
@@ -120,7 +149,8 @@
         "runtime": {
           "lib/net10.0/Microsoft.JavaScript.NodeApi.dll": {
             "assemblyVersion": "0.9.0.0",
-            "fileVersion": "0.9.21.1190"
+            "fileVersion": "0.9.21.1190",
+            "localPath": "Microsoft.JavaScript.NodeApi.dll"
           }
         }
       },
@@ -132,7 +162,29 @@
         "runtime": {
           "lib/net10.0/Microsoft.JavaScript.NodeApi.Generator.dll": {
             "assemblyVersion": "0.9.0.0",
-            "fileVersion": "0.9.21.1190"
+            "fileVersion": "0.9.21.1190",
+            "localPath": "Microsoft.JavaScript.NodeApi.Generator.dll"
+          }
+        }
+      },
+      "NewLife.Core/12.0.2026.1024": {
+        "runtime": {
+          "lib/net10.0/NewLife.Core.dll": {
+            "assemblyVersion": "12.0.2026.1024",
+            "fileVersion": "12.0.2026.1024",
+            "localPath": "NewLife.Core.dll"
+          }
+        }
+      },
+      "NewLife.Holiday/1.5.2026.1024": {
+        "dependencies": {
+          "NewLife.Core": "12.0.2026.1024"
+        },
+        "runtime": {
+          "lib/netstandard2.1/NewLife.Holiday.dll": {
+            "assemblyVersion": "1.5.9793.5772",
+            "fileVersion": "1.5.2026.1024",
+            "localPath": "NewLife.Holiday.dll"
           }
         }
       },
@@ -140,7 +192,8 @@
         "runtime": {
           "lib/net6.0/System.Reflection.MetadataLoadContext.dll": {
             "assemblyVersion": "6.0.0.0",
-            "fileVersion": "6.0.21.52210"
+            "fileVersion": "6.0.21.52210",
+            "localPath": "System.Reflection.MetadataLoadContext.dll"
           }
         }
       }
@@ -179,6 +232,20 @@
       "sha512": "sha512-AqdwxyvPLwPWTnq1+vawxZyAQVDpPGkYOGu9Aw+SHMrhiOFMwX6yKkinR76sQXKqFgvmj+Ur5SOugYvDwW+aSA==",
       "path": "microsoft.javascript.nodeapi.generator/0.9.21",
       "hashPath": "microsoft.javascript.nodeapi.generator.0.9.21.nupkg.sha512"
+    },
+    "NewLife.Core/12.0.2026.1024": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-wf9EgJOpTeHgnOMvL5/9mw/UF8cYLLW60m3TqNMq+y5vCgFlC4qzrMveEG6QnIVgzlgELRogMgaRYCKagMcR2w==",
+      "path": "newlife.core/12.0.2026.1024",
+      "hashPath": "newlife.core.12.0.2026.1024.nupkg.sha512"
+    },
+    "NewLife.Holiday/1.5.2026.1024": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-bQIdvWNa/PLEHIEXdZNjDdRqfxUoNCN+worvzBrxueuaw0Hvy11DoAc3fVWAWPsYuCRCaA4qrSbBYW89ohWIiQ==",
+      "path": "newlife.holiday/1.5.2026.1024",
+      "hashPath": "newlife.holiday.1.5.2026.1024.nupkg.sha512"
     },
     "System.Reflection.MetadataLoadContext/6.0.0": {
       "type": "package",

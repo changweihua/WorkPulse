@@ -3,6 +3,8 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Diagnostics;
+using System.Text.Json;
+using NewLife.Holiday;
 using Microsoft.JavaScript.NodeApi;
 
 [JSExport]
@@ -70,6 +72,42 @@ public static class NativeBridge
 
     // 文件哈希计算（文件流 IO 属于重活，放到线程池执行，避免阻塞 JS 调用线程）
     // 注意：方法名保持 ComputeFileHash，不加 Async 后缀（[JSExport] camelCase 映射，渲染层调用 computeFileHash）
+    // 查询指定年份的中国法定节假日与调休数据（基于 NewLife.Holiday 离线内置库）。
+    // 返回 JSON 字符串：{ "YYYY-MM-DD": { "name": "春节", "type": "holiday|workday" } }
+    // Status.On（放假）→ holiday，Status.Off（调休上班）→ workday，Normal（常规日）跳过。
+    // 保持同步执行：NewLife.Holiday 是内存数据查询、全年遍历耗时极短；更重要的是首次引用
+    // 该程序集必须由 JS 调用线程触发，若放进 Task.Run 线程池，node-api-dotnet 的加载
+    // 上下文无法解析新程序集，会抛 "operation is not legal in the current state"。
+    [JSExport]
+    public static string GetChinaHolidays(int year)
+    {
+        if (year < 1970 || year > 2100)
+            throw new ArgumentOutOfRangeException(nameof(year), "年份超出支持范围 1970-2100");
+
+        var map = new Dictionary<string, object>();
+        var day = new DateTime(year, 1, 1);
+        var end = new DateTime(year, 12, 31);
+        while (day <= end)
+        {
+            var info = HolidayExtensions.China.Query(day).FirstOrDefault();
+            if (info != null)
+            {
+                string? type = info.Status switch
+                {
+                    HolidayStatus.On => "holiday",
+                    HolidayStatus.Off => "workday",
+                    _ => null,
+                };
+                if (type != null)
+                {
+                    map[day.ToString("yyyy-MM-dd")] = new { name = info.Name, type };
+                }
+            }
+            day = day.AddDays(1);
+        }
+        return JsonSerializer.Serialize(map);
+    }
+
     [JSExport]
     public static Task<string> ComputeFileHash(string filePath, string algorithm = "SHA256")
     {
