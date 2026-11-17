@@ -2,7 +2,7 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。每次发布（`npm run release` 或手动打 `v*` 标签）时同步更新本文件。
 
-## [未发布]
+## [0.3.12] - 2026-11-17
 
 ### 新增
 
@@ -57,6 +57,7 @@
 - 🔒 security: 收窄 `dotnet:invoke` 方法调用面 — `DotnetInvokeSchema.method` 从任意字符串改为 z.enum 白名单（仅 Bridge.cs 暴露的 6 个方法），主进程再加 `DOTNET_ALLOWED_METHODS` 二次校验，禁止渲染进程枚举/调用 NativeBridge 上的任意方法
 - 🐞 fix: 解除 `.env` 的 git 跟踪（`git rm --cached`） — 该文件含 BARK_KEY 等本地密钥，虽已在 `.gitignore` 中但自 init 起被跟踪，一旦填入真实密钥即会入库；现从索引移除并保留工作区文件，杜绝误提交
 - 🌈 style: 消除全部 8 个 React lint 告警 — SettingsPage 的两处 ref 同步移入 effect、`persistFont` 补全 `toast` 依赖；screenshot-overlay 与 WorkLogPage 的 4 处渲染期读写 ref / effect 内 setState 属刻意的跨系统同步，加带理由的行级抑制注释；`oxlint` 现为 0 warning / 0 error
+- 🐞 fix: 修复一键发布脚本在 `.env` 解除 git 跟踪后中断 — `release.ts` 发布时不再 `git add .env`（该文件含本地密钥已从索引移除并被 `.gitignore` 忽略，继续暂存会使 `git add` 以退出码 1 中断整个发布流程），仅保留同步本地版本号
 
 ### 移除
 

@@ -96,10 +96,10 @@ function main(): void {
   );
   console.log('  ✅ resources/splash.html');
 
-  // 6. 暂存所有版本文件
+  // 6. 暂存所有版本文件（.env 含本地密钥已解除 git 跟踪，仅同步本地版本号，不入库）
   console.log('\n📝 暂存文件...');
-  run('git add package.json package-lock.json .env resources/splash.html');
-  console.log('  ✅ 已暂存 package.json, package-lock.json, .env, resources/splash.html');
+  run('git add package.json package-lock.json resources/splash.html');
+  console.log('  ✅ 已暂存 package.json, package-lock.json, resources/splash.html');
 
   // 7. 提交（使用 Node.js 写入临时文件避免 Windows 编码问题）
   console.log('\n💾 提交...');
