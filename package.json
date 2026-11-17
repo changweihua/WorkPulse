@@ -82,8 +82,12 @@
         "to": "splash.html"
       },
       {
-        "from": "resources/tray-icon.png",
-        "to": "tray-icon.png"
+        "from": "resources",
+        "to": ".",
+        "filter": [
+          "tray-icon.png",
+          "tray-icon@*.png"
+        ]
       },
       {
         "from": "resources/menu-new-log.png",

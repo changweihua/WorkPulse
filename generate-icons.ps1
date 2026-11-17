@@ -6,10 +6,7 @@
 #   - resources/icon.ico（Windows，含 16~256 尺寸）
 #   - resources/icon.icns（macOS，需在 Mac 上生成）
 #   - resources/icon.png（Linux 及备用，1024x1024）
-#   - resources/tray-icon-win.png（Windows/Linux 托盘，256x256）
-#   - resources/tray-icon.png（通用托盘，512x512，高清晰）   # 修改点1
-#   - resources/tray-icon-macTemplate.png（macOS 模板，256x256）
-#   - resources/tray-icon-macTemplate@2x.png（macOS 模板高清，512x512）
+#   - resources/tray-icon.png + @Nx（托盘 base 16x16 + 各 DPI 变体，正方形等比）
 # 依赖：ImageMagick 7（magick 命令）
 # 特性：自动裁剪白边 + 保留 10% 透明边距（原 5%，现扩大一倍）
 # ================================================================
@@ -64,7 +61,9 @@ foreach ($size in $mainSizes) {
     $pngFile = Join-Path $tempDir "icon_${size}x${size}.png"
     Write-Host "  生成 ${size}x${size} ..."
     # 修改点2：边距从 5% 改为 10%
-    magick $mainSvg -background none -trim +repage -bordercolor none -border 10%x10% -transparent white -alpha on -density 1200 -filter Catrom -resize ${size}x${size} -quality 100 $pngFile
+    # 关键：-density 必须放在 SVG 输入文件之前，否则 SVG 先按默认 72DPI 栅格化为 256x256
+    # 再被 -resize 放大，导致高分屏模糊。前置后先高密度矢量栅格化再降采样，边缘才锐利。
+    magick -density 1200 $mainSvg -background none -trim +repage -bordercolor none -border 10%x10% -transparent white -alpha on -filter Lanczos -resize ${size}x${size} -quality 100 $pngFile
 }
 
 # 生成 icon.png（最大尺寸）
@@ -72,15 +71,14 @@ Copy-Item (Join-Path $tempDir "icon_1024x1024.png") (Join-Path $outputDir "icon.
 Write-Host "  ✅ icon.png 生成 (1024x1024)"
 
 # 生成 Windows .ico（BMP 格式，包含 16~256 尺寸）
+# 关键：必须从「单张 1024 高清源图」配合明确的尺寸列表打包。
+# 若把多张已缩放的 PNG 一起喂给 icon:auto-resize，ImageMagick 会选错源图反复缩放，
+# 导致 ico 内各帧（尤其高分屏用的 256/128）二次插值而发虚。
 Write-Host "  生成 icon.ico ..."
-$icoSizes = @(16, 24, 32, 40, 48, 64, 96, 128, 256)
-$icoInputs = @()
-foreach ($size in $icoSizes) {
-    $icoInputs += (Join-Path $tempDir "icon_${size}x${size}.png")
-}
-$icoArgs = $icoInputs + "-define", "icon:auto-resize", "-define", "icon:format=bmp", "-compress", "None", (Join-Path $outputDir "icon.ico")
-magick $icoArgs
-Write-Host "  ✅ icon.ico 生成（包含 $($icoSizes.Count) 种尺寸，BMP 格式）"
+$icoSizeList = "256,192,128,96,64,48,40,32,24,16"
+$icoSource = Join-Path $tempDir "icon_1024x1024.png"
+magick $icoSource -define "icon:auto-resize=$icoSizeList" -define "icon:format=bmp" -compress None (Join-Path $outputDir "icon.ico")
+Write-Host "  ✅ icon.ico 生成（包含 $($icoSizeList.Split(',').Count) 种尺寸，BMP 格式，源自 1024 高清图）"
 
 # 生成 macOS .icns（仅在 macOS 系统上执行）
 if ($IsMacOS) {
@@ -129,31 +127,34 @@ else {
 # ================================================================
 Write-Host "`n📌 生成托盘图标..."
 
-# 2.1 Windows/Linux 专用托盘图标（256x256，支持高 DPI）
-$trayWinSize = 256
-$trayWinPng = Join-Path $outputDir "tray-icon-win.png"
-Write-Host "  生成 tray-icon-win.png (${trayWinSize}x${trayWinSize}) ..."
-magick $traySvg -background none -trim +repage -bordercolor none -border 10%x10% -transparent white -alpha on -density 1200 -filter Catrom -resize ${trayWinSize}x${trayWinSize} -quality 100 $trayWinPng
-Write-Host "  ✅ tray-icon-win.png 生成"
+# 关键：源 SVG 是横向三色柱状，viewBox 虽为 1024x1024，但图形包围盒本身非正方形。
+# 直接 -resize NxN 会非等比压缩把圆形拉成椭圆。先把高清栅格 -trim 后补成正方形母图，
+# 再从正方形母图等比降采样到各 DPI 尺寸，保证比例正确。
+$trayMaster = Join-Path $tempDir "tray_master_1024.png"
+Write-Host "  生成托盘正方形母图 (1024x1024) ..."
+magick -density 1200 $traySvg -background none -trim +repage -transparent white -alpha on `
+    -gravity center -extent "%[fx:max(w,h)]x%[fx:max(w,h)]" `
+    -bordercolor none -border 10%x10% -filter Lanczos -resize 1024x1024 -quality 100 $trayMaster
 
-# 2.2 通用托盘图标（修改点3：尺寸改为 512x512，边距 10%）
-$traySize = 512   # ← 原为 20，现改为 512
-$trayPng = Join-Path $outputDir "tray-icon.png"
-Write-Host "  生成 tray-icon.png (${traySize}x${traySize}) ..."
-magick $traySvg -background none -trim +repage -bordercolor none -border 10%x10% -transparent white -alpha on -density 1200 -filter Catrom -resize ${traySize}x${traySize} -quality 100 $trayPng
-Write-Host "  ✅ tray-icon.png 生成（512x512，10% 边距）"
-
-# 2.3 macOS 模板图标（黑白，透明，256 和 512）
-$macSizes = @("256x256", "512x512")
-$macNames = @("tray-icon-macTemplate.png", "tray-icon-macTemplate@2x.png")
-for ($i = 0; $i -lt $macSizes.Length; $i++) {
-    $size = $macSizes[$i]
-    $name = $macNames[$i]
-    $outFile = Join-Path $outputDir $name
-    Write-Host "  生成 $name ..."
-    magick $traySvg -colorspace Gray -threshold 50% -background none -trim +repage -bordercolor none -border 10%x10% -transparent white -alpha on -density 1200 -filter Catrom -resize $size -quality 100 $outFile
+# Electron 托盘在 Windows 是 16x16 逻辑像素。高分屏清晰的正确做法不是给大图让系统缩小，
+# 而是提供 base + @Nx 变体，由 nativeImage.createFromPath 按每块屏幕实际 DPI 选原生像素，
+# 避免小位图被放大重采样。后缀/像素取自 Electron 官方 HiDPI 解析表：
+# 1x=16, 1.25x=20, 1.33x=21, 1.4x=22, 1.5x=24, 1.8x=29, 2x=32, 2.5x=40, 3x=48
+$trayScales = @(
+    @{ file = "tray-icon.png";       px = 16 },
+    @{ file = "tray-icon@1.25x.png"; px = 20 },
+    @{ file = "tray-icon@1.33x.png"; px = 21 },
+    @{ file = "tray-icon@1.4x.png";  px = 22 },
+    @{ file = "tray-icon@1.5x.png";  px = 24 },
+    @{ file = "tray-icon@1.8x.png";  px = 29 },
+    @{ file = "tray-icon@2x.png";    px = 32 },
+    @{ file = "tray-icon@2.5x.png";  px = 40 },
+    @{ file = "tray-icon@3x.png";    px = 48 }
+)
+foreach ($v in $trayScales) {
+    magick $trayMaster -filter Lanczos -resize "$($v.px)x$($v.px)" -quality 100 (Join-Path $outputDir $v.file)
 }
-Write-Host "  ✅ macOS 模板图标生成（可选，用于 setTemplateImage）"
+Write-Host "  ✅ 托盘 base + @Nx 变体生成（16~48px，共 $($trayScales.Count) 档）"
 
 # 清理临时目录
 Remove-Item -Recurse -Force $tempDir
@@ -166,12 +167,10 @@ Write-Host "生成的文件位于: $outputDir"
 Write-Host "  - icon.ico（Windows，含 16~256 尺寸，BMP 格式）"
 Write-Host "  - icon.icns（macOS，需在 Mac 上生成）" 
 Write-Host "  - icon.png（Linux 及备用）"
-Write-Host "  - tray-icon-win.png（Windows/Linux 托盘，256x256，10% 边距）"
-Write-Host "  - tray-icon.png（通用托盘，512x512，10% 边距）"
-Write-Host "  - tray-icon-macTemplate.png / @2x（macOS 模板）"
+Write-Host "  - tray-icon.png + @1.25x/@1.33x/@1.4x/@1.5x/@1.8x/@2x/@2.5x/@3x（托盘 base 16x16 + 各 DPI 变体，正方形等比）"
 Write-Host "`n📝 提示："
-Write-Host "  - 所有图标已自动保留约 10% 透明边距（原 5% 的两倍），图形更舒展。"
+Write-Host "  - 托盘图走 Electron 原生 HiDPI：代码中用 nativeImage.createFromPath(base) 即可，切勿 resize 固定尺寸，否则高分屏发虚、非正方形还会变形。"
 Write-Host "  - 若 Windows 图标仍模糊，请清除图标缓存："
 Write-Host "       ie4uinit.exe -ClearIconCache"
 Write-Host "       taskkill /f /im explorer.exe && start explorer.exe"
-Write-Host "  - 若 macOS 使用模板，请在代码中调用 icon.setTemplateImage(true)。"
+Write-Host "  - macOS 走代码中的 icon.setTemplateImage(true)，系统按 alpha 剪影渲染，无需单独模板文件。"

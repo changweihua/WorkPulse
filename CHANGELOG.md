@@ -31,6 +31,9 @@
 
 ### 修复
 
+- 🐞 fix: 修复主程序图标在高分屏下模糊发虚 — `generate-icons.ps1` 的 `-density 1200` 原置于 SVG 输入文件之后而不生效，导致矢量图先按默认 72DPI 栅格化为 256×256 再被放大到 1024，边缘产生插值光晕；同时 ICO 打包把多张已缩放 PNG 一起喂给 `icon:auto-resize` 导致选错源图二次插值。改为 density 前置让矢量先高密度栅格化再降采样，并统一以单张 1024 高清源图配合明确尺寸列表打包 ICO；重生成 icon.ico / icon.png，256/128 等关键帧与 1024 源图边缘恢复锐利
+- 🗑️ remove: 清理未使用的遗留托盘图标 — 删除 9 个无代码引用的旧版图标文件（`tray-icon-16/32/48/64/128/512.png`、`tray-icon-win.png`、`tray-icon-macTemplate.png` 及其 @2x）以及会覆盖新版 base 图标的过时生成脚本 `build/gen-tray-icons.js`（旧四色方块设计）；`generate-icons.ps1` 同步移除对应生成段落与注释，`DESIGN.md` 更新为当前三色柱状 + @Nx 方案
+- 🐞 fix: 修复系统托盘图标高分屏模糊且被压扁变形 — 托盘源图是横向三色柱状、包围盒非正方形，旧脚本直接 `-resize NxN` 把圆形拉成椭圆；`tray.ts` 又把 512×466 源图 `resize` 成 18×18 小位图，在 150%/200% DPI 托盘上被系统放大而发虚。改为先渲染正方形母图再等比降采样，产出 base 16×16 + @1.25x/@1.33x/@1.4x/@1.5x/@1.8x/@2x/@2.5x/@3x 共 9 档原生尺寸；托盘代码去掉 `resize` 与写死的 `scaleFactor: 2`，改由 `nativeImage.createFromPath` 按每块屏幕 DPI 自动选图、全程不重采样，`setTemplateImage` 仅保留 macOS；托盘右键菜单图标同样去掉 `resize`（否则会把同名 @2x representation 重采样掉）；打包配置同步带上全部 @Nx 变体
 - 🐞 fix: 修复 Touch Bar 悬浮窗空白不显示 — preload 直接把 `ipcRenderer.invoke` 的原始 `IpcResult`（`{ ok, data }`）交给渲染层，组件当数组用触发 `items.filter is not a function` 并中断整棵 React 树；`preload/touchbar.ts` 全部 IPC 调用统一经 `invoke()` 解出 `.data`，与 `window.api` 行为对齐
 - 🐞 fix: 修复 Touch Bar 读取电池失败 — `navigator.getBattery` 被解构后单独调用丢失 `this`，报 `Illegal invocation`；改为挂 `navigator` 上调用，并补 `catch` 兜底与监听解绑
 - 🐞 fix: 修复媒体键与静音按键无效 — `system-controls.ts` 的 `keybd_event` 签名使用 koffi 不支持的 `byte` 类型，签名解析失败导致 `sendVirtualKey` 全程空转；改为 `uint8`/`uint32` 后可正常发送 `VK_MEDIA_*` 与 `VK_VOLUME_MUTE`

@@ -140,7 +140,7 @@ Tailwind 等价写法：主文字 `text-zinc-800 dark:text-zinc-100`，次级 `t
 
 - **图标库**：lucide-react，默认尺寸 14–16px（行内）/ 24px（空状态）
 - **窗口控制按钮**（TitleBar）：macOS 式红绿灯，降饱和配色 `#f87171 / #fbbf24 / #4ade80`，hover 提亮一档
-- **托盘图标**：≤32px 用满画布粗壮版，≥48px 带高光渐变精致版（`build/gen-tray-icons.js` 生成）
+- **托盘图标**：三色柱状，`resources/tray-icon.svg` 为源图，`generate-icons.ps1` 生成正方形 base 16×16 + 9 档 @Nx 变体（20/21/22/24/29/32/40/48px），Electron 按屏幕 DPI 自动选原生像素，全程不重采样
 
 ---
 
