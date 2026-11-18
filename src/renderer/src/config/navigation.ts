@@ -1,8 +1,25 @@
 import { createElement, type ComponentType, type ReactNode } from 'react';
-import { Icon } from '@iconify/react';
-import { BarChart3, Bot, CalendarRange, Zap, Rss } from 'lucide-react';
 import type { TranslationKey } from '../lib/i18n';
-import { SiOnnx, SiPaddle, SiPaddlepaddle } from '../components/icons/SiliconIcons';
+import {
+  BrandAiStats,
+  BrandCalendar,
+  BrandChat,
+  BrandDotnet,
+  BrandGlass,
+  BrandKanban,
+  BrandOnnx,
+  BrandOcr,
+  BrandPaddle,
+  BrandPp,
+  BrandReport,
+  BrandReports,
+  BrandRobot,
+  BrandRss,
+  BrandSettings,
+  BrandStats,
+  BrandWorklog,
+  BrandXray,
+} from '../components/icons/BrandIcons';
 
 /**
  * 全局导航配置（单一数据源）。
@@ -11,8 +28,8 @@ import { SiOnnx, SiPaddle, SiPaddlepaddle } from '../components/icons/SiliconIco
  * 共享同一份配置，避免导航项双写漂移。
  */
 
-/** 图标描述：lucide/硅基图标等 React 组件，或 iconify 图标名 */
-export type NavIcon = ComponentType<{ className?: string }> | { iconify: string };
+/** 图标描述：品牌/lucide 等 React 组件（统一接收 className 控制尺寸） */
+export type NavIcon = ComponentType<{ className?: string }>;
 
 export interface NavItemConfig {
   /** 路由 path（不含前导斜杠，与 react-router 配置一致） */
@@ -35,8 +52,7 @@ export interface NavSectionConfig {
 
 /** 渲染导航图标为 React 节点（className 统一控制尺寸） */
 export function renderNavIcon(icon: NavIcon, className?: string): ReactNode {
-  if (typeof icon === 'function') return createElement(icon, { className });
-  return createElement(Icon, { icon: icon.iconify, className });
+  return createElement(icon, { className });
 }
 
 /** 解析导航项显示文案（i18n key 优先，其次固定文案，最后回退 path） */
@@ -51,74 +67,49 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
     id: 'core',
     label: '核心',
     items: [
-      {
-        path: 'worklog',
-        labelKey: 'nav.worklog',
-        icon: { iconify: 'line-md:clipboard-list' },
-        sectionId: 'core',
-      },
-      {
-        path: 'kanban',
-        labelKey: 'nav.kanban',
-        icon: { iconify: 'line-md:grid-3' },
-        sectionId: 'core',
-      },
-      {
-        path: 'calendar',
-        labelKey: 'nav.calendar',
-        icon: { iconify: 'line-md:calendar' },
-        sectionId: 'core',
-      },
-      { path: 'stats', labelKey: 'nav.stats', icon: BarChart3, sectionId: 'core' },
+      { path: 'worklog', labelKey: 'nav.worklog', icon: BrandWorklog, sectionId: 'core' },
+      { path: 'kanban', labelKey: 'nav.kanban', icon: BrandKanban, sectionId: 'core' },
+      { path: 'calendar', labelKey: 'nav.calendar', icon: BrandCalendar, sectionId: 'core' },
+      { path: 'stats', labelKey: 'nav.stats', icon: BrandStats, sectionId: 'core' },
     ],
   },
   {
     id: 'insights',
     label: '洞察',
     items: [
-      {
-        path: 'report',
-        labelKey: 'nav.report',
-        icon: { iconify: 'line-md:text-box' },
-        sectionId: 'insights',
-      },
-      { path: 'reports', labelKey: 'nav.weekly', icon: CalendarRange, sectionId: 'insights' },
+      { path: 'report', labelKey: 'nav.report', icon: BrandReport, sectionId: 'insights' },
+      { path: 'reports', labelKey: 'nav.weekly', icon: BrandReports, sectionId: 'insights' },
     ],
   },
   {
     id: 'reading',
     label: '阅读',
-    items: [{ path: 'rss', fallbackLabel: 'RSS', icon: Rss, sectionId: 'reading' }],
+    items: [{ path: 'rss', fallbackLabel: 'RSS', icon: BrandRss, sectionId: 'reading' }],
   },
   {
     id: 'tools',
     label: '工具',
     items: [
-      { path: 'ocr', labelKey: 'nav.ocr', icon: SiPaddle, sectionId: 'tools' },
-      { path: 'pp', labelKey: 'nav.pp', icon: SiPaddlepaddle, sectionId: 'tools' },
-      { path: 'xray', labelKey: 'nav.xray', icon: Zap, sectionId: 'tools' },
-      { path: 'onnx', labelKey: 'nav.onnx', icon: SiOnnx, sectionId: 'tools' },
+      { path: 'ocr', labelKey: 'nav.ocr', icon: BrandPaddle, sectionId: 'tools' },
+      { path: 'pp', labelKey: 'nav.pp', icon: BrandPp, sectionId: 'tools' },
+      { path: 'xray', labelKey: 'nav.xray', icon: BrandXray, sectionId: 'tools' },
+      { path: 'onnx', labelKey: 'nav.onnx', icon: BrandOnnx, sectionId: 'tools' },
       {
         path: 'model-config',
         fallbackLabel: 'AI 模型',
-        icon: { iconify: 'mdi:robot' },
+        icon: BrandRobot,
         sectionId: 'tools',
       },
       // AI 对话：路由存在但侧栏暂未渲染入口，仅由顶部导航与命令面板索引
-      { path: 'chat', labelKey: 'nav.chat', icon: Bot, sectionId: 'tools' },
-      { path: 'ai-stats', labelKey: 'nav.aiStats', icon: BarChart3, sectionId: 'tools' },
+      { path: 'chat', labelKey: 'nav.chat', icon: BrandChat, sectionId: 'tools' },
+      { path: 'ai-stats', labelKey: 'nav.aiStats', icon: BrandAiStats, sectionId: 'tools' },
       {
         path: 'fluid-glass',
         labelKey: 'nav.fluidGlass',
-        icon: { iconify: 'mdi:glass-water' },
+        icon: BrandGlass,
         sectionId: 'tools',
       },
-      {
-        path: 'dotnet',
-        labelKey: 'nav.dotnet',
-        icon: { iconify: 'mdi:dot-net' },
-        sectionId: 'tools',
-      },
+      { path: 'dotnet', labelKey: 'nav.dotnet', icon: BrandDotnet, sectionId: 'tools' },
     ],
   },
 ];
@@ -127,7 +118,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
 export const NAV_SETTINGS: NavItemConfig = {
   path: 'settings',
   labelKey: 'nav.settings',
-  icon: { iconify: 'line-md:cog' },
+  icon: BrandSettings,
   sectionId: 'footer',
 };
 

@@ -92,27 +92,28 @@
         }
       }
 
+      /* 启动屏品牌图标：沿用主程序图标的多色显示器 + 脉搏造型，圆角毛玻璃底座 */
       .brand-icon {
-        width: 72px;
-        height: 72px;
-        border-radius: 18px;
-        background: linear-gradient(135deg, #6366f1, #818cf8);
+        width: 88px;
+        height: 88px;
+        border-radius: 22px;
+        background: linear-gradient(145deg, #ffffff 0%, #eef0f7 100%);
+        border: 1px solid rgba(255, 255, 255, 0.75);
         display: flex;
         align-items: center;
         justify-content: center;
         margin-bottom: 16px;
-        box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
+        box-shadow:
+          0 10px 34px rgba(44, 47, 83, 0.18),
+          inset 0 1px 0 rgba(255, 255, 255, 0.9);
         position: relative;
         z-index: 1;
         animation: iconBreathe 2.8s ease-in-out infinite;
       }
 
       .brand-icon svg {
-        width: 36px;
-        height: 36px;
-        fill: none;
-        stroke: white;
-        stroke-width: 2;
+        width: 58px;
+        height: 58px;
         stroke-linecap: round;
         stroke-linejoin: round;
       }
@@ -121,11 +122,15 @@
         0%,
         100% {
           transform: scale(0.96);
-          box-shadow: 0 6px 24px rgba(99, 102, 241, 0.2);
+          box-shadow:
+            0 8px 26px rgba(44, 47, 83, 0.14),
+            inset 0 1px 0 rgba(255, 255, 255, 0.9);
         }
         50% {
           transform: scale(1.04);
-          box-shadow: 0 12px 44px rgba(99, 102, 241, 0.5);
+          box-shadow:
+            0 14px 44px rgba(44, 47, 83, 0.26),
+            inset 0 1px 0 rgba(255, 255, 255, 0.9);
         }
       }
 
@@ -216,28 +221,14 @@
       }
 
       @media (max-width: 480px) {
-        .brand-icon-area {
-          width: 90px;
-          height: 90px;
-        }
-        .brand-icon-ring {
-          width: 86px;
-          height: 86px;
-        }
-        .brand-icon-ring::after {
-          width: 96px;
-          height: 96px;
-          top: -8px;
-          left: -8px;
-        }
         .brand-icon {
-          width: 58px;
-          height: 58px;
-          border-radius: 14px;
+          width: 72px;
+          height: 72px;
+          border-radius: 18px;
         }
         .brand-icon svg {
-          width: 28px;
-          height: 28px;
+          width: 48px;
+          height: 48px;
         }
         .brand-name {
           font-size: 30px;
@@ -255,8 +246,58 @@
       <div class="ring-decoration"></div>
 
       <div class="brand-icon">
-        <svg viewBox="0 0 24 24">
-          <path d="M4 6h16M4 12h16M4 18h8" />
+        <!-- 与主程序图标同源：多色显示器 + 脉搏波形 + 任务状态点 -->
+        <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="sp-screen" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#4C4F6E" />
+              <stop offset="1" stop-color="#2C2F53" />
+            </linearGradient>
+            <linearGradient id="sp-pulse" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#11CBE5" />
+              <stop offset="0.55" stop-color="#91EDF8" />
+              <stop offset="1" stop-color="#FA4659" />
+            </linearGradient>
+          </defs>
+          <!-- 支架 -->
+          <rect x="456" y="666" width="96" height="150" rx="18" fill="#999AAC" />
+          <rect x="336" y="812" width="352" height="56" rx="28" fill="#7C7F95" />
+          <rect x="336" y="802" width="352" height="56" rx="28" fill="#999AAC" />
+          <!-- 显示器厚度与主体 -->
+          <rect x="104" y="126" width="832" height="556" rx="52" fill="#7C7F95" />
+          <rect x="88" y="110" width="832" height="556" rx="52" fill="#CACAD4" />
+          <!-- 屏幕 -->
+          <rect x="140" y="162" width="728" height="452" rx="26" fill="url(#sp-screen)" />
+          <!-- 任务状态点 -->
+          <circle cx="300" cy="252" r="22" fill="#11CBE5" />
+          <circle cx="293" cy="244" r="10" fill="#E9FFF5" opacity="0.92" />
+          <circle cx="392" cy="252" r="22" fill="#BCF4F5" />
+          <circle cx="385" cy="244" r="10" fill="#E9FFF5" opacity="0.92" />
+          <circle cx="484" cy="252" r="22" fill="#FDB8BF" />
+          <circle cx="477" cy="244" r="10" fill="#FEDEE1" opacity="0.92" />
+          <circle cx="576" cy="252" r="22" fill="#FA4659" />
+          <circle cx="569" cy="244" r="10" fill="#FEDEE1" opacity="0.92" />
+          <!-- 脉搏波形 -->
+          <path
+            d="M196 470 L292 470 L316 446 L340 470 L388 470 L412 502 L448 352 L484 504 L512 470 L580 470 L608 434 L640 434 L668 470 L812 470"
+            fill="none"
+            stroke="#11CBE5"
+            stroke-width="44"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            opacity="0.18"
+          />
+          <path
+            d="M196 470 L292 470 L316 446 L340 470 L388 470 L412 502 L448 352 L484 504 L512 470 L580 470 L608 434 L640 434 L668 470 L812 470"
+            fill="none"
+            stroke="url(#sp-pulse)"
+            stroke-width="20"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <!-- 底部信息条与摄像头 -->
+          <rect x="200" y="540" width="480" height="16" rx="8" fill="#EAEAEE" opacity="0.22" />
+          <circle cx="504" cy="636" r="11" fill="#7C7F95" />
         </svg>
       </div>
       <div class="brand-name">WorkPulse</div>

@@ -4,8 +4,15 @@ import AnimatedOutlet from '../components/AnimatedOutlet';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AnimatePresence, motion } from 'motion/react';
 import { Icon } from '@iconify/react';
-import { BarChart3, CalendarRange, Zap, Rss, Search } from 'lucide-react';
-import { SiOnnx, SiPaddle, SiPaddlepaddle } from '../components/icons/SiliconIcons';
+import { Search } from 'lucide-react';
+import {
+  NAV_SECTIONS,
+  NAV_SETTINGS,
+  renderNavIcon,
+  resolveNavLabel,
+  findNavItem,
+  type NavSectionConfig,
+} from '../config/navigation';
 import { useI18n } from '../stores/languageStore';
 import { useClickAway } from 'react-use';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
@@ -20,19 +27,6 @@ import './nav-glass.css';
 
 // 命令面板按需加载：不进首屏主包，首次打开才拉取 chunk
 const CommandPalette = lazy(() => import('../components/CommandPalette'));
-
-interface NavItem {
-  path: string;
-  icon: React.ReactNode;
-  label: string;
-  title?: string;
-}
-
-interface NavSection {
-  id: string;
-  label: string;
-  items: NavItem[];
-}
 
 const SIDEBAR_WIDTH_COLLAPSED = 64;
 const SIDEBAR_WIDTH_EXPANDED = 220;
@@ -122,97 +116,20 @@ export default function NavLayout() {
     setHoveredItem(null);
   }, []);
 
-  // ---- Navigation sections ----
-  const sections: NavSection[] = [
-    {
-      id: 'core',
-      label: '核心',
-      items: [
-        {
-          path: 'worklog',
-          icon: <Icon icon="line-md:clipboard-list" width={18} height={18} />,
-          label: t('nav.worklog'),
-        },
-        {
-          path: 'kanban',
-          icon: <Icon icon="line-md:grid-3" width={18} height={18} />,
-          label: t('nav.kanban'),
-        },
-        {
-          path: 'calendar',
-          icon: <Icon icon="line-md:calendar" width={18} height={18} />,
-          label: t('nav.calendar'),
-        },
-        {
-          path: 'stats',
-          icon: <BarChart3 className="w-[18px] h-[18px]" />,
-          label: t('nav.stats'),
-        },
-      ],
-    },
-    {
-      id: 'insights',
-      label: '洞察',
-      items: [
-        {
-          path: 'report',
-          icon: <Icon icon="line-md:text-box" width={18} height={18} />,
-          label: t('nav.report'),
-        },
-        {
-          path: 'reports',
-          icon: <CalendarRange className="w-[18px] h-[18px]" />,
-          label: t('nav.weekly'),
-        },
-      ],
-    },
-    {
-      id: 'reading',
-      label: '阅读',
-      items: [{ path: 'rss', icon: <Rss className="w-[18px] h-[18px]" />, label: 'RSS' }],
-    },
-    {
-      id: 'tools',
-      label: '工具',
-      items: [
-        { path: 'ocr', icon: <SiPaddle className="w-[18px] h-[18px]" />, label: t('nav.ocr') },
-        { path: 'pp', icon: <SiPaddlepaddle className="w-[18px] h-[18px]" />, label: t('nav.pp') },
-        { path: 'xray', icon: <Zap className="w-[18px] h-[18px]" />, label: t('nav.xray') },
-        { path: 'onnx', icon: <SiOnnx className="w-[18px] h-[18px]" />, label: t('nav.onnx') },
-        {
-          path: 'model-config',
-          icon: <Icon icon="mdi:robot" className="w-[18px] h-[18px]" />,
-          label: 'AI 模型',
-        },
-        {
-          path: 'ai-stats',
-          icon: <BarChart3 className="w-[18px] h-[18px]" />,
-          label: t('nav.aiStats'),
-        },
-        {
-          path: 'fluid-glass',
-          icon: <Icon icon="mdi:glass-water" className="w-[18px] h-[18px]" />,
-          label: t('nav.fluidGlass'),
-        },
-        {
-          path: 'dotnet',
-          icon: <Icon icon="mdi:dot-net" className="w-[18px] h-[18px]" />,
-          label: t('nav.dotnet'),
-        },
-      ],
-    },
-  ];
+  // ---- Navigation sections（来自 config/navigation 单一数据源）----
+  const sections: NavSectionConfig[] = NAV_SECTIONS;
 
   const isActive = (path: string) =>
     location.pathname === `/${path}` || (path === 'worklog' && location.pathname === '/');
 
   const sidebarWidth = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
 
-  // Resolve tooltip label from the hovered key
+  // Resolve tooltip label from the hovered key（统一走导航数据源的文案解析）
   const tooltipLabel = hoveredItem
-    ? hoveredItem.key === 'settings'
-      ? t('nav.settings')
-      : (sections.flatMap((s) => s.items).find((i) => i.path === hoveredItem.key)?.label ?? '')
+    ? (() => {
+        const item = hoveredItem.key === 'settings' ? NAV_SETTINGS : findNavItem(hoveredItem.key);
+        return item ? resolveNavLabel(item, t) : '';
+      })()
     : '';
 
   return (
@@ -334,9 +251,11 @@ export default function NavLayout() {
                       key={`${item.path}-${collapsed}`}
                       className="flex items-center justify-center shrink-0"
                     >
-                      {item.icon}
+                      {renderNavIcon(item.icon, 'w-[18px] h-[18px]')}
                     </span>
-                    {!collapsed && <span className="truncate whitespace-nowrap">{item.label}</span>}
+                    {!collapsed && (
+                      <span className="truncate whitespace-nowrap">{resolveNavLabel(item, t)}</span>
+                    )}
                   </Link>
                 );
               })}
@@ -363,9 +282,11 @@ export default function NavLayout() {
             onMouseLeave={handleItemLeave}
           >
             <span className="flex items-center justify-center shrink-0">
-              <Icon icon="line-md:cog" width={18} height={18} />
+              {renderNavIcon(NAV_SETTINGS.icon, 'w-[18px] h-[18px]')}
             </span>
-            {!collapsed && <span className="truncate whitespace-nowrap">{t('nav.settings')}</span>}
+            {!collapsed && (
+              <span className="truncate whitespace-nowrap">{resolveNavLabel(NAV_SETTINGS, t)}</span>
+            )}
           </Link>
         </div>
       </motion.aside>

@@ -63,7 +63,12 @@ foreach ($size in $mainSizes) {
     # 修改点2：边距从 5% 改为 10%
     # 关键：-density 必须放在 SVG 输入文件之前，否则 SVG 先按默认 72DPI 栅格化为 256x256
     # 再被 -resize 放大，导致高分屏模糊。前置后先高密度矢量栅格化再降采样，边缘才锐利。
-    magick -density 1200 $mainSvg -background none -trim +repage -bordercolor none -border 10%x10% -transparent white -alpha on -filter Lanczos -resize ${size}x${size} -quality 100 $pngFile
+    # 关键2：-trim 后图形是宽扁的（显示器造型宽>高），直接 resize 保持比例会得到 1024x916
+    # 这类非正方形图，违反 icon-replacement-guide.md 的 1024x1024 正方形规范，macOS 圆角会错位。
+    # 先用 -extent 补成正方形画布（居中），再加 10% 边距缩放，保证每档都是正方形。
+    magick -density 1200 $mainSvg -background none -trim +repage -transparent white -alpha on `
+        -gravity center -extent "%[fx:max(w,h)]x%[fx:max(w,h)]" `
+        -bordercolor none -border 10%x10% -filter Lanczos -resize ${size}x${size} -quality 100 $pngFile
 }
 
 # 生成 icon.png（最大尺寸）
