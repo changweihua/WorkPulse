@@ -12,6 +12,10 @@
 - 🌈 style: 全局图标穿插核对收尾 — 顶部导航「设置」入口改用 `NAV_SETTINGS.icon` 单一数据源（与侧栏 `BrandSettings` 统一，消除两套图标漂移）；统计页与每日总结弹窗共 3 处统计卡的 🔥📝✅📋 emoji 换成 lucide 语义色线性图标（与报告页概览卡口径一致）
 - 🌈 style: 系统托盘菜单图标与 wordmark 收敛到品牌色板 — `build/gen-menu-icons.js` 的 4 个菜单栏图标从散乱蓝/青/绿/红黄绿灯改为灰紫主线条 + 品牌青/玫红（「显示应用」从旧红黄绿灯窗口改为灰紫显示器 + 青红脉搏，与新主图标同源）；`wordmark.png` 从旧「记事本 + 黄点」Logo 重绘为深蓝紫底座 + 显示器脉搏字标，并纳入该脚本单一来源生成；启动屏背景靛蓝/蓝光晕改为品牌青/玫红
 
+### 变更
+
+- 📦 deps: 更新多项依赖补丁版本 — electron、lucide-react、openai、node-api-dotnet、oxlint / oxfmt、streamdown、@iconify-json/lucide / thesvg-color 升至最新补丁版，同步 package-lock.json；`.vscode/settings.json` 补充 Python 环境配置
+
 ### 修复
 
 - 🐞 fix: 修复主图标缩放成非正方形导致 macOS 圆角错位 — `generate-icons.ps1` 在 `-trim` 后直接 resize 会保留显示器的宽扁比例，产出 1024×916 这类非正方形图，违反 icon 规范；改为先用 `-extent` 补正方形画布再加边距缩放，icon.png/ico/icns 各档均为标准正方形

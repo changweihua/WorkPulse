@@ -17,5 +17,7 @@
     "*.resx": "${capture}.Designer.cs",
     "*.xaml": "${capture}.xaml.cs",
     ".env": ".env.*"
-  }
+  },
+  "python.terminal.useEnvFile": true,
+  "python-envs.defaultEnvManager": "ms-python.python:system"
 }
