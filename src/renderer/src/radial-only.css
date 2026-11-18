@@ -40,3 +40,10 @@
 .hw-wifi-bar {
   transition: stroke-opacity 0.28s ease;
 }
+
+/* 品牌多色图标（WidgetIcon 应用快捷入口扇区）在 hw-dark 下提亮，
+   与主窗口 .dark .brand-icon / Touch Bar .hw-dark .brand-icon 同口径。
+   径向是独立透明窗口，需自带该规则（不加载 index.css）。 */
+.hw-dark .brand-icon {
+  filter: brightness(1.35) saturate(1.08) drop-shadow(0 0 0.4px rgba(255, 255, 255, 0.18));
+}

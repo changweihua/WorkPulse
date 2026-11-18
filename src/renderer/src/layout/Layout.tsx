@@ -1,12 +1,18 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation, useMatches } from 'react-router';
-import { Settings, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { TitleBar } from '../components/TitleBar';
 import { useToast } from '../components/Toast';
 import { useI18n } from '../stores/languageStore';
 import { QuickCreate } from '../components/QuickCreate';
 import { AnimatedBackground } from '../components/AnimatedBackground';
-import { TOP_NAV_ORDER, findNavItem, renderNavIcon, resolveNavLabel } from '../config/navigation';
+import {
+  NAV_SETTINGS,
+  TOP_NAV_ORDER,
+  findNavItem,
+  renderNavIcon,
+  resolveNavLabel,
+} from '../config/navigation';
 import { useCommandPalette, MOD_KEY_HINT } from '../hooks/useCommandPalette';
 // 入口按钮样式与面板样式同源（面板本体由 lazy chunk 按需加载）
 import '../components/CommandPalette.css';
@@ -150,7 +156,7 @@ export default function Layout() {
             className="p-2 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors"
             aria-label={t('nav.settings')}
           >
-            <Settings className="w-5 h-5" />
+            {renderNavIcon(NAV_SETTINGS.icon, 'w-5 h-5')}
           </Link>
         </div>
       </header>

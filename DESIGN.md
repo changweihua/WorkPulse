@@ -142,17 +142,21 @@ Tailwind 等价写法：主文字 `text-zinc-800 dark:text-zinc-100`，次级 `t
 
 图标分两套，风格统一于主程序图标，分工明确：
 
-- **品牌图标**（多色填充）：`src/renderer/src/components/icons/BrandIcons.tsx` 为唯一数据源，含应用 Logo + 全部导航功能图标。配色与主程序图标 `resources/icon.svg` 同源——深蓝紫主体 `#2C2F53 / #4C4F6E`、灰紫结构 `#999AAC / #CACAD4`、青色点缀 `#11CBE5 / #91EDF8`、玫红点缀 `#FA4659 / #FDB8BF`；圆角、扁平、实心。用于侧栏导航、顶部导航、命令面板、启动屏、路由加载态、设置等「关键位置」。尺寸由外部 className 控制（18px 导航 / 16px 命令面板）；深色主题下由 `.dark .brand-icon` 滤镜轻微提亮。
-- **操作图标**（品牌色线性）：lucide-react，统一 `strokeWidth=1.9` 圆润线性，默认 14–16px（行内）/ 24px（空状态）。用于按钮、状态、悬浮窗 / Touch Bar / 径向菜单（`WidgetIcon.tsx` 的 tint 单一数据源）等「操作位」——这些位置依赖 `currentColor` 动态变色（激活态、系统状态），故不用多色图标。
+- **品牌图标**（多色填充）：`src/renderer/src/components/icons/BrandIcons.tsx` 为唯一数据源，含应用 Logo + 全部导航功能图标 + 悬浮窗应用快捷入口图标。配色与主程序图标 `resources/icon.svg` 同源——深蓝紫主体 `#2C2F53 / #4C4F6E`、灰紫结构 `#999AAC / #CACAD4`、青色点缀 `#11CBE5 / #91EDF8`、玫红点缀 `#FA4659 / #FDB8BF`；圆角、扁平、实心。用于侧栏导航、顶部导航、命令面板、启动屏、路由加载态、设置，以及悬浮窗 / Touch Bar / 径向菜单的**应用快捷入口**（日志/任务/会议/AI/截图/设置，与侧栏同源）等「关键位置」。尺寸由外部 className（导航 18px / 命令面板 16px）或 `width`/`height`（悬浮窗 17px / 径向 24px）控制；深色主题下由 `.dark .brand-icon`（主窗口）或 `.hw-dark .brand-icon`（Touch Bar / 径向独立窗口）滤镜轻微提亮。
+- **操作图标**（品牌色线性）：lucide-react，统一 `strokeWidth=1.9` 圆润线性，默认 14–16px（行内）/ 24px（空状态）。用于按钮、状态，以及悬浮窗 / Touch Bar 的**系统状态项**（时钟/Wi-Fi/蓝牙/电池/CPU/内存/音量/亮度）等「操作位」——这些位置依赖 `currentColor` 表达动态状态（WifiOff / 充电 / 静音 / 加载中），故不用多色图标；其 tint 收敛到品牌色系（深蓝紫/青/灰紫，电池/亮度保留绿/琥珀语义色）。
+
+悬浮窗 / Touch Bar / 径向菜单图标统一走 `components/WidgetIcon.tsx` 单一数据源（`WIDGET_ICON_META`）：同一 key 在 Touch Bar 展开面板、设置页两列、径向扇区显示同一图标。应用快捷入口用 `brandIcon` 多色品牌图标 + 统一灰紫底座；系统状态项用 `icon` 单色 lucide，Touch Bar 底栏 `sysIcon` 直接取用。
 
 导航项图标统一走 `config/navigation.ts` 单一数据源（`renderNavIcon` 渲染）：侧栏 `NavLayout`、顶部 `Layout`、命令面板 `CommandPalette` 三处共用，禁止在组件内另行硬编码图标。
 
 ### 5.2 应用级图标
 
 - **主程序图标**：`resources/icon.svg` 为矢量源（iMac 显示器 + 脉搏波形 + 四色任务状态点），`generate-icons.ps1` 生成 `icon.png`（1024×1024，已补正方形画布）、`icon.ico`（16~256 共 10 档）、`icon.icns`（macOS 生成）。脚本内 `-extent` 补正方形，避免宽扁图形缩放成非正方形导致 macOS 圆角错位。
-- **启动屏**：`resources/splash.html` 内嵌品牌 Logo（与主图标同源），白色圆角底座 + 呼吸动画。
+- **启动屏**：`resources/splash.html` 内嵌品牌 Logo（与主图标同源），白色圆角底座 + 呼吸动画；背景两团模糊光晕为品牌青（`#11CBE5`）/ 玫红（`#FA4659`），与品牌色板同源（旧版靛蓝/蓝光晕已弃用）。
 - **窗口控制按钮**（TitleBar）：macOS 式红绿灯，降饱和配色 `#f87171 / #fbbf24 / #4ade80`，hover 提亮一档
 - **托盘图标**：三色柱状（青 / 灰紫 / 红，与主图标同色系），`resources/tray-icon.svg` 为源图，`generate-icons.ps1` 生成正方形 base 16×16 + 9 档 @Nx 变体（20/21/22/24/29/32/40/48px），Electron 按屏幕 DPI 自动选原生像素，全程不重采样
+- **系统托盘菜单图标**：`build/gen-menu-icons.js` 为唯一生成源（`sharp`），产出 `menu-{new-log,new-task,show,quit}.png` + @2x 供主进程 `tray.ts` 加载。配色收敛到品牌色板——新建日志用青、新建任务用深青勾 + 玫红加号、显示应用为灰紫显示器 + 青红脉搏（与主图标同源，替代旧红黄绿灯窗口）、退出为品牌玫红电源；线条主色为灰紫 `#7C7F95`。改动后需运行 `node build/gen-menu-icons.js` 重生成。
+- **品牌 wordmark**：`resources/wordmark.png`（1408×768），同样由 `build/gen-menu-icons.js` 生成——深蓝紫圆角底座 + 灰紫显示器 + 青红脉搏 + WorkPulse 字标，替代旧版「记事本 + 黄点」Logo。
 
 ---
 

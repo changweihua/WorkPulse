@@ -2,7 +2,16 @@ import { useEffect, useState, useRef, useCallback, ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { FadeIn } from '../components/Motion';
 import { SkeletonLine, SkeletonRect, SkeletonStatCard } from '../components/Skeleton';
-import { Tag, TrendingUp, Calendar, Sparkles } from 'lucide-react';
+import {
+  Tag,
+  TrendingUp,
+  Calendar,
+  Sparkles,
+  Flame,
+  NotebookPen,
+  CheckCircle2,
+  ListTodo,
+} from 'lucide-react';
 import * as echarts from 'echarts/core';
 import { BarChart as EChartsBarChart, PieChart } from 'echarts/charts';
 import {
@@ -115,7 +124,7 @@ const STATS_ITEM_VARIANTS = {
 };
 
 function StatCard({
-  emoji,
+  icon,
   label,
   value,
   suffix,
@@ -125,7 +134,7 @@ function StatCard({
   iconBg,
   valueColor,
 }: {
-  emoji: string;
+  icon: ReactNode;
   label: string;
   value: number;
   suffix?: string;
@@ -168,10 +177,10 @@ function StatCard({
         )}
       </div>
       <div
-        className="stat-card-icon shrink-0 w-14 h-14 flex items-center justify-center rounded-2xl text-3xl"
-        style={{ background: iconBg }}
+        className="stat-card-icon shrink-0 w-14 h-14 flex items-center justify-center rounded-2xl"
+        style={{ background: iconBg, color: valueColor }}
       >
-        {emoji}
+        {icon}
       </div>
     </motion.div>
   );
@@ -880,7 +889,7 @@ function StatsPage(): ReactNode {
           animate="show"
         >
           <StatCard
-            emoji="🔥"
+            icon={<Flame className="w-7 h-7" aria-hidden="true" />}
             label={t('stats.streak')}
             value={stats.streak}
             suffix={t('stats.days')}
@@ -889,7 +898,7 @@ function StatsPage(): ReactNode {
             iconBg="linear-gradient(135deg, rgba(249,115,22,0.15), rgba(249,115,22,0.05))"
           />
           <StatCard
-            emoji="📝"
+            icon={<NotebookPen className="w-7 h-7" aria-hidden="true" />}
             label={t('stats.totalLogs')}
             value={windowedLogs}
             delta={logsDelta}
@@ -899,7 +908,7 @@ function StatsPage(): ReactNode {
             iconBg="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))"
           />
           <StatCard
-            emoji="✅"
+            icon={<CheckCircle2 className="w-7 h-7" aria-hidden="true" />}
             label={t('stats.doneTasks')}
             value={windowedTasksDone}
             delta={tasksDelta}
@@ -909,7 +918,7 @@ function StatsPage(): ReactNode {
             iconBg="linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.05))"
           />
           <StatCard
-            emoji="📋"
+            icon={<ListTodo className="w-7 h-7" aria-hidden="true" />}
             label={t('stats.activeTasks')}
             value={stats.totalTasksActive}
             valueColor="#a855f7"

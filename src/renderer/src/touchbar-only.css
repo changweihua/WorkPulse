@@ -744,3 +744,10 @@ body,
     opacity: 0.3;
   }
 }
+
+/* 品牌多色图标（WidgetIcon 应用快捷入口）在 hw-dark 下提亮：
+   深蓝紫主体 #2C2F53 在深色玻璃底座上偏闷，与主窗口 .dark .brand-icon 同口径。
+   品牌图标颜色写死、不继承 currentColor，只能靠滤镜提亮。 */
+.hw-dark .brand-icon {
+  filter: brightness(1.35) saturate(1.08) drop-shadow(0 0 0.4px rgba(255, 255, 255, 0.18));
+}

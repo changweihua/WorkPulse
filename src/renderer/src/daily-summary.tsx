@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
+import { Flame, NotebookPen, CheckCircle2, ListTodo } from 'lucide-react';
 
 // ── 类型声明 ──
 
@@ -62,13 +63,13 @@ function useCountUp(target: number, duration = 1200): number {
 
 /** 核心数字卡片 */
 function StatBlock({
-  emoji,
+  icon,
   label,
   value,
   color,
   delay,
 }: {
-  emoji: string;
+  icon: React.ReactNode;
   label: string;
   value: number;
   color: string;
@@ -103,11 +104,11 @@ function StatBlock({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 24,
+          color,
           flexShrink: 0,
         }}
       >
-        {emoji}
+        {icon}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5 }}>
@@ -471,7 +472,7 @@ function DailySummary(): React.ReactNode {
           {/* 统计卡片 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <StatBlock
-              emoji="🔥"
+              icon={<Flame size={24} aria-hidden="true" />}
               label="连续打卡"
               value={data.streak}
               color="var(--color-cat-4, #f97316)"
@@ -480,7 +481,7 @@ function DailySummary(): React.ReactNode {
             <div style={{ display: 'flex', gap: 10 }}>
               <div style={{ flex: 1 }}>
                 <StatBlock
-                  emoji="📝"
+                  icon={<NotebookPen size={24} aria-hidden="true" />}
                   label="今日日志"
                   value={data.todayLogs}
                   color="var(--color-cat-1, #60a5fa)"
@@ -489,7 +490,7 @@ function DailySummary(): React.ReactNode {
               </div>
               <div style={{ flex: 1 }}>
                 <StatBlock
-                  emoji="✅"
+                  icon={<CheckCircle2 size={24} aria-hidden="true" />}
                   label="完成任务"
                   value={data.todayTasks}
                   color="var(--color-cat-3, #34d399)"
@@ -498,7 +499,7 @@ function DailySummary(): React.ReactNode {
               </div>
             </div>
             <StatBlock
-              emoji="📋"
+              icon={<ListTodo size={24} aria-hidden="true" />}
               label="待处理任务"
               value={data.activeTasks}
               color="var(--color-cat-2, #a78bfa)"

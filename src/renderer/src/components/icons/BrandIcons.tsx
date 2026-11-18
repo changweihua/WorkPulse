@@ -403,6 +403,25 @@ export function BrandPaddle(props: BrandIconProps) {
   );
 }
 
+/** 截图标注：取景框 + 镜头 + 标注笔（用于悬浮窗/Touch Bar 截图快捷入口） */
+export function BrandScreenshot(props: BrandIconProps) {
+  return (
+    <BrandSvg {...props}>
+      <path
+        d="M5 8.4V6.2A2.2 2.2 0 0 1 7.2 4h2.2M14.6 4h2.2A2.2 2.2 0 0 1 19 6.2v2.2M19 14.6v2.2a2.2 2.2 0 0 1-2.2 2.2h-2.2M9.4 20H7.2A2.2 2.2 0 0 1 5 17.8v-2.2"
+        fill="none"
+        stroke="#2C2F53"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="11.6" r="3.3" fill="#2C2F53" />
+      <circle cx="12" cy="11.6" r="1.75" fill="#11CBE5" />
+      <path d="M16.4 16.2l3.3-3.3 1.5 1.5-3.3 3.3-2.2.7z" fill="#FA4659" />
+      <path d="M16.4 16.2l1.3 1.3" stroke="#FDB8BF" strokeWidth="0.9" strokeLinecap="round" />
+    </BrandSvg>
+  );
+}
+
 /** 设置：齿轮 + 青色核心 */
 export function BrandSettings(props: BrandIconProps) {
   return (

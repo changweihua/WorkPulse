@@ -5,7 +5,7 @@
 import { useEffect, useState, useRef, useCallback, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FadeIn, MOTION_EASE } from './Motion';
-import { X } from 'lucide-react';
+import { X, Flame, NotebookPen, CheckCircle2, ListTodo } from 'lucide-react';
 
 // ── 类型 ──
 
@@ -54,16 +54,18 @@ function useCountUp(target: number, duration = 1200): number {
 // ── 子组件 ──
 
 function StatBlock({
-  emoji,
+  icon,
   label,
   value,
   accentClass,
+  iconColor,
   delay,
 }: {
-  emoji: string;
+  icon: ReactNode;
   label: string;
   value: number;
   accentClass: string;
+  iconColor: string;
   delay: number;
 }): ReactNode {
   const display = useCountUp(value, 1400);
@@ -72,9 +74,9 @@ function StatBlock({
     <FadeIn delay={delay}>
       <div className="surface-card rounded-2xl p-4 flex items-center gap-4">
         <div
-          className={`shrink-0 w-12 h-12 flex items-center justify-center rounded-2xl text-2xl ${accentClass}`}
+          className={`shrink-0 w-12 h-12 flex items-center justify-center rounded-2xl ${accentClass} ${iconColor}`}
         >
-          {emoji}
+          {icon}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 mb-0.5">{label}</p>
@@ -223,37 +225,41 @@ export function DailySummaryModal({ onClose }: Props): ReactNode {
           {/* 统计卡片 */}
           <div className="flex flex-col gap-2.5">
             <StatBlock
-              emoji="🔥"
+              icon={<Flame className="w-6 h-6" aria-hidden="true" />}
               label="连续打卡"
               value={stats.streak}
               accentClass="bg-orange-100 dark:bg-orange-900/30"
+              iconColor="text-orange-500 dark:text-orange-400"
               delay={0.15}
             />
             <div className="flex gap-2.5">
               <div className="flex-1">
                 <StatBlock
-                  emoji="📝"
+                  icon={<NotebookPen className="w-6 h-6" aria-hidden="true" />}
                   label="今日日志"
                   value={todayLogs}
                   accentClass="bg-blue-100 dark:bg-blue-900/30"
+                  iconColor="text-blue-500 dark:text-blue-400"
                   delay={0.25}
                 />
               </div>
               <div className="flex-1">
                 <StatBlock
-                  emoji="✅"
+                  icon={<CheckCircle2 className="w-6 h-6" aria-hidden="true" />}
                   label="完成任务"
                   value={todayTasks}
                   accentClass="bg-emerald-100 dark:bg-emerald-900/30"
+                  iconColor="text-emerald-500 dark:text-emerald-400"
                   delay={0.35}
                 />
               </div>
             </div>
             <StatBlock
-              emoji="📋"
+              icon={<ListTodo className="w-6 h-6" aria-hidden="true" />}
               label="待处理任务"
               value={stats.totalTasksActive}
               accentClass="bg-violet-100 dark:bg-violet-900/30"
+              iconColor="text-violet-500 dark:text-violet-400"
               delay={0.45}
             />
           </div>
