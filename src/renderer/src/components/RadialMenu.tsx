@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { SPRING_SPRING } from './Motion';
 import { HardwareStatusRing } from './HardwareStatusRing';
 import WidgetIcon from './WidgetIcon';
+import { writeLiquidSpotLocal, fadeLiquidSpot } from '../hooks/useLiquidGlass';
 // 径向 overlay 专用 token 层：本组件跑在独立透明窗口（radial.html → radial-entry.tsx），
 // 该窗口只加载 radial-only.css、不加载 index.css，也没有 .dark / data-accent，
 // 因此由 RadialTheme.css 提供同名语义 token；HardwareStatusRing 也在首帧 getComputedStyle 读取它。
@@ -94,6 +95,8 @@ export function RadialMenu(): ReactNode {
   const [expanded, setExpanded] = useState(false);
   const [config, setConfig] = useState<Record<string, boolean> | null>(null);
   const expandedRef = useRef(false);
+  // 液态玻璃跟随高光写入目标：展开态玻璃盘。ref 直写 CSS 变量，不走 setState。
+  const glassSurfaceRef = useRef<HTMLDivElement>(null);
   // ─── 展开卡顿修复：进出场动画窗口（±400ms）内挂起 hover / 状态更新 ───
   // Spring 的 clip-path 揭示 + 玻璃淡入需要主线程专注合成；这个窗口里任何 setState
   // （30ms 光标轮询、1s 硬件推送）触发的重渲染都会造成掉帧，动画结束后自动放行。
@@ -263,7 +266,11 @@ export function RadialMenu(): ReactNode {
       setExpanded(info.expanded);
       // 动画短路窗口：onAnimationComplete 时提前解除；此上限只防完成回调缺失时泄漏
       transitionUntilRef.current = performance.now() + ANIM_GATE_CAP_MS;
-      if (!info.expanded) setHovered(null);
+      if (!info.expanded) {
+        setHovered(null);
+        // 收起即淡出跟随高光：主进程隐藏窗口后不再发 cursor，轮询路径收不到淡出信号
+        fadeLiquidSpot(glassSurfaceRef.current);
+      }
     };
     const cleanup = window.radialApi.onState(handler);
     return cleanup;
@@ -279,11 +286,23 @@ export function RadialMenu(): ReactNode {
       if (performance.now() < transitionUntilRef.current) return;
       if (!expandedRef.current) {
         setHovered(null);
+        fadeLiquidSpot(glassSurfaceRef.current);
         return;
       }
+
       const dx = info.x - CX;
       const dy = info.y - CY;
       const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // ─── 液态玻璃镜面高光跟随（ref 直写 CSS 变量，零 setState / 零重渲染）───
+      // 光标落在展开玻璃盘（半径 EXPANDED_CLIP_R）内才点亮；盘外淡出。
+      // 位置交给 CSS @property transition 做果冻式插值，每帧只是一次 paint。
+      if (dist <= EXPANDED_CLIP_R) {
+        writeLiquidSpotLocal(glassSurfaceRef.current, info.x, info.y, 1);
+      } else {
+        fadeLiquidSpot(glassSurfaceRef.current);
+      }
+
       if (dist < INNER_R || dist > OUTER_R) {
         setHovered(null);
         return;
@@ -436,7 +455,8 @@ export function RadialMenu(): ReactNode {
         transition={{ duration: 0.2, ease: 'easeOut' }}
       >
         <div
-          className="h-full w-full rounded-full"
+          ref={glassSurfaceRef}
+          className="relative h-full w-full rounded-full lg-glass"
           style={{
             background: 'var(--color-radial-glass-base)',
             // 玻璃预算硬约束：单声明仅 1 处 blur、radius ≤24px、≤2 个滤镜函数（同中心圆规格）
@@ -628,7 +648,7 @@ export function RadialMenu(): ReactNode {
         style={{ zIndex: 1 }}
       >
         <div
-          className="flex items-center justify-center rounded-full"
+          className="relative flex items-center justify-center rounded-full lg-glass lg-glass--rimless"
           style={
             {
               width: CENTER_SIZE,

@@ -175,6 +175,20 @@ Slack 的做法：day-one 只做 tab bar / create menu / 会话 header / compose
 
 ---
 
+## 7.5 落地补记 · 悬浮窗液态玻璃饰面（2026-11-18）
+
+悬浮窗（径向菜单 / Touch Bar）此前在第 8 节被否决的是「**叠加玻璃层**」（第二层 `backdrop-filter` / WebGL，违反 C8）。本次落地采用另一条路径——**同一块玻璃面上的高光 paint**，与「叠玻璃」有本质区别，不触碰任何否决项。
+
+- **实现**：新增 `src/renderer/src/floating-liquid-glass.css`，由两个悬浮窗入口共同 import。`.lg-glass` 用两个伪元素承载四要素：`::before` = 斜向折射高光带 + inset fresnel 边环 + `background-position` 缓慢流光；`::after` = conic-gradient 色散彩边（padding + mask XOR 留 1.5px 环）。自带 inset 高光的表面（中心圆 / Touch Bar panel / popover）叠加 `.lg-glass--rimless` 关闭饰面 fresnel，避免过曝。
+- **为何符合 C8/C2**：全程零新增 `backdrop-filter` / `filter` / WebGL context，只是既有模糊底之上的静态渐变与高光 paint；`audit-glass-budget.mjs` 审计确认 `backdrop-filter` 声明数未增加（仍 18 处，本文件 0 处）。
+- **为何符合 C9**：流光走 `background-position`（paint-only），不在 filter 祖先链上用 transform 动画，不会把 LCD 次像素文本降级为灰度抗锯齿。带内容预览核对文字锐利、高光不盖字。
+- **为何符合 C7**：CSS 动画在窗口不可见时由 Chromium 自动暂停，等价停环；色散边静态无持续开销。
+- **降级（C6）**：`prefers-reduced-transparency: reduce` 关闭全部饰面保留原生玻璃底；`prefers-reduced-motion: reduce` 停流光定格高光。
+- **层级**：`.lg-glass` 自带 `isolation:isolate` 创建层叠上下文，伪元素 `z-index:0` + `pointer-events:none` 稳定落在「玻璃底之上、DOM 内容之下」，不拦截点击/拖拽。
+- **鼠标跟随高光（2026-11-18 追加）**：在 `::before` 背景栈顶部再加三层径向渐变（90px 柔光晕 + 26px 核心亮点 + 96px 焦散暗环），中心由 `--lg-mx/--lg-my` 定位、整体由 `--lg-glow` 淡入。浅色玻璃底近白、纯白高光对比不足，故加一圈低饱和蓝紫焦散环（`--lg-caustic`）勾出高光轮廓，深浅底都可辨且不过曝。三个变量用 `@property` 注册为 `<percentage>/<number>` 才能被 `transition` 插值（果冻式跟手，0.24s 位置 / 0.32s 亮度）；跟随层 `background-size:100% 100%` 无位移空间，因此不受第 4 层高光带的 `background-position` 流光动画干扰，无需新增 DOM 或伪元素。
+  - **坐标喂入分两路**：径向菜单透明窗 DOM 鼠标事件不可靠，复用主进程 `radial:cursor` 轮询（`info.x/y` 窗口局部坐标）经 `writeLiquidSpotLocal` 直写；Touch Bar 用 `useLiquidGlass` hook 的 `onMouseMove`（rAF 节流、`getBoundingClientRect` 在 rAF 内读）。两路都是 ref 直写 CSS 变量、**零 setState**，不触发径向菜单重渲染（守住展开卡顿修复）。
+  - **仍守红线**：跟随只用 radial-gradient repaint，不碰 transform（C9）/ 不新增 backdrop-filter（C8）；`glassInteractive()` 在系统减少动态 / 减少透明度时直接停写，配合 CSS 降级。展开动画 gate 窗口内跳过写入，收起时主进程停发 cursor → 由 `onState` 主动淡出。
+
 ## 8. 不做什么（明确否决）
 
 | 否决项                                                       | 理由                                                                                                             |

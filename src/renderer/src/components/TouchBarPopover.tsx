@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import type { HwStats } from '../../../shared/hw-stats';
 import type { DeviceDetails } from '../../../shared/touchbar';
+import { useLiquidGlass } from '../hooks/useLiquidGlass';
 
 export interface TouchBarPopoverProps {
   itemKey: string;
@@ -112,6 +113,8 @@ function Action({
 }
 
 export default function TouchBarPopover(props: TouchBarPopoverProps): React.JSX.Element {
+  // 液态玻璃镜面高光跟随：卡片是独立玻璃面，单独一份 ref + rAF 节流
+  const { ref: cardGlassRef, onMouseMove: cardGlassMove } = useLiquidGlass<HTMLDivElement>();
   const {
     itemKey,
     left,
@@ -441,7 +444,9 @@ export default function TouchBarPopover(props: TouchBarPopoverProps): React.JSX.
 
   return (
     <div
-      className={`touchbar-popover touchbar-surface${leaving ? ' is-leaving' : ''}`}
+      ref={cardGlassRef}
+      onMouseMove={cardGlassMove}
+      className={`touchbar-popover touchbar-surface lg-glass lg-glass--rimless${leaving ? ' is-leaving' : ''}`}
       style={{ left, bottom }}
       // 卡片内的滑块 / 按钮不能触发底栏拖拽
       onMouseDown={(e) => e.stopPropagation()}

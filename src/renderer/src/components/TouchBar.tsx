@@ -16,6 +16,7 @@
  * 背景按设置页的窗口材质（data-material）切换同一套预设。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLiquidGlass } from '../hooks/useLiquidGlass';
 import {
   BatteryCharging,
   ChevronDown,
@@ -114,6 +115,8 @@ const sysIcon = (key: string, size = 15, className?: string): React.JSX.Element 
 };
 
 export default function TouchBar(): React.JSX.Element {
+  // 液态玻璃镜面高光跟随：ref 直写 CSS 变量 + rAF 节流，零重渲染
+  const { ref: panelGlassRef, onMouseMove: panelGlassMove } = useLiquidGlass<HTMLDivElement>();
   const [items, setItems] = useState<TouchbarItem[]>([]);
   const [programs, setPrograms] = useState<TouchbarItem[]>([]);
   const [expanded, setExpanded] = useState(false);
@@ -625,7 +628,11 @@ export default function TouchBar(): React.JSX.Element {
         } as React.CSSProperties
       }
     >
-      <div className="touchbar-panel touchbar-surface">
+      <div
+        ref={panelGlassRef}
+        onMouseMove={panelGlassMove}
+        className="touchbar-panel touchbar-surface lg-glass lg-glass--rimless"
+      >
         {expanded && (
           <div className="touchbar-panel-row">
             {shownAppItems.length > 0 ? (

@@ -11,6 +11,8 @@
 - ✨ feat: 悬浮窗 / Touch Bar / 径向菜单的应用快捷入口图标接入品牌多色图标 — 日志/任务/会议/AI/截图/设置 6 项从散乱 lucide + 杂色 tint 改为与侧栏导航同源的品牌图标（新增 `BrandScreenshot`），统一灰紫底座；8 个系统状态项保留单色 lucide 以维持动态状态表达，但 tint 收敛到品牌色系；补充 Touch Bar / 径向独立窗口 `.hw-dark .brand-icon` 提亮规则
 - 🌈 style: 全局图标穿插核对收尾 — 顶部导航「设置」入口改用 `NAV_SETTINGS.icon` 单一数据源（与侧栏 `BrandSettings` 统一，消除两套图标漂移）；统计页与每日总结弹窗共 3 处统计卡的 🔥📝✅📋 emoji 换成 lucide 语义色线性图标（与报告页概览卡口径一致）
 - 🌈 style: 系统托盘菜单图标与 wordmark 收敛到品牌色板 — `build/gen-menu-icons.js` 的 4 个菜单栏图标从散乱蓝/青/绿/红黄绿灯改为灰紫主线条 + 品牌青/玫红（「显示应用」从旧红黄绿灯窗口改为灰紫显示器 + 青红脉搏，与新主图标同源）；`wordmark.png` 从旧「记事本 + 黄点」Logo 重绘为深蓝紫底座 + 显示器脉搏字标，并纳入该脚本单一来源生成；启动屏背景靛蓝/蓝光晕改为品牌青/玫红
+- 🌈 style: 悬浮窗接入液态玻璃质感 — 径向菜单与 Touch Bar 共用新增 `floating-liquid-glass.css` 饰面层，在保留原生模糊底的前提下用纯 paint 叠加色散彩边（conic-gradient + mask）、fresnel 高光环、斜向折射高光带与缓慢流光；不新增任何 backdrop-filter / WebGL / filter 函数（守住透明悬浮窗 GPU 性能红线），流光用 background-position 而非 transform 避开文字抗锯齿降级，并支持减少透明度 / 减少动态系统降级
+- ✨ feat: 悬浮窗液态玻璃支持鼠标跟随高光 — 径向菜单（主进程光标轮询经 `writeLiquidSpotLocal` 喂入）与 Touch Bar 面板/悬停卡片（`useLiquidGlass` hook 的 rAF 节流 `onMouseMove`）均新增镜面高光跟随：柔光晕 + 核心亮点双层径向渐变，位置经 `@property` 注册的 `--lg-mx/--lg-my/--lg-glow` 做果冻式插值，鼠标移入淡入、移出淡出；全程 ref 直写 CSS 变量零 setState / 零重渲染，不碰 transform 与 backdrop-filter，减少动态 / 减少透明度下自动关闭跟随
 
 ### 变更
 
