@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { ClipboardList, Columns3 } from 'lucide-react';
 import { Fade, MOTION_EASE } from './Motion';
+import { AutoGrowTextarea, insertLineBreak, insertTextAtCursor } from './common/AutoGrowTextarea';
+import { EmojiPicker } from './common/EmojiPicker';
 import { useWorkLogStore } from '../stores/worklogStore';
 import { useTaskStore } from '../stores/taskStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -19,7 +21,8 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [value, setValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const logInputRef = useRef<HTMLTextAreaElement>(null);
+  const taskInputRef = useRef<HTMLInputElement>(null);
   const addLog = useWorkLogStore((s) => s.addLog);
   const addTask = useTaskStore((s) => s.addTask);
   const toast = useToast();
@@ -34,7 +37,7 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
   };
 
   useEffect(() => {
-    inputRef.current?.focus();
+    (mode === 'log' ? logInputRef : taskInputRef).current?.focus();
   }, [mode]);
 
   const handleSubmit = async (): Promise<void> => {
@@ -57,7 +60,12 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Enter') handleSubmit();
+    if (e.nativeEvent.isComposing) return;
+    // 与 Excel 一致：Enter 保存，Alt+Enter 换行；任务模式仍保持 Enter 直接提交
+    if (e.key === 'Enter' && (mode === 'task' || !e.altKey)) {
+      e.preventDefault();
+      handleSubmit();
+    }
     if (e.key === 'Escape') onClose();
     // Tab switches mode
     if (e.key === 'Tab') {
@@ -65,6 +73,15 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
       setMode((m) => (m === 'log' ? 'task' : 'log'));
       setValue('');
     }
+  };
+
+  const handleLogKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter' && e.altKey) {
+      insertLineBreak(e, value, setValue);
+      return;
+    }
+    handleKeyDown(e);
   };
 
   return (
@@ -114,18 +131,44 @@ export function QuickCreate({ initialMode, onClose }: Props): ReactNode {
 
         {/* Input */}
         <div className="p-4">
-          <input
-            ref={inputRef}
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={mode === 'log' ? t('quick.logPlaceholder') : t('quick.taskPlaceholder')}
-            disabled={submitting}
-            className="w-full px-3 py-2.5 text-base border border-zinc-300 dark:border-zinc-600 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-400/30 surface-input dark:text-zinc-100 disabled:opacity-50"
-          />
-          <div className="flex items-center justify-between mt-3">
-            <span className="text-xs text-zinc-400">{t('quick.help')}</span>
+          {mode === 'log' ? (
+            <div className="relative">
+              <AutoGrowTextarea
+                ref={logInputRef}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={handleLogKeyDown}
+                placeholder={t('quick.logPlaceholder')}
+                disabled={submitting}
+                maxHeight={140}
+                className="w-full pl-3 pr-10 py-2.5 text-base leading-6 border border-zinc-300 dark:border-zinc-600 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-400/30 surface-input dark:text-zinc-100 disabled:opacity-50"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <EmojiPicker
+                  ariaLabel={t('worklog.addEmoji')}
+                  disabled={submitting}
+                  onSelect={(emoji) =>
+                    insertTextAtCursor(logInputRef.current, value, setValue, emoji)
+                  }
+                />
+              </div>
+            </div>
+          ) : (
+            <input
+              ref={taskInputRef}
+              type="text"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={t('quick.taskPlaceholder')}
+              disabled={submitting}
+              className="w-full px-3 py-2.5 text-base border border-zinc-300 dark:border-zinc-600 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 dark:focus:ring-blue-400/30 surface-input dark:text-zinc-100 disabled:opacity-50"
+            />
+          )}
+          <div className="flex items-center justify-between mt-3 gap-2">
+            <span className="text-xs text-zinc-400">
+              {mode === 'log' ? t('quick.helpLog') : t('quick.help')}
+            </span>
             <button
               onClick={handleSubmit}
               disabled={!value.trim() || submitting}

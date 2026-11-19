@@ -1452,6 +1452,20 @@ body,
   border-radius: inherit;
 }
 
+/* 日志工具栏右侧留白装饰：渐隐已做进 SVG 四边，CSS 只负责铺满与透明度 */
+.worklog-toolbar-art {
+  background-image: url('./assets/worklog-toolbar-art.svg');
+  background-repeat: no-repeat;
+  background-position: center center;
+  /* cover 会按宽度缩放并裁掉波纹所在的 SVG 下半部，必须拉伸铺满 */
+  background-size: 100% 100%;
+  opacity: 0.95;
+}
+.dark .worklog-toolbar-art {
+  opacity: 0.6;
+  mix-blend-mode: screen;
+}
+
 /* Active/focused glass border — rotating gradient */
 .glass-border-active {
   position: relative;

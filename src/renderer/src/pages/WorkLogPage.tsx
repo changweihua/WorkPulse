@@ -23,6 +23,13 @@ import { useWorkLogStore, SEARCH_LIMIT } from '../stores/worklogStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useSearchParams } from 'react-router';
 import { Highlight } from '../components/common/Highlight';
+import {
+  AutoGrowTextarea,
+  insertLineBreak,
+  insertTextAtCursor,
+} from '../components/common/AutoGrowTextarea';
+import { DatePicker } from '../components/common/DatePicker';
+import { EmojiPicker } from '../components/common/EmojiPicker';
 import { formatDate, formatTime, groupLogsByDate } from '../lib/dateUtils';
 import { useI18n } from '../stores/languageStore';
 import type { TranslationKey } from '../lib/i18n';
@@ -361,19 +368,28 @@ const LogEntry = memo(function LogEntry({
         }`}
       >
         {editing ? (
-          <>
-            <div className="flex-1 mr-2 flex items-center gap-2">
-              <input
-                type="text"
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') onSaveEdit();
-                  if (e.key === 'Escape') onCancelEdit();
-                }}
-                className="flex-1 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
-                autoFocus
-              />
+          <div className="w-full py-1">
+            <AutoGrowTextarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return;
+                // 与 Excel 一致：Alt+Enter 显式插入换行，Enter 保存，Esc 取消
+                if (e.key === 'Enter' && e.altKey) {
+                  insertLineBreak(e, editContent, setEditContent);
+                  return;
+                }
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  onSaveEdit();
+                }
+                if (e.key === 'Escape') onCancelEdit();
+              }}
+              maxHeight={180}
+              className="w-full px-2 py-1.5 text-sm leading-5 border border-[var(--color-border)] rounded-lg outline-none focus:border-zinc-400 surface-input dark:text-zinc-100"
+              autoFocus
+            />
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <input
                 type="text"
                 value={editCategory}
@@ -383,37 +399,43 @@ const LogEntry = memo(function LogEntry({
                   if (e.key === 'Escape') onCancelEdit();
                 }}
                 placeholder="#tag"
-                className="w-24 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
+                className="w-24 px-2 py-1 text-xs border border-[var(--color-border)] rounded-lg outline-none focus:border-zinc-400 surface-input dark:text-zinc-100"
               />
-              <input
-                type="date"
+              <DatePicker
                 value={editDate}
-                onChange={(e) => setEditDate(e.target.value)}
-                className="w-32 px-2 py-1 text-sm border border-[var(--color-border)] rounded outline-none focus:border-blue-400 surface-input dark:text-zinc-100"
+                onChange={setEditDate}
+                ariaLabel={t('worklog.editDateAria')}
               />
+              <span className="text-[10px] text-zinc-400 hidden sm:inline">
+                {t('worklog.editHint')}
+              </span>
+              <div className="ml-auto flex items-center gap-1">
+                <button
+                  onClick={onSaveEdit}
+                  className="p-1 text-green-500 hover:text-green-600"
+                  title={t('worklog.editSave')}
+                >
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={onCancelEdit}
+                  className="p-1 text-zinc-400 hover:text-zinc-600"
+                  title={t('worklog.editCancel')}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={onSaveEdit}
-                className="p-1 text-green-500 hover:text-green-600"
-                title={t('worklog.editSave')}
-              >
-                <Check className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={onCancelEdit}
-                className="p-1 text-zinc-400 hover:text-zinc-600"
-                title={t('worklog.editCancel')}
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </>
+          </div>
         ) : (
           <>
             <div className="flex-1 mr-4 flex items-center gap-2 min-w-0">
-              <span className="text-zinc-800 dark:text-zinc-200 break-all leading-relaxed">
-                {query ? <Highlight text={log.content} query={query} /> : log.content}
+              <span className="text-zinc-800 dark:text-zinc-200 break-all whitespace-pre-wrap leading-relaxed">
+                {query ? (
+                  <Highlight text={log.content} query={query} className="whitespace-pre-wrap" />
+                ) : (
+                  log.content
+                )}
               </span>
               {log.category && (
                 <span className="text-[10px] leading-4 px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 whitespace-nowrap shrink-0 self-center">
@@ -560,7 +582,7 @@ function WorkLogPage(): ReactNode {
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
   const [attachmentsByLog, setAttachmentsByLog] = useState<Record<number, Attachment[]>>({});
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimerRef = useRef<number>(0);
   const fetchedIdsRef = useRef<Set<number>>(new Set());
@@ -736,14 +758,21 @@ function WorkLogPage(): ReactNode {
     inputRef.current?.focus();
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    // 输入法组词中的 Enter 用于选字，不能当保存键
+    if (e.nativeEvent.isComposing) return;
+    // 与 Excel 一致：Alt+Enter 显式插入换行，Enter 保存
+    if (e.key === 'Enter' && e.altKey) {
+      insertLineBreak(e, input, setInput);
+      return;
+    }
+    if (e.key === 'Enter') {
       e.preventDefault();
       handleSubmit();
     }
   };
 
-  const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>): Promise<void> => {
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>): Promise<void> => {
     const items = e.clipboardData?.items;
     if (!items) return;
     const imageItems = Array.from(items).filter((it) => it.type.startsWith('image/'));
@@ -928,105 +957,130 @@ function WorkLogPage(): ReactNode {
   return (
     <div className="px-6 py-4">
       {/* Toolbar: Input + Search + Actions */}
-      <div className="mb-4 surface-card p-3 flex flex-wrap items-center gap-3">
+      {/* 右侧控件顶部对齐：输入框换行增高后，搜索与导入导出不被拉到垂直中间 */}
+      <div className="mb-4 surface-card p-3 flex flex-wrap items-start gap-3">
         {/* Row 1: Input — full width on small screen */}
         <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
-          <input
+          <AutoGrowTextarea
             ref={inputRef}
-            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             placeholder={t('worklog.inputPlaceholder')}
             aria-label={t('worklog.inputAria')}
-            className={`w-full pl-4 pr-10 py-2 text-sm border rounded-lg outline-none transition-all surface-input dark:text-zinc-100 ${
+            maxHeight={120}
+            className={`w-full pl-4 pr-[150px] py-2 text-sm leading-5 border rounded-lg outline-none transition-all surface-input dark:text-zinc-100 ${
               loading
                 ? 'animate-soake border-red-400 ring-2 ring-red-200'
                 : 'border-[var(--color-border)] focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:focus:ring-zinc-700'
             }`}
           />
-          <button
-            type="button"
-            onClick={handlePickFile}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-blue-500 transition-colors"
-            title={t('worklog.addAttachment')}
-            aria-label={t('worklog.addAttachment')}
-          >
-            <Paperclip className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Row 2: Search — full width on small screen */}
-        <div className="relative w-full sm:w-56 sm:flex-none">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            placeholder={t('worklog.searchPlaceholder')}
-            aria-label={t('worklog.searchPlaceholder')}
-            className="w-full pl-9 pr-8 py-2 text-sm border border-[var(--color-border)] rounded-lg outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100"
-          />
-          {search && (
+          {/* 表情与附件按钮始终相对输入框垂直居中 */}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+            <EmojiPicker
+              ariaLabel={t('worklog.addEmoji')}
+              onSelect={(emoji) => insertTextAtCursor(inputRef.current, input, setInput, emoji)}
+            />
             <button
-              onClick={handleClearSearch}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600"
+              type="button"
+              onClick={handlePickFile}
+              className="p-1 text-zinc-400 hover:text-blue-500 transition-colors"
+              title={t('worklog.addAttachment')}
+              aria-label={t('worklog.addAttachment')}
             >
-              <X className="w-4 h-4" />
+              <Paperclip className="w-4 h-4" />
             </button>
+          </div>
+          {input.length > 0 && (
+            <span className="pointer-events-none absolute bottom-1.5 right-[66px] text-[10px] tabular-nums text-zinc-400">
+              {t('worklog.inputStats', {
+                lines: input.split('\n').length,
+                chars: Array.from(input).length,
+              })}
+            </span>
           )}
         </div>
 
-        {/* Row 3: Import + Export — equal width on small screen */}
-        <div className="flex w-full sm:w-auto gap-3">
-          <button
-            onClick={async () => {
-              const result = await window.api.import.logs();
-              if (result) {
-                const msg =
-                  result.skipped > 0
-                    ? t('worklog.importedSkipped', {
-                        imported: result.imported,
-                        skipped: result.skipped,
-                      })
-                    : t('worklog.imported', { count: result.imported });
-                toast.success(msg);
-                fetchLogs();
-              }
-            }}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-2 text-sm surface-card rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce"
-            title={t('worklog.import')}
-          >
-            <Upload className="w-4 o-4" />
-            {t('common.import')}
-          </button>
-          <div className="relative group flex-1 sm:flex-none">
-            <button className="flex items-center justify-center gap-1 w-full px-3 py-2 text-sm surface-card rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce">
-              <Download className="w-4 o-4" />
-              {t('common.export')}
-            </button>
-            <div className="absolute right-0 top-full mt-1 surface-elevated border border-[var(--color-border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+        {/* 右侧列：控件顶部对齐，单色波纹从底部渐隐融入 */}
+        <div className="relative isolate w-full sm:w-auto sm:self-stretch flex flex-col gap-3">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 hidden sm:block worklog-toolbar-art"
+          />
+          <div className="relative z-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* 搜索框：小屏独占一行 */}
+            <div className="relative w-full sm:w-56 sm:flex-none">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder={t('worklog.searchPlaceholder')}
+                aria-label={t('worklog.searchPlaceholder')}
+                className="w-full pl-9 pr-8 py-2 text-sm border border-[var(--color-border)] rounded-lg outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 dark:focus:ring-zinc-700 surface-input dark:text-zinc-100"
+              />
+              {search && (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-zinc-400 hover:text-zinc-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* 导入 / 导出：小屏等宽并排 */}
+            <div className="flex w-full sm:w-auto gap-3">
               <button
                 onClick={async () => {
-                  const pato = await window.api.export.logs('csv');
-                  if (pato) toast.success(t('worklog.exportedCsv'));
+                  const result = await window.api.import.logs();
+                  if (result) {
+                    const msg =
+                      result.skipped > 0
+                        ? t('worklog.importedSkipped', {
+                            imported: result.imported,
+                            skipped: result.skipped,
+                          })
+                        : t('worklog.imported', { count: result.imported });
+                    toast.success(msg);
+                    fetchLogs();
+                  }
                 }}
-                className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-t-lg whitespace-nowrap"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-2 text-sm surface-card rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce"
+                title={t('worklog.import')}
               >
-                {t('worklog.exportCsv')}
+                <Upload className="w-4 o-4" />
+                {t('common.import')}
               </button>
-              <button
-                onClick={async () => {
-                  const pato = await window.api.export.logs('markdown');
-                  if (pato) toast.success(t('worklog.exportedMarkdown'));
-                }}
-                className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-b-lg whitespace-nowrap"
-              >
-                {t('worklog.exportMarkdown')}
-              </button>
+              <div className="relative group flex-1 sm:flex-none">
+                <button className="flex items-center justify-center gap-1 w-full px-3 py-2 text-sm surface-card rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all btn-bounce">
+                  <Download className="w-4 o-4" />
+                  {t('common.export')}
+                </button>
+                <div className="absolute right-0 top-full mt-1 surface-elevated border border-[var(--color-border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                  <button
+                    onClick={async () => {
+                      const pato = await window.api.export.logs('csv');
+                      if (pato) toast.success(t('worklog.exportedCsv'));
+                    }}
+                    className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-t-lg whitespace-nowrap"
+                  >
+                    {t('worklog.exportCsv')}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const pato = await window.api.export.logs('markdown');
+                      if (pato) toast.success(t('worklog.exportedMarkdown'));
+                    }}
+                    className="block w-full px-4 py-2 text-sm text-left text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-b-lg whitespace-nowrap"
+                  >
+                    {t('worklog.exportMarkdown')}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

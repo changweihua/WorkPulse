@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 200" fill="none">
+  <defs>
+    <!-- 四边全透明的柔光底，避免任何矩形硬边 -->
+    <radialGradient id="wash" cx="0" cy="0" r="1" gradientTransform="translate(350 148) scale(250 50)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6E9BE0" stop-opacity="0.22"/>
+      <stop offset="0.55" stop-color="#7DA9E8" stop-opacity="0.09"/>
+      <stop offset="1" stop-color="#7DA9E8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(405 150) scale(130 42)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9BB8E8" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#9BB8E8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="flow" x1="-20" y1="0" x2="540" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6E9BE0" stop-opacity="0"/>
+      <stop offset="0.18" stop-color="#6E9BE0" stop-opacity="0.5"/>
+      <stop offset="0.55" stop-color="#89A9DE" stop-opacity="0.72"/>
+      <stop offset="0.85" stop-color="#9BB8E8" stop-opacity="0.36"/>
+      <stop offset="1" stop-color="#9BB8E8" stop-opacity="0"/>
+    </linearGradient>
+    <!-- 波纹上下也淡出，不触碰容器边界 -->
+    <linearGradient id="waveFade" x1="0" y1="88" x2="0" y2="176" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.35" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="0.72" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="waveMask" maskUnits="userSpaceOnUse" x="0" y="0" width="520" height="200">
+      <rect width="520" height="200" fill="url(#waveFade)"/>
+    </mask>
+  </defs>
+
+  <rect width="520" height="200" fill="url(#wash)"/>
+  <rect width="520" height="200" fill="url(#glow)"/>
+
+  <g mask="url(#waveMask)">
+    <path d="M-20 118C74 82 158 136 256 102C350 70 438 108 540 78" stroke="url(#flow)" stroke-width="1" opacity="0.85"/>
+    <path d="M-20 140C80 100 166 160 268 124C362 90 448 132 540 98" stroke="url(#flow)" stroke-width="1.8"/>
+    <path d="M-20 162C88 126 178 180 284 146C378 116 458 154 540 126" stroke="url(#flow)" stroke-width="1.2" opacity="0.9"/>
+  </g>
+
+  <g fill="#7E9BC2" opacity="0.4">
+    <circle cx="96" cy="104" r="1.5"/>
+    <circle cx="176" cy="82" r="1.2"/>
+    <circle cx="304" cy="98" r="1.4"/>
+    <circle cx="408" cy="74" r="1.2"/>
+    <circle cx="462" cy="126" r="1.3"/>
+    <circle cx="136" cy="142" r="1.2"/>
+    <circle cx="352" cy="164" r="1.1"/>
+  </g>
+</svg>

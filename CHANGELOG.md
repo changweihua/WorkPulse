@@ -13,13 +13,19 @@
 - 🌈 style: 系统托盘菜单图标与 wordmark 收敛到品牌色板 — `build/gen-menu-icons.js` 的 4 个菜单栏图标从散乱蓝/青/绿/红黄绿灯改为灰紫主线条 + 品牌青/玫红（「显示应用」从旧红黄绿灯窗口改为灰紫显示器 + 青红脉搏，与新主图标同源）；`wordmark.png` 从旧「记事本 + 黄点」Logo 重绘为深蓝紫底座 + 显示器脉搏字标，并纳入该脚本单一来源生成；启动屏背景靛蓝/蓝光晕改为品牌青/玫红
 - 🌈 style: 悬浮窗接入液态玻璃质感 — 径向菜单与 Touch Bar 共用新增 `floating-liquid-glass.css` 饰面层，在保留原生模糊底的前提下用纯 paint 叠加色散彩边（conic-gradient + mask）、fresnel 高光环、斜向折射高光带与缓慢流光；不新增任何 backdrop-filter / WebGL / filter 函数（守住透明悬浮窗 GPU 性能红线），流光用 background-position 而非 transform 避开文字抗锯齿降级，并支持减少透明度 / 减少动态系统降级
 - ✨ feat: 悬浮窗液态玻璃支持鼠标跟随高光 — 径向菜单（主进程光标轮询经 `writeLiquidSpotLocal` 喂入）与 Touch Bar 面板/悬停卡片（`useLiquidGlass` hook 的 rAF 节流 `onMouseMove`）均新增镜面高光跟随：柔光晕 + 核心亮点双层径向渐变，位置经 `@property` 注册的 `--lg-mx/--lg-my/--lg-glow` 做果冻式插值，鼠标移入淡入、移出淡出；全程 ref 直写 CSS 变量零 setState / 零重渲染，不碰 transform 与 backdrop-filter，减少动态 / 减少透明度下自动关闭跟随
+- ✨ feat: 日志创建与编辑支持多行文本 — 日志页输入框、行内编辑框及快捷创建的日志模式改为自适应高度多行输入（超出上限内部滚动）；创建与编辑统一 Excel 快捷键习惯：Enter 保存（编辑时 Ctrl/Cmd+Enter 亦可）、Alt+Enter 换行、Esc 取消，输入法组词中的 Enter 不再误触发保存；列表展示与搜索高亮保留换行；主输入框右下角实时显示行数与字数统计
+- ✨ feat: 日志输入新增表情选择器 — 主输入框与快捷创建的日志模式接入应用内 EmojiPicker（常用 / 表情 / 手势 / 工作 / 符号分类 + 最近使用记忆），选中后在光标处插入并回填光标位置；表情与附件按钮一起始终相对输入框垂直居中
 
 ### 变更
 
 - 📦 deps: 更新多项依赖补丁版本 — electron、lucide-react、openai、node-api-dotnet、oxlint / oxfmt、streamdown、@iconify-json/lucide / thesvg-color 升至最新补丁版，同步 package-lock.json；`.vscode/settings.json` 补充 Python 环境配置
+- 🌈 style: 日志编辑日期选择改为应用内月历弹层 — 原生 `input[type=date]` 的系统弹窗替换为自绘 DatePicker：图标按钮 + portal 月历，沿用 surface 设计变量与明暗主题，支持月份切换、今天快捷选择、点击外部/Esc 关闭，并避免瀑布流卡片的裁剪与层叠问题
+- 🌈 style: 日志工具栏多行输入时右侧留白增加渐变纹理背景 — 搜索与导入导出保持顶部对齐，右侧列铺一层单色蓝灰波纹 SVG，从底部自然融入控件区，不再像独立贴图；修正 `background-size: cover` 裁掉波纹下半部导致装饰几乎不可见的问题，改为拉伸铺满并提高波纹对比度；渐隐改为做进 SVG 本身（柔光底四边全透明、波纹上下淡出），去掉 CSS 单向遮罩，消除截图里装饰块的矩形硬边；深浅主题分别调整透明度，小屏不显示
 
 ### 修复
 
+- 🐞 fix: 修复日志输入 Alt+Enter 换行不生效及多行后工具栏错位 — Electron 下依赖浏览器默认行为不可靠，改为在光标处显式插入换行并回填光标位置（创建、行内编辑、快捷创建三处统一）；附件图标始终相对输入框垂直居中，右侧搜索与导入导出改为顶部对齐，不再随输入框增高被拉到垂直中间
+- 🐞 fix: 修复日志输入框单行时字数统计与附件图标重叠 — 统计文字从右下角贴边改为向右偏移，与垂直居中的表情 / 附件按钮错开；输入框预留足够右侧内边距，文字不再被按钮与统计遮挡；统计改为纯文字，去掉背景底色
 - 🐞 fix: 修复主图标缩放成非正方形导致 macOS 圆角错位 — `generate-icons.ps1` 在 `-trim` 后直接 resize 会保留显示器的宽扁比例，产出 1024×916 这类非正方形图，违反 icon 规范；改为先用 `-extent` 补正方形画布再加边距缩放，icon.png/ico/icns 各档均为标准正方形
 
 ## [0.3.12] - 2026-11-17
