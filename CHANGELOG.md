@@ -21,6 +21,7 @@
 - 📦 deps: 更新多项依赖补丁版本 — electron、lucide-react、openai、node-api-dotnet、oxlint / oxfmt、streamdown、@iconify-json/lucide / thesvg-color 升至最新补丁版，同步 package-lock.json；`.vscode/settings.json` 补充 Python 环境配置
 - 🌈 style: 日志编辑日期选择改为应用内月历弹层 — 原生 `input[type=date]` 的系统弹窗替换为自绘 DatePicker：图标按钮 + portal 月历，沿用 surface 设计变量与明暗主题，支持月份切换、今天快捷选择、点击外部/Esc 关闭，并避免瀑布流卡片的裁剪与层叠问题
 - 🌈 style: 日志工具栏多行输入时右侧留白增加渐变纹理背景 — 搜索与导入导出保持顶部对齐，右侧列铺一层单色蓝灰波纹 SVG，从底部自然融入控件区，不再像独立贴图；修正 `background-size: cover` 裁掉波纹下半部导致装饰几乎不可见的问题，改为拉伸铺满并提高波纹对比度；渐隐改为做进 SVG 本身（柔光底四边全透明、波纹上下淡出），去掉 CSS 单向遮罩，消除截图里装饰块的矩形硬边；深浅主题分别调整透明度，小屏不显示
+- 🌈 style: 启动屏品牌 Logo 去掉白色背景底座 — `.brand-icon` 移除白色渐变背景、白色描边与内高光投影，图标直接落在启动屏渐变底色上；投影改用贴合图标轮廓的 drop-shadow，呼吸动画同步跟随，图标略微放大让视觉更聚焦，小屏样式一并适配
 
 ### 修复
 

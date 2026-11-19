@@ -103,6 +103,8 @@ interface ChatMessage {
   reasoning?: string;
   tokenUsage?: { input: number; output: number; total: number };
   timestamp: number;
+  /** 错误提示消息：用专用气泡渲染，避免长错误文本撑破 markdown 气泡 */
+  isError?: boolean;
 }
 
 interface Conversation {
@@ -459,16 +461,18 @@ export default function AIChatPanel() {
     const isNearBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight < 120;
     if (isNearBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      // 只滚动消息容器本身，避免 scrollIntoView 连带滚动祖先容器造成错位
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
     }
   }, [visibleMessages]);
 
   // ── 打开面板或切换会话时，强制滚动到底部显示最新消息 ──
   useEffect(() => {
-    if (!open || !scrollContainerRef.current) return;
+    const container = scrollContainerRef.current;
+    if (!open || !container) return;
     // 用 rAF 确保 DOM 渲染完成后再滚动
     requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
     });
   }, [open, currentConvId]);
 
@@ -594,6 +598,7 @@ export default function AIChatPanel() {
                 role: 'assistant',
                 content: `❌ 错误: ${error}`,
                 timestamp: Date.now(),
+                isError: true,
               },
             ],
           };
@@ -870,7 +875,10 @@ export default function AIChatPanel() {
               </div>
 
               {/* Messages area */}
-              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              <div
+                ref={scrollContainerRef}
+                className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4"
+              >
                 {/* Load more indicator — 向上滚动自动加载，也可手动点击 */}
                 {hasMoreMessages && (
                   <div className="flex justify-center py-2">
@@ -930,8 +938,8 @@ export default function AIChatPanel() {
                       <div key={msg.id} className="group w-full">
                         {/* 用户消息 — 右对齐气泡 + 下方操作栏 */}
                         {isUser ? (
-                          <div className="flex flex-col items-end w-full">
-                            <div className="max-w-[80%] bg-gradient-to-br from-zinc-100 via-zinc-50 to-white dark:from-zinc-700/90 dark:via-zinc-700/70 dark:to-zinc-800/90 text-zinc-800 dark:text-zinc-100 rounded-2xl rounded-br-md px-4 py-3 text-[13px] leading-relaxed border border-zinc-200/60 dark:border-white/[0.06] shadow-lg shadow-zinc-200/50 dark:shadow-black/20">
+                          <div className="flex flex-col items-end w-full min-w-0">
+                            <div className="max-w-[80%] min-w-0 break-words [overflow-wrap:anywhere] bg-gradient-to-br from-zinc-100 via-zinc-50 to-white dark:from-zinc-700/90 dark:via-zinc-700/70 dark:to-zinc-800/90 text-zinc-800 dark:text-zinc-100 rounded-2xl rounded-br-md px-4 py-3 text-[13px] leading-relaxed border border-zinc-200/60 dark:border-white/[0.06] shadow-lg shadow-zinc-200/50 dark:shadow-black/20">
                               <Message role={msg.role} content={msg.content} />
                             </div>
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 mt-1 mr-1">
@@ -940,8 +948,14 @@ export default function AIChatPanel() {
                           </div>
                         ) : (
                           /* AI消息 — 全宽，微渐变背景 */
-                          <div className="w-full px-4 py-3 bg-gradient-to-br from-zinc-50/80 via-violet-50/30 to-transparent dark:from-white/[0.03] dark:via-violet-500/[0.02] dark:to-transparent rounded-xl border border-zinc-200/40 dark:border-white/[0.03]">
-                            <div className="max-w-[768px] mx-auto">
+                          <div
+                            className={`w-full px-4 py-3 rounded-xl border ${
+                              msg.isError
+                                ? 'bg-red-50/90 dark:bg-red-950/30 border-red-300/70 dark:border-red-500/40'
+                                : 'bg-gradient-to-br from-zinc-50/80 via-violet-50/30 to-transparent dark:from-white/[0.03] dark:via-violet-500/[0.02] dark:to-transparent border-zinc-200/40 dark:border-white/[0.03]'
+                            }`}
+                          >
+                            <div className="max-w-[768px] mx-auto min-w-0">
                               <div className="flex items-center gap-2 mb-1.5">
                                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500 via-blue-500 to-cyan-400 flex items-center justify-center shadow-sm shadow-violet-500/15">
                                   <Bot size={11} className="text-white" />
@@ -950,8 +964,20 @@ export default function AIChatPanel() {
                                   {currentConfig?.name || 'AI 助手'}
                                 </span>
                               </div>
-                              <div className="text-[13px] leading-relaxed text-zinc-800 dark:text-zinc-200">
-                                <Message role={msg.role} content={msg.content} />
+                              <div
+                                className={`text-[13px] leading-relaxed break-words [overflow-wrap:anywhere] ${
+                                  msg.isError
+                                    ? 'text-red-700 dark:text-red-300'
+                                    : 'text-zinc-800 dark:text-zinc-200'
+                                }`}
+                              >
+                                {msg.isError ? (
+                                  <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                                    {msg.content}
+                                  </span>
+                                ) : (
+                                  <Message role={msg.role} content={msg.content} />
+                                )}
                               </div>
                             </div>
                             <div className="max-w-[768px] mx-auto px-0">

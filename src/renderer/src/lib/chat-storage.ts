@@ -19,6 +19,8 @@ export interface ChatMessage {
   reasoning?: string;
   tokenUsage?: { input: number; output: number; total: number };
   timestamp: number;
+  /** 错误提示消息：用专用气泡渲染，避免长错误文本撑破 markdown 气泡 */
+  isError?: boolean;
 }
 
 export interface Conversation {

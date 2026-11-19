@@ -71,6 +71,8 @@ interface ChatMessage {
   reasoning?: string;
   tokenUsage?: { input: number; output: number; total: number };
   timestamp: number;
+  /** 错误提示消息：用专用红色气泡渲染，避免长错误文本撑破 markdown 气泡 */
+  isError?: boolean;
 }
 
 interface Conversation {
@@ -676,7 +678,9 @@ export default function ChatPage() {
     const isNearBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight < 120;
     if (isNearBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      // 只滚动消息容器本身。scrollIntoView 会连带滚动所有可滚动祖先
+      // （NavLayout 主区），导致整页被顶上去、顶栏消失的错位。
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
     }
   }, [messages]);
 
@@ -768,6 +772,7 @@ export default function ChatPage() {
                 role: 'assistant',
                 content: `❌ 错误: ${error}`,
                 timestamp: Date.now(),
+                isError: true,
               },
             ],
           };
@@ -899,250 +904,264 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="h-full overflow-hidden flex gap-4 surface-card">
-      {/* 加载骨架屏 */}
-      {!isHydrated ? (
-        <div className="flex-1 flex gap-4">
-          {/* 侧边栏骨架 */}
-          <div className="shrink-0 w-[240px] h-full border-r border-[var(--color-border)] surface-card p-4 space-y-3">
-            <SkeletonLine width="7rem" height="1.25rem" />
-            <SkeletonRect className="w-full h-9 rounded-lg" />
-            <div className="space-y-2 pt-2">
-              {Array.from({ length: 6 }, (_, i) => (
-                <div key={i} className="flex items-center gap-2 px-2 py-2 rounded-lg">
-                  <SkeletonRect className="shrink-0 w-8 h-8 rounded-full" />
-                  <div className="flex-1 space-y-1">
-                    <SkeletonLine width={`${50 + i * 6}%`} height="0.75rem" />
-                    <SkeletonLine width={`${35 + i * 4}%`} height="0.5rem" />
+    // 外层只做边距（与其他页面一致），不加整体底板；三列各自独立成卡。
+    <div className="h-full w-full overflow-hidden px-6 py-4">
+      <div className="h-full w-full flex gap-4">
+        {/* 加载骨架屏 */}
+        {!isHydrated ? (
+          <div className="flex-1 flex gap-4">
+            {/* 侧边栏骨架 */}
+            <div className="shrink-0 w-[240px] h-full surface-card rounded-xl p-4 space-y-3">
+              <SkeletonLine width="7rem" height="1.25rem" />
+              <SkeletonRect className="w-full h-9 rounded-lg" />
+              <div className="space-y-2 pt-2">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <div key={i} className="flex items-center gap-2 px-2 py-2 rounded-lg">
+                    <SkeletonRect className="shrink-0 w-8 h-8 rounded-full" />
+                    <div className="flex-1 space-y-1">
+                      <SkeletonLine width={`${50 + i * 6}%`} height="0.75rem" />
+                      <SkeletonLine width={`${35 + i * 4}%`} height="0.5rem" />
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* 消息区骨架 */}
-          <div className="flex-1 flex flex-col">
-            <div className="shrink-0 px-4 py-2.5 border-b border-[var(--color-border)] surface-card">
-              <SkeletonLine width="10rem" height="0.875rem" />
-            </div>
-            <div className="flex-1 px-4 py-4 space-y-4">
-              {Array.from({ length: 4 }, (_, i) => (
-                <div
-                  key={i}
-                  className={`flex items-start gap-3 ${i % 2 === 1 ? 'flex-row-reverse' : ''}`}
-                >
-                  <SkeletonRect className="shrink-0 w-8 h-8 rounded-full" />
-                  <div className={`max-w-[60%] space-y-1.5 ${i % 2 === 1 ? 'items-end' : ''}`}>
-                    <SkeletonRect
-                      className={`rounded-2xl ${i % 2 === 1 ? 'rounded-br-md' : 'rounded-bl-md'}`}
-                      height={`${1.5 + (i % 3) * 0.5}rem`}
-                      width={`${45 + (i % 4) * 10}%`}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="shrink-0 px-4 py-3 border-t border-[var(--color-border)] surface-card">
-              <SkeletonRect className="w-full h-10 rounded-xl" />
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* 左侧：会话列表 */}
-          {showSidebar && (
-            <div className="shrink-0 w-[240px] h-full border-r border-[var(--color-border)] surface-card">
-              <ConversationSidebar
-                conversations={conversations}
-                currentId={currentConvId}
-                onSelect={setCurrentConvId}
-                onNew={newConversation}
-                onDelete={deleteConversation}
-              />
-            </div>
-          )}
-
-          {/* 中间：聊天区 */}
-          <div className="flex-1 flex flex-col min-w-0 h-full">
-            {/* 顶部栏 */}
-            <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-[var(--color-border)] surface-card">
-              <button
-                onClick={() => setShowSidebar(!showSidebar)}
-                className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition"
-                title="切换侧栏"
-              >
-                {showSidebar ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
-              </button>
-
-              <select
-                value={currentConfigId}
-                onChange={(e) => handleConfigChange(e.target.value)}
-                className="flex-1 max-w-[260px] px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm surface-input dark:text-zinc-100 outline-none focus:border-blue-400 cursor-pointer"
-              >
-                {configs.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} — {c.model}
-                  </option>
                 ))}
-              </select>
-
-              <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-700" />
-
-              <button
-                onClick={() => setShowStats(!showStats)}
-                className={`p-1.5 rounded-lg transition ${showStats ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}
-                title="Token 统计"
-              >
-                {showStats ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-              </button>
+              </div>
             </div>
-
-            {/* 消息列表 */}
-            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-              {messages.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mb-4 shadow-lg">
-                    <Bot size={28} className="text-white" />
+            {/* 消息区骨架 —— 第二列整体一张卡 */}
+            <div className="flex-1 min-w-0 flex flex-col surface-card rounded-xl overflow-hidden">
+              <div className="shrink-0 px-4 py-2.5 border-b border-[var(--color-border)]">
+                <SkeletonLine width="10rem" height="0.875rem" />
+              </div>
+              <div className="flex-1 px-4 py-4 space-y-4">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-start gap-3 ${i % 2 === 1 ? 'flex-row-reverse' : ''}`}
+                  >
+                    <SkeletonRect className="shrink-0 w-8 h-8 rounded-full" />
+                    <div className={`max-w-[60%] space-y-1.5 ${i % 2 === 1 ? 'items-end' : ''}`}>
+                      <SkeletonRect
+                        className={`rounded-2xl ${i % 2 === 1 ? 'rounded-br-md' : 'rounded-bl-md'}`}
+                        height={`${1.5 + (i % 3) * 0.5}rem`}
+                        width={`${45 + (i % 4) * 10}%`}
+                      />
+                    </div>
                   </div>
-                  <h2 className="text-xl font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
-                    AI 对话助手
-                  </h2>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-md">
-                    选择模型配置，输入消息开始对话。支持流式输出、思考过程展示和 Token 用量统计。
-                  </p>
-                </div>
-              )}
+                ))}
+              </div>
+              <div className="shrink-0 px-4 py-3 border-t border-[var(--color-border)]">
+                <SkeletonRect className="w-full h-10 rounded-xl" />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* 左侧：会话列表 */}
+            {showSidebar && (
+              <div className="shrink-0 w-[240px] h-full surface-card rounded-xl overflow-hidden">
+                <ConversationSidebar
+                  conversations={conversations}
+                  currentId={currentConvId}
+                  onSelect={setCurrentConvId}
+                  onNew={newConversation}
+                  onDelete={deleteConversation}
+                />
+              </div>
+            )}
 
-              {messages
-                .filter((msg) => msg.id !== 'streaming')
-                .map((msg) => {
-                  const isUser = msg.role === 'user';
-                  const msgTokens = estimateTokens(msg.content);
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex items-start gap-3 group ${isUser ? 'flex-row-reverse' : ''}`}
-                    >
-                      <div
-                        className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm ${
-                          isUser
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gradient-to-br from-zinc-600 to-zinc-700 dark:from-zinc-500 dark:to-zinc-600 text-white'
-                        }`}
-                      >
-                        {isUser ? <User size={15} /> : <Bot size={15} />}
-                      </div>
+            {/* 中间：聊天区 —— 顶栏 / 消息 / 输入整体一张卡 */}
+            <div className="flex-1 min-w-0 min-h-0 h-full flex flex-col surface-card rounded-xl overflow-hidden">
+              {/* 顶部栏 */}
+              <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-[var(--color-border)]">
+                <button
+                  onClick={() => setShowSidebar(!showSidebar)}
+                  className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition"
+                  title="切换侧栏"
+                >
+                  {showSidebar ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+                </button>
 
+                <select
+                  value={currentConfigId}
+                  onChange={(e) => handleConfigChange(e.target.value)}
+                  className="flex-1 max-w-[260px] px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm surface-input dark:text-zinc-100 outline-none focus:border-blue-400 cursor-pointer"
+                >
+                  {configs.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} — {c.model}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="w-px h-5 bg-zinc-200 dark:bg-zinc-700" />
+
+                <button
+                  onClick={() => setShowStats(!showStats)}
+                  className={`p-1.5 rounded-lg transition ${showStats ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400'}`}
+                  title="Token 统计"
+                >
+                  {showStats ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+                </button>
+              </div>
+
+              {/* 消息列表 */}
+              <div
+                ref={scrollContainerRef}
+                className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4"
+              >
+                {messages.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mb-4 shadow-lg">
+                      <Bot size={28} className="text-white" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
+                      AI 对话助手
+                    </h2>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-md">
+                      选择模型配置，输入消息开始对话。支持流式输出、思考过程展示和 Token 用量统计。
+                    </p>
+                  </div>
+                )}
+
+                {messages
+                  .filter((msg) => msg.id !== 'streaming')
+                  .map((msg) => {
+                    const isUser = msg.role === 'user';
+                    const msgTokens = estimateTokens(msg.content);
+                    return (
                       <div
-                        className={`max-w-[75%] space-y-2 ${isUser ? 'items-end' : 'items-start'}`}
+                        key={msg.id}
+                        className={`flex items-start gap-3 group ${isUser ? 'flex-row-reverse' : ''}`}
                       >
-                        {!isUser && msg.reasoning && <ThinkingPanel reasoning={msg.reasoning} />}
                         <div
-                          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                          className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm ${
                             isUser
-                              ? 'bg-blue-500 text-white rounded-br-md'
-                              : 'surface-card text-zinc-800 dark:text-zinc-200 rounded-bl-md'
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gradient-to-br from-zinc-600 to-zinc-700 dark:from-zinc-500 dark:to-zinc-600 text-white'
                           }`}
                         >
-                          <Message role={msg.role} content={msg.content} />
+                          {isUser ? <User size={15} /> : <Bot size={15} />}
                         </div>
+
                         <div
-                          className={`text-[10px] text-zinc-400 dark:text-zinc-500 ${isUser ? 'text-right' : ''}`}
+                          className={`max-w-[75%] min-w-0 space-y-2 ${isUser ? 'items-end' : 'items-start'}`}
                         >
-                          {msgTokens} tokens
-                        </div>
-                        {/* 操作栏：hover 时显示 */}
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                          <MessageActionBar content={msg.content} isUser={isUser} />
+                          {!isUser && msg.reasoning && <ThinkingPanel reasoning={msg.reasoning} />}
+                          <div
+                            className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words [overflow-wrap:anywhere] ${
+                              isUser
+                                ? 'bg-blue-500 text-white rounded-br-md'
+                                : msg.isError
+                                  ? 'border border-red-300/70 dark:border-red-500/40 bg-red-50/90 dark:bg-red-950/30 text-red-700 dark:text-red-300 rounded-bl-md'
+                                  : 'surface-card text-zinc-800 dark:text-zinc-200 rounded-bl-md'
+                            }`}
+                          >
+                            {msg.isError ? (
+                              <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                                {msg.content}
+                              </span>
+                            ) : (
+                              <Message role={msg.role} content={msg.content} />
+                            )}
+                          </div>
+                          <div
+                            className={`text-[10px] text-zinc-400 dark:text-zinc-500 ${isUser ? 'text-right' : ''}`}
+                          >
+                            {msgTokens} tokens
+                          </div>
+                          {/* 操作栏：hover 时显示 */}
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                            <MessageActionBar content={msg.content} isUser={isUser} />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
 
-              {/* Streaming indicator — 独立组件，避免 IIFE diff 抖动 */}
-              {isStreaming && messages[messages.length - 1]?.id === 'streaming' && (
-                <StreamingMessage
-                  content={messages[messages.length - 1].content}
-                  reasoning={messages[messages.length - 1].reasoning}
-                />
-              )}
+                {/* Streaming indicator — 独立组件，避免 IIFE diff 抖动 */}
+                {isStreaming && messages[messages.length - 1]?.id === 'streaming' && (
+                  <StreamingMessage
+                    content={messages[messages.length - 1].content}
+                    reasoning={messages[messages.length - 1].reasoning}
+                  />
+                )}
 
-              <div ref={messagesEndRef} />
-            </div>
+                <div ref={messagesEndRef} />
+              </div>
 
-            {/* 输入区 */}
-            <div className="shrink-0 px-4 py-3 border-t border-[var(--color-border)] surface-card">
-              <div className="flex items-end gap-2 max-w-4xl mx-auto">
-                <div className="flex-1 relative">
-                  <textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
+              {/* 输入区 */}
+              <div className="shrink-0 px-4 py-3 border-t border-[var(--color-border)]">
+                <div className="flex items-end gap-2 max-w-4xl mx-auto">
+                  <div className="flex-1 relative">
+                    <textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSend();
+                        }
+                      }}
+                      placeholder="输入消息... (Enter 发送，Shift+Enter 换行)"
+                      disabled={isStreaming}
+                      rows={1}
+                      className="w-full px-4 py-2.5 pr-12 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm surface-input dark:text-zinc-100 outline-none focus:border-blue-400 resize-none disabled:opacity-50 min-h-[42px] max-h-[120px]"
+                      style={{ height: 'auto' }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+                      }}
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (isStreaming && currentRequestIdRef.current) {
+                        (window.ai as any).cancel?.(currentRequestIdRef.current);
+                      } else {
                         handleSend();
                       }
                     }}
-                    placeholder="输入消息... (Enter 发送，Shift+Enter 换行)"
-                    disabled={isStreaming}
-                    rows={1}
-                    className="w-full px-4 py-2.5 pr-12 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm surface-input dark:text-zinc-100 outline-none focus:border-blue-400 resize-none disabled:opacity-50 min-h-[42px] max-h-[120px]"
-                    style={{ height: 'auto' }}
-                    onInput={(e) => {
-                      const target = e.target as HTMLTextAreaElement;
-                      target.style.height = 'auto';
-                      target.style.height = Math.min(target.scrollHeight, 120) + 'px';
-                    }}
-                  />
-                </div>
-                <button
-                  onClick={() => {
-                    if (isStreaming && currentRequestIdRef.current) {
-                      (window.ai as any).cancel?.(currentRequestIdRef.current);
-                    } else {
-                      handleSend();
+                    disabled={!isStreaming && !input.trim()}
+                    className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition shadow-sm"
+                    style={
+                      isStreaming
+                        ? { backgroundColor: 'var(--color-error)', color: 'white' }
+                        : { backgroundColor: 'var(--color-info)', color: 'white' }
                     }
-                  }}
-                  disabled={!isStreaming && !input.trim()}
-                  className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition shadow-sm"
-                  style={
-                    isStreaming
-                      ? { backgroundColor: 'var(--color-error)', color: 'white' }
-                      : { backgroundColor: 'var(--color-info)', color: 'white' }
-                  }
-                >
-                  {isStreaming ? <X size={18} /> : <Send size={17} />}
-                </button>
-              </div>
-              <div className="max-w-4xl mx-auto mt-1.5 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500">
-                {retryInfo && (
-                  <span className="text-amber-500 dark:text-amber-400">
-                    连接中断，第 {retryInfo.attempt}/{retryInfo.maxRetries} 次重连中...
-                  </span>
-                )}
-                {!retryInfo && (
+                  >
+                    {isStreaming ? <X size={18} /> : <Send size={17} />}
+                  </button>
+                </div>
+                <div className="max-w-4xl mx-auto mt-1.5 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500">
+                  {retryInfo && (
+                    <span className="text-amber-500 dark:text-amber-400">
+                      连接中断，第 {retryInfo.attempt}/{retryInfo.maxRetries} 次重连中...
+                    </span>
+                  )}
+                  {!retryInfo && (
+                    <span>
+                      {currentConfig
+                        ? `${currentConfig.name} · ${currentConfig.model}`
+                        : '未选择模型'}
+                    </span>
+                  )}
                   <span>
-                    {currentConfig
-                      ? `${currentConfig.name} · ${currentConfig.model}`
-                      : '未选择模型'}
+                    {tokenStats.totalTokens > 0 &&
+                      `${tokenStats.totalTokens.toLocaleString()} tokens`}
                   </span>
-                )}
-                <span>
-                  {tokenStats.totalTokens > 0 &&
-                    `${tokenStats.totalTokens.toLocaleString()} tokens`}
-                </span>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* 右侧：Token 统计 */}
-          {showStats && (
-            <div className="shrink-0 w-[260px] h-full border-l border-[var(--color-border)] surface-card">
-              <TokenStatsPanel stats={tokenStats} messages={messages} />
-            </div>
-          )}
-        </>
-      )}
+            {/* 右侧：Token 统计 */}
+            {showStats && (
+              <div className="shrink-0 w-[260px] h-full surface-card rounded-xl overflow-hidden">
+                <TokenStatsPanel stats={tokenStats} messages={messages} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
