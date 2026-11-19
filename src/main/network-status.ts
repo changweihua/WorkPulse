@@ -1,15 +1,17 @@
 /**
  * 网络状态采集（主进程）
  *
- * 三块采集面，全部进程内完成或单次外部命令完成，绝不阻塞 1s 采样循环：
+ * 三块采集面，主路径全部进程内完成，绝不阻塞 1s 采样循环：
  *
- * 1. 以太网 + 互联网连通性（每 15s 一次 PowerShell）
- *    - 一次 `Get-NetAdapter -Physical` + `Get-NetConnectionProfile` 合并调用：
- *        · 物理网卡里 Status=Up 且名称/描述不含 Wi-Fi 关键字的，判为以太网口 Up；
- *        · 当前连接配置文件（排除 DomainAuthenticated）的 IPv4/IPv6 Connectivity，
- *          任一为 Internet 即可上网，明确非 Internet（Disconnected/NoTraffic/Subnet/LocalNetwork）即不可上网。
- *    - PowerShell 冷启动在部分机器上会被杀软拖到数秒，因此结果缓存 15s，
- *      失败保留上一次成功值（连续 3 次才置空），15s 节奏下不会造成 spawn 风暴。
+ * 1. 以太网 + 互联网连通性（每 15s）
+ *    - 全程 koffi FFI，零子进程：
+ *        · iphlpapi.dll `GetAdaptersAddresses` 枚举适配器，取 IfType=以太网 且 OperStatus=Up
+ *          的物理网卡（按名称/描述排除虚拟适配器与无线接口，等价旧 `Get-NetAdapter -Physical`）；
+ *        · iphlpapi.dll `GetNetworkConnectivityHint` 直接读系统 NLM 连通性级别（3=Internet），
+ *          与旧 `Get-NetConnectionProfile` 的 Internet 判定同源，且不发任何探测流量。
+ *    - 旧 PowerShell 方案冷启动实测 3.7–12s，负载高时反复超时打出「以太网/连通性探测瞬时失败」，
+ *      且失败信息把整段脚本塞进日志；现已彻底移除该子进程路径。
+ *    - 结果缓存 15s，失败保留上一次成功值（连续 3 次才置空）。
  *
  * 2. Wi-Fi（每 3s）
  *    - 首选 WLAN API（wlanapi.dll，koffi 进程内 FFI）：
@@ -58,15 +60,8 @@ const ETHERNET_POLL_INTERVAL_MS = 15000;
  * 而 netsh 正常执行通常 <1s；取 4s 兼顾「异常环境不被一刀切」与「失败后 3s 节奏能及时重试」。
  */
 const NETSH_TIMEOUT_MS = 4000;
-/**
- * PowerShell 命令超时（毫秒）。
- * ⚠️ 本机实测（Win11 / i5-8250U）：仅 Get-NetAdapter 单独一次 ≈4.7s，
- * 仅 Get-NetConnectionProfile 单独一次 ≈3.1s，两个 cmdlet 合并后整段 ≈7.3–8.1s，
- * 主要开销是 powershell.exe 冷启动 + NetAdapter/NetConnectionProfile 模块自动加载。
- * 因此 5s 会稳定超时、把三态永远卡在「瞬时失败」，取 12s（≈实测值的 1.5 倍余量）。
- * 超时仍按「瞬时失败」处理，保留上一次成功值。
- */
-const POWERSHELL_TIMEOUT_MS = 12000;
+// 注意：进程内 FFI 调用是同步的（实测 <10ms），不再需要外部命令超时常量；
+// 偶发失败仍沿用下面的「连续 N 次才置空」状态机，避免图标闪断。
 /**
  * 连续瞬时失败多少次才放弃上一次成功值。
  * 单次超时只说明「这一轮没拿到」；3 次 ≈ 9s（3s 节奏 Wi-Fi）/ 45s（15s 节奏以太网）仍拿不到，
@@ -105,10 +100,14 @@ function execCapture(
         encoding: 'buffer',
         maxBuffer: 4 * 1024 * 1024,
       },
-      (err, stdout) => {
+      (err, stdout, stderr) => {
         const buf = Buffer.isBuffer(stdout) ? stdout : Buffer.alloc(0);
         if (err && buf.length === 0) {
-          resolve({ ok: false, error: err.message || '无输出' });
+          // err.message 会把整段命令行（含脚本）塞进日志：这里只留错误码 + 超时标记 + 少量 stderr
+          const code = (err as NodeJS.ErrnoException).code ?? 'UNKNOWN';
+          const killed = err.killed ? '（已超时终止）' : '';
+          const detail = stderr ? `；stderr=${String(stderr).trim().slice(0, 160)}` : '';
+          resolve({ ok: false, error: `${code}${killed}${detail}` });
           return;
         }
         resolve({ ok: true, buf });
@@ -177,27 +176,196 @@ function signalToBars(signal: number | null): 0 | 1 | 2 | 3 {
 
 // ─────────────────────── 以太网 + 互联网连通性（PowerShell） ───────────────────────
 
+/** 原生指针宽度（x64 = 8，ia32 = 4）；FFI 出参指针按此宽度读出 */
+const PTR_BYTES = process.arch === 'ia32' ? 4 : 8;
+
+/** 从出参缓冲里读原生指针并转成 Number（句柄/指针都远小于 2^53，安全） */
+function readPtr(buf: Buffer, offset = 0): number {
+  return Number(PTR_BYTES === 4 ? buf.readUInt32LE(offset) : buf.readBigUInt64LE(offset));
+}
+
+// ── iphlpapi.dll：以太网适配器 + 系统连通性级别（全部进程内） ──
+
+/** AF_UNSPEC：同时枚举 IPv4 / IPv6 适配器 */
+const AF_UNSPEC = 0;
+/** GAA_FLAG_SKIP_ANYCAST | SKIP_MULTICAST | SKIP_DNS_SERVER：只要适配器本身与状态 */
+const GAA_FLAGS = 0x0002 | 0x0004 | 0x0008;
+/** ERROR_BUFFER_OVERFLOW：首次调用只求所需缓冲大小 */
+const ERROR_BUFFER_OVERFLOW = 111;
+/** IFTYPE_ETHERNET_CSMACD：真实以太网口（无线是 71，环回 24，隧道 53） */
+const IF_TYPE_ETHERNET = 6;
+/** IfOperStatusUp */
+const IF_OPER_STATUS_UP = 1;
 /**
- * 合并采集脚本（一次 PowerShell 同时拿以太网与连通性）。
- * 说明：
- *   - `[Console]::OutputEncoding` 强制 UTF-8，避免中文网卡名被按 OEM 代码页写出；
- *     即便被改成 GBK，decodeConsoleText 也能兜住。
- *   - 排除无线适配器：名称 + 描述同时匹配 Wi-Fi 关键字（覆盖英文/中文/常见厂商写法），
- *     `-Physical` 已排除虚拟网卡/VPN，这里只再排除 802.11 介质。
- *   - IPv4Connectivity / IPv6Connectivity 是 PowerShell 侧枚举（Disconnected/NoTraffic/
- *     Subnet/LocalNetwork/Internet），用 ToString() 输出字符串，避免枚举数值随版本漂移。
- *   - 所有变量先算再用，最后 [pscustomobject] + ConvertTo-Json -Compress 输出单行 JSON。
+ * IP_ADAPTER_ADDRESSES 布局（x64 实测，x86 仅指针宽度不同）：
+ *   Length(4) + IfIndex(4) + 9 个指针(9*PTR_BYTES) + PhysicalAddress(8)
+ *   + PhysicalAddressLength(4) + Flags(4) + Mtu(4) + IfType(4) + OperStatus(4)
+ * 指针顺序：Next / AdapterName / FirstUnicast / FirstAnycast / FirstMulticast /
+ *   FirstDnsServer / DnsSuffix / Description / FriendlyName
  */
-const ETHERNET_PROBE_SCRIPT = [
-  '[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;',
-  "$ErrorActionPreference='SilentlyContinue';",
-  "$eth=Get-NetAdapter -Physical|Where-Object{$_.Status -eq 'Up' -and ($_.Name+' '+$_.InterfaceDescription) -notmatch 'Wi-?Fi|Wireless|WLAN|802\\.11|无线'}|Select-Object -First 1;",
-  "$prof=Get-NetConnectionProfile|Where-Object{$_.NetworkCategory -ne 'DomainAuthenticated'}|Select-Object -First 1;",
-  "$v4='';$v6='';",
-  'if($prof){$v4=$prof.IPv4Connectivity.ToString();$v6=$prof.IPv6Connectivity.ToString()};',
-  '$obj=[pscustomobject]@{up=[bool]$eth;name=$(if($eth){$eth.Name}else{$null});v4=$v4;v6=$v6};',
-  '$obj|ConvertTo-Json -Compress',
-].join('');
+const ADAPTER_TAIL_BASE = 8 + 9 * PTR_BYTES;
+const ADAPTER_OFF_FRIENDLY = 8 + 8 * PTR_BYTES;
+const ADAPTER_OFF_DESC = 8 + 7 * PTR_BYTES;
+const ADAPTER_OFF_IF_TYPE = ADAPTER_TAIL_BASE + 20;
+const ADAPTER_OFF_OPER_STATUS = ADAPTER_TAIL_BASE + 24;
+/** 名称里出现这些字样即非物理网卡：虚拟交换机 / 虚拟机 / 拨号 / 蓝牙 / 无线 / 环回 */
+const NON_PHYSICAL_ADAPTER_PATTERN =
+  /(hyper-?v|virtual|vethernet|vmware|virtualbox|tap-windows|wan miniport|kernel debug|bluetooth|loopback|wi-?fi|wireless|wlan|802\.11|无线)/i;
+/**
+ * NL_NETWORK_CONNECTIVITY_LEVEL_HINT（nldef.h 官方定义，逐一核对过）：
+ *   0=Unknown 1=None 2=LocalAccess 3=InternetAccess
+ *   4=ConstrainedInternetAccess（需门户认证的受限互联网）5=Hidden
+ * ⚠️ 上次误把 2 当作「受限互联网」：2 其实是 LocalAccess（仅本地、无法上网），
+ * 真正的受限互联网是 4。本机实测 level=3（InternetAccess）行为虽对，但 4/5 会漏判。
+ */
+const CONNECTIVITY_LEVEL_UNKNOWN = 0;
+const CONNECTIVITY_LEVEL_NONE = 1;
+const CONNECTIVITY_LEVEL_LOCAL_ACCESS = 2;
+const CONNECTIVITY_LEVEL_INTERNET = 3;
+const CONNECTIVITY_LEVEL_CONSTRAINED = 4;
+const CONNECTIVITY_LEVEL_HIDDEN = 5;
+/** GetNetworkConnectivityHint 成功返回 NO_ERROR(0)，其余为 Win32 错误码 */
+const NO_ERROR = 0;
+
+/** iphlpapi 函数集合（懒加载） */
+interface NativeProbeFns {
+  getAdaptersAddresses: (
+    family: number,
+    flags: number,
+    reserved: null,
+    buf: Buffer | null,
+    size: Buffer,
+  ) => number;
+  /**
+   * Win10 2004（Build 19041）/ Server 2004 起才有（netioapi.h 官方最低版本）；
+   * 老系统返回 null 让 hasInternet 保持未知。
+   * 官方签名 NETIOAPI_API（= LONG/int32）GetNetworkConnectivityHint(hint*)，返回 NO_ERROR 表示成功。
+   */
+  getConnectivityHint: ((buf: Buffer) => number) | null;
+  decode: (ptr: bigint, size: number) => Buffer;
+}
+let nativeProbeFns: NativeProbeFns | null = null;
+let nativeProbeLoadFailed = false;
+let nativeProbeWarned = false;
+
+/** 进程内采集告警只打一次（15s 轮询不刷屏） */
+function warnProbeOnce(message: string, detail?: unknown): void {
+  if (nativeProbeWarned) return;
+  nativeProbeWarned = true;
+  log.warn(message, detail ?? '');
+}
+
+/** 懒加载 iphlpapi.dll（幂等）；失败后不再重试 */
+function ensureNativeProbe(): NativeProbeFns | null {
+  if (nativeProbeFns) return nativeProbeFns;
+  if (nativeProbeLoadFailed || process.platform !== 'win32') return null;
+  try {
+    const koffi = require('koffi');
+    const iphlpapi = koffi.load('iphlpapi.dll');
+    let getConnectivityHint: ((buf: Buffer) => number) | null = null;
+    try {
+      // 官方返回类型是 NETIOAPI_API（LONG），不是 void；必须拿到返回码才能判断结果是否有效
+      getConnectivityHint = iphlpapi.func('int32 GetNetworkConnectivityHint(void *Hint)');
+    } catch {
+      // Win10 2004 以下没有该导出，hasInternet 走「未知」而非误报
+    }
+    nativeProbeFns = {
+      getAdaptersAddresses: iphlpapi.func(
+        'uint32 GetAdaptersAddresses(uint32 Family, uint32 Flags, void *Reserved, void *AdapterAddresses, uint32 *SizePointer)',
+      ),
+      getConnectivityHint,
+      decode: (ptr: bigint, size: number): Buffer => {
+        const view = koffi.decode(ptr, 'uint8', size) as Uint8Array;
+        return Buffer.from(view.buffer, view.byteOffset, view.byteLength);
+      },
+    };
+    return nativeProbeFns;
+  } catch (err) {
+    nativeProbeLoadFailed = true;
+    log.warn('[network] koffi/iphlpapi 加载失败，以太网/连通性不可用:', err);
+    return null;
+  }
+}
+
+/** 读适配器描述/友好名（UTF-16LE 指针），读不到返回空串 */
+function readAdapterString(fns: NativeProbeFns, ptr: number): string {
+  if (!ptr) return '';
+  try {
+    const buf = fns.decode(BigInt(ptr), 512);
+    for (let i = 0; i < 256; i += 1) {
+      if (buf.readUInt16LE(i * 2) === 0) return buf.toString('utf16le', 0, i * 2);
+    }
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+/** 从 GetAdaptersAddresses 链表里找「已插上且物理」的以太网口 */
+function queryEthernetNative(
+  fns: NativeProbeFns,
+): { connected: boolean; name: string | null } | null {
+  const sizeBuf = Buffer.alloc(4);
+  let rc = fns.getAdaptersAddresses(AF_UNSPEC, GAA_FLAGS, null, null, sizeBuf);
+  if (rc !== ERROR_BUFFER_OVERFLOW && rc !== 0) return null;
+  const size = sizeBuf.readUInt32LE(0);
+  if (size < ADAPTER_OFF_OPER_STATUS + 4 || size > 1024 * 1024) return null;
+  const buf = Buffer.alloc(size);
+  rc = fns.getAdaptersAddresses(AF_UNSPEC, GAA_FLAGS, null, buf, sizeBuf);
+  if (rc !== 0) return null;
+
+  let cursor: Buffer = buf;
+  for (let i = 0; i < 128; i += 1) {
+    const length = cursor.readUInt32LE(0);
+    if (length < ADAPTER_OFF_OPER_STATUS + 4 || length > cursor.length) break;
+    const ifType = cursor.readUInt32LE(ADAPTER_OFF_IF_TYPE);
+    const operStatus = cursor.readUInt32LE(ADAPTER_OFF_OPER_STATUS);
+    if (ifType === IF_TYPE_ETHERNET && operStatus === IF_OPER_STATUS_UP) {
+      const name = readAdapterString(fns, readPtr(cursor, ADAPTER_OFF_FRIENDLY));
+      const desc = readAdapterString(fns, readPtr(cursor, ADAPTER_OFF_DESC));
+      if (!NON_PHYSICAL_ADAPTER_PATTERN.test(`${name} ${desc}`)) {
+        return { connected: true, name: name || null };
+      }
+    }
+    const next = readPtr(cursor, 8);
+    if (!next) break;
+    cursor = fns.decode(BigInt(next), Math.min(length, size));
+  }
+  return { connected: false, name: null };
+}
+
+/** 读系统 NLM 连通性级别；与旧 Get-NetConnectionProfile 的 Internet 判定同源 */
+function queryInternetNative(fns: NativeProbeFns): boolean | null {
+  if (!fns.getConnectivityHint) return null;
+  try {
+    const hint = Buffer.alloc(16);
+    // 必须检查官方返回码：失败时 hint 内容无意义，不能拿残留字节当枚举值
+    const rc = fns.getConnectivityHint(hint);
+    if (rc !== NO_ERROR) {
+      warnProbeOnce(`[network] GetNetworkConnectivityHint 失败 rc=${rc}，互联网状态置为未知`);
+      return null;
+    }
+    switch (hint.readUInt32LE(0)) {
+      case CONNECTIVITY_LEVEL_INTERNET:
+        return true;
+      // ConstrainedInternetAccess（需门户认证）：NLM 仍视其有互联网连接，
+      // 与旧 Get-NetConnectionProfile 在 portal 下报 Internet 的行为保持一致
+      case CONNECTIVITY_LEVEL_CONSTRAINED:
+        return true;
+      case CONNECTIVITY_LEVEL_NONE:
+      case CONNECTIVITY_LEVEL_LOCAL_ACCESS:
+        return false;
+      // Unknown（启动瞬间）/ Hidden（隐藏网络）不代表真实可达性，保持未知
+      case CONNECTIVITY_LEVEL_UNKNOWN:
+      case CONNECTIVITY_LEVEL_HIDDEN:
+      default:
+        return null;
+    }
+  } catch (err) {
+    warnProbeOnce('[network] GetNetworkConnectivityHint 异常，互联网状态置为未知:', err);
+    return null;
+  }
+}
 
 /** 一次以太网探测的语义化结果 */
 export interface NetworkProbe {
@@ -205,56 +373,6 @@ export interface NetworkProbe {
   ethernet: EthernetStatus | null;
   /** 是否可访问互联网；null = 未知 */
   hasInternet: boolean | null;
-}
-
-/** 「明确可上网」的 Connectivity 取值 */
-const CONNECTIVITY_INTERNET = 'Internet';
-/** 「明确不可上网」的 Connectivity 取值；NoInternet 兼容旧命名 */
-const CONNECTIVITY_NO_INTERNET = new Set([
-  'Disconnected',
-  'NoTraffic',
-  'Subnet',
-  'LocalNetwork',
-  'NoInternet',
-]);
-
-/**
- * 把 IPv4/IPv6 Connectivity 字符串折算成三态「是否能上网」。
- * 任一为 Internet → true；两者都是明确的非 Internet → false；
- * 其余（空/未知枚举）→ null，宁可显示未知也不误报断网。
- */
-function connectivityToInternet(v4: unknown, v6: unknown): boolean | null {
-  const values = [v4, v6].filter((v): v is string => typeof v === 'string' && v.length > 0);
-  if (values.length === 0) return null;
-  if (values.some((v) => v === CONNECTIVITY_INTERNET)) return true;
-  return values.every((v) => CONNECTIVITY_NO_INTERNET.has(v)) ? false : null;
-}
-
-/**
- * 解析探测脚本的 stdout（单行 JSON）。
- * - 前置 BOM、末尾 CRLF 都清掉；
- * - 只截取第一个 `{` 到最后一个 `}`，容忍 PowerShell 在 JSON 前打印的告警文本；
- * - up=true 但 name 为空时按「已连接但未知名称」处理（name=null），不推翻 connected。
- */
-function parseNetworkProbe(text: string): NetworkProbe | null {
-  const trimmed = text.replace(/^\uFEFF/, '').trim();
-  const start = trimmed.indexOf('{');
-  const end = trimmed.lastIndexOf('}');
-  if (start < 0 || end <= start) return null;
-  let raw: unknown;
-  try {
-    raw = JSON.parse(trimmed.slice(start, end + 1));
-  } catch {
-    return null;
-  }
-  if (!raw || typeof raw !== 'object') return null;
-  const obj = raw as { up?: unknown; name?: unknown; v4?: unknown; v6?: unknown };
-  const connected = obj.up === true;
-  const name = typeof obj.name === 'string' && obj.name.trim().length > 0 ? obj.name.trim() : null;
-  return {
-    ethernet: { connected, name: connected ? name : null },
-    hasInternet: connectivityToInternet(obj.v4, obj.v6),
-  };
 }
 
 /** 最近一次成功的探测结果（失败时保留，供 Wi-Fi 的 hasInternet 字段复用） */
@@ -282,25 +400,27 @@ type ProbeQuery =
   | { kind: 'unsupported' }
   | { kind: 'transient'; reason: string };
 
-/** 真正执行一次探测（不含缓存判断，也不改缓存） */
+/** 真正执行一次探测（不含缓存判断，也不改缓存）；全程进程内，无子进程 spawn */
 async function queryNetworkProbe(): Promise<ProbeQuery> {
   if (process.platform !== 'win32') return { kind: 'unsupported' };
-  const captured = await execCapture(
-    'powershell.exe',
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-Command',
-      ETHERNET_PROBE_SCRIPT,
-    ],
-    POWERSHELL_TIMEOUT_MS,
-  );
-  if (!captured.ok) return { kind: 'transient', reason: captured.error };
-  const probe = parseNetworkProbe(decodeConsoleText(captured.buf));
-  if (!probe) return { kind: 'transient', reason: 'PowerShell 输出无法解析' };
-  return { kind: 'ok', probe };
+  const fns = ensureNativeProbe();
+  if (!fns) return { kind: 'transient', reason: 'iphlpapi 加载失败' };
+  try {
+    const ethernet = queryEthernetNative(fns);
+    if (!ethernet) return { kind: 'transient', reason: 'GetAdaptersAddresses 失败' };
+    return {
+      kind: 'ok',
+      probe: {
+        ethernet: {
+          connected: ethernet.connected,
+          name: ethernet.connected ? ethernet.name : null,
+        },
+        hasInternet: queryInternetNative(fns),
+      },
+    };
+  } catch (err) {
+    return { kind: 'transient', reason: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /** 探测缓存变化后同步两个对外快照（唯一写入口，保证三处口径永远一致） */
@@ -409,9 +529,6 @@ export function getInternetStatus(): boolean | null {
 /** Wi-Fi 采集的原始结果（hasInternet 由探测面单独填充，故此处先去掉该字段） */
 type WifiBase = Omit<WifiStatus, 'hasInternet'>;
 
-/** 原生指针宽度（x64 = 8，ia32 = 4）；WlanAPI 出参指针按此宽度读出 */
-const PTR_BYTES = process.arch === 'ia32' ? 4 : 8;
-
 /** Wi-Fi 缓存值（null = 无无线网卡 / 采集面不可用 / 连续采集失败） */
 let wifiCache: WifiBase | null = null;
 /** Wi-Fi 上次实际采集时间（0 = 从未采集）——瞬时失败也刷新，保持 3s 节奏防 spawn 风暴 */
@@ -494,9 +611,16 @@ const WLAN_IFACE_ITEM_SIZE = 532;
 const WLAN_IFACE_OFF_GUID = 0;
 const WLAN_IFACE_OFF_DESC = 16;
 const WLAN_IFACE_OFF_STATE = 528;
-/** WLAN_INTERFACE_STATE：0=未连接 1=已连接 2=正在认证 3=正在关联 4=正在断开 5=已断开 */
+/**
+ * WLAN_INTERFACE_STATE（wlanapi.h 真实定义，共 8 个取值 0–7）：
+ *   0=not_ready  1=connected  2=ad_hoc_network_formed  3=disconnecting
+ *   4=disconnected  5=associating  6=discovering  7=authenticating
+ * ⚠️ 上限必须是 7：Wi-Fi 正在扫描 / 认证（6/7）时若按旧值 5 校验，
+ * 会被误判成「结构布局不对」并静默回退 netsh，日志里表现为偶发
+ * 「WLAN_INTERFACE_INFO 布局校验失败」。状态合法 ≠ 已连接，取属性时仍只认 1。
+ */
 const WLAN_IFACE_STATE_CONNECTED = 1;
-const WLAN_IFACE_STATE_MAX = 5;
+const WLAN_IFACE_STATE_MAX = 7;
 /** 一次枚举最多的接口数（超过视为结构解析错误，防止用脏数据越界读） */
 const WLAN_IFACE_MAX_COUNT = 64;
 /** WLAN_MAX_NAME_LENGTH：strProfileName / strInterfaceDescription 的字符数 */
@@ -624,11 +748,6 @@ function closeWlanHandle(): void {
   }
 }
 
-/** 从出参缓冲里读原生指针并转成 Number（句柄/指针都远小于 2^53，安全） */
-function readPtr(buf: Buffer): number {
-  return Number(PTR_BYTES === 4 ? buf.readUInt32LE(0) : buf.readBigUInt64LE(0));
-}
-
 /**
  * 读定长 UTF-16LE 字段；必须能在 maxChars 内遇到双字节 0 终止符，
  * 否则说明结构偏移猜错了（返回 null 让调用方回退 netsh）。
@@ -704,7 +823,9 @@ function queryWifiViaWlanApi(): WifiBase | null {
       const base = WLAN_LIST_HEAD_SIZE + i * WLAN_IFACE_ITEM_SIZE;
       const state = list.readUInt32LE(base + WLAN_IFACE_OFF_STATE);
       const desc = readWideField(list, base + WLAN_IFACE_OFF_DESC, WLAN_MAX_NAME_LENGTH);
-      if (state > WLAN_IFACE_STATE_MAX || desc === null || desc.length === 0) {
+      // desc === null 才说明 256 字符内遇不到终止符（偏移错了）；
+      // 空描述是合法数据（虚拟/临时网卡常见），不能当成布局失败回退
+      if (state > WLAN_IFACE_STATE_MAX || desc === null) {
         warnWlanOnce('[network] WLAN_INTERFACE_INFO 布局校验失败，Wi-Fi 回退 netsh');
         return null;
       }

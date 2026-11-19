@@ -24,6 +24,8 @@
 
 ### 修复
 
+- 🐞 fix: 彻底修复网络状态采集的两类偶发告警 — 以太网/互联网探测原先每 15s spawn 一次 PowerShell 跑 `Get-NetAdapter`+`Get-NetConnectionProfile`，冷启动实测 3.7–12s，负载高时超时刷「以太网/连通性探测瞬时失败」且把整段脚本打进日志；改为纯进程内 koffi FFI（`GetAdaptersAddresses` 读物理以太网口状态、`GetNetworkConnectivityHint` 读系统 NLM 连通性级别），零子进程、零探测流量，输出与旧方案一致；修正 WLAN_INTERFACE_STATE 枚举上限从错误的 5 改为真实的 7（6=discovering / 7=authenticating 曾被误判为「布局校验失败」而静默回退 netsh），并放宽空接口描述的过度校验；netsh 失败日志只保留错误码与超时标记，不再输出完整命令行。联网核对官方文档后二次加固：`GetNetworkConnectivityHint` 签名由误写的 void 改为官方 `int32` 返回码并校验 `NO_ERROR`，避免失败时读到残留字节；最低系统版本注释更正为 Win10 2004/Build 19041；连通性枚举按 nldef.h 补全（0=Unknown 1=None 2=LocalAccess 3=InternetAccess 4=Constrained 5=Hidden，上次误把 2 当受限、漏判 4/5），portal 态按旧行为归为可上网
+
 - 🐞 fix: 修复日志输入 Alt+Enter 换行不生效及多行后工具栏错位 — Electron 下依赖浏览器默认行为不可靠，改为在光标处显式插入换行并回填光标位置（创建、行内编辑、快捷创建三处统一）；附件图标始终相对输入框垂直居中，右侧搜索与导入导出改为顶部对齐，不再随输入框增高被拉到垂直中间
 - 🐞 fix: 修复日志输入框单行时字数统计与附件图标重叠 — 统计文字从右下角贴边改为向右偏移，与垂直居中的表情 / 附件按钮错开；输入框预留足够右侧内边距，文字不再被按钮与统计遮挡；统计改为纯文字，去掉背景底色
 - 🐞 fix: 修复主图标缩放成非正方形导致 macOS 圆角错位 — `generate-icons.ps1` 在 `-trim` 后直接 resize 会保留显示器的宽扁比例，产出 1024×916 这类非正方形图，违反 icon 规范；改为先用 `-extent` 补正方形画布再加边距缩放，icon.png/ico/icns 各档均为标准正方形
