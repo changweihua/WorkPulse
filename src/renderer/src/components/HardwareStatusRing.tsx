@@ -108,6 +108,13 @@ const ALERT_AT = 85; // 告警阈值（%）
      与双弧 / 圆点的读数语言一致，轮播时用户靠颜色即可联想含义 */
 const CAROUSEL_INTERVAL_MS = 3200;
 const METRIC_SIZE = 40;
+/**
+ * 网络「替代图标」（WifiOff 斜杠 / 以太网口 / 热点链环）的渲染盒边长。
+ * 不能用 METRIC_SIZE=40：lucide 图标路径撑满 viewBox（x 2→22）且叠 strokeWidth 4 淡墨底，
+ * 视觉宽接近 40px；而正常信号弧是扇形、在 viewBox 24 里只画中间约 16.9 单位 → 视觉宽
+ * 仅 28px。用 28 让「未连接 / 有线 / 热点」与「无线信号弧」视觉重量一致，切换不跳变。
+ */
+const NET_ALT_ICON_SIZE = 28;
 /** 常显三行信息条的渲染盒边长：48px 中心圆内留 1px 余量，三行文字刚好排下 */
 const STACK_SIZE = 46;
 
@@ -1446,14 +1453,15 @@ function NetworkIcon({
   const color = online === true ? WIFI_COLOR : NET_OFFLINE_COLOR;
 
   if (off) {
-    // WifiOff 自带斜杠，无需额外叠加
-    return <OutlineIcon Icon={WifiOff} size={size} color={NET_OFFLINE_COLOR} />;
+    // WifiOff 自带斜杠，无需额外叠加。用 NET_ALT_ICON_SIZE 而非 size——
+    // lucide 撑满 viewBox，40 会比正常信号弧（扇形只占中间 28px）大一圈。
+    return <OutlineIcon Icon={WifiOff} size={NET_ALT_ICON_SIZE} color={NET_OFFLINE_COLOR} />;
   }
   if (hotspot) {
-    return <OutlineIcon Icon={Link} size={size} color={color} />;
+    return <OutlineIcon Icon={Link} size={NET_ALT_ICON_SIZE} color={color} />;
   }
   if (medium === 'ethernet') {
-    return <OutlineIcon Icon={EthernetPort} size={size} color={color} />;
+    return <OutlineIcon Icon={EthernetPort} size={NET_ALT_ICON_SIZE} color={color} />;
   }
   return <WifiSignal bars={bars} size={size} color={color} />;
 }
