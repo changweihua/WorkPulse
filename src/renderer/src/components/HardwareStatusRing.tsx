@@ -8,8 +8,9 @@ import {
   type ReactNode,
 } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Bluetooth, Cpu, EthernetPort, Link, Plug, WifiOff, Zap } from 'lucide-react';
+import { Bluetooth, Cpu, EthernetPort, Globe, Link, Plug, WifiOff, Zap } from 'lucide-react';
 import type { BluetoothStatus, HwStats, WifiStatus } from '../../../shared/hw-stats';
+import type { CenterScene } from './hw-scene';
 import { BATTERY_INACTIVE_ALPHA, batteryRole, type BatteryRole } from './hw-colors';
 import { buildCarouselScenes, buildCenterScene } from './hw-scene';
 
@@ -107,6 +108,8 @@ const ALERT_AT = 85; // 告警阈值（%）
      与双弧 / 圆点的读数语言一致，轮播时用户靠颜色即可联想含义 */
 const CAROUSEL_INTERVAL_MS = 3200;
 const METRIC_SIZE = 40;
+/** 常显三行信息条的渲染盒边长：48px 中心圆内留 1px 余量，三行文字刚好排下 */
+const STACK_SIZE = 46;
 
 /* ── 负载渐变色：低负载冷色 → 高负载暖色（--color-load-* 四档，兜底 = token 默认值）──
    四档语义固定（青 / 黄 / 橙 / 红），不随主窗口 accent 变化 —— 换主题也必须是同一套读数语言 */
@@ -126,8 +129,19 @@ let DOT_COLOR_MID = '#fbbf24'; // 电量未知（--color-battery-unknown）：un
 let DOT_COLOR_OK = '#22c55e'; // 正常电量（--color-battery-ok）：primary 角色，绿色进度 —— 电量=绿、负载=暖色告警，与青→黄→橙→红的 CPU/内存弧语义区分
 
 /* ── 中部槽位（中心圆内的 Wi-Fi / 蓝牙图标）── */
-let WIFI_COLOR = '#22d3ee'; // Wi-Fi 三段弧（--color-ring-wifi，值同 --color-load-low：与 CPU/内存弧常规冷色一致）
+let WIFI_COLOR = '#22d3ee'; // Wi-Fi 五段弧（--color-ring-wifi，值同 --color-load-low：与 CPU/内存弧常规冷色一致）
 let BT_COLOR = '#4da3ff'; // 蓝牙图标（--color-bluetooth，status-trio 深底色板蓝）
+// 中心图标渐变端点色（深 → 亮）：让中心图标与外环弧用同一套「线性渐变、靠饱和度跳出」语言，
+// 取代原来粗重的双层墨描边 + 辉光（浅色壁纸下发闷发糊，与外环轻盈通透的玻璃语言不搭）。
+// Wi-Fi 改用「蓝白」渐变、与蓝牙图标同一色系（BT_GRAD_*）：网络 / 连接类图标配色统一（用户选定）。
+const WIFI_GRAD_DEEP = '#2563eb';
+const WIFI_GRAD_LIGHT = '#93c5fd';
+const BT_GRAD_DEEP = '#2563eb';
+const BT_GRAD_LIGHT = '#93c5fd';
+// 断网 / 检测中时网络图标的置灰色（用户要求「无网络时 Wi-Fi 信号置灰」）。
+// 用低透明度的中性墨灰，配合 RIM_INK 淡衬边在浅色壁纸上仍可辨「有信号弧但灰=没网」；
+// 语义固定、不随主题换值（置灰就是置灰，避免主题切换把它染成某个角色色而误读为在线）。
+const NET_OFFLINE_COLOR = 'rgba(96,102,116,0.55)';
 
 /* ── 顶部电源状态槽（0° 顶隙）── */
 const TOP_TEXT = '#ffffff'; // 放电百分比数字的常规色（白）：外圈另描一道 RIM_INK 淡墨边，浅色壁纸上仍可读（无阴影）
@@ -251,8 +265,12 @@ const MOCK = typeof location !== 'undefined' && /[?&]hwmock=1(?:&|$)/.test(locat
  *   ?hwmock=1&hwsaver=1       → 系统节能模式（电量角色转 lowPower 黄）
  *   ?hwmock=1&hwtheme=dark    → 强制暗色主题（根元素挂 .hw-dark）
  * 以上可叠加（如 `&hwwifi=off&hweth=1` 验证「Wi-Fi 关闭但有以太网 → 显示以太网」）。
+ *   ?hwmock=1&hwinfo=1        → 切到完整轮播序列，静态验证三枚网络信息徽标
+ *                              （Wi-Fi 信号 / 互联网连通 / 蓝牙台数）依次出现。
  */
 const MOCK_QUERY = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+/** 信息徽标自测：MOCK 下改走完整轮播（而非 buildCenterScene 单场景） */
+const MOCK_INFO = MOCK_QUERY?.get('hwinfo') === '1';
 type MockWifiBranch = 'ok' | 'mid' | 'weak' | 'noconn' | 'off' | 'none';
 const MOCK_WIFI_BRANCH: MockWifiBranch = (() => {
   const v = MOCK_QUERY?.get('hwwifi');
@@ -599,6 +617,8 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
           charging: MOCK_CHARGING ? true : MOCK_PLUGGED ? false : null,
           powerSaving: MOCK_POWER_SAVING ? true : null,
           wifi: mockWifi(), // 中部槽位 Wi-Fi 分支（见 MOCK_WIFI_BRANCH）
+          // 系统级联网状态：与 wifi.hasInternet 同源，MOCK 下跟随 hwinternet 参数
+          internet: MOCK_NO_INTERNET ? false : true,
           bluetooth: mockBluetooth(), // 中部槽位蓝牙分支（?hwbt=1 时单设备带电量）
           ethernet: mockEthernet(), // 有线分支（?hweth=1）
           theme: MOCK_DARK ? 'dark' : 'light', // G7 主题应用
@@ -783,21 +803,36 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   // 正常模式：buildCarouselScenes 生成轮播序列；网络错误级（斜杠 / 无互联网）时
   // 序列只留网络场景 → 轮播锁定，异常必须一眼可见；首帧无数据返回空 → 中心留白。
   // MOCK 模式（?hwmock=1）：仍走 buildCenterScene 单一出口，逐个分支静态验证不受轮播干扰。
-  const scenes = MOCK_QUERY
-    ? (() => {
-        const single = buildCenterScene(hw);
-        return single ? [single] : [];
-      })()
-    : buildCarouselScenes(hw, level);
+  const scenes =
+    MOCK && !MOCK_INFO
+      ? (() => {
+          const single = buildCenterScene(hw);
+          return single ? [single] : [];
+        })()
+      : buildCarouselScenes(hw, level);
   // 轮播签名：只含「场景类型序列」，不含数值 —— CPU 从 32%→33% 不应打断轮播节奏，
   // 只有场景集合本身变化（如断网锁定 / 蓝牙接入 / 电量数据消失）才从头播。
   const scenesKey = scenes
     .map((s) =>
       s.kind === 'metric'
         ? s.metric
-        : s.kind === 'wifi'
-          ? `wifi:${s.off ? 1 : 0}:${s.hotspot ? 1 : 0}:${s.noInternet ? 1 : 0}`
-          : s.kind,
+        : s.kind === 'netinfo'
+          ? // netinfo 只按 subtype 参与 key：数值变化（信号 87→86、台数 6→5）不打断轮播节奏
+            `netinfo:${s.subtype}`
+          : s.kind === 'netinfo-stack'
+            ? // 常显三行信息条：数值变化不重放动画，只在「有/无」间切换
+              'netinfo-stack'
+            : s.kind === 'wifi'
+              ? `wifi:${s.off ? 1 : 0}:${s.hotspot ? 1 : 0}:${s.noInternet ? 1 : 0}`
+              : s.kind === 'network'
+                ? // 统一网络图标：只按「介质 / 斜杠 / 热点」参与轮播 key；
+                  // 在线↔离线（置灰）、信号格数变化都不打断轮播节奏
+                  `network:${s.medium}:${s.off ? 1 : 0}:${s.hotspot ? 1 : 0}`
+                : s.kind === 'bluetooth'
+                  ? 'bluetooth'
+                  : s.kind === 'internet'
+                    ? 'internet'
+                    : s.kind,
     )
     .join('|');
   const sceneCount = scenes.length;
@@ -825,20 +860,27 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   // 入场键只按「场景类型 + 斜杠 / 热点」区分：信号格数 3→2 时图标不重放整段淡入淡出，
   // 只让各自弧的 stroke-opacity 平滑过渡（见 WifiSignal）；无互联网感叹号也不触发重挂载；
   // 数值场景 key 只含 metric 名（cpu→cpu 数值变化不重放动画，只刷新数字）
-  const centerKey =
-    center === null
-      ? 'none'
-      : center.kind === 'metric'
-        ? `metric-${center.metric}`
-        : center.kind === 'bluetooth'
-          ? 'bluetooth'
-          : center.kind === 'ethernet'
-            ? 'ethernet'
-            : center.off
-              ? 'wifi-off'
-              : center.hotspot
-                ? 'wifi-hotspot'
-                : 'wifi';
+  const centerKey = (() => {
+    if (center === null) return 'none';
+    switch (center.kind) {
+      case 'metric':
+        return `metric-${center.metric}`;
+      case 'netinfo':
+        return `netinfo-${center.subtype}`;
+      case 'netinfo-stack':
+        return 'netinfo-stack';
+      case 'bluetooth':
+        return 'bluetooth';
+      case 'network':
+        return `network-${center.medium}-${center.off ? 'off' : center.hotspot ? 'hotspot' : 'on'}`;
+      case 'internet':
+        return 'internet';
+      case 'ethernet':
+        return 'ethernet';
+      case 'wifi':
+        return center.off ? 'wifi-off' : center.hotspot ? 'wifi-hotspot' : 'wifi';
+    }
+  })();
 
   /* ── 单条进度弧（带符号 sweep，支持左右镜像生长）──
         轨道 = 淡墨衬边 + 浅灰本体；进度弧 / 告警弧不加衬边，靠渐变 / 红色自身饱和度区分 ── */
@@ -1078,17 +1120,30 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
              无场景（无任何硬件数据）时不渲染任何东西，中心保持留白 ═══ */}
         <div
           className="absolute flex items-center justify-center"
-          style={centerBox(center?.kind === 'metric' ? METRIC_SIZE : CENTER_ICON)}
+          style={centerBox(
+            center?.kind === 'netinfo-stack'
+              ? STACK_SIZE
+              : center?.kind === 'metric' ||
+                  center?.kind === 'netinfo' ||
+                  center?.kind === 'bluetooth' ||
+                  center?.kind === 'network' ||
+                  center?.kind === 'internet'
+                ? METRIC_SIZE
+                : CENTER_ICON,
+          )}
         >
           <AnimatePresence initial={false}>
             {center && (
               <motion.div
                 key={centerKey}
                 className="absolute inset-0 flex items-center justify-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
+                // 轮播切换动效：从「缩小 + 轻微下沉」淡入、到「放大 + 轻微上浮」淡出，
+                // 比纯淡入淡出更有呼吸质感，也让 3.2s 轮播的切换一眼可辨（用户此前反馈「没轮播」）。
+                // transform-origin 居中（absolute inset-0 默认 50%），缩放以图标自身中心为基点。
+                initial={{ opacity: 0, scale: 0.78, y: 3 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 1.16, y: -3 }}
+                transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
                 aria-hidden
               >
                 {center.kind === 'metric' ? (
@@ -1101,8 +1156,36 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
                       center.metric === 'battery' ? roleColor(role) : loadColor(center.value / 100)
                     }
                   />
+                ) : center.kind === 'netinfo' ? (
+                  <NetInfoBadge
+                    subtype={center.subtype}
+                    value={center.value}
+                    bars={center.bars}
+                    online={center.online}
+                    size={METRIC_SIZE}
+                  />
+                ) : center.kind === 'netinfo-stack' ? (
+                  <NetInfoStack
+                    signal={center.signal}
+                    bars={center.bars}
+                    online={center.online}
+                    btCount={center.btCount}
+                    size={STACK_SIZE}
+                  />
                 ) : center.kind === 'bluetooth' ? (
-                  <OutlineIcon Icon={Bluetooth} size={CENTER_ICON} color={BT_COLOR} />
+                  <BluetoothDots count={center.count} size={METRIC_SIZE} />
+                ) : center.kind === 'network' ? (
+                  /* 统一网络图标：Wi-Fi 画信号弧 / 以太网画端口，离线或检测中置灰，off 斜杠、热点链环 */
+                  <NetworkIcon
+                    medium={center.medium}
+                    bars={center.bars}
+                    online={center.online}
+                    off={center.off}
+                    hotspot={center.hotspot}
+                    size={METRIC_SIZE}
+                  />
+                ) : center.kind === 'internet' ? (
+                  <InternetIcon online={center.online} size={METRIC_SIZE} />
                 ) : center.kind === 'ethernet' ? (
                   /* 有线：lucide EthernetPort，尺寸 / 描边与 Wi-Fi、蓝牙同规格（同一套图标语言） */
                   <OutlineIcon Icon={EthernetPort} size={CENTER_ICON} color={WIFI_COLOR} />
@@ -1274,67 +1357,558 @@ function MetricBadge({
 }
 
 /**
- * Wi-Fi 信号弧的几何：三段同心弧，共用圆心 (12,19)，各自扫 ±42°、半径 4.5 / 9 / 13.5。
- * 为什么不用 lucide 的 Wifi 图标：它的三段弧圆心并不重合（视觉是「叠起来的弧」），
- * 而这里「格数 = 点亮几段」需要严格同心，信号 3→2→1 才是「外弧渐隐」而不是整枚图标换形状。
+ * 中部轮播 · 蓝牙场景（纯图形，无文字）：蓝牙图标 + 底部一排小圆点表达台数。
+ * 圆点 = 计数（与外环电量圆点同一视觉语言）：1 台 1 点、5 台 5 点；超过 MAX_DOTS 时
+ * 末点用「大半填充」示意仍有更多，避免堆太多点挤爆 48px 中心圆。0 台只画图标。
+ *
+ * 与 Wi-Fi 图标同一套语言（用户反馈旧图标「太丑、不搭」后重做）：
+ * 去掉径向辉光、去掉浓墨双层描边，蓝牙符文改用细线性渐变（蓝 深→亮）+ 极淡衬边，
+ * 圆点收敛到与外环电量圆点同款（极淡衬边 + 本色），整体轻盈通透、与状态环协调。
  */
-function wifiArcPath(r: number): string {
-  const cx = 12;
-  const cy = 19;
-  const a = (42 * Math.PI) / 180;
-  const x0 = cx - r * Math.sin(a);
-  const y0 = cy - r * Math.cos(a);
-  const x1 = cx + r * Math.sin(a);
-  const y1 = cy - r * Math.cos(a);
-  return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+function BluetoothDots({ count, size }: { count: number; size: number }): ReactNode {
+  const MAX_DOTS = 5;
+  const iconSize = 20;
+  const dotR = 1.5;
+  const dotGap = 5;
+  const dotOffsetY = 4; // 符文框底 → 圆点中心
+  const dots = Math.min(Math.max(count, 0), MAX_DOTS);
+  const rowW = dots > 0 ? (dots - 1) * dotGap + dotR * 2 : 0;
+  // 符文与圆点作为一组整体居中（用户要求「整体水平垂直居中」）：
+  // 组合总高 = 符文 20 + 间隔 4 + 圆点直径 3 = 27，顶点 = (size − 27)/2，
+  // 圆点中心 = 顶点 + 20 + 4 + 1.5。0 台时圆点行不画，但布局保持不变以免图标上下跳动。
+  const groupH = iconSize + dotOffsetY + dotR * 2;
+  const iconTop = (size - groupH) / 2;
+  const rowY = iconTop + iconSize + dotOffsetY + dotR;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+      <title>{`蓝牙在场设备 ${count} 台`}</title>
+      <defs>
+        {/* 蓝牙符文渐变（蓝 深→亮），与 Wi-Fi 青渐变同一手法、呼应外环线性渐变弧 */}
+        <linearGradient id="hwBtGrad" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0%" stopColor={BT_GRAD_DEEP} />
+          <stop offset="100%" stopColor={BT_GRAD_LIGHT} />
+        </linearGradient>
+      </defs>
+      <g transform={`translate(${(size - iconSize) / 2} ${iconTop})`}>
+        {/* 极淡衬边（非硬墨描边）+ 细渐变本体，线宽收敛到与 Wi-Fi 弧同量级 */}
+        <Bluetooth size={iconSize} strokeWidth={3} color={RIM_COLOR} x={0} y={0} aria-hidden />
+        <Bluetooth
+          size={iconSize}
+          strokeWidth={2.3}
+          color="url(#hwBtGrad)"
+          x={0}
+          y={0}
+          aria-hidden
+        />
+      </g>
+      {Array.from({ length: dots }, (_, i) => {
+        const cx = size / 2 - rowW / 2 + dotR + i * dotGap;
+        return (
+          <g key={i}>
+            {/* 与外环电量圆点同款：极淡衬边 + 本色实心 */}
+            <circle cx={cx} cy={rowY} r={dotR + 0.35} fill={RIM_COLOR} />
+            <circle cx={cx} cy={rowY} r={dotR} fill={BT_COLOR} />
+          </g>
+        );
+      })}
+    </svg>
+  );
 }
 
-/** 由内到外三段弧（bars = 1 → 只亮最内一段；bars = 0 → 三段全灭 = 空心） */
-const WIFI_ARCS: ReadonlyArray<readonly [number, string]> = ([4.5, 9, 13.5] as const).map(
+/**
+ * 中部轮播 · 统一网络图标（纯图形，无文字）：一枚图标同时表达介质 + 强度 + 连通。
+ *
+ * 用户要求把「Wi-Fi 信号弧」「互联网地球」「以太网」合并整合：
+ * - 介质：'wifi' 画五段信号弧（格数 = 强度）/ 'ethernet' 画以太网口；
+ * - 连通：online=true 用 Wi-Fi 主色（青）；false 离线、null 检测中一律置灰（NET_OFFLINE_COLOR）——
+ *   这是「无网络时 Wi-Fi 信号置灰」的核心：信号弧还在，但灰掉表示没网；
+ * - 异常：off=true（硬件关闭/无介质）画斜杠 Wi-Fi；hotspot=true（手机热点）画链环；
+ *   两者优先级高于常规弧（与历史 buildNetworkScene 的语义一致）。
+ *
+ * 全部走 RIM_INK 淡墨衬边 + 本色双层描边，无阴影（透明窗规范）。
+ */
+function NetworkIcon({
+  medium,
+  bars,
+  online,
+  off,
+  hotspot,
+  size,
+}: {
+  medium: 'wifi' | 'ethernet';
+  bars: 0 | 1 | 2 | 3 | 4 | 5;
+  online: boolean | null;
+  off: boolean;
+  hotspot: boolean;
+  size: number;
+}): ReactNode {
+  // 断网 / 检测中置灰；在线才上 Wi-Fi 主色
+  const color = online === true ? WIFI_COLOR : NET_OFFLINE_COLOR;
+
+  if (off) {
+    // WifiOff 自带斜杠，无需额外叠加
+    return <OutlineIcon Icon={WifiOff} size={size} color={NET_OFFLINE_COLOR} />;
+  }
+  if (hotspot) {
+    return <OutlineIcon Icon={Link} size={size} color={color} />;
+  }
+  if (medium === 'ethernet') {
+    return <OutlineIcon Icon={EthernetPort} size={size} color={color} />;
+  }
+  return <WifiSignal bars={bars} size={size} color={color} />;
+}
+
+/**
+ * 中部轮播 · 互联网场景（纯图形，无文字）：地球图标 + 连通态颜色。
+ * 保留兼容 MOCK 信息徽标自测（?hwinfo=1）；常规轮播已改用上方的 NetworkIcon。
+ * 在线 = 绿、离线 = 红并叠一道斜杠、检测中 = 灰。全部走 RIM_INK 淡墨衬边 + 本色，
+ * 无阴影（透明窗规范）。斜杠用一条粗描 path，离线一眼可见。
+ */
+function InternetIcon({ online, size }: { online: boolean | null; size: number }): ReactNode {
+  const iconSize = 24;
+  const color = online === true ? DOT_COLOR_OK : online === false ? DOT_COLOR_LOW : DOT_COLOR_MID;
+  const stateText = online === true ? '在线' : online === false ? '离线' : '检测中';
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+      <title>{`互联网 ${stateText}`}</title>
+      <g transform={`translate(${(size - iconSize) / 2} ${(size - iconSize) / 2})`}>
+        <Globe size={iconSize} strokeWidth={4} color={RIM_INK} x={0} y={0} aria-hidden />
+        <Globe size={iconSize} strokeWidth={2} color={color} x={0} y={0} aria-hidden />
+      </g>
+      {online === false && (
+        <path
+          d={`M ${size * 0.24} ${size * 0.76} L ${size * 0.76} ${size * 0.24}`}
+          stroke={RIM_INK}
+          strokeWidth={4.6}
+          strokeLinecap="round"
+        />
+      )}
+      {online === false && (
+        <path
+          d={`M ${size * 0.24} ${size * 0.76} L ${size * 0.76} ${size * 0.24}`}
+          stroke={DOT_COLOR_LOW}
+          strokeWidth={2.6}
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
+  );
+}
+
+/**
+ * 收起态「网络信息徽标」：中间区域一眼可见的三项有价值信息。
+ *
+ * 三种 subtype 各自一张 40px SVG（与 MetricBadge 同规格，落在 48px 中心圆内），
+ * 沿用「RIM_INK 淡墨描边打底 + 语义色实心」的双层文字手法 —— 浅色壁纸上细字仍可读、
+ * 全程无阴影（透明窗规范）。semantic 色随 subtype 固定，不随主题换值：
+ * - wifi-signal：信号强度百分比（青 = WIFI_COLOR），顶配一行三格弧表达「信号」
+ * - internet：在线 / 离线 / 检测 中文双字（绿 / 红 / 灰），不用抽象色点
+ * - bt-count：已连设备台数（蓝 = BT_COLOR），数字 + 小字「台」
+ *
+ * 双层文字统一走内部 small helper，避免三处重复描边代码。
+ */
+function NetInfoBadge({
+  subtype,
+  value,
+  bars,
+  online,
+  size,
+}: {
+  subtype: 'wifi-signal' | 'internet' | 'bt-count';
+  value: number;
+  bars?: 0 | 1 | 2 | 3 | 4 | 5;
+  online?: boolean | null;
+  size: number;
+}): ReactNode {
+  // 三种 subtype 各自渲染：底层 RIM_INK 粗描边（浅壁纸可读），上层语义色实心
+  if (subtype === 'internet') {
+    const text = online === true ? '在线' : online === false ? '离线' : '检测';
+    const color = online === true ? DOT_COLOR_OK : online === false ? DOT_COLOR_LOW : DOT_COLOR_MID;
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="absolute inset-0"
+        aria-hidden
+      >
+        <title>{`互联网 ${text}`}</title>
+        <text
+          x={size / 2}
+          y={size / 2}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={14}
+          fontWeight={700}
+          fill="none"
+          stroke={RIM_INK}
+          strokeWidth={2.6}
+          strokeLinejoin="round"
+        >
+          {text}
+        </text>
+        <text
+          x={size / 2}
+          y={size / 2}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={14}
+          fontWeight={700}
+          fill={color}
+        >
+          {text}
+        </text>
+      </svg>
+    );
+  }
+
+  if (subtype === 'wifi-signal') {
+    // 主值 = 信号强度百分比；顶部三格弧 = 信号格数（与中部 Wi-Fi 图标同一套弧语言）
+    const text = `${Math.round(value)}%`;
+    const fontSize = text.length >= 4 ? 12 : 14;
+    const boxCy = size / 2 + 3; // 数字略下移，给顶部信号弧留位
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="absolute inset-0"
+        aria-hidden
+      >
+        <title>{`Wi-Fi 信号 ${text}`}</title>
+        <g transform={`translate(${size / 2 - 12} 0) scale(0.62)`}>
+          {WIFI_ARCS.map(([r, d], i) => {
+            const lit = i < (bars ?? 0);
+            return (
+              <g key={r}>
+                <path
+                  d={d}
+                  stroke={RIM_INK}
+                  strokeWidth={3.2}
+                  strokeLinecap="round"
+                  fill="none"
+                  strokeOpacity={lit ? 1 : 0}
+                />
+                <path
+                  d={d}
+                  stroke={WIFI_COLOR}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                  fill="none"
+                  strokeOpacity={lit ? 1 : BATTERY_INACTIVE_ALPHA}
+                />
+              </g>
+            );
+          })}
+        </g>
+        <text
+          x={size / 2}
+          y={boxCy}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={fontSize}
+          fontWeight={700}
+          fill="none"
+          stroke={RIM_INK}
+          strokeWidth={2.4}
+          strokeLinejoin="round"
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        >
+          {text}
+        </text>
+        <text
+          x={size / 2}
+          y={boxCy}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={fontSize}
+          fontWeight={700}
+          fill={WIFI_COLOR}
+          style={{ fontVariantNumeric: 'tabular-nums' }}
+        >
+          {text}
+        </text>
+      </svg>
+    );
+  }
+
+  // bt-count：数字 + 小字「台」，蓝色
+  const count = Math.max(0, Math.round(value));
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="absolute inset-0"
+      aria-hidden
+    >
+      <title>{`蓝牙已连接 ${count} 台设备`}</title>
+      <text
+        x={size / 2 - 5}
+        y={size / 2}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={17}
+        fontWeight={700}
+        fill="none"
+        stroke={RIM_INK}
+        strokeWidth={2.6}
+        strokeLinejoin="round"
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      >
+        {count}
+      </text>
+      <text
+        x={size / 2 - 5}
+        y={size / 2}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={17}
+        fontWeight={700}
+        fill={BT_COLOR}
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      >
+        {count}
+      </text>
+      <text
+        x={size / 2 + 12}
+        y={size / 2 + 3}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={9}
+        fontWeight={600}
+        fill="none"
+        stroke={RIM_INK}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      >
+        台
+      </text>
+      <text
+        x={size / 2 + 12}
+        y={size / 2 + 3}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={9}
+        fontWeight={600}
+        fill={BT_COLOR}
+      >
+        台
+      </text>
+    </svg>
+  );
+}
+
+/**
+ * 收起态中部「常显三行信息条」：Wi-Fi 信号 / 互联网连通 / 蓝牙台数同时一眼可见。
+ *
+ * 为什么是常显而非轮播：轮播下瞄一眼只能捕捉到一帧（最常见是蓝牙台数），
+ * 用户反馈「一直是蓝牙 / 没切换」，且违背「一眼看到」的诉求。单场景常显最稳。
+ *
+ * 46px 盒（落在 48px 中心圆内）三行各 ~13px，字号 9~10px；沿用「RIM_INK 淡墨
+ * 描边打底 + 语义色实心」双层文字手法 —— 浅色壁纸上细字仍可读，全程无阴影（透明窗规范）。
+ * 每行左侧一个语义色的小圆点代替图标（46px 内图标会挤掉文字），颜色即语义：
+ * 信号=青(WIFI_COLOR) / 联网=绿红灰(DOT_COLOR_*) / 蓝牙=蓝(BT_COLOR)。
+ */
+function NetInfoStack({
+  signal,
+  bars,
+  online,
+  btCount,
+  size,
+}: {
+  signal: number | null;
+  bars: 0 | 1 | 2 | 3 | 4 | 5;
+  online: boolean | null;
+  btCount: number | null;
+  size: number;
+}): ReactNode {
+  const rows: Array<{ label: string; color: string; key: string }> = [];
+
+  // 行① Wi-Fi 信号：无数据（未连 Wi-Fi / 无强度）显示「--%」占位，不误报
+  rows.push({
+    key: 'wifi',
+    label: signal === null ? `信号 --` : `信号 ${Math.round(signal)}%`,
+    color: signal === null ? DOT_COLOR_MID : WIFI_COLOR,
+  });
+
+  // 行② 互联网连通：在线 / 离线 / 检测（null = 未知，宁可显示检测中不误报断网）
+  const netText = online === true ? '在线' : online === false ? '离线' : '检测';
+  rows.push({
+    key: 'net',
+    label: `网络 ${netText}`,
+    color: online === true ? DOT_COLOR_OK : online === false ? DOT_COLOR_LOW : DOT_COLOR_MID,
+  });
+
+  // 行③ 蓝牙台数：无蓝牙 / 无设备显示「蓝牙 --」，保持三行结构稳定
+  rows.push({
+    key: 'bt',
+    label: btCount === null ? `蓝牙 --` : `蓝牙 ${btCount} 台`,
+    color: btCount === null ? DOT_COLOR_MID : BT_COLOR,
+  });
+  void bars; // 信号格数由数字百分比表达，bars 保留供后续需要时扩展
+
+  const rowH = size / 3;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="absolute inset-0"
+      aria-hidden
+    >
+      <title>{`信号 ${signal ?? '--'}% · 网络 ${online === true ? '在线' : online === false ? '离线' : '检测'} · 蓝牙 ${btCount ?? '--'} 台`}</title>
+      {rows.map((row, i) => {
+        const cy = rowH * i + rowH / 2;
+        return (
+          <g key={row.key}>
+            {/* 语义色圆点（底层淡墨描边保证浅壁纸可见） */}
+            <circle cx={4} cy={cy} r={2.1} fill="none" stroke={RIM_INK} strokeWidth={1.6} />
+            <circle cx={4} cy={cy} r={2.1} fill={row.color} />
+            {/* 双层文字：淡墨粗描打底 + 语义色实心 */}
+            <text
+              x={size / 2 + 2}
+              y={cy}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={9.5}
+              fontWeight={700}
+              fill="none"
+              stroke={RIM_INK}
+              strokeWidth={2.2}
+              strokeLinejoin="round"
+            >
+              {row.label}
+            </text>
+            <text
+              x={size / 2 + 2}
+              y={cy}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={9.5}
+              fontWeight={700}
+              fill={row.color}
+            >
+              {row.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/**
+ * Wi-Fi 信号几何：经典形态【四段圆头描边弧 + 底部圆点】，共 5 个可点亮元素 = 5 格信号，
+ * 四段弧共用圆心 (12, 17.24)，各自扫 ±44.4°（总 88.8°，曲率基准 = Lucide 官方 Wi-Fi）。
+ *
+ * 演化路径与用户反馈对应：
+ * - 五段等距扇形 → 四弧+圆点：最小段退化成横条像「漏斗」，改成工业标准的「弧+圆点」；
+ * - 70.9% → 53.4%：用户反馈「太宽了」，收窄到全宽 25.7px；
+ * - 实心扇形块 → 圆头描边弧：用户指出「端点太平太硬，和圆形不搭」——改成 stroke +
+ *   strokeLinecap="round" 后两端是半圆，与圆润玻璃球同语言；
+ * - **弧间距翻倍**：用户反馈「间距要起码 2 倍」。原半径差 2.1、线宽 1.2 → 视觉净空仅 0.9；
+ *   步长拉到 3.0 → 净空 1.8，正好翻倍。
+ * - **宽 / 挤 / 比例的权衡**：宽度压回 26.5px 时最内弧 r=1.5 太短、和 r=4.5 挤；
+ *   试过非等距 [1.5,5.2,8,10.5]（内松外紧）用户反馈「比例不协调」；
+ *   最终用四方案对比确认 **B 等距均匀**：半径 [2.2,5.2,8.2,11.2] 等差步长 3.0，
+ *   最内弧加长到 5.1px 不再像点，四段长度/间距均匀，宽度 28.1px（58.6%）仍在 50-75%。
+ *
+ * 圆头描边几何：半径 [2.2, 5.2, 8.2, 11.2]（等距，步长 3.0），线宽 1.2 单位 = 2px；
+ * 含圆头后视觉宽 2×(11.2×sin44.4° + 0.6)×(40/24) ≈ 28.1px；圆点 r=1.4 单位 = 2.33px。
+ *
+ * 严格居中：最高点 = cy − rMax − 线宽/2（圆头外沿）、最低点 = 圆点下沿。
+ * 圆点顶部紧贴最内弧两端下方 0.1 单位：dotCy = cy − rMin×cos44.4° + 1.4 + 0.1。
+ * 令 (最高点 + 圆点下沿)/2 = 12 → cy = (24 + 11.2 + 0.6 − 2.2×cos44.4° − 2×1.4 − 0.1)/2
+ * = 17.24，dotCy = 17.16。水平两端 x = 12 ± (rMax×sin44.4° + 0.6) 天然对称。
+ */
+const WIFI_ARC_RADII = [2.2, 5.2, 8.2, 11.2] as const;
+const WIFI_ARC_CY = 17.24;
+const WIFI_ARC_SWEEP_DEG = 44.4;
+const WIFI_ARC_STROKE = 1.2;
+const WIFI_DOT_CY = 17.16;
+const WIFI_DOT_R = 1.4;
+
+/** 生成一段圆头描边弧 path（单条弧线，交给 strokeLinecap="round" 画圆头端点）。 */
+function wifiArcPath(r: number): string {
+  const cx = 12;
+  const a = (WIFI_ARC_SWEEP_DEG * Math.PI) / 180;
+  const sa = Math.sin(a);
+  const ca = Math.cos(a);
+  const x0 = cx - r * sa;
+  const y = WIFI_ARC_CY - r * ca;
+  const x1 = cx + r * sa;
+  return `M ${x0.toFixed(2)} ${y.toFixed(2)} A ${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y.toFixed(2)}`;
+}
+
+/** 由内到外四段圆头弧（bars≥2 起逐段点亮；bars=0 全灭；bars=1 只亮圆点） */
+const WIFI_ARCS: ReadonlyArray<readonly [number, string]> = WIFI_ARC_RADII.map(
   (r) => [r, wifiArcPath(r)] as const,
 );
 
 /**
- * 中部槽位 Wi-Fi 指示：三段同心弧按格数点亮（0 格 = 已开启但未关联的空心态）。
- * 亮 / 灭只切 stroke-opacity（同角色色降到 22%，沿用 status-trio 的 inactive 规则），
- * 不换颜色、不重绘图元 → radial-only.css 的 .hw-wifi-bar 过渡生效：
- * 信号 3→2→1 格是「弧渐隐」，不会整枚图标闪一下。
- * 亮弧底层同样描一道 RIM_INK 淡墨轮廓，保证浅色壁纸上细弧仍可读。
+ * 中部槽位 Wi-Fi 指示：四段圆头描边弧 + 底部圆点按格数点亮（0 格 = 已开启但未关联的空心态）。
  *
- * stroke 尺寸说明（单位是 viewBox 的 1/24，随 size 等比放大）：
- * - 淡墨 3.2 / 本色 2 的比例不变 → 图标从 12 放大到 18 后，实际线宽 1.6→2.4px、1→1.5px，
- *   粗细与整体同比例，观感一致；
- * - 相邻两弧之间净空 = 4.5 − 1.6 − 1.6 = 1.3 单位 → 12px 时仅 0.65px，18px 时 0.98px，
- *   放大反而更透气；因此不加粗淡墨（提到 4 会让净空掉到 0.68 单位 ≈ 0.51px，更糊）。
- * viewBox 用 "0 -1.42 24 24"：三段弧的 ink 竖直范围是 y≈3.9~17.26（中心 10.58，比盒心 12 高 1.42 单位），
- * 起点上移 1.42 把图形整体下移，使 ink 中心与 (CX,CY) 对齐 —— 不这么做，放大后图标会明显偏上。
+ * 视觉语言（用户反馈「端点太平太硬、和圆形不搭」后重做）：
+ * 实心扇形块的两端是径向平切口、有棱角，与圆润玻璃球冲突；改成圆头描边弧（圆头端点）
+ * 后两端是半圆，和圆形容器同语言。这正是工业标准 Wi-Fi 图标（Lucide / iOS / Android）的画法。
+ * 曲率取官方 88.8°（半角 44.4°），弯而不圆、两端向内收拢。
+ *
+ * 尺寸折算：本组件 viewBox 24 缩放到 40px（1 单位 ≈ 1.667px），蓝牙是 viewBox 40（1 单位 = 1px）；
+ * 圆头描边弧线宽 1.2 单位 = 2px、等距半径步长 3.0（四段长度/间距均匀），
+ * 全宽 ≈28.1px = 玻璃圆 48px 的 58.6%，仍在 50-75% 区间——比例协调的最佳折中。
+ *
+ * 亮 / 灭：点亮弧走青渐变，熄灭弧画浅灰空槽（同外环 TRACK_COLOR），
+ * 「有信号 vs 空槽」一眼可辨，深壁纸上也不会融进背景。
+ * 格数语义：bars=0 全灭 / =1 只亮底部圆点 / =2..5 圆点 + 由内到外逐段亮弧。置灰语义不变。
  */
-function WifiSignal({ bars, size }: { bars: 0 | 1 | 2 | 3; size: number }): ReactNode {
+function WifiSignal({
+  bars,
+  size,
+  color = WIFI_COLOR,
+}: {
+  bars: 0 | 1 | 2 | 3 | 4 | 5;
+  size: number;
+  /** 亮弧本色，默认 Wi-Fi 主色；断网 / 检测中传 NET_OFFLINE_COLOR 置灰 */
+  color?: string;
+}): ReactNode {
+  // 渐变 id 按色值区分：轮播切换期可能同时存在新旧两个实例，在线（青）/ 离线（灰）各用自己的 def。
+  // 离线时 color 是 rgba 灰，渐变端点回退为同色（无深浅），保证「置灰」语义纯粹。
+  const gid = `hwWifiGrad-${color.replace(/[^a-z0-9]/gi, '')}`;
+  const online = color === WIFI_COLOR;
+  const deep = online ? WIFI_GRAD_DEEP : color;
+  const light = online ? WIFI_GRAD_LIGHT : color;
   return (
-    <svg width={size} height={size} viewBox="0 -1.42 24 24" fill="none" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0%" stopColor={deep} />
+          <stop offset="100%" stopColor={light} />
+        </linearGradient>
+      </defs>
       {WIFI_ARCS.map(([r, d], i) => {
-        const lit = i < bars; // i=0 最内弧：1 格时只亮它
+        // 四段弧对应 bars=2..5：bars=2 亮最内弧(i=0)，bars=5 四段全亮。
+        const lit = bars >= i + 2;
         return (
-          <g key={r}>
-            <path
-              className="hw-wifi-bar"
-              d={d}
-              stroke={RIM_INK}
-              strokeWidth={3.2}
-              strokeLinecap="round"
-              strokeOpacity={lit ? 1 : 0}
-            />
-            <path
-              className="hw-wifi-bar"
-              d={d}
-              stroke={WIFI_COLOR}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeOpacity={lit ? 1 : BATTERY_INACTIVE_ALPHA}
-            />
-          </g>
+          <path
+            key={r}
+            className="hw-wifi-bar"
+            d={d}
+            fill="none"
+            stroke={lit ? `url(#${gid})` : TRACK_COLOR}
+            strokeWidth={WIFI_ARC_STROKE}
+            strokeLinecap="round"
+          />
         );
       })}
+      {/* 底部圆点：经典 Wi-Fi 的信号源；bars≥1 点亮，bars=0 时空槽。 */}
+      <circle
+        className="hw-wifi-bar"
+        cx={12}
+        cy={WIFI_DOT_CY}
+        r={WIFI_DOT_R}
+        fill={bars >= 1 ? `url(#${gid})` : TRACK_COLOR}
+      />
     </svg>
   );
 }

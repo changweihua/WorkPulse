@@ -74,7 +74,7 @@ import { createSplashWindow, closeSplashWindow } from './splash';
 import { registerAutoLaunchIpc, setAutoLaunchDeps } from './autoLaunch';
 import { applyAccentColor, resolveWindowMaterial, windowBackgroundColor } from './window-material';
 import { MicaBrowserWindow } from 'mica-electron';
-import { loadDotNet } from './asar-dotnet-loader';
+import { ensureDotNet, peekDotNet } from './dotnet-bridge';
 import { vectorSearch } from './vector-search';
 import { guardedHandle } from './ipc-guard';
 import { ok, fail } from '../shared/ipc-result';
@@ -304,22 +304,7 @@ function createWindow(): void {
   }
 }
 
-// ── .NET Bridge ──
-
-let dotnetLib: any = null;
-let dotnetLoaded = false;
-
-async function ensureDotNet(): Promise<void> {
-  if (!dotnetLoaded) {
-    try {
-      dotnetLib = await loadDotNet();
-      log.info('✅ .NET 已加载');
-    } catch (err) {
-      log.error('⚠️ .NET 加载失败', err);
-    }
-    dotnetLoaded = true;
-  }
-}
+// ── .NET Bridge（单例加载逻辑在 dotnet-bridge.ts，与网络采集共用实例）──
 
 // Bridge.cs 通过 [JSExport] 暴露的方法白名单（camelCase），与 ipc-schemas 的 DotnetInvokeSchema 一致
 const DOTNET_ALLOWED_METHODS: ReadonlySet<string> = new Set([
@@ -339,6 +324,7 @@ function registerDotnetIpc(): void {
       return fail('PERMISSION_DENIED', `方法不在白名单: ${data.method}`);
     }
     await ensureDotNet();
+    const dotnetLib = peekDotNet();
     if (!dotnetLib?.NativeBridge) return fail('BUSINESS_ERROR', '.NET Bridge not loaded');
     const fn = dotnetLib.NativeBridge[data.method];
     if (typeof fn !== 'function') return fail('NOT_FOUND', `Unknown method: ${data.method}`);

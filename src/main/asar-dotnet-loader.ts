@@ -136,12 +136,22 @@ export async function loadDotNet() {
     log('dotnet.require 成功，导出:', Object.keys(lib));
 
     if (lib.NativeBridge) {
-      const methods = Object.keys(lib.NativeBridge);
-      log('NativeBridge 方法:', methods);
-      if (methods.length === 0) {
-        log('⚠️ NativeBridge 没有方法，请检查 Generator 是否运行');
+      // node-api-dotnet 的导出对象是 Proxy，Object.keys 恒为空数组；
+      // 必须按名字探测 typeof，否则每次启动都会误报「NativeBridge 没有方法」。
+      const probeMethods = [
+        'sayHello',
+        'getChinaHolidays',
+        'computeFileHash',
+        'getWifiStatus',
+        'getInternetStatus',
+        'getConnectedBluetooth',
+      ];
+      const available = probeMethods.filter((name) => typeof lib.NativeBridge[name] === 'function');
+      log('NativeBridge 可用方法(探测):', available);
+      if (available.length === 0) {
+        log('⚠️ NativeBridge 没有任何可调用方法，请检查 Generator 是否运行');
       }
-      if (methods.includes('sayHello')) {
+      if (available.includes('sayHello')) {
         try {
           const result = lib.NativeBridge.sayHello('Test');
           log('✅ sayHello 调用成功:', result);

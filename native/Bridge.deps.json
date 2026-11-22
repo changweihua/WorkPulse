@@ -10,10 +10,24 @@
         "dependencies": {
           "Microsoft.JavaScript.NodeApi": "0.9.21",
           "Microsoft.JavaScript.NodeApi.Generator": "0.9.21",
-          "NewLife.Holiday": "1.5.2026.1024"
+          "Microsoft.Windows.CsWinRT": "2.3.1",
+          "NewLife.Holiday": "1.5.2026.1024",
+          "runtimepack.Microsoft.Windows.SDK.NET.Ref": "10.0.26100.87"
         },
         "runtime": {
           "Bridge.dll": {}
+        }
+      },
+      "runtimepack.Microsoft.Windows.SDK.NET.Ref/10.0.26100.87": {
+        "runtime": {
+          "Microsoft.Windows.SDK.NET.dll": {
+            "assemblyVersion": "10.0.26100.86",
+            "fileVersion": "10.0.26100.86"
+          },
+          "WinRT.Runtime.dll": {
+            "assemblyVersion": "2.3.1.0",
+            "fileVersion": "2.3.1.54291"
+          }
         }
       },
       "Microsoft.CodeAnalysis.Common/4.1.0": {
@@ -167,9 +181,21 @@
           }
         }
       },
-      "NewLife.Core/12.0.2026.1024": {
+      "Microsoft.Windows.CsWinRT/2.3.1": {
         "runtime": {
-          "lib/net10.0/NewLife.Core.dll": {
+          "lib/net9.0/WinRT.Runtime.dll": {
+            "assemblyVersion": "2.3.1.0",
+            "fileVersion": "2.3.1.54291",
+            "localPath": "WinRT.Runtime.dll"
+          }
+        }
+      },
+      "NewLife.Core/12.0.2026.1024": {
+        "dependencies": {
+          "System.Management": "10.0.12"
+        },
+        "runtime": {
+          "lib/net10.0-windows7.0/NewLife.Core.dll": {
             "assemblyVersion": "12.0.2026.1024",
             "fileVersion": "12.0.2026.1024",
             "localPath": "NewLife.Core.dll"
@@ -188,6 +214,24 @@
           }
         }
       },
+      "System.Management/10.0.12": {
+        "runtime": {
+          "lib/net10.0/System.Management.dll": {
+            "assemblyVersion": "10.0.0.12",
+            "fileVersion": "10.0.1226.42308",
+            "localPath": "System.Management.dll"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/win/lib/net10.0/System.Management.dll": {
+            "rid": "win",
+            "assetType": "runtime",
+            "assemblyVersion": "10.0.0.12",
+            "fileVersion": "10.0.1226.42308",
+            "localPath": "runtimes/win/lib/net10.0/System.Management.dll"
+          }
+        }
+      },
       "System.Reflection.MetadataLoadContext/6.0.0": {
         "runtime": {
           "lib/net6.0/System.Reflection.MetadataLoadContext.dll": {
@@ -202,6 +246,11 @@
   "libraries": {
     "Bridge/1.0.0": {
       "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "runtimepack.Microsoft.Windows.SDK.NET.Ref/10.0.26100.87": {
+      "type": "runtimepack",
       "serviceable": false,
       "sha512": ""
     },
@@ -233,6 +282,13 @@
       "path": "microsoft.javascript.nodeapi.generator/0.9.21",
       "hashPath": "microsoft.javascript.nodeapi.generator.0.9.21.nupkg.sha512"
     },
+    "Microsoft.Windows.CsWinRT/2.3.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ojoYrj8m8mAx6LVxofQXgfvsReDTv2LQFeDgXt5Lw99r5fv7dCR19ybd1JN0OueaWvL+BNqv0E7zZCgqptP9zA==",
+      "path": "microsoft.windows.cswinrt/2.3.1",
+      "hashPath": "microsoft.windows.cswinrt.2.3.1.nupkg.sha512"
+    },
     "NewLife.Core/12.0.2026.1024": {
       "type": "package",
       "serviceable": true,
@@ -246,6 +302,13 @@
       "sha512": "sha512-bQIdvWNa/PLEHIEXdZNjDdRqfxUoNCN+worvzBrxueuaw0Hvy11DoAc3fVWAWPsYuCRCaA4qrSbBYW89ohWIiQ==",
       "path": "newlife.holiday/1.5.2026.1024",
       "hashPath": "newlife.holiday.1.5.2026.1024.nupkg.sha512"
+    },
+    "System.Management/10.0.12": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ApUsYmsNG8aPiMxsO6ROGZnqJwSZY8zeMlAQcuQg+ilPFUcIyBUC0BL8qA6wmPLNVsvL4nyhUrhhxh6qn0cx0Q==",
+      "path": "system.management/10.0.12",
+      "hashPath": "system.management.10.0.12.nupkg.sha512"
     },
     "System.Reflection.MetadataLoadContext/6.0.0": {
       "type": "package",

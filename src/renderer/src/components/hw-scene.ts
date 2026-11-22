@@ -15,7 +15,7 @@
  * 2. Wi-Fi 已连接但无互联网（hasInternet === false）→ Wi-Fi 图标 + 琥珀色感叹号
  * 3. 以太网已连接 → 以太网图标
  * 4. 蓝牙已连接外设（devices.length > 0）→ 蓝牙图标
- * 5. Wi-Fi 已连接 → 按信号格数的三段弧；SSID 命中热点关键词时改用链环图标（Link）
+ * 5. Wi-Fi 已连接 → 按信号格数的五段弧；SSID 命中热点关键词时改用链环图标（Link）
  * 6. Wi-Fi 已开启但未关联任何 SSID → 空心 Wi-Fi
  * 7. 兜底（无任何硬件数据）→ 斜杠 Wi-Fi
  *
@@ -25,11 +25,12 @@
  *
  * 切换是「完全跟随优先链」的，不轮播、不自动循环。
  *
- * G11 轮播扩展（用户需求：中部内容优先展示网络或轮播显示）：
- * - buildCenterScene 仍保留为「优先链的单一出口」，供网络错误级锁定 /
- *   MOCK 静态验证使用；
- * - buildCarouselScenes 在其之上生成轮播序列：网络（优先链场景）排第一，
- *   其后依次是 CPU / 内存 / 电池数值场景（无数据自动跳过）；
+ * 中部轮播（用户最终拍板：纯图标、无文字、网络合并）：
+ * - buildCenterScene 仍是「优先链单一出口」，供 MOCK 静态验证使用；
+ * - buildCarouselScenes 生成两项图标轮播：① 网络（network）② 蓝牙（bluetooth+圆点）；
+ * - 「网络」一枚图标同时表达三件事：介质（无线画 Wi-Fi 五段弧 / 有线画以太网口）、
+ *   强度（弧点亮格数 0~5）、互联网连通（在线 = 角色色 WIFI_COLOR；离线/检测中 = 置灰）。
+ *   用户明确要求把此前分开的「Wi-Fi 信号弧」「互联网地球」合并，且断网时信号弧置灰。
  * - 网络处于「错误级」（斜杠 Wi-Fi / 已连无互联网）时 isNetworkAlertScene
  *   为 true，序列只留网络场景 → 组件侧锁定不轮播，网络异常必须一眼可见。
  */
@@ -64,23 +65,72 @@ export function isHotspotSsid(ssid: string | null | undefined): boolean {
 /**
  * 中部槽位的渲染场景：
  * - wifi：off = 斜杠态（关闭 / 不可用）；bars = 0 且非 off = 空心（已开启未关联）；
- *         bars = 1 | 2 | 3 = 已连接，按格数点亮同心弧；
+ *         bars = 1~5 = 已连接，按格数点亮同心弧；
  *         hotspot = SSID 命中热点关键词（渲染层改用链环图标）；
  *         noInternet = 已连接但无互联网（渲染层叠加琥珀色感叹号）
- * - ethernet：有线网络已连接
- * - bluetooth：蓝牙外设已连接（设备名 / 电量不在此读取，收起态只画图标）
- * - metric：G11 轮播新增数值场景，中部槽位直接显示百分比数字
- *           （cpu / mem / battery，value = 0~100 的整数百分比）
+ * - network：统一网络图标（Wi-Fi 信号 + 互联网连通 + 有线/无线整合，轮播专用）：
+ *            medium='wifi' 画五段弧（bars=强度格数）/ 'ethernet' 画以太网口；
+ *            online=true 上角色色、false|null 置灰（用户要求断网时信号置灰）；
+ *            off=斜杠（Wi-Fi 硬件不可用）、hotspot=链环（手机热点）
+ * - ethernet：有线网络已连接（buildCenterScene 历史单一出口用，轮播已并入 network）
+ * - bluetooth：蓝牙在场外设；count = 台数（渲染层用底部圆点数表达，不用文字）
+ * - metric：G11 轮播数值场景，中部槽位直接显示百分比数字（cpu / mem / battery）
+ * - netinfo：收起态「一眼可见」的网络信息徽标（用户需求：中间区域直接展示有价值信息）
+ *           按 subtype 分三种：wifi-signal（Wi-Fi 信号强度% + 格数）/ internet
+ *           （可上网 / 无网络 / 检测中）/ bt-count（蓝牙已连设备台数）。
+ *           只在网络「非错误级」时参与轮播；错误级仍由 wifi 场景独占锁定。
  */
 export type CenterScene =
-  | { kind: 'wifi'; bars: 0 | 1 | 2 | 3; off: boolean; hotspot: boolean; noInternet: boolean }
+  | {
+      kind: 'wifi';
+      bars: 0 | 1 | 2 | 3 | 4 | 5;
+      off: boolean;
+      hotspot: boolean;
+      noInternet: boolean;
+    }
   | { kind: 'ethernet' }
-  | { kind: 'bluetooth' }
-  | { kind: 'metric'; metric: 'cpu' | 'mem' | 'battery'; value: number };
+  | { kind: 'bluetooth'; count: number }
+  | { kind: 'internet'; online: boolean | null }
+  | {
+      /** 统一网络图标（轮播专用）：合并 Wi-Fi 信号 + 互联网连通 + 有线/无线介质 */
+      kind: 'network';
+      /** 上网介质：'wifi' 画五段信号弧 / 'ethernet' 画以太网口 */
+      medium: 'wifi' | 'ethernet';
+      /** Wi-Fi 信号格数 0~5；以太网场景固定 0（渲染层忽略） */
+      bars: 0 | 1 | 2 | 3 | 4 | 5;
+      /** 互联网连通：true 在线（角色色）/ false 离线、null 检测中（置灰） */
+      online: boolean | null;
+      /** Wi-Fi 关闭 / 不可用 → 斜杠图标（错误级，轮播锁定） */
+      off: boolean;
+      /** SSID 命中热点关键词 → 链环图标 */
+      hotspot: boolean;
+    }
+  | { kind: 'metric'; metric: 'cpu' | 'mem' | 'battery'; value: number }
+  | {
+      kind: 'netinfo';
+      subtype: 'wifi-signal' | 'internet' | 'bt-count';
+      /** wifi-signal：信号强度百分比；bt-count：设备台数；internet：不用 */
+      value: number;
+      /** wifi-signal：信号格数 0~5；internet：连通态 */
+      bars?: 0 | 1 | 2 | 3 | 4 | 5;
+      online?: boolean | null;
+    }
+  | {
+      /** 常显三行信息条：网络正常时中心圆固定显示，不参与轮播（一眼可见） */
+      kind: 'netinfo-stack';
+      /** Wi-Fi 信号强度百分比；无 Wi-Fi / 无数据时为 null（该行显示占位符） */
+      signal: number | null;
+      /** Wi-Fi 信号格数 0~5 */
+      bars: 0 | 1 | 2 | 3 | 4 | 5;
+      /** 互联网连通态：true=在线 false=离线 null=检测中 */
+      online: boolean | null;
+      /** 蓝牙已连设备台数；无蓝牙 / 无设备时为 null（该行隐藏） */
+      btCount: number | null;
+    };
 
-/** Wi-Fi 场景的构造助手：把不会变的三段布尔值显式写出来，避免每个分支重复六个字段 */
+/** Wi-Fi 场景的构造助手：把各字段显式写出来，避免每个分支重复六个字段 */
 function wifiScene(
-  bars: 0 | 1 | 2 | 3,
+  bars: 0 | 1 | 2 | 3 | 4 | 5,
   off: boolean,
   hotspot = false,
   noInternet = false,
@@ -100,7 +150,7 @@ function wifiScene(
  *    → 斜杠 Wi-Fi（错误级）
  * 2. Wi-Fi 已连接但无互联网（hasInternet === false）→ Wi-Fi 图标 + 琥珀色感叹号（错误级）
  * 3. 以太网已连接 → 以太网图标
- * 4. Wi-Fi 已连接 → 按信号格数的三段弧；SSID 命中热点关键词时改用链环图标（Link）
+ * 4. Wi-Fi 已连接 → 按信号格数的五段弧；SSID 命中热点关键词时改用链环图标（Link）
  * 5. Wi-Fi 已开启但未关联任何 SSID → 空心 Wi-Fi
  * 6. 兜底（无任何硬件数据）→ 斜杠 Wi-Fi
  */
@@ -145,7 +195,13 @@ export function buildNetworkScene(hw: HwStats | null): CenterScene | null {
  * 不得被 CPU / 内存 / 电池数值轮播盖过去。
  */
 export function isNetworkAlertScene(scene: CenterScene | null): boolean {
-  return scene?.kind === 'wifi' && (scene.off || scene.noInternet);
+  if (!scene) return false;
+  // 无线硬件不可用（斜杠 Wi-Fi）：错误级，必须锁定
+  if (scene.kind === 'wifi') return scene.off || scene.noInternet;
+  // 统一网络图标：仅「完全无介质」（off）算错误级；已连 Wi-Fi 但无互联网
+  // （online=false）按用户新要求改为「信号弧置灰、照常轮播」，不再锁定。
+  if (scene.kind === 'network') return scene.off;
+  return false;
 }
 
 /**
@@ -167,51 +223,88 @@ export function buildCenterScene(hw: HwStats | null): CenterScene | null {
   if (net.kind === 'ethernet' || (net.kind === 'wifi' && (net.off || net.noInternet))) return net;
 
   // 网络正常（Wi-Fi 图标级）→ 蓝牙外设可以接管中部槽位
-  if (hw.bluetooth && hw.bluetooth.devices.length > 0) return { kind: 'bluetooth' };
+  if (hw.bluetooth && hw.bluetooth.devices.length > 0) {
+    return { kind: 'bluetooth', count: hw.bluetooth.devices.length };
+  }
 
   return net;
 }
 
 /**
- * G11 轮播序列：网络永远第一，其后依次是蓝牙外设（若存在）与
- * CPU / 内存 / 电池数值场景（无数据自动跳过）。
+ * 构建「统一网络图标」场景（轮播第 ① 项）：Wi-Fi 信号 + 互联网连通 + 有线/无线整合到一枚图标。
  *
- * 网络处于错误级时只返回网络场景 —— 组件据此锁定轮播，让异常一眼可见。
+ * 介质判定（有线优先，与 buildNetworkScene 的链路最优原则一致）：
+ * - 以太网已连接 → medium='ethernet'（图标画以太网口）；
+ * - 否则 Wi-Fi 已连接 → medium='wifi'（图标画五段信号弧，bars=强度格数）；
+ * - Wi-Fi 开启但未关联 → medium='wifi' + bars=0（空心弧）；
+ * - Wi-Fi 关闭 / 不可用且无以太网 → off=true（斜杠 Wi-Fi，错误级锁定）。
+ *
+ * 连通态 online 与介质无关：顶层 internet（系统级 NLM 口径）优先，仅旧版 IPC
+ * 无该字段时回退 wifi.hasInternet。渲染层据 online 决定图标本色还是置灰 ——
+ * 用户明确要求「无网络时 Wi-Fi 信号置灰」，故离线 / 检测中一律走 inactive 灰。
+ */
+function buildNetworkIconScene(hw: HwStats): Extract<CenterScene, { kind: 'network' }> {
+  const wifi = hw.wifi;
+  const ethernetOn = hw.ethernet?.connected === true;
+  const online = hw.internet ?? wifi?.hasInternet ?? null;
+
+  // 有线优先：机器有更稳的有线链路时，网络图标表达「以太网 + 系统连通态」
+  if (ethernetOn) {
+    return { kind: 'network', medium: 'ethernet', bars: 0, online, off: false, hotspot: false };
+  }
+
+  // 无线已连接：信号弧格数 = 强度；热点 SSID 改用链环图标语义
+  if (wifi?.connected) {
+    return {
+      kind: 'network',
+      medium: 'wifi',
+      bars: wifi.bars,
+      online,
+      off: false,
+      hotspot: isHotspotSsid(wifi.ssid),
+    };
+  }
+
+  // Wi-Fi 开启但未关联：空心弧（bars=0），非错误级但信号为空
+  if (wifi?.available) {
+    return { kind: 'network', medium: 'wifi', bars: 0, online, off: false, hotspot: false };
+  }
+
+  // 兜底：无任何可用网络介质 → 斜杠 Wi-Fi（错误级）
+  return { kind: 'network', medium: 'wifi', bars: 0, online, off: true, hotspot: false };
+}
+
+/**
+ * 收起态中部场景序列（图标轮播）：
+ * - 网络错误级（斜杠 Wi-Fi 且无任何介质）→ 只返回统一网络图标场景，异常一眼可见、轮播暂停；
+ * - 其余情况 → 返回两项「纯图标」场景按顺序轮播（无文字）：
+ *   ① 网络（统一图标：无线画信号弧/有线画以太网口，弧格数=强度、颜色=在线/置灰）
+ *   ② 蓝牙在场（蓝牙图标 + 底部圆点 = 台数）。每项停留 CAROUSEL_INTERVAL_MS。
+ *
+ * 用户拍板：Wi-Fi 信号与互联网连通合并为一枚图标、断网时信号弧置灰、有线无线整合；
+ * 且全程只用一个图标、不要文字（此前做过三行文字常显，用户改回图标方案）。
+ * 数值信息不丢：强度看弧格数、台数看圆点数、联网看图标本色/置灰。
+ * CPU / 内存 / 电量的实时量仍由环上双弧 + 顶部电量数字表达，不进中心圆。
  *
  * @param hw 主进程硬件状态（null = 首帧无数据）
- * @param batteryLevel 电池剩余 0~1；渲染层来自 navigator.getBattery()，
- *                     为 null 表示无电池数据（台式机 / 采集失败）
+ * @param batteryLevel 保留参数（兼容性）：电量已在环上表达，中心圆不再显示电量数值
  */
 export function buildCarouselScenes(
   hw: HwStats | null,
   batteryLevel: number | null = null,
 ): CenterScene[] {
+  void batteryLevel; // 电量已在环上表达，兼容旧签名保留参数
   // 首帧无任何数据：轮播空序列，组件保持留白
   if (!hw) return [];
 
-  // 网络场景（纯网络优先链，蓝牙不参与抢占）
-  const net = buildNetworkScene(hw);
+  const network = buildNetworkIconScene(hw);
 
-  // 网络错误级锁定：只保留网络场景，轮播暂停
-  if (isNetworkAlertScene(net)) return net ? [net] : [];
+  // 网络错误级锁定（仅斜杠 Wi-Fi 且无介质）：只留网络图标，轮播暂停。
+  // 注意「已连 Wi-Fi 但无互联网」不再锁定 —— 改为信号弧置灰、照常与蓝牙轮播。
+  if (isNetworkAlertScene(network)) return [network];
 
-  const scenes: CenterScene[] = [];
-  if (net) scenes.push(net);
+  const btCount = hw.bluetooth && hw.bluetooth.devices.length > 0 ? hw.bluetooth.devices.length : 0;
 
-  // 蓝牙外设（非错误级时作为附加信息排在网络之后）
-  if (hw.bluetooth && hw.bluetooth.devices.length > 0) scenes.push({ kind: 'bluetooth' });
-
-  // 数值场景：CPU / 内存 / 电池（无数据自动跳过）
-  if (hw.cpu !== null && hw.cpu !== undefined) {
-    scenes.push({ kind: 'metric', metric: 'cpu', value: Math.round(hw.cpu) });
-  }
-  if (hw.memUsedPct !== undefined) {
-    scenes.push({ kind: 'metric', metric: 'mem', value: Math.round(hw.memUsedPct) });
-  }
-  if (batteryLevel !== null && batteryLevel !== undefined) {
-    const pct = Math.round(Math.min(1, Math.max(0, batteryLevel)) * 100);
-    scenes.push({ kind: 'metric', metric: 'battery', value: pct });
-  }
-
-  return scenes;
+  // ① 统一网络图标（信号/介质/连通三合一） ② 蓝牙在场（图标 + 圆点台数）
+  return [network, { kind: 'bluetooth', count: btCount }];
 }

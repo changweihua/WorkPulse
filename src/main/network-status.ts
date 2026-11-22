@@ -14,10 +14,12 @@
  *    - 结果缓存 15s，失败保留上一次成功值（连续 3 次才置空）。
  *
  * 2. Wi-Fi（每 3s）
- *    - 首选 WLAN API（wlanapi.dll，koffi 进程内 FFI）：
+ *    - 首选 .NET Bridge 原生 wlanSignalQuality（与任务栏/netsh 同一口径，0–100），
+ *      RSSI 仅诊断用不参与格数；SSID 用 WinRT GetConnectedSsid 精确取。
+ *    - 回退 WLAN API（wlanapi.dll，koffi 进程内 FFI）：
  *        WlanOpenHandle(2) → WlanEnumInterfaces → WlanQueryInterface(current_connection)
  *        直接拿到 isState / dot11Ssid / wlanSignalQuality(0–100)，
- *        真实 RSSI 换算质量，比 netsh 文本解析更稳（不受本地化与编码影响）。
+ *        比 netsh 文本解析更稳（不受本地化与编码影响）。
  *    - 任何 WlanAPI 失败（dll/服务不可用、结构校验不通过、调用返回错误码）
  *      都静默回退 netsh 路径，且只 warn 一次，避免 3s 一条日志。
  *    - netsh 回退：`netsh wlan show interfaces`，字段按「英文 + 中文」双语正则匹配；
@@ -47,6 +49,7 @@
 import { execFile } from 'child_process';
 import log from 'electron-log/main';
 import type { BluetoothStatus, EthernetStatus, WifiStatus } from '../shared/hw-stats';
+import { ensureDotNet, peekDotNet } from './dotnet-bridge';
 
 /** Wi-Fi 轮询间隔（毫秒）；WlanAPI 虽是进程内调用，但没必要比 3s 更密 */
 const WIFI_POLL_INTERVAL_MS = 3000;
@@ -69,6 +72,78 @@ const NETSH_TIMEOUT_MS = 4000;
  */
 const WIFI_TRANSIENT_FAIL_LIMIT = 3;
 const ETHERNET_TRANSIENT_FAIL_LIMIT = 3;
+
+// ───────────────────────── .NET 优先采集（WinRT 官方 API） ─────────────────────────
+//
+// 三项网络/蓝牙数据全部优先走 Bridge.dll 的 WinRT 调用（原生 wlanSignalQuality、系统 NLM 连通级别、
+// 真实「已连接」蓝牙设备），koffi/Win32 实现保留为回退：.NET 未加载、方法缺失、
+// 返回非法 JSON 或抛异常时，透明降级到原有采集路径，UI 无感知。
+
+/** NativeBridge 方法签名（返回 JSON 字符串，可能是 Promise） */
+type DotnetBridge = Record<string, (...args: unknown[]) => string | Promise<string>>;
+/** .NET 采集启用标记：一次判定后缓存，避免每次采样都尝试加载失败的 Bridge */
+let dotnetBridgeChecked = false;
+let dotnetBridge: DotnetBridge | null = null;
+
+/**
+ * 取得可用的 NativeBridge（懒加载、幂等）。
+ * 首次调用会触发一次 Bridge.dll 加载（与节假日 IPC 共用单例）；失败后 permanently 降级到 koffi，
+ * 不在每 3s 的采样里反复重试加载。
+ */
+async function getDotnetBridge(): Promise<DotnetBridge | null> {
+  if (process.platform !== 'win32') return null;
+  if (dotnetBridgeChecked) return dotnetBridge;
+  try {
+    // 先同步读已加载的实例（大多数情况 IPC 已触发加载），没有再异步触发一次
+    let lib = peekDotNet();
+    if (!lib?.NativeBridge) {
+      lib = await ensureDotNet();
+    }
+    const bridge = lib?.NativeBridge ?? null;
+    dotnetBridge = bridge && typeof bridge === 'object' ? (bridge as DotnetBridge) : null;
+  } catch (err) {
+    log.warn('[network] .NET Bridge 不可用，网络采集回退 koffi:', err);
+    dotnetBridge = null;
+  }
+  dotnetBridgeChecked = true;
+  return dotnetBridge;
+}
+
+/**
+ * 调用 Bridge 方法并把返回的 JSON 字符串解析成对象。
+ * Bridge 每个方法内部已 try/catch 返回 "null"；这里再兜底解析异常。
+ * @returns 解析后的对象，或 null（表示该项 .NET 采集失败，调用方应回退 koffi）
+ */
+async function callDotnetJson<T>(method: string): Promise<T | null> {
+  const bridge = await getDotnetBridge();
+  if (!bridge) return null;
+  const fn = bridge[method];
+  if (typeof fn !== 'function') return null;
+  try {
+    const raw = await fn();
+    if (!raw || raw === 'null') return null;
+    return JSON.parse(raw) as T;
+  } catch (err) {
+    log.warn(`[network] .NET ${method} 调用/解析失败，回退 koffi:`, err);
+    return null;
+  }
+}
+
+// .NET getWifiStatus 返回的 JSON 形状（字段与 WifiBase 对齐，另含 rssi）
+interface DotnetWifi {
+  available: boolean;
+  connected?: boolean;
+  ssid?: string | null;
+  signal?: number | null;
+  bars?: number;
+  rssi?: number | null;
+  hasInternet?: boolean | null;
+}
+// .NET getConnectedBluetooth 返回的 JSON 形状
+interface DotnetBluetooth {
+  available: boolean;
+  devices?: Array<{ name: string; battery: number | null }>;
+}
 
 // ───────────────────────────── 通用：外部命令 ─────────────────────────────
 
@@ -166,10 +241,12 @@ function pickField(block: string, keys: string[]): string | null {
  * 阈值按 WlanAPI 质量口径（0–100）标定：80 以上满格，50 以上两格，
  * 旧的 60/30 会让「勉强可用」的 55% 显示三格，视觉上过度乐观。
  */
-function signalToBars(signal: number | null): 0 | 1 | 2 | 3 {
+function signalToBars(signal: number | null): 0 | 1 | 2 | 3 | 4 | 5 {
   if (signal === null) return 0;
-  if (signal >= 80) return 3;
-  if (signal >= 50) return 2;
+  if (signal >= 90) return 5;
+  if (signal >= 75) return 4;
+  if (signal >= 55) return 3;
+  if (signal >= 30) return 2;
   if (signal >= 1) return 1;
   return 0;
 }
@@ -408,6 +485,17 @@ async function queryNetworkProbe(): Promise<ProbeQuery> {
   try {
     const ethernet = queryEthernetNative(fns);
     if (!ethernet) return { kind: 'transient', reason: 'GetAdaptersAddresses 失败' };
+
+    // 互联网连通性：优先 .NET WinRT（NLM 官方口径，返回 "true"/"false"/"null"），
+    // Bridge 不可用时回退 koffi GetNetworkConnectivityHint（同一数据源）
+    let hasInternet: boolean | null = null;
+    const dotnetOnline = await callDotnetJson<boolean>('getInternetStatus');
+    if (typeof dotnetOnline === 'boolean') {
+      hasInternet = dotnetOnline;
+    } else {
+      hasInternet = queryInternetNative(fns);
+    }
+
     return {
       kind: 'ok',
       probe: {
@@ -415,7 +503,7 @@ async function queryNetworkProbe(): Promise<ProbeQuery> {
           connected: ethernet.connected,
           name: ethernet.connected ? ethernet.name : null,
         },
-        hasInternet: queryInternetNative(fns),
+        hasInternet,
       },
     };
   } catch (err) {
@@ -933,10 +1021,40 @@ type WifiQuery =
 
 /**
  * 真正执行一次 Wi-Fi 采集（不含缓存判断，也不改缓存）。
- * 优先 WLAN API（真实 RSSI 质量，无子进程），失败才 spawn netsh。
+ * 优先 .NET Bridge（原生 wlanSignalQuality + 当前连接 SSID），再退 koffi WLAN API，最后才 spawn netsh。
  */
 async function queryWifi(): Promise<WifiQuery> {
   if (process.platform !== 'win32') return { kind: 'no-interface' };
+
+  // 优先 .NET WinRT：原生 wlanSignalQuality + 当前连接 SSID 精确匹配
+  const dotnetWifi = await callDotnetJson<DotnetWifi>('getWifiStatus');
+  if (dotnetWifi && typeof dotnetWifi.available === 'boolean') {
+    if (!dotnetWifi.available) return { kind: 'no-interface' };
+    if (!dotnetWifi.connected) {
+      return {
+        kind: 'ok',
+        status: { available: true, connected: false, ssid: null, signal: null, bars: 0 },
+      };
+    }
+    const signal =
+      typeof dotnetWifi.signal === 'number' ? Math.min(100, Math.max(0, dotnetWifi.signal)) : null;
+    return {
+      kind: 'ok',
+      status: {
+        available: true,
+        connected: true,
+        ssid: dotnetWifi.ssid ?? null,
+        signal,
+        // bars 以 .NET 给的五档映射为准，缺失时按本模块统一的 signalToBars 兜底
+        bars:
+          dotnetWifi.bars !== undefined
+            ? (Math.min(5, Math.max(0, dotnetWifi.bars)) as 0 | 1 | 2 | 3 | 4 | 5)
+            : signalToBars(signal),
+      },
+    };
+  }
+
+  // 回退：koffi WLAN API → netsh 文本解析
   const viaApi = queryWifiViaWlanApi();
   if (viaApi) return { kind: 'ok', status: viaApi };
   const captured = await execCapture('netsh', ['wlan', 'show', 'interfaces']);
@@ -1295,19 +1413,36 @@ let btInFlight: Promise<BluetoothStatus | null> | null = null;
 /**
  * 读取蓝牙状态（8s 缓存；到期才真正枚举）。
  * 返回 null 表示采集失败 / 非 Windows；枚举成功但无外设时 devices 为空数组。
+ *
+ * 口径：优先 WinRT ConnectionStatus.Connected 的严格「已连接」设备；Bridge 不可用
+ * 时回退 koffi SetupAPI（DIGCF_PRESENT = 在场/已配对，含关机设备）。两者统一用
+ * 中性「N 台」表述，不向用户声称「已连接 N 台」，避免回退时口径失实。
  */
 export function getBluetoothStatus(): Promise<BluetoothStatus | null> {
   if (Date.now() - btFetchedAt < BT_POLL_INTERVAL_MS) return Promise.resolve(btCache);
   if (btInFlight) return btInFlight;
-  btInFlight = new Promise<BluetoothStatus | null>((resolve) => {
-    // FFI 枚举是同步调用（耗时几毫秒），包进 Promise 只为了对外接口统一
+  btInFlight = (async (): Promise<BluetoothStatus | null> => {
+    // 优先 .NET WinRT「真实已连接」设备；Bridge 不可用回退 koffi SetupAPI「在场」枚举
+    const dotnetBt = await callDotnetJson<DotnetBluetooth>('getConnectedBluetooth');
+    if (dotnetBt && typeof dotnetBt.available === 'boolean' && Array.isArray(dotnetBt.devices)) {
+      return {
+        available: dotnetBt.available,
+        devices: dotnetBt.devices
+          .filter((d) => typeof d?.name === 'string' && d.name.trim().length > 0)
+          .map((d) => ({
+            name: d.name.trim(),
+            battery: typeof d.battery === 'number' ? d.battery : null,
+          })),
+      };
+    }
+    // FFI 枚举是同步调用（耗时几毫秒），包进 async 只为对外接口统一
     try {
-      resolve(queryBluetooth());
+      return queryBluetooth();
     } catch (err) {
       log.warn('[network] 读取蓝牙状态失败:', err);
-      resolve(null);
+      return null;
     }
-  })
+  })()
     .then((value) => {
       btCache = value;
       btFetchedAt = Date.now();

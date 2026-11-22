@@ -24,7 +24,12 @@ import {
   type WifiStatus,
 } from '../shared/hw-stats';
 import { readBatteryState, readPowerSaving } from './battery';
-import { getBluetoothStatus, getNetworkProbe, getWifiStatus } from './network-status';
+import {
+  getBluetoothStatus,
+  getInternetStatus,
+  getNetworkProbe,
+  getWifiStatus,
+} from './network-status';
 import { getWallpaperLuma } from './wallpaper-luma';
 import { currentAccentColor } from './window-material';
 
@@ -61,6 +66,7 @@ let lastSent: {
   charging: boolean | null;
   powerSaving: boolean | null;
   wifi: string;
+  internet: boolean | null;
   ethernet: string;
   bluetooth: string;
   theme: 'light' | 'dark';
@@ -237,6 +243,7 @@ function refreshNetworkStatus(): void {
 /**
  * 把网络 / 外观状态压成字符串签名，用于去抖比较。
  * 只取「会让 UI 变化」的字段：wifi 用 available/connected/ssid/bars/hasInternet，
+ * internet 用系统级连通性（独立于介质，以太网场景靠它驱动悬浮窗「网络」行），
  * 以太网用 connected/name，蓝牙用设备名 + 电量列表；
  * theme 与 powerSaving 也必须纳入，否则这些字段单独变化会被去抖吞掉。
  * null 与空列表需要区分，故显式拼 'null'。
@@ -244,21 +251,23 @@ function refreshNetworkStatus(): void {
 function networkSignature(
   stats: Pick<
     HwStats,
-    'wifi' | 'ethernet' | 'bluetooth' | 'theme' | 'powerSaving' | 'wallpaperLuma'
+    'wifi' | 'internet' | 'ethernet' | 'bluetooth' | 'theme' | 'powerSaving' | 'wallpaperLuma'
   >,
 ): {
   wifi: string;
+  internet: boolean | null;
   ethernet: string;
   bluetooth: string;
   theme: 'light' | 'dark';
   powerSaving: boolean | null;
   wallpaperLuma: string;
 } {
-  const { wifi, ethernet, bluetooth, theme, powerSaving, wallpaperLuma } = stats;
+  const { wifi, internet, ethernet, bluetooth, theme, powerSaving, wallpaperLuma } = stats;
   return {
     wifi: wifi
       ? `${wifi.available}|${wifi.connected}|${wifi.ssid ?? ''}|${wifi.bars}|${wifi.hasInternet}`
       : 'null',
+    internet,
     ethernet: ethernet ? `${ethernet.connected}|${ethernet.name ?? ''}` : 'null',
     bluetooth: bluetooth
       ? `${bluetooth.available}|${bluetooth.devices.map((d) => `${d.name}:${d.battery ?? 'x'}`).join(',')}`
@@ -299,6 +308,8 @@ function tick(): void {
     charging: realCharging,
     powerSaving: realPowerSaving,
     wifi: wifiStatus,
+    // 系统级联网状态：与介质无关，以太网 / 无 Wi-Fi 场景的权威信号
+    internet: getInternetStatus(),
     ethernet: ethernetStatus,
     bluetooth: bluetoothStatus,
     theme: appearance.theme,
@@ -319,6 +330,7 @@ function tick(): void {
     const chargingChanged = stats.charging !== lastSent.charging;
     const powerSavingChanged = stats.powerSaving !== lastSent.powerSaving;
     const wifiChanged = signature.wifi !== lastSent.wifi;
+    const internetChanged = signature.internet !== lastSent.internet;
     const ethernetChanged = signature.ethernet !== lastSent.ethernet;
     const btChanged = signature.bluetooth !== lastSent.bluetooth;
     const themeChanged = signature.theme !== lastSent.theme;
@@ -331,6 +343,7 @@ function tick(): void {
       !chargingChanged &&
       !powerSavingChanged &&
       !wifiChanged &&
+      !internetChanged &&
       !ethernetChanged &&
       !btChanged &&
       !themeChanged &&
@@ -354,6 +367,7 @@ function tick(): void {
     wallpaperLuma: signature.wallpaperLuma,
     accent: stats.accent,
     wifi: signature.wifi,
+    internet: signature.internet,
     ethernet: signature.ethernet,
     bluetooth: signature.bluetooth,
   };

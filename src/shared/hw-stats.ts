@@ -31,7 +31,7 @@ export interface WifiStatus {
   /** 信号强度 0–100；未连接/无数据时为 null */
   signal: number | null;
   /** 信号格数（按信号映射：>=80→3、50–79→2、1–49→1、无→0） */
-  bars: 0 | 1 | 2 | 3;
+  bars: 0 | 1 | 2 | 3 | 4 | 5;
   /**
    * 是否能访问互联网。
    * true = 当前连接配置文件的 IPv4/IPv6 Connectivity 至少一个为 Internet；
@@ -43,12 +43,17 @@ export interface WifiStatus {
 
 /**
  * 蓝牙状态（null = 采集失败/非 Windows）
- * 由主进程每 8s 经 koffi 进程内枚举一次，只保留「当前在场」的外设
+ * 由主进程每 8s 经 koffi 进程内枚举一次，只保留「当前在场」的外设。
+ *
+ * 口径说明：SetupDiGetClassDevs(DIGCF_PRESENT) 的官方定义是「系统中当前在场（present）的设备」，
+ * 即已配对且当前可见的外设节点，**不等于 WinRT BluetoothDevice.ConnectionStatus 的「已连接」**。
+ * 部分设备（如已配对但关机的耳机）可能仍驻留为在场节点；真正的实时连接态需 WinRT（koffi 难以进程内调用）。
+ * 因此这里诚实表述为「在场/已配对外设」，UI 用中性量词「N 台」而非声称「已连接 N 台」。
  */
 export interface BluetoothStatus {
   /** 蓝牙适配器是否存在（枚举调用是否成功） */
   available: boolean;
-  /** 已连接外设列表；battery 为 null 表示该设备不支持电量上报 */
+  /** 在场/已配对外设列表（非严格实时连接态）；battery 为 null 表示不支持电量上报 */
   devices: Array<{ name: string; battery: number | null }>;
 }
 
@@ -78,6 +83,14 @@ export interface HwStats extends BatteryInfo {
   onBattery: boolean;
   /** Wi-Fi 状态；null = 无无线网卡 / 采集失败 / 非 Windows */
   wifi: WifiStatus | null;
+  /**
+   * 系统级互联网连通性（与链路介质无关，取自 GetNetworkConnectivityHint）。
+   * 这是「能否上网」的权威信号：Wi-Fi 的 hasInternet 虽同源，但挂在 wifi 上，
+   * 当机器走以太网 / 无无线网卡（wifi === null）时取不到，导致悬浮窗误显「检测中」。
+   * 顶层字段让「网络」行在任何介质下都能显示真实连通状态。
+   * true=可上网 false=明确不可上网 null=未知（老系统 / 探测未完成）
+   */
+  internet: boolean | null;
   /** 以太网状态；null = 采集失败 / 非 Windows */
   ethernet: EthernetStatus | null;
   /** 蓝牙状态；null = 采集失败 / 非 Windows */

@@ -1,10 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- -windows10.0.x 才会引入 WinRT 投影（Wi-Fi / 蓝牙 / 网络状态官方 API）；
+         26100 = Win11 24H2，本机与主流目标机均覆盖；最低支持仍由运行时 API 决定 -->
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PackAsTool>true</PackAsTool>
+    <!-- Windows TFM 自带投影引用：禁止 CsWinRT 重新生成（避免依赖本机 UAP Platform.xml），只取运行时程序集 -->
+    <CsWinRTGenerateProjection>false</CsWinRTGenerateProjection>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- 原为 true，但与 Windows TFM 组合会让 runtimeconfig 引入 WindowsDesktop.App
+         （框架数组 + 需要 Desktop Runtime）；本项目是 dotnet.require 加载的库，无需 PackAsTool -->
+    <PackAsTool>false</PackAsTool>
     <UserSecretsId>Bridge-3ea16261bf66053888619a7c082059c98b71f44a924a3ab00a663cc957c256c4</UserSecretsId>
     <PublishAot>false</PublishAot>
     <UseAppHost>false</UseAppHost>
@@ -19,17 +26,36 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.JavaScript.NodeApi" Version="0.9.21" />
     <PackageReference Include="Microsoft.JavaScript.NodeApi.Generator" Version="0.9.21" />
+    <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.3.1" />
     <PackageReference Include="NewLife.Holiday" Version="1.5.2026.1024" />
+    <!-- WinRT API 由 WinRT.Runtime + Microsoft.Windows.SDK.NET 提供，不需要 WindowsDesktop.App
+         框架（否则目标机器必须安装 .NET Desktop Runtime，且 runtimeconfig 变成 frameworks 数组
+         会让 fix-dotnet-runtime 的版本修复逻辑失效）。显式移除。 -->
+    <FrameworkReference Remove="Microsoft.WindowsDesktop.App" />
   </ItemGroup>
 
-  <!-- 只把 NewLife 的运行时程序集复制到 native/，避免 CopyLocalLockFileAssemblies 把
+  <!-- net10.0-windows TFM 会把 WindowsDesktop.App 隐式写进 runtimeconfig，ItemGroup Remove
+       与 BeforeTargets 都拦不住（SDK 在生成阶段重新注入）。这里在 Build 完成后直接改写
+       产物 JSON 删掉该框架，确定性生效；实测移除后三项 WinRT 采集仍全部正常，
+       但目标机器不再需要安装 .NET Desktop Runtime。 -->
+  <Target Name="StripWindowsDesktopFramework" AfterTargets="Build">
+    <Exec Command="node &quot;$(MSBuildProjectDirectory)/strip-desktop-framework.cjs&quot;" />
+  </Target>
+
+  <!-- 只把必要的运行时程序集复制到 native/，避免 CopyLocalLockFileAssemblies 把
        编译期的 Roslyn 依赖与一堆本地化资源目录也带进安装包。版本号用通配符匹配。 -->
-  <Target Name="CopyNewLifeAssemblies" AfterTargets="Build">
+  <Target Name="CopyRuntimeAssemblies" AfterTargets="Build">
     <ItemGroup>
       <NewLifeRuntimeDll Include="$(NuGetPackageRoot)newlife.holiday/**/lib/netstandard2.1/NewLife.Holiday.dll" />
       <NewLifeRuntimeDll Include="$(NuGetPackageRoot)newlife.core/**/lib/net10.0/NewLife.Core.dll" />
+      <!-- Windows TFM 的投影是引用程序集，运行时必须随包带上这两个实现程序集，
+           否则 dotnet.require 后调用 WinRT API 会抛 FileNotFoundException。
+           取 Windows SDK 投影包内 net8.0 版本（与 WinRT.Runtime 2.x 配套）。 -->
+      <WinRtRuntimeDll Include="$(NuGetPackageRoot)microsoft.windows.sdk.net.ref/10.0.26100.57/lib/net8.0/Microsoft.Windows.SDK.NET.dll" />
+      <WinRtRuntimeDll Include="$(NuGetPackageRoot)microsoft.windows.sdk.net.ref/10.0.26100.57/lib/net8.0/WinRT.Runtime.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(NewLifeRuntimeDll)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(WinRtRuntimeDll)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>

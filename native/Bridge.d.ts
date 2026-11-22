@@ -17,5 +17,11 @@ export namespace NativeBridge {
 
   export function getChinaHolidays(year: number): string;
 
+  export function getWifiStatus(): Promise<string>;
+
+  export function getInternetStatus(): string;
+
+  export function getConnectedBluetooth(): Promise<string>;
+
   export function computeFileHash(filePath: string, algorithm?: string): Promise<string>;
 }

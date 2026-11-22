@@ -100,8 +100,19 @@ export async function loadDotNet() {
     log('dotnet.require 成功，导出:', Object.keys(lib));
 
     if (lib.NativeBridge) {
-      const methods = Object.keys(lib.NativeBridge);
-      log('NativeBridge 方法:', methods);
+      // node-api-dotnet 导出的是 Proxy，Object.keys 恒为空；按名字探测才准确。
+      const probeMethods = [
+        'sayHello',
+        'getChinaHolidays',
+        'computeFileHash',
+        'getWifiStatus',
+        'getInternetStatus',
+        'getConnectedBluetooth',
+      ];
+      log(
+        'NativeBridge 可用方法(探测):',
+        probeMethods.filter((name) => typeof lib.NativeBridge[name] === 'function'),
+      );
     } else {
       log('⚠️ NativeBridge 未找到');
     }
