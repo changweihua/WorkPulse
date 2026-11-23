@@ -104,6 +104,12 @@ export type CenterScene =
       off: boolean;
       /** SSID 命中热点关键词 → 链环图标 */
       hotspot: boolean;
+      /**
+       * 已连接的 Wi-Fi 名称（SSID），供「图标下方小字」常显；
+       * 仅在 medium='wifi' 且已关联时才有值，以太网 / 未关联 / 关闭场景为 null。
+       * 注意：热点场景（hotspot=true）虽有 SSID，但渲染层改用链环图标、不显示名称。
+       */
+      ssid: string | null;
     }
   | { kind: 'metric'; metric: 'cpu' | 'mem' | 'battery'; value: number }
   | {
@@ -250,10 +256,19 @@ function buildNetworkIconScene(hw: HwStats): Extract<CenterScene, { kind: 'netwo
 
   // 有线优先：机器有更稳的有线链路时，网络图标表达「以太网 + 系统连通态」
   if (ethernetOn) {
-    return { kind: 'network', medium: 'ethernet', bars: 0, online, off: false, hotspot: false };
+    return {
+      kind: 'network',
+      medium: 'ethernet',
+      bars: 0,
+      online,
+      off: false,
+      hotspot: false,
+      ssid: null,
+    };
   }
 
   // 无线已连接：信号弧格数 = 强度；热点 SSID 改用链环图标语义
+  // ssid 带上真实名称供渲染层在图标下方显示（热点场景渲染层不显示名称）
   if (wifi?.connected) {
     return {
       kind: 'network',
@@ -262,16 +277,33 @@ function buildNetworkIconScene(hw: HwStats): Extract<CenterScene, { kind: 'netwo
       online,
       off: false,
       hotspot: isHotspotSsid(wifi.ssid),
+      ssid: wifi.ssid ?? null,
     };
   }
 
   // Wi-Fi 开启但未关联：空心弧（bars=0），非错误级但信号为空
   if (wifi?.available) {
-    return { kind: 'network', medium: 'wifi', bars: 0, online, off: false, hotspot: false };
+    return {
+      kind: 'network',
+      medium: 'wifi',
+      bars: 0,
+      online,
+      off: false,
+      hotspot: false,
+      ssid: null,
+    };
   }
 
   // 兜底：无任何可用网络介质 → 斜杠 Wi-Fi（错误级）
-  return { kind: 'network', medium: 'wifi', bars: 0, online, off: true, hotspot: false };
+  return {
+    kind: 'network',
+    medium: 'wifi',
+    bars: 0,
+    online,
+    off: true,
+    hotspot: false,
+    ssid: null,
+  };
 }
 
 /**

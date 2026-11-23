@@ -109,6 +109,12 @@ const ALERT_AT = 85; // 告警阈值（%）
 const CAROUSEL_INTERVAL_MS = 3200;
 const METRIC_SIZE = 40;
 /**
+ * Wi-Fi 信号弧的统一渲染盒边长：已连接（WifiSsidBadge）与未连接（NetworkIcon 的 bars=0
+ * 空心弧）共用同一盒，保证「连上 / 没连」弧线尺寸一致，不出现「连上变小、没连变大」的跳变。
+ * 26px 盒 → 弧视觉宽约 18px，与中心 48px 玻璃圆比例协调（下方还留得出 SSID 小字）。
+ */
+const WIFI_ARC_BOX = 26;
+/**
  * 网络「替代图标」（WifiOff 斜杠 / 以太网口 / 热点链环）的渲染盒边长。
  * 不能用 METRIC_SIZE=40：lucide 图标路径撑满 viewBox（x 2→22）且叠 strokeWidth 4 淡墨底，
  * 视觉宽接近 40px；而正常信号弧是扇形、在 viewBox 24 里只画中间约 16.9 单位 → 视觉宽
@@ -865,7 +871,7 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
 
   const center = scenes[Math.min(carouselIndex, sceneCount - 1)] ?? null;
   // 入场键只按「场景类型 + 斜杠 / 热点」区分：信号格数 3→2 时图标不重放整段淡入淡出，
-  // 只让各自弧的 stroke-opacity 平滑过渡（见 WifiSignal）；无互联网感叹号也不触发重挂载；
+  // 只让各自弧的点亮/熄灭色平滑过渡（见 WifiSignal 的 .hw-wifi-bar）；无互联网感叹号也不触发重挂载；
   // 数值场景 key 只含 metric 名（cpu→cpu 数值变化不重放动画，只刷新数字）
   const centerKey = (() => {
     if (center === null) return 'none';
@@ -1182,15 +1188,25 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
                 ) : center.kind === 'bluetooth' ? (
                   <BluetoothDots count={center.count} size={METRIC_SIZE} />
                 ) : center.kind === 'network' ? (
-                  /* 统一网络图标：Wi-Fi 画信号弧 / 以太网画端口，离线或检测中置灰，off 斜杠、热点链环 */
-                  <NetworkIcon
-                    medium={center.medium}
-                    bars={center.bars}
-                    online={center.online}
-                    off={center.off}
-                    hotspot={center.hotspot}
-                    size={METRIC_SIZE}
-                  />
+                  /* 已连接普通 Wi-Fi（有 SSID、非热点、非斜杠）→ 信号弧 + SSID 小字；
+                     以太网 / 热点 / 未关联 / 关闭 → 统一网络图标（信号弧 / 端口 / 链环 / 斜杠） */
+                  center.medium === 'wifi' && !center.off && !center.hotspot && center.ssid ? (
+                    <WifiSsidBadge
+                      bars={center.bars}
+                      ssid={center.ssid}
+                      online={center.online}
+                      size={METRIC_SIZE}
+                    />
+                  ) : (
+                    <NetworkIcon
+                      medium={center.medium}
+                      bars={center.bars}
+                      online={center.online}
+                      off={center.off}
+                      hotspot={center.hotspot}
+                      size={METRIC_SIZE}
+                    />
+                  )
                 ) : center.kind === 'internet' ? (
                   <InternetIcon online={center.online} size={METRIC_SIZE} />
                 ) : center.kind === 'ethernet' ? (
@@ -1463,7 +1479,159 @@ function NetworkIcon({
   if (medium === 'ethernet') {
     return <OutlineIcon Icon={EthernetPort} size={NET_ALT_ICON_SIZE} color={color} />;
   }
-  return <WifiSignal bars={bars} size={size} color={color} />;
+  // 纯 Wi-Fi 弧（已连但隐藏 SSID / 未关联空心）：统一用 WIFI_ARC_BOX，
+  // 与已连接态 WifiSsidBadge 的弧线同尺寸，避免「连上变小、没连变大」的跳变。
+  return <WifiSignal bars={bars} size={WIFI_ARC_BOX} color={color} />;
+}
+
+/**
+ * 已连接 Wi-Fi 徽标：信号弧在上 + SSID 小字在下（用户选定「图标下加小字」方案）。
+ *
+ * 只在「真实连着普通 Wi-Fi」（medium='wifi'、已连接、有 SSID、非热点 / 非斜杠）时替换纯图标，
+ * 让悬浮窗一眼可见连的是哪个网络；以太网 / 热点 / 未关联 / 关闭等态仍走原 NetworkIcon。
+ *
+ * 布局：40px 盒（METRIC_SIZE）内上半信号弧、下半一行小字。信号弧用 viewBox 24 的
+ * WifiSignal 缩到 ICON_BOX=26 并整体上移；文字盒 40×12 贴底，双层描边（RIM_INK 打底 +
+ * 蓝白渐变实心，与信号弧同色系）保证浅色壁纸可读、全程无阴影（透明窗规范）。
+ *
+ * 长名称（显示宽度 > 8 单位，CJK 算 2 / 英文数字算 1）改为 marquee 滚动而非截断：
+ * 同一段文字渲染两份首尾相接，用 getComputedTextLength 精确量出单份宽度作为循环位移，
+ * 确保第二份无缝顶上第一份；两端用渐变遮罩渐隐、避免硬切。滚动走 CSS transform 动画
+ * （不碰 SVG text 的 x 属性，绕开文字抗锯齿降级），prefers-reduced-motion 下自动停为静态。
+ * title 始终保留完整名称。
+ */
+function WifiSsidBadge({
+  bars,
+  ssid,
+  online,
+  size,
+}: {
+  bars: 0 | 1 | 2 | 3 | 4 | 5;
+  ssid: string;
+  online: boolean | null;
+  size: number;
+}): ReactNode {
+  const isOnline = online === true;
+  const color = isOnline ? WIFI_COLOR : NET_OFFLINE_COLOR;
+  // 文字实心层跟随信号弧的蓝白渐变（同一线性渐变，保持图标与名称同色系）；
+  // 离线 / 检测中时渐变两端都退化为灰，与信号弧置灰语义一致。
+  const gradId = `hwSsidGrad-${isOnline ? 'on' : 'off'}`;
+  const ICON_BOX = WIFI_ARC_BOX; // 信号弧渲染盒：与未连接态共用，弧视觉宽 ≈18px
+  const TEXT_BOX_H = 12; // 底部文字行盒高
+  const fontSize = 8.5; // 中心圆内小字，与 NetInfoStack 的 9.5 同级但更收敛
+  const GAP = 14; // 两份滚动文字之间的间隔（px）
+
+  // 显示宽度：CJK / 全角算 2，英文数字算 1；> 8 单位（≈ 8 英文字母 / 4 汉字）才滚动
+  const units = Array.from(ssid).reduce((sum, ch) => sum + (/[\u2E80-\uFFFF]/.test(ch) ? 2 : 1), 0);
+  const scroll = units > 8;
+
+  // 精确测量单份文字宽度 → 循环位移；用 layout effect 在绘制前同步完成，避免首帧跳变
+  const measureRef = useRef<SVGTextElement | null>(null);
+  const [shift, setShift] = useState(0);
+  useLayoutEffect(() => {
+    if (!scroll) {
+      setShift(0);
+      return;
+    }
+    const w = measureRef.current?.getComputedTextLength() ?? 0;
+    if (w > 0) setShift(w + GAP);
+  }, [scroll, ssid, fontSize]);
+
+  // 双层描边文字：描边层打底（浅壁纸可读）+ 实心层走信号弧同款蓝白渐变，两层同位置同内容。
+  // anchor：静态短名用 middle（x=size/2 水平居中）；滚动用 start（两份首尾拼接、量单份宽度）。
+  const renderText = (measure: boolean, anchor: 'start' | 'middle'): ReactNode => {
+    const tx = anchor === 'middle' ? size / 2 : 0;
+    return (
+      <>
+        <text
+          ref={measure ? measureRef : undefined}
+          x={tx}
+          y={TEXT_BOX_H / 2}
+          textAnchor={anchor}
+          dominantBaseline="central"
+          fontSize={fontSize}
+          fontWeight={700}
+          fill="none"
+          stroke={RIM_INK}
+          strokeWidth={2.4}
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          {ssid}
+        </text>
+        <text
+          x={tx}
+          y={TEXT_BOX_H / 2}
+          textAnchor={anchor}
+          dominantBaseline="central"
+          fontSize={fontSize}
+          fontWeight={700}
+          fill={`url(#${gradId})`}
+          aria-hidden
+        >
+          {ssid}
+        </text>
+      </>
+    );
+  };
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0">
+      <title>{`Wi-Fi ${ssid}`}</title>
+      <defs>
+        {/* 文字实心渐变：与 WifiSignal 的弧线渐变同方向（左下深蓝→右上浅蓝）、同色值，
+            图标与名称视觉统一；离线时两端同为灰，保持置灰语义。 */}
+        <linearGradient id={gradId} x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0%" stopColor={isOnline ? WIFI_GRAD_DEEP : color} />
+          <stop offset="100%" stopColor={isOnline ? WIFI_GRAD_LIGHT : color} />
+        </linearGradient>
+        <linearGradient id="hwSsidFade" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#000" stopOpacity="0" />
+          <stop offset="14%" stopColor="#000" stopOpacity="1" />
+          <stop offset="86%" stopColor="#000" stopOpacity="1" />
+          <stop offset="100%" stopColor="#000" stopOpacity="0" />
+        </linearGradient>
+        <mask
+          id="hwSsidMask"
+          maskUnits="userSpaceOnUse"
+          x={0}
+          y={0}
+          width={size}
+          height={TEXT_BOX_H}
+        >
+          <rect x={0} y={0} width={size} height={TEXT_BOX_H} fill="url(#hwSsidFade)" />
+        </mask>
+      </defs>
+      {/* 信号弧：viewBox 24 缩到 ICON_BOX，水平居中、垂直靠上，给底部文字让出空间 */}
+      <g transform={`translate(${(size - ICON_BOX) / 2} 0)`}>
+        <WifiSignal bars={bars} size={ICON_BOX} color={color} />
+      </g>
+      {/* 底部 SSID 小字：短名居中静态；长名两份首尾相接无缝滚动，两端渐隐 */}
+      <g
+        transform={`translate(0 ${size - TEXT_BOX_H})`}
+        mask={scroll ? 'url(#hwSsidMask)' : undefined}
+      >
+        {scroll ? (
+          <g
+            className={shift > 0 ? 'hw-ssid-scroll' : undefined}
+            style={
+              {
+                '--hw-ssid-shift': `-${shift}px`,
+                '--hw-ssid-duration': `${Math.max(5, units * 0.5)}s`,
+              } as CSSProperties
+            }
+          >
+            <g>{renderText(true, 'start')}</g>
+            <g transform={`translate(${shift} 0)`} aria-hidden>
+              {renderText(false, 'start')}
+            </g>
+          </g>
+        ) : (
+          <g>{renderText(true, 'middle')}</g>
+        )}
+      </g>
+    </svg>
+  );
 }
 
 /**
@@ -1807,13 +1975,13 @@ function NetInfoStack({
 }
 
 /**
- * Wi-Fi 信号几何：经典形态【四段圆头描边弧 + 底部圆点】，共 5 个可点亮元素 = 5 格信号，
- * 四段弧共用圆心 (12, 17.24)，各自扫 ±44.4°（总 88.8°，曲率基准 = Lucide 官方 Wi-Fi）。
+ * Wi-Fi 信号几何：纯【四段圆头描边弧】（用户要求「小圆点去除、保留弧线」），
+ * 四段弧共用圆心 (12, 18.39)，各自扫 ±44.4°（总 88.8°，曲率基准 = Lucide 官方 Wi-Fi）。
  *
  * 演化路径与用户反馈对应：
  * - 五段等距扇形 → 四弧+圆点：最小段退化成横条像「漏斗」，改成工业标准的「弧+圆点」；
  * - 70.9% → 53.4%：用户反馈「太宽了」，收窄到全宽 25.7px；
- * - 实心扇形块 → 圆头描边弧：用户指出「端点太平太硬，和圆形不搭」——改成 stroke +
+ * - 实心扇形块 → 圆头描边弧：用户指出「端点太平太硬、和圆形不搭」——改成 stroke +
  *   strokeLinecap="round" 后两端是半圆，与圆润玻璃球同语言；
  * - **弧间距翻倍**：用户反馈「间距要起码 2 倍」。原半径差 2.1、线宽 1.2 → 视觉净空仅 0.9；
  *   步长拉到 3.0 → 净空 1.8，正好翻倍。
@@ -1821,21 +1989,21 @@ function NetInfoStack({
  *   试过非等距 [1.5,5.2,8,10.5]（内松外紧）用户反馈「比例不协调」；
  *   最终用四方案对比确认 **B 等距均匀**：半径 [2.2,5.2,8.2,11.2] 等差步长 3.0，
  *   最内弧加长到 5.1px 不再像点，四段长度/间距均匀，宽度 28.1px（58.6%）仍在 50-75%。
+ * - **去圆点**：用户要求只留弧线 → 删掉底部圆点；信号档位从「圆点 + 4 弧 = 5 格」改为
+ *   「4 弧 = 5 档」（bars=1 亮最内 1 弧，bars=5 四段全亮），弱信号仍可见。
  *
  * 圆头描边几何：半径 [2.2, 5.2, 8.2, 11.2]（等距，步长 3.0），线宽 1.2 单位 = 2px；
- * 含圆头后视觉宽 2×(11.2×sin44.4° + 0.6)×(40/24) ≈ 28.1px；圆点 r=1.4 单位 = 2.33px。
+ * 含圆头后视觉宽 2×(11.2×sin44.4° + 0.6)×(40/24) ≈ 28.1px。
  *
- * 严格居中：最高点 = cy − rMax − 线宽/2（圆头外沿）、最低点 = 圆点下沿。
- * 圆点顶部紧贴最内弧两端下方 0.1 单位：dotCy = cy − rMin×cos44.4° + 1.4 + 0.1。
- * 令 (最高点 + 圆点下沿)/2 = 12 → cy = (24 + 11.2 + 0.6 − 2.2×cos44.4° − 2×1.4 − 0.1)/2
- * = 17.24，dotCy = 17.16。水平两端 x = 12 ± (rMax×sin44.4° + 0.6) 天然对称。
+ * 严格居中（去圆点后重算）：最高点 = cy − rMax − 线宽/2 = cy − 11.8（外弧圆头顶）；
+ * 最低点 = cy − rMin×cos44.4° + 线宽/2 = cy − 0.972（最内弧端点圆头底）。
+ * 令 (最高点 + 最低点)/2 = 12 → cy = (24 + 11.8 + 0.972)/2 ≈ 18.39。
+ * 水平两端 x = 12 ± (rMax×sin44.4° + 0.6) 天然对称。
  */
 const WIFI_ARC_RADII = [2.2, 5.2, 8.2, 11.2] as const;
-const WIFI_ARC_CY = 17.24;
+const WIFI_ARC_CY = 18.39;
 const WIFI_ARC_SWEEP_DEG = 44.4;
 const WIFI_ARC_STROKE = 1.2;
-const WIFI_DOT_CY = 17.16;
-const WIFI_DOT_R = 1.4;
 
 /** 生成一段圆头描边弧 path（单条弧线，交给 strokeLinecap="round" 画圆头端点）。 */
 function wifiArcPath(r: number): string {
@@ -1849,18 +2017,18 @@ function wifiArcPath(r: number): string {
   return `M ${x0.toFixed(2)} ${y.toFixed(2)} A ${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y.toFixed(2)}`;
 }
 
-/** 由内到外四段圆头弧（bars≥2 起逐段点亮；bars=0 全灭；bars=1 只亮圆点） */
+/** 由内到外四段圆头弧（bars=1 起逐段点亮；bars=0 全灭；bars=5 四段全亮） */
 const WIFI_ARCS: ReadonlyArray<readonly [number, string]> = WIFI_ARC_RADII.map(
   (r) => [r, wifiArcPath(r)] as const,
 );
 
 /**
- * 中部槽位 Wi-Fi 指示：四段圆头描边弧 + 底部圆点按格数点亮（0 格 = 已开启但未关联的空心态）。
+ * 中部槽位 Wi-Fi 指示：四段圆头描边弧按格数点亮（0 格 = 已开启但未关联的空心态）。
  *
  * 视觉语言（用户反馈「端点太平太硬、和圆形不搭」后重做）：
  * 实心扇形块的两端是径向平切口、有棱角，与圆润玻璃球冲突；改成圆头描边弧（圆头端点）
- * 后两端是半圆，和圆形容器同语言。这正是工业标准 Wi-Fi 图标（Lucide / iOS / Android）的画法。
- * 曲率取官方 88.8°（半角 44.4°），弯而不圆、两端向内收拢。
+ * 后两端是半圆，和圆形容器同语言。曲率取官方 88.8°（半角 44.4°），弯而不圆、两端向内收拢。
+ * 底部圆点已按用户要求去除，只留四段弧线。
  *
  * 尺寸折算：本组件 viewBox 24 缩放到 40px（1 单位 ≈ 1.667px），蓝牙是 viewBox 40（1 单位 = 1px）；
  * 圆头描边弧线宽 1.2 单位 = 2px、等距半径步长 3.0（四段长度/间距均匀），
@@ -1868,7 +2036,8 @@ const WIFI_ARCS: ReadonlyArray<readonly [number, string]> = WIFI_ARC_RADII.map(
  *
  * 亮 / 灭：点亮弧走青渐变，熄灭弧画浅灰空槽（同外环 TRACK_COLOR），
  * 「有信号 vs 空槽」一眼可辨，深壁纸上也不会融进背景。
- * 格数语义：bars=0 全灭 / =1 只亮底部圆点 / =2..5 圆点 + 由内到外逐段亮弧。置灰语义不变。
+ * 档位语义（去圆点后重映射）：bars=0 全灭 / =1 亮最内弧 / =2 亮 2 段 / =3 亮 3 段 /
+ * =4..5 四段全亮。置灰语义不变（断网 / 检测中颜色置灰）。
  */
 function WifiSignal({
   bars,
@@ -1895,8 +2064,8 @@ function WifiSignal({
         </linearGradient>
       </defs>
       {WIFI_ARCS.map(([r, d], i) => {
-        // 四段弧对应 bars=2..5：bars=2 亮最内弧(i=0)，bars=5 四段全亮。
-        const lit = bars >= i + 2;
+        // 去圆点后四段弧独立承载 5 档：bars=1 亮最内弧(i=0)，bars=4..5 四段全亮。
+        const lit = bars >= i + 1;
         return (
           <path
             key={r}
@@ -1909,14 +2078,6 @@ function WifiSignal({
           />
         );
       })}
-      {/* 底部圆点：经典 Wi-Fi 的信号源；bars≥1 点亮，bars=0 时空槽。 */}
-      <circle
-        className="hw-wifi-bar"
-        cx={12}
-        cy={WIFI_DOT_CY}
-        r={WIFI_DOT_R}
-        fill={bars >= 1 ? `url(#${gid})` : TRACK_COLOR}
-      />
     </svg>
   );
 }

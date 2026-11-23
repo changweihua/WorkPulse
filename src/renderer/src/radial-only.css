@@ -34,11 +34,34 @@
   animation: hw-alert-pulse 0.9s ease-in-out infinite;
 }
 
-/* ── 硬件状态环：中部 Wi-Fi 三段弧的亮灭过渡 ──
-   信号 3→2→1 格时只切 stroke-opacity，弧本身不重绘 → 用过渡做成「渐隐」，
+/* ── 硬件状态环：中部 Wi-Fi 弧的亮灭过渡 ──
+   信号格数变化时只切 stroke 颜色，弧本身不重绘 → 用过渡做成「渐隐」，
    避免整枚图标随 AnimatePresence 的 key 一起闪一下。 */
 .hw-wifi-bar {
-  transition: stroke-opacity 0.28s ease;
+  transition: stroke 0.28s ease;
+}
+
+/* ── 悬浮窗 SSID 长名称 marquee ──
+   WifiSsidBadge 把同一段文字渲染两份首尾相接，--hw-ssid-shift = 单份精确宽度 + 间隔；
+   group 平移一个 shift 后第二份正好回到第一份起点 → 循环无缝。
+   用 transform 而非改 SVG text 的 x，避开逐帧重排导致的文字抗锯齿降级。 */
+@keyframes hw-ssid-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(var(--hw-ssid-shift, 0px));
+  }
+}
+.hw-ssid-scroll {
+  animation: hw-ssid-scroll var(--hw-ssid-duration, 8s) linear infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-ssid-scroll {
+    animation: none;
+    will-change: auto;
+  }
 }
 
 /* 品牌多色图标（WidgetIcon 应用快捷入口扇区）在 hw-dark 下提亮，
