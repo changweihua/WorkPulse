@@ -16,6 +16,15 @@ const INNER_R = 38;
 const GAP_PX = 3;
 const CENTER_R = 24;
 const WIDGET_SIZE = 206;
+/** 收起态视觉放大系数（与主进程 radial-window.ts 的 COLLAPSED_SCALE 严格一致）。
+ *  实现纪律：**绝不用祖先 transform / zoom 缩放整层** —— 那会让 CSS 祖先创建新的
+ *  backdrop root，中心玻璃的 backdrop-filter 直接失效（玻璃从「透桌面磨砂」退化成
+ *  一块不透明实色，实测 A/B：有 transform 时背后棋盘格完全透不过来）。
+ *  所以放大分三处各用「不破坏合成」的手段：
+ *    ① 中心玻璃圆：直接改 width/height（布局尺寸，backdrop-filter 不受影响）
+ *    ② 硬件状态环：SVG 内部 <g transform> 矢量缩放（详见 HardwareStatusRing 的 RING_SCALE）
+ *    ③ 中心徽标：局部 zoom（该子树内没有玻璃，zoom 只让 SVG 按新尺寸重新栅格化） */
+const COLLAPSED_SCALE = 1.3;
 const CX = WIDGET_SIZE / 2;
 const CY = WIDGET_SIZE / 2;
 const ICON_R = (INNER_R + OUTER_R) / 2; // 图标中心半径 = 66
@@ -651,8 +660,9 @@ export function RadialMenu(): ReactNode {
           className="relative flex items-center justify-center rounded-full lg-glass lg-glass--rimless"
           style={
             {
-              width: CENTER_SIZE,
-              height: CENTER_SIZE,
+              // 收起态放大中心玻璃圆（只改布局尺寸，祖先不加 transform/zoom → backdrop-filter 正常）
+              width: expanded ? CENTER_SIZE : CENTER_SIZE * COLLAPSED_SCALE,
+              height: expanded ? CENTER_SIZE : CENTER_SIZE * COLLAPSED_SCALE,
               // 展开 = 强调色 tint 玻璃（与主窗口材质 accent 统一）/ 收起 = 斜向淡玻璃渐变
               background: expanded
                 ? 'var(--color-radial-center-glass)'

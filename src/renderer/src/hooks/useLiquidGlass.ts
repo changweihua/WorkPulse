@@ -1,13 +1,15 @@
 /* ============================================================
-   useLiquidGlass —— 悬浮窗液态玻璃的鼠标跟随高光
+   useLiquidGlass —— 悬浮窗液态玻璃的鼠标跟随高光与流光启停
    ------------------------------------------------------------
-   只写 CSS 自定义属性（--lg-mx / --lg-my / --lg-glow），由
+   只写 CSS 自定义属性（--lg-mx / --lg-my / --lg-glow / --lg-flow-state），由
    floating-liquid-glass.css 的 @property + transition 完成插值与
    果冻跟随。全程不碰 React state、不碰 transform/backdrop-filter：
      - state 写入会让径向菜单展开动画期重渲染 → 掉帧（见 RadialMenu
        的「展开卡顿修复」），所以位置走 ref 直写 DOM。
      - transform 在 filter 祖先链上会把 LCD 次像素文字降级为灰度
        抗锯齿（C9），所以跟随只 repaint 高光伪元素。
+     - 流光默认 paused；--lg-flow-state 与 glow 同源写入，鼠标离开即
+       定格当前相位，静止时零动画开销（DeepSeek 式「hover 才流动」）。
 
    三个坐标入口：
      - writeLiquidSpot      视口坐标（clientX/Y）→ Touch Bar DOM 事件
@@ -34,7 +36,9 @@ function clampPct(v: number): string {
   return `${Math.max(0, Math.min(100, v))}%`;
 }
 
-/** 底层：直接写百分比坐标。glow=0 时高光淡出（位置保留，回归时无跳变）。 */
+/** 底层：直接写百分比坐标。glow=0 时高光淡出（位置保留，回归时无跳变）。
+ *  同一路信号兼作流光开关：glow>0 时 --lg-flow-state=running 唤醒流光，
+ *  glow=0 时 paused 定格当前相位（不跳回起点，避免可见的回位跳变）。 */
 export function writeLiquidSpotPct(
   el: HTMLElement | null,
   xPct: number,
@@ -45,6 +49,7 @@ export function writeLiquidSpotPct(
   el.style.setProperty('--lg-mx', clampPct(xPct));
   el.style.setProperty('--lg-my', clampPct(yPct));
   el.style.setProperty('--lg-glow', String(glow));
+  el.style.setProperty('--lg-flow-state', glow > 0 ? 'running' : 'paused');
 }
 
 /** 窗口局部坐标（径向菜单：radial:cursor 的 info.x/info.y，原点在窗口左上）。
@@ -78,10 +83,12 @@ export function writeLiquidSpot(
   );
 }
 
-/** 把高光淡出（位置保留）。鼠标离开悬浮窗时调用；不调用也无害（窗口会淡出关闭）。 */
+/** 把高光淡出（位置保留）。鼠标离开悬浮窗时调用；不调用也无害（窗口会淡出关闭）。
+ *  同时停掉流光：离开即静止，与跟随高光的 0.32s 淡出同步。 */
 export function fadeLiquidSpot(el: HTMLElement | null): void {
   if (!el || !glassInteractive()) return;
   el.style.setProperty('--lg-glow', '0');
+  el.style.setProperty('--lg-flow-state', 'paused');
 }
 
 /**
@@ -111,6 +118,15 @@ export function useLiquidGlass<T extends HTMLElement>() {
     [flush],
   );
 
+  const onMouseLeave = useCallback(() => {
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    pendingRef.current = null;
+    fadeLiquidSpot(ref.current);
+  }, []);
+
   useEffect(
     () => () => {
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
@@ -118,5 +134,5 @@ export function useLiquidGlass<T extends HTMLElement>() {
     [],
   );
 
-  return { ref, onMouseMove };
+  return { ref, onMouseMove, onMouseLeave };
 }

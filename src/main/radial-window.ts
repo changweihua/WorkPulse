@@ -24,7 +24,17 @@ const INNER_R = 38;
 const OUTER_R = 94;
 const CENTER_R = 24;
 const EXPANDED_R = 103; // 展开态可点击半径（= INNER_R + gap + (OUTER_R - INNER_R)/2）
-const COLLAPSED_R = 38; // 收起态半径（= INNER_R）：需覆盖硬件状态环带（24~38），否则 setShape 会把状态环裁掉
+/** 收起态视觉放大系数 —— 必须与 renderer 的 RadialMenu.tsx `COLLAPSED_SCALE` 严格一致。
+ *  收起态的视觉整体按此系数放大，而 `setShape` 定义的是 Windows 的窗口区域（命中区）。
+ *  实测校正（2026-11-23）：`setShape` 在本应用里**只裁命中、不裁绘制** —— 收集区半径 38 时，
+ *  放大后位于 39.8dip 的弧线外缘在真实屏幕上仍完整可见。所以这里放大 COLLAPSED_R 的目的
+ *  不是「避免被切」，而是让**命中区跟上视觉尺寸**：中心玻璃放大到 31.2dip 后，若命中圆
+ *  仍是 38、中心判定仍是 24，就会出现「看得见的圆点不中 / 悬停无反应」的视觉-交互错位。 */
+const COLLAPSED_SCALE = 1.3;
+/** 收起态可见内容最外缘（未放大的收缩半径）：顶部插头盒上沿 = R_RING + PLUG_SIZE/2 = 34.65，
+ *  大于电量圆点衬边外缘 32.3 与弧线外沿 30.85，是整层最外的一个元素 */
+const COLLAPSED_CONTENT_R = 34.65;
+const COLLAPSED_R = Math.ceil(COLLAPSED_CONTENT_R * COLLAPSED_SCALE) + 3; // ≈49：覆盖放大后的整层内容（≈45）+ 3px 余量
 const SEG_ANGLE = 72;
 const POLL_INTERVAL_MS = 30;
 
@@ -67,7 +77,10 @@ function startCursorPolling(win: BrowserWindow): void {
     const dx = localX - CX;
     const dy = localY - CY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const isOverCenter = dist <= CENTER_R;
+    // 中心判定半径要跟着视觉尺寸走：收起态中心玻璃圆已按 COLLAPSED_SCALE 放大，
+    // 命中区若仍用 24 会导致「看得见的玻璃边缘点不中 / 悬停无反应」（视觉与交互错位）
+    const centerHitR = expanded ? CENTER_R : CENTER_R * COLLAPSED_SCALE;
+    const isOverCenter = dist <= centerHitR;
     // 收起态不再按悬停带改 shape：状态环收起态是纯展示层（读数条与悬停变暗均已移除），
     // 可见区域恒为半径 COLLAPSED_R 的圆；轮询只负责把光标坐标发给渲染层（展开态扇区 hover / 中心判定用）。
     // Skip IPC send when window is hidden and not expanded (no cursor tracking needed)

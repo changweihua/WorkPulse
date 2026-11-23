@@ -2,8 +2,8 @@
    悬浮窗液态玻璃饰面（floating-liquid-glass.css）
    ------------------------------------------------------------
    给两个独立透明悬浮窗（径向菜单 / Touch Bar）叠加「液态玻璃」
-   的视觉四要素：①色散彩边 ②fresnel 高光环 ③折射高光带 ④缓慢流光，
-   并支持鼠标悬浮时镜面高光跟随（鼠标位置经 CSS 变量喂入，伪元素 repaint）。
+   的视觉四要素：①色散彩边 ②fresnel 高光环 ③折射高光带 ④hover 才流动的
+   缓慢流光，并支持鼠标悬浮时镜面高光跟随（鼠标位置经 CSS 变量喂入，伪元素 repaint）。
 
    ⚠️ 性能纪律（见 docs/SPECS/liquid-glass-style-adoption.md 的 C2/C4/C8/C9）：
    - 本文件只做「同一块玻璃面上的高光 paint」，**不新增第二层
@@ -15,6 +15,9 @@
    - 流光用 background-position（paint-only）而非 transform（C9：filter
      祖先链上的 transform 动画会把 LCD 次像素文本降级为灰度抗锯齿）；
      窗口不可见时 Chromium 自动暂停 CSS 动画，等价于 C7 停环。
+   - 流光默认 paused（--lg-flow-state 回退值），只有鼠标落在玻璃面上、
+     跟随高光点亮时才由同一路 JS 设为 running；离开立刻暂停定格，不跳回
+     起始相位，既不打扰静止状态也不引入额外动画层或 rAF。
    - 色散边是静态 conic-gradient，不参与动画，零持续开销。
 
    用法：
@@ -59,7 +62,7 @@
   --lg-rim-top: 0.62;
   --lg-rim-bottom: 0.16;
   --lg-rim-side: 0.2;
-  /* 流光周期 */
+  /* 流光周期（鼠标落在玻璃面上才运行） */
   --lg-flow-speed: 14s;
   /* 鼠标镜面高光：柔光晕 + 核心亮点两档强度（深色收敛防过曝） */
   --lg-spot-soft: 0.3;
@@ -162,6 +165,10 @@
     0% 50%,
     0 0;
   animation: lg-flow var(--lg-flow-speed) ease-in-out infinite alternate;
+  /* DeepSeek 式节奏：平时静止、hover 才流动。未注册变量走 fallback=paused，
+     鼠标进入时由跟随高光同一路 JS 写 running，离开写 paused 定格在当前相位；
+     暂停期间 Chromium 不推进动画，零持续开销，也不新增层 / transform。 */
+  animation-play-state: var(--lg-flow-state, paused);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / var(--lg-rim-top)),
     inset 0 -1px 0 rgb(255 255 255 / var(--lg-rim-bottom)),

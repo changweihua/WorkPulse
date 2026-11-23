@@ -116,7 +116,11 @@ const sysIcon = (key: string, size = 15, className?: string): React.JSX.Element 
 
 export default function TouchBar(): React.JSX.Element {
   // 液态玻璃镜面高光跟随：ref 直写 CSS 变量 + rAF 节流，零重渲染
-  const { ref: panelGlassRef, onMouseMove: panelGlassMove } = useLiquidGlass<HTMLDivElement>();
+  const {
+    ref: panelGlassRef,
+    onMouseMove: panelGlassMove,
+    onMouseLeave: panelGlassLeave,
+  } = useLiquidGlass<HTMLDivElement>();
   const [items, setItems] = useState<TouchbarItem[]>([]);
   const [programs, setPrograms] = useState<TouchbarItem[]>([]);
   const [expanded, setExpanded] = useState(false);
@@ -631,6 +635,7 @@ export default function TouchBar(): React.JSX.Element {
       <div
         ref={panelGlassRef}
         onMouseMove={panelGlassMove}
+        onMouseLeave={panelGlassLeave}
         className="touchbar-panel touchbar-surface lg-glass lg-glass--rimless"
       >
         {expanded && (

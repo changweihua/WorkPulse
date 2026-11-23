@@ -114,7 +114,11 @@ function Action({
 
 export default function TouchBarPopover(props: TouchBarPopoverProps): React.JSX.Element {
   // 液态玻璃镜面高光跟随：卡片是独立玻璃面，单独一份 ref + rAF 节流
-  const { ref: cardGlassRef, onMouseMove: cardGlassMove } = useLiquidGlass<HTMLDivElement>();
+  const {
+    ref: cardGlassRef,
+    onMouseMove: cardGlassMove,
+    onMouseLeave: cardGlassLeave,
+  } = useLiquidGlass<HTMLDivElement>();
   const {
     itemKey,
     left,
@@ -446,6 +450,7 @@ export default function TouchBarPopover(props: TouchBarPopoverProps): React.JSX.
     <div
       ref={cardGlassRef}
       onMouseMove={cardGlassMove}
+      onMouseLeave={cardGlassLeave}
       className={`touchbar-popover touchbar-surface lg-glass lg-glass--rimless${leaving ? ' is-leaving' : ''}`}
       style={{ left, bottom }}
       // 卡片内的滑块 / 按钮不能触发底栏拖拽
