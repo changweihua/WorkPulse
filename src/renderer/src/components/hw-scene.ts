@@ -74,11 +74,6 @@ export function isHotspotSsid(ssid: string | null | undefined): boolean {
  *            off=斜杠（Wi-Fi 硬件不可用）、hotspot=链环（手机热点）
  * - ethernet：有线网络已连接（buildCenterScene 历史单一出口用，轮播已并入 network）
  * - bluetooth：蓝牙在场外设；count = 台数（渲染层用底部圆点数表达，不用文字）
- * - metric：G11 轮播数值场景，中部槽位直接显示百分比数字（cpu / mem / battery）
- * - netinfo：收起态「一眼可见」的网络信息徽标（用户需求：中间区域直接展示有价值信息）
- *           按 subtype 分三种：wifi-signal（Wi-Fi 信号强度% + 格数）/ internet
- *           （可上网 / 无网络 / 检测中）/ bt-count（蓝牙已连设备台数）。
- *           只在网络「非错误级」时参与轮播；错误级仍由 wifi 场景独占锁定。
  */
 export type CenterScene =
   | {
@@ -90,7 +85,6 @@ export type CenterScene =
     }
   | { kind: 'ethernet' }
   | { kind: 'bluetooth'; count: number }
-  | { kind: 'internet'; online: boolean | null }
   | {
       /** 统一网络图标（轮播专用）：合并 Wi-Fi 信号 + 互联网连通 + 有线/无线介质 */
       kind: 'network';
@@ -115,28 +109,6 @@ export type CenterScene =
        * 注意：热点场景（hotspot=true）虽有 SSID，但渲染层改用链环图标、不显示名称。
        */
       ssid: string | null;
-    }
-  | { kind: 'metric'; metric: 'cpu' | 'mem' | 'battery'; value: number }
-  | {
-      kind: 'netinfo';
-      subtype: 'wifi-signal' | 'internet' | 'bt-count';
-      /** wifi-signal：信号强度百分比；bt-count：设备台数；internet：不用 */
-      value: number;
-      /** wifi-signal：信号格数 0~5；internet：连通态 */
-      bars?: 0 | 1 | 2 | 3 | 4 | 5;
-      online?: boolean | null;
-    }
-  | {
-      /** 常显三行信息条：网络正常时中心圆固定显示，不参与轮播（一眼可见） */
-      kind: 'netinfo-stack';
-      /** Wi-Fi 信号强度百分比；无 Wi-Fi / 无数据时为 null（该行显示占位符） */
-      signal: number | null;
-      /** Wi-Fi 信号格数 0~5 */
-      bars: 0 | 1 | 2 | 3 | 4 | 5;
-      /** 互联网连通态：true=在线 false=离线 null=检测中 */
-      online: boolean | null;
-      /** 蓝牙已连设备台数；无蓝牙 / 无设备时为 null（该行隐藏） */
-      btCount: number | null;
     };
 
 /** Wi-Fi 场景的构造助手：把各字段显式写出来，避免每个分支重复六个字段 */

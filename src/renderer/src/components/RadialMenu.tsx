@@ -617,35 +617,43 @@ export function RadialMenu(): ReactNode {
         })}
 
         {/* Hover tooltip — 在 reveal 容器内：仅在 scale=1（动画完成、hover 短路解除）后
-            才可能显示，因此不会被缩放形变；收起时 hovered 已清空、随容器一起淡出 */}
-        {(() => {
-          const item = visibleItems.find((it) => it.key === hovered);
-          if (!item) return null;
-          const tipPos = angleToXY(item.angle, TOOLTIP_R, CX, CY);
-          return (
-            <div
-              key="tooltip"
-              className="absolute pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
+            才可能显示，因此不会被缩放形变；收起时 hovered 已清空、随容器一起淡出。
+            AnimatePresence 包裹：0.12s 淡入淡出，消除「瞬现瞬灭」；
+            只动 opacity（paint-only），不碰 transform / filter，符合透明窗 GPU 规范 */}
+        <AnimatePresence>
+          {(() => {
+            const item = visibleItems.find((it) => it.key === hovered);
+            if (!item) return null;
+            const tipPos = angleToXY(item.angle, TOOLTIP_R, CX, CY);
+            return (
+              <motion.div
+                key="tooltip"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12, ease: 'easeOut' }}
+                className="absolute pointer-events-none whitespace-nowrap rounded-lg px-3 py-1.5
                          text-sm font-medium"
-              style={{
-                left: tipPos.x,
-                top: tipPos.y,
-                zIndex: 10,
-                transform: 'translate(-50%, -50%)',
-                // 文字色改走 token：overlay 恒为浅玻璃，若留 dark:text-zinc-100，
-                // 系统暗色（prefers-color-scheme）会让浅底配浅字 → 不可读
-                color: 'var(--color-radial-tooltip-text)',
-                background: 'var(--color-radial-tooltip-bg)',
-                boxShadow: 'var(--shadow-radial-tooltip)',
-                border: '1px solid var(--color-radial-tooltip-border)',
-              }}
-            >
-              {TOOLTIP_LABELS[item.key]?.[
-                document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
-              ] ?? item.label}
-            </div>
-          );
-        })()}
+                style={{
+                  left: tipPos.x,
+                  top: tipPos.y,
+                  zIndex: 10,
+                  transform: 'translate(-50%, -50%)',
+                  // 文字色改走 token：overlay 恒为浅玻璃，若留 dark:text-zinc-100，
+                  // 系统暗色（prefers-color-scheme）会让浅底配浅字 → 不可读
+                  color: 'var(--color-radial-tooltip-text)',
+                  background: 'var(--color-radial-tooltip-bg)',
+                  boxShadow: 'var(--shadow-radial-tooltip)',
+                  border: '1px solid var(--color-radial-tooltip-border)',
+                }}
+              >
+                {TOOLTIP_LABELS[item.key]?.[
+                  document.documentElement.lang?.startsWith('zh') ? 'zh' : 'en'
+                ] ?? item.label}
+              </motion.div>
+            );
+          })()}
+        </AnimatePresence>
       </motion.div>
 
       {/* ═══ 中心圆形：玻璃底 + 拖拽（收起态 logo 隐藏、展开态显示 ✕ 关闭字形） ═══ */}
@@ -669,13 +677,16 @@ export function RadialMenu(): ReactNode {
               backdropFilter: 'blur(12px) saturate(150%)',
               WebkitBackdropFilter: 'blur(12px) saturate(150%)',
               boxShadow: expanded
-                ? '0 0 14px color-mix(in srgb, var(--color-radial-accent) 28%, transparent), inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05), 0 8px 32px rgba(0,0,0,0.08)'
-                : 'inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -2px 3px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.08)',
+                ? '0 0 14px color-mix(in srgb, var(--color-radial-accent) 28%, transparent), inset 0 1px 3px rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.05)'
+                : 'inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -2px 3px rgba(0,0,0,0.08)',
+              // 透明悬浮窗禁外阴影（截图规范，与图标不加 drop-shadow 同口径）：
+              // 只保留 inset 内高光与展开态 accent 辉光（辉光是发光不是投影）
               border: expanded
                 ? '1px solid color-mix(in srgb, var(--color-radial-accent) 55%, transparent)'
                 : '1px solid var(--color-radial-center-border)',
               cursor: expanded ? 'pointer' : 'grab',
-              transition: 'transform 0.15s ease, background 0.2s ease',
+              // transform 恒定（仅 className 的居中 translate），只过渡实际会变的 background
+              transition: 'background 0.2s ease',
             } as React.CSSProperties
           }
           onMouseDown={handleCenterMouseDown}

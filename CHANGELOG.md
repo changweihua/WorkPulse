@@ -22,9 +22,17 @@
 
 - 📦 deps: 新增测试依赖 vitest / jsdom / @testing-library/react / @testing-library/dom / @testing-library/user-event / playwright-core；package.json 增加 `test`、`test:watch`、`test:e2e` 脚本，README 补充开发与验证命令说明
 
+- 🌈 style: 径向悬浮窗 tooltip 补暗色变体与淡入淡出 — `.hw-dark` 下新增 tooltip 暗色 token（深底 `rgb(28 32 40 / 0.96)` + 白 14% 描边 + 浅字 + 0.36 投影），深壁纸不再显示浅底深字；tooltip 从瞬现瞬灭改为 `AnimatePresence` 包裹的 0.12s 透明度过渡，只动 opacity 不碰 transform/filter
+
+- 🌈 style: 中心圆与顶部百分比描边收敛 — 中心圆移除展开态 / 收起态的外投影阴影（保留 accent 辉光与全部 inset 内高光，符合透明悬浮窗禁阴影规范），transition 移除未生效的 `transform` 项；顶部百分比淡墨描边 strokeWidth 2.4→2.0（fontSize 10 上 24%→20%，落在小字合理描边区间，白字在浅壁纸上仍可读）
+
 ### 修复
 
 - 🐛 fix: 弹层退场期间吞点击与重复触发 — AI 面板 / 每日摘要 / 命令面板遮罩在退场开始时立即 `pointer-events: none`；命令面板加本次打开的执行锁，堵住快速连点与连按 Enter 的重复导航；Toast 自动移除与手动关闭各自去重，避免重复排定时器
+
+### 移除
+
+- 🗑️ remove: 删除径向悬浮窗永不可达的死场景与徽标组件 — `metric` / `netinfo` / `netinfo-stack` / `internet` 四种 `CenterScene` 全仓库无生产者，连带删除 `MetricBadge` / `NetInfoBadge` / `NetInfoStack` / `InternetIcon` 与 `STACK_SIZE` 常量、`Globe` 导入，`scenesKey` / `centerKey` / `centerDesignSize` / 渲染分支同步收敛到 wifi / ethernet / bluetooth / network 四种场景，过时注释一并修正
 
 ## [0.3.13] - 2026-11-25
 

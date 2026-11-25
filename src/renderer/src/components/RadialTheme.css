@@ -170,4 +170,12 @@
   --color-radial-seg-top: rgb(255 255 255 / 0.1);
   --color-radial-seg-bottom: rgb(255 255 255 / 0.05);
   --color-radial-seg-hover: rgb(255 255 255 / 0.22);
+
+  /* ── 悬停 tooltip 暗色变体 ──
+     深色玻璃盘上不再用亮色档的浅底卡片（风格突兀），换成同族深底浅字；
+     阴影加深到 0.36 才能在深壁纸上衬出悬浮层级（亮色档 0.08 在暗底几乎不可见）。 */
+  --color-radial-tooltip-bg: rgb(28 32 40 / 0.96);
+  --color-radial-tooltip-border: rgb(255 255 255 / 0.14);
+  --color-radial-tooltip-text: rgb(232 235 240);
+  --shadow-radial-tooltip: 0 4px 16px rgb(0 0 0 / 0.36);
 }
