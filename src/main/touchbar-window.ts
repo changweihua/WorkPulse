@@ -66,6 +66,8 @@ import {
 } from './system-controls';
 
 // ─── 尺寸：统一取自 shared/touchbar.ts，与 renderer 的 CSS/布局严格对应 ───
+// 尺寸滑动条（floating_scale）只调径向菜单的收起态悬浮球，Touch Bar 不做任何缩放
+// （旧的全局 setZoomFactor 方案会连文字一起缩放，已被用户否定并整体移除）。
 const TOUCHBAR_H = TOUCHBAR_BAR_H;
 const EXPANDED_H = TOUCHBAR_EXPANDED_H;
 const BOTTOM_MARGIN = 12; // 距工作区底部的间距（像素）
@@ -137,11 +139,13 @@ function applyWindowGeometry(): void {
   const win = touchbarWindow;
   if (!win || win.isDestroyed()) return;
   const bounds = win.getBounds();
-  const height = currentHeight();
+  const cssHeight = currentHeight(); // CSS 设计高度（渲染层按此布局）
+  const height = cssHeight; // zoomFactor 恒 1 → DIP = CSS
   const bottom = bounds.y + bounds.height;
   const workArea = screen.getDisplayMatching(bounds).workArea;
   // 贴近屏幕上沿时不再继续上移（宁可让卡片顶部被裁一点，也不让底栏跑出工作区）
   const y = Math.max(workArea.y, bottom - height);
+  const width = TOUCHBAR_W;
   // 透明窗口每次 resize 都会让 Chromium 重合成整个窗口，并触发 move → 写位置记忆。
   // 渲染层只在首次展开发一次 setPopover(true)（图标间切换不重发），这里再按「请求的几何」去重：
   // 同一展开/卡片状态只下发一次，不比较实际 bounds（Electron 在 Windows 上可能微调高度）。
@@ -154,7 +158,7 @@ function applyWindowGeometry(): void {
     return;
   }
   lastAppliedGeometry = { x: bounds.x, y, height };
-  win.setBounds({ x: bounds.x, y, width: TOUCHBAR_W, height });
+  win.setBounds({ x: bounds.x, y, width, height });
 }
 
 function expandTouchbar(): void {
@@ -208,7 +212,7 @@ function savePosition(): void {
   if (!touchbarWindow || touchbarWindow.isDestroyed()) return;
   const bounds = touchbarWindow.getBounds();
   // 展开态 / 悬停卡片态窗口会向上扩，直接存 bounds.y 会让下次启动位置偏高；
-  // 这里换算成「底栏顶边」的 y，与创建窗口时的坐标口径保持一致。
+  // 这里换算成「底栏顶边」的 y（底栏 DIP 高度 = TOUCHBAR_H），与创建时口径一致。
   const barY = bounds.y + bounds.height - TOUCHBAR_H;
   setSetting('touchbar_position', JSON.stringify({ x: bounds.x, y: barY }));
 }
@@ -225,19 +229,28 @@ function getSavedPosition(): { x: number; y: number } | null {
   return null;
 }
 
+/** 位置写入防抖：拖拽 move 与尺寸变更共用 */
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+function debouncedSavePosition(): void {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(savePosition, 500);
+}
+
 // ─── 窗口创建 ───
 
 export function createTouchbarWindow(_parent: BrowserWindow): BrowserWindow {
-  // 数据库已初始化后再读取持久化置顶状态（模块加载时 DB 尚未 ready）
+  // 数据库已初始化后再读取持久化状态（模块加载时 DB 尚未 ready）
   pinned = getSetting('touchbar_pinned') !== 'false';
   const display = screen.getPrimaryDisplay();
   const b = display.workArea;
   const saved = getSavedPosition();
-  let x = b.x + Math.floor((b.width - TOUCHBAR_W) / 2);
-  let y = b.y + b.height - TOUCHBAR_H - BOTTOM_MARGIN;
+  const width = TOUCHBAR_W;
+  const barH = TOUCHBAR_H;
+  let x = b.x + Math.floor((b.width - width) / 2);
+  let y = b.y + b.height - barH - BOTTOM_MARGIN;
   if (saved) {
-    x = Math.max(b.x, Math.min(saved.x, b.x + b.width - TOUCHBAR_W));
-    y = Math.max(b.y, Math.min(saved.y, b.y + b.height - TOUCHBAR_H));
+    x = Math.max(b.x, Math.min(saved.x, b.x + b.width - width));
+    y = Math.max(b.y, Math.min(saved.y, b.y + b.height - barH));
   }
 
   // 新窗口实例：清空几何去重缓存，首帧一定下发一次完整 bounds
@@ -246,8 +259,8 @@ export function createTouchbarWindow(_parent: BrowserWindow): BrowserWindow {
   touchbarWindow = new BrowserWindow({
     x,
     y,
-    width: TOUCHBAR_W,
-    height: TOUCHBAR_H,
+    width,
+    height: barH,
     frame: false,
     transparent: true,
     alwaysOnTop: pinned,
@@ -274,6 +287,8 @@ export function createTouchbarWindow(_parent: BrowserWindow): BrowserWindow {
   log.info(
     `[TouchBar] 窗口已创建 bounds=${JSON.stringify(touchbarWindow.getBounds())} isDev=${is.dev} rendererUrl=${process.env['ELECTRON_RENDERER_URL'] ?? '(none)'}`,
   );
+
+  // 页面不做任何缩放：zoomFactor 恒 1，CSS 视口 = 560×H，渲染层布局即 DIP。
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     touchbarWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/touchbar.html`);
@@ -309,12 +324,7 @@ export function createTouchbarWindow(_parent: BrowserWindow): BrowserWindow {
   const topInterval = setInterval(enforceOnTop, 3000);
 
   // 位置记忆（拖拽结束后保存）
-  let saveTimer: ReturnType<typeof setTimeout> | null = null;
-  const debouncedSave = (): void => {
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(savePosition, 500);
-  };
-  touchbarWindow.on('move', debouncedSave);
+  touchbarWindow.on('move', debouncedSavePosition);
 
   touchbarWindow.on('closed', () => {
     clearInterval(topInterval);
@@ -442,9 +452,10 @@ ipcMain.on('touchbar:drag-move', () => {
     maxY = Math.max(maxY, d.bounds.y + d.bounds.height);
   }
   const h = currentHeight();
+  const w = TOUCHBAR_W;
   const targetX = dragStartWindow.x + (cursor.x - dragStartCursor.x);
   const targetY = dragStartWindow.y + (cursor.y - dragStartCursor.y);
-  const clampedX = Math.max(minX, Math.min(targetX, maxX - TOUCHBAR_W));
+  const clampedX = Math.max(minX, Math.min(targetX, maxX - w));
   const clampedY = Math.max(minY, Math.min(targetY, maxY - h));
   touchbarWindow.setPosition(clampedX, clampedY);
 });

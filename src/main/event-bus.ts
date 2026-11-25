@@ -9,6 +9,8 @@ export const RADIAL_SCREENSHOT = 'app:radial-screenshot';
 export const TOGGLE_WINDOWS = 'app:toggle-windows';
 export const WIDGET_VISIBILITY_CHANGED = 'app:widget-visibility-changed';
 export const WIDGET_MODE_CHANGED = 'app:widget-mode-changed';
+/** 悬浮窗尺寸变更（径向 / Touch Bar 共用百分比），窗口据此即时 setBounds + setZoomFactor */
+export const WIDGET_SCALE_CHANGED = 'app:widget-scale-changed';
 /** 窗口材质变更（预览与「应用」保存都会触发），Touch Bar 据此同步背景 */
 export const WINDOW_MATERIAL_CHANGED = 'app:window-material-changed';
 /** 全局排版偏好变更（字体族 / 基础字号），通知所有窗口重新注入字体 CSS */

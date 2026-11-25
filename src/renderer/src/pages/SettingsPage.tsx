@@ -30,6 +30,11 @@ import { useShallow } from 'zustand/react/shallow';
 import { useI18n, useLanguageStore } from '../stores/languageStore';
 import type { AppLanguage, ResolvedLanguage } from '../lib/i18n';
 import { TOUCHBAR_DEFAULT_ITEMS, type TouchbarItem } from '../../../shared/touchbar';
+import {
+  FLOATING_SCALE_KEY,
+  FLOATING_SCALE_RANGE,
+  normalizeFloatingScale,
+} from '../../../shared/floating-scale';
 import { loadVoices, TTS_VOLUME_RANGE, TTS_RATE_RANGE, TTS_PITCH_RANGE } from '../hooks/useTTS';
 import {
   FONT_FAMILY_SETTING_KEY,
@@ -266,6 +271,8 @@ function SettingsPage(): ReactNode {
   // 悬浮窗形态（径向菜单 / Touch Bar）
   const [widgetMode, setWidgetMode] = useState<'radial' | 'touchbar'>('radial');
   const [touchbarItems, setTouchbarItems] = useState<TouchbarItem[]>(TOUCHBAR_DEFAULT_ITEMS);
+  // 收起态悬浮球尺寸（百分比，仅径向菜单收起态）；主进程按同系数放大窗口 bounds + zoomFactor
+  const [floatingScale, setFloatingScale] = useState<number>(FLOATING_SCALE_RANGE.default);
 
   // ── 语音播报（TTS）──
   // 音色存 voiceURI（空=自动匹配）；音量/语速/音调存百分比整数
@@ -395,6 +402,10 @@ function SettingsPage(): ReactNode {
     void window.api.settings.get('widget_mode').then((v) => {
       if (v === 'radial' || v === 'touchbar') setWidgetMode(v);
     });
+    // 加载收起态悬浮球尺寸（百分比）
+    void window.api.settings.get(FLOATING_SCALE_KEY).then((v) => {
+      setFloatingScale(normalizeFloatingScale(v));
+    });
 
     // 加载 Touch Bar 项配置
     void window.api.settings.get('touchbar_items').then((v) => {
@@ -480,6 +491,14 @@ function SettingsPage(): ReactNode {
   ): Promise<void> => {
     setter(value);
     await window.api.settings.set(key, String(value));
+  };
+
+  // 收起态悬浮球尺寸：改动即保存，settings:set 会广播 WIDGET_SCALE_CHANGED
+  // → 主进程按同系数放大收起态窗口 bounds + zoomFactor（展开菜单 / Touch Bar 不受影响）
+  const handleFloatingScaleChange = async (value: number): Promise<void> => {
+    const next = normalizeFloatingScale(String(value));
+    setFloatingScale(next);
+    await window.api.settings.set(FLOATING_SCALE_KEY, String(next));
   };
 
   // 试听：用当前表单值（含未保存调整）朗读示例文本
@@ -1586,6 +1605,67 @@ function SettingsPage(): ReactNode {
                     Touch Bar
                   </button>
                 </div>
+              </div>
+
+              {/* 收起态悬浮球尺寸：只调径向菜单收起状态的悬浮球，滑动即时生效 */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    悬浮窗大小（收起态）
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                      {floatingScale}%
+                    </span>
+                    {floatingScale !== FLOATING_SCALE_RANGE.default && (
+                      <button
+                        type="button"
+                        onClick={() => void handleFloatingScaleChange(FLOATING_SCALE_RANGE.default)}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                        title="恢复默认尺寸"
+                      >
+                        重置
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  aria-label="悬浮窗大小（收起态）"
+                  min={FLOATING_SCALE_RANGE.min}
+                  max={FLOATING_SCALE_RANGE.max}
+                  step={FLOATING_SCALE_RANGE.step}
+                  value={floatingScale}
+                  onChange={(e) => void handleFloatingScaleChange(Number(e.target.value))}
+                  className="w-full accent-blue-600"
+                />
+                {/* 刻度按 value 在 [min,max] 中的真实比例定位，且容器左右各内缩半个拇指宽（8px）：
+                    input[type=range] 的拇指中心可达范围是 [left+8, right-8]，
+                    容器内缩后其宽度正好等于该范围，中间标签按 (value-min)/(max-min) 定位
+                    即精确落在拇指中心（100% → (100-70)/(160-70)=33.3%）。
+                    旧的 flex justify-between 会把 100% 错放到 50% 处。 */}
+                <div
+                  className="relative h-4 mt-0.5 text-[10px] text-zinc-400"
+                  style={{ marginLeft: 8, marginRight: 8 }}
+                >
+                  <span className="absolute left-0">{FLOATING_SCALE_RANGE.min}%</span>
+                  <span
+                    className="absolute -translate-x-1/2 whitespace-nowrap"
+                    style={{
+                      left: `${
+                        ((FLOATING_SCALE_RANGE.default - FLOATING_SCALE_RANGE.min) /
+                          (FLOATING_SCALE_RANGE.max - FLOATING_SCALE_RANGE.min)) *
+                        100
+                      }%`,
+                    }}
+                  >
+                    {FLOATING_SCALE_RANGE.default}%
+                  </span>
+                  <span className="absolute right-0">{FLOATING_SCALE_RANGE.max}%</span>
+                </div>
+                <p className="text-xs text-zinc-400 mt-1">
+                  调整收起状态悬浮球的大小；展开菜单与 Touch Bar 尺寸不受影响
+                </p>
               </div>
 
               {widgetMode === 'radial' && (

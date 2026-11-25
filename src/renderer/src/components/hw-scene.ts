@@ -105,6 +105,11 @@ export type CenterScene =
       /** SSID 命中热点关键词 → 链环图标 */
       hotspot: boolean;
       /**
+       * 首帧数据尚未到达（hw === null）→ 中部徽标画「加载中」三点，尚未知网络名。
+       * 只有 hw 为空时才会置 true；一旦拿到真实数据就不再出现。
+       */
+      loading?: boolean;
+      /**
        * 已连接的 Wi-Fi 名称（SSID），供「图标下方小字」常显；
        * 仅在 medium='wifi' 且已关联时才有值，以太网 / 未关联 / 关闭场景为 null。
        * 注意：热点场景（hotspot=true）虽有 SSID，但渲染层改用链环图标、不显示名称。
@@ -143,6 +148,23 @@ function wifiScene(
 ): CenterScene {
   return { kind: 'wifi', bars, off, hotspot, noInternet };
 }
+
+/**
+ * 首帧「加载中」网络场景（hw === null，主进程还没推过第一帧）：
+ * 统一网络图标 + 名称行三点。**与真实场景共用同一枚徽标、同一套几何**，
+ * 所以数据到达时只是「三点 → 名称」的内容替换，图标不位移、不闪。
+ * 以前这里返回空序列 / null（中心留白），用户看到的是「中间什么都没有，一会儿突然冒出图标」。
+ */
+const LOADING_NETWORK_SCENE: Extract<CenterScene, { kind: 'network' }> = {
+  kind: 'network',
+  medium: 'wifi',
+  bars: 0,
+  online: null,
+  off: false,
+  hotspot: false,
+  ssid: null,
+  loading: true,
+};
 
 /**
  * 「纯网络」优先链：与 buildCenterScene 完全一致，但**不掺蓝牙分支**。
@@ -215,11 +237,12 @@ export function isNetworkAlertScene(scene: CenterScene | null): boolean {
  * 网络错误级 / 以太网直接返回；网络处于图标级时，蓝牙外设可以接管中部槽位。
  *
  * @param hw 主进程每秒推送的硬件状态；null = 首帧尚无数据 / IPC 未就绪
- * @returns 中部槽位应渲染的场景；null = 中心留白
+ * @returns 中部槽位应渲染的场景；null 已不再返回（首帧改为「加载中」网络场景）
  */
 export function buildCenterScene(hw: HwStats | null): CenterScene | null {
-  // 首帧无任何数据：中心保持空白（不能把「还没采到」误报成「Wi-Fi 不可用」）
-  if (!hw) return null;
+  // 首帧无任何数据：返回「加载中」网络场景（三点呼吸），而不是留白 ——
+  // 留白会让用户以为「中心不显示东西」，数据到达时又突然冒出一枚图标。
+  if (!hw) return LOADING_NETWORK_SCENE;
 
   const net = buildNetworkScene(hw);
   if (!net) return null;
@@ -326,8 +349,8 @@ export function buildCarouselScenes(
   batteryLevel: number | null = null,
 ): CenterScene[] {
   void batteryLevel; // 电量已在环上表达，兼容旧签名保留参数
-  // 首帧无任何数据：轮播空序列，组件保持留白
-  if (!hw) return [];
+  // 首帧无任何数据：先给「加载中」网络场景（三点呼吸）占住中心，避免空白后再突然冒出图标
+  if (!hw) return [LOADING_NETWORK_SCENE];
 
   const network = buildNetworkIconScene(hw);
 

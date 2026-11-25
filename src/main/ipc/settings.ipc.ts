@@ -5,8 +5,9 @@
 import { BrowserWindow, dialog } from 'electron';
 import { readFileSync, writeFileSync } from 'fs';
 import log from 'electron-log/main';
-import { appBus, FONT_CHANGED, WIDGET_MODE_CHANGED } from '../event-bus';
+import { appBus, FONT_CHANGED, WIDGET_MODE_CHANGED, WIDGET_SCALE_CHANGED } from '../event-bus';
 import { FONT_FAMILY_SETTING_KEY, FONT_SIZE_SETTING_KEY } from '../../shared/typography';
+import { FLOATING_SCALE_KEY } from '../../shared/floating-scale';
 import {
   getAllWorkLogs,
   getSetting,
@@ -73,6 +74,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'search_mode',
   'widget_mode',
   'touchbar_items',
+  FLOATING_SCALE_KEY,
   // 语音播报（TTS）：音色 voiceURI 与音量/语速/音调（百分比字符串）
   'tts_voice',
   'tts_volume',
@@ -120,6 +122,10 @@ export function registerSettingsIpc(): void {
     if (data.key === 'widget_mode') {
       log.info(`[TouchBar] settings:set widget_mode=${data.value}`);
       appBus.emit(WIDGET_MODE_CHANGED);
+    }
+    // 悬浮窗尺寸：即时广播给两个悬浮窗，无需重建窗口即可缩放（setBounds + setZoomFactor）
+    if (data.key === FLOATING_SCALE_KEY) {
+      appBus.emit(WIDGET_SCALE_CHANGED, data.value);
     }
     // 字体族 / 基础字号：广播给所有窗口重新注入 CSS（含设置页自身，实现即时预览）
     if (data.key === FONT_FAMILY_SETTING_KEY || data.key === FONT_SIZE_SETTING_KEY) {

@@ -61,16 +61,11 @@ const CY = WIDGET_SIZE / 2;
 const CENTER_R = 24; // 中心按钮半径（环带内沿）
 const INNER_R = 38; // 扇区内半径（环带外沿）
 
-/* ── 收起态放大：整个状态环按 RING_SCALE 放大（与 RadialMenu 的 COLLAPSED_SCALE 一致）──
- *  实现纪律：**不用 CSS transform / zoom 缩放这一层** —— 祖先缩放会让中心玻璃的
- *  backdrop-filter 失效（玻璃退化为不透明实色）。这里改用纯矢量手段：
- *    · 环形 SVG：内容整体包一层 <g transform="translate(CX CY) scale(S) translate(-CX -CY)">，
- *      弧线/圆点/百分比文字都按矢量重绘，缩放后依然锐利（且不产生新的合成层）；
- *    · HTML 元素（顶部插头的 div 槽位、中部徽标）：按 S 传更大的渲染尺寸，SVG 用
- *      viewBox 固定、渲染盒放大，等于矢量缩放；
- *    · 全部以画布中心 (CX, CY) 为基点，保证与放大后的中心玻璃圆同心。
- *  展开态状态环本来就 opacity:0 隐藏，所以这里不需要按 expanded 回退。 */
-const RING_SCALE = 1.3;
+/* ── 状态环缩放（v3：由主进程窗口 bounds + 页面 zoomFactor 统一承载）──
+ * 收起态的视觉放大已上移到窗口层（bounds = 206 × Z、zoomFactor = Z，CSS 视口恒 206），
+ * 本组件一律使用 206 画布的原始设计尺寸，不再做任何手工放大：
+ * 环形 SVG 的 <g transform>、顶部插头槽位、中部徽标 zoom 全部回到 1×。
+ * 这样窗口物理边界与画面同步放大（消除「边框被裁」），且 backdrop-filter 不被祖先 transform 破坏。 */
 
 /* ── 状态环几何：电量圆点与 CPU / 内存双弧共用同一圆周（24~38 环带内、距中心圆 5.65px） ──
  * 约定：0°=正上方，顺时针递增 → 右半区 [0,180]，左半区 [180,360]。
@@ -86,10 +81,10 @@ const STROKE_W = 2.4; // 弧线宽（24~38 环带偏窄，压缩线宽换取双�
    本组件跑在独立透明 overlay 窗口里：该窗口不加载 index.css、也没有 .dark /
    data-accent，因此专门由 RadialTheme.css 提供一套同名语义 token（壁纸可读调校）。
    这些色值在首帧渲染时由 syncRingTheme() 统一读取一次，兜底串 = token 的默认值。 */
-let RIM_COLOR = 'rgba(18,22,32,0.35)'; // 淡墨衬边：只留在轨道与圆点上，勾一层「淡淡的暗晕轮廓」而非硬描边（浅色壁纸够读即可，不求醒目）
-const RIM_PAD = 0.9; // 衬边比本体宽的量（两侧各 ≈0.45px，细到只剩轮廓暗示；无阴影）
+let RIM_COLOR = 'rgba(18,22,32,0.22)'; // 淡墨衬边：只留在圆点与图标上，勾一层「淡淡的暗晕轮廓」而非硬描边
 let RIM_INK = 'rgba(12,15,24,0.5)'; // 图标类淡衬边（顶部插头 / 中部 Wi-Fi·蓝牙图标）：小尺寸图标上的轮廓提示，降透明度避免发闷
-let TRACK_COLOR = 'rgba(222,227,236,0.7)'; // 轨道 / 未亮圆点本色：中性浅灰半透（0.7），深色壁纸可见、浅色壁纸透气，保留玻璃感
+let TRACK_COLOR = 'rgba(100,109,124,0.9)'; // 轨道 / 未亮圆点本色：0.58→0.9，浅蓝壁纸上未填充段整圈连续可辨（旧值太透像「缺一段」）
+let TRACK_OUTLINE = 'rgba(38,44,56,0.85)'; // 轨道实色暗边（宽 +1.4）：替代旧半透明衬边，1x 下是清晰 1.4px 轮廓而非毛边
 const CPU_A = 137; // CPU 右弧起点（到圆点段外缘 144.87° 的净空 = 144.87 − 137 − 弧端 cap 2.32 ≈ 5.6° ≈ 2.9px；告警 cap 3.77 → ≈4.1° ≈ 2.1px）
 const MEM_A = 360 - CPU_A; // 223° 内存左弧起点（与 CPU 关于 180° 轴严格镜像）
 const ARC_SWEEP = CPU_A - TOP_GAP / 2; // 119° 每条弧扫角（≤180：末端落在 20° / 340°，三段 + 三间隔铺满整圆）
@@ -205,6 +200,7 @@ function syncRingTheme(scope?: Element | null): boolean {
     RIM_COLOR,
     RIM_INK,
     TRACK_COLOR,
+    TRACK_OUTLINE,
     WARN_COLOR,
     ALERT_COLOR,
     DOT_COLOR_CHARGE,
@@ -222,6 +218,7 @@ function syncRingTheme(scope?: Element | null): boolean {
   RIM_COLOR = read('--color-ring-rim') || RIM_COLOR;
   RIM_INK = read('--color-ring-rim-ink') || RIM_INK;
   TRACK_COLOR = read('--color-ring-track') || TRACK_COLOR;
+  TRACK_OUTLINE = read('--color-ring-track-outline') || TRACK_OUTLINE;
   WARN_COLOR = read('--color-warn') || WARN_COLOR;
   ALERT_COLOR = read('--color-alert') || ALERT_COLOR;
   DOT_COLOR_CHARGE = read('--color-battery-charging') || DOT_COLOR_CHARGE;
@@ -258,6 +255,7 @@ function syncRingTheme(scope?: Element | null): boolean {
     RIM_COLOR,
     RIM_INK,
     TRACK_COLOR,
+    TRACK_OUTLINE,
     WARN_COLOR,
     ALERT_COLOR,
     DOT_COLOR_CHARGE,
@@ -302,10 +300,14 @@ const MOCK = typeof location !== 'undefined' && /[?&]hwmock=1(?:&|$)/.test(locat
  * 以上可叠加（如 `&hwwifi=off&hweth=1` 验证「Wi-Fi 关闭但有以太网 → 显示以太网」）。
  *   ?hwmock=1&hwinfo=1        → 切到完整轮播序列，静态验证三枚网络信息徽标
  *                              （Wi-Fi 信号 / 互联网连通 / 蓝牙台数）依次出现。
+ *   ?hwmock=1&hwload=1        → 冻结在「首帧加载中」：永不下发 mock 数据（hw 恒为 null），
+ *                              中部徽标保持三点呼吸 + 灰弧，用于核对加载态与数据到达后的位移。
  */
 const MOCK_QUERY = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
 /** 信息徽标自测：MOCK 下改走完整轮播（而非 buildCenterScene 单场景） */
 const MOCK_INFO = MOCK_QUERY?.get('hwinfo') === '1';
+/** 首帧加载态自测：卡在 hw === null */
+const MOCK_LOADING = MOCK_QUERY?.get('hwload') === '1';
 type MockWifiBranch = 'ok' | 'mid' | 'weak' | 'noconn' | 'off' | 'none';
 const MOCK_WIFI_BRANCH: MockWifiBranch = (() => {
   const v = MOCK_QUERY?.get('hwwifi');
@@ -636,6 +638,8 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
   // ─── 数据源①：window.radialApi.onHwStats（共享类型 HwStats，返回退订函数） ───
   useEffect(() => {
     if (MOCK) {
+      // 加载态自测：不产生任何 mock 数据 → hw 恒为 null，中部停在「三点呼吸」
+      if (MOCK_LOADING) return;
       const id = window.setInterval(() => {
         if (inTransition()) return; // 动画窗口内挂起（卡顿修复）
         const t = Date.now() / 1000;
@@ -937,14 +941,17 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
 
     return (
       <g key={metric}>
-        {/* 轨道：淡墨衬边（RIM_COLOR，宽 +RIM_PAD）+ 浅灰本色 —— 与电量圆点同圆周、同底色，
-            三段是同一条环形刻度带被间隔切开；衬边很淡（0.35）只作暗晕轮廓，不产生硬描边的闷感；
-            无阴影（drop-shadow 会在 Windows 透明窗上合成出方形暗边） */}
+        {/* 轨道：实色暗边（宽 +1.2）+ 浅灰本色 —— 与电量圆点同圆周、同底色，
+            三段是同一条环形刻度带被间隔切开。
+            1x 可读性修复：旧衬边是 alpha 0.22 的半透明灰、只比本体宽 0.35，两层各自降采样后
+            半透明像素不对齐 → 边缘「发虚」；现改为沿轨道本体画一条 real 实色暗边（用 paint-order
+            让本体盖在上面），边缘是一圈 1.4px 清晰轮廓而非毛边。底色轨道 alpha 0.58→0.9，
+            浅蓝壁纸上整条空槽连续可辨，不再像「缺一段」。 */}
         <path
           d={trackD}
           fill="none"
-          stroke={RIM_COLOR}
-          strokeWidth={STROKE_W + RIM_PAD}
+          stroke={TRACK_OUTLINE}
+          strokeWidth={STROKE_W + 1.4}
           strokeLinecap="round"
         />
         <path
@@ -1016,16 +1023,12 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
     const lit = frac > 0;
     dots.push(
       <g key={i}>
-        {/* 衬边圆：比本体宽 DOT_RIM，浅色壁纸上勾出轮廓（深色壁纸上与背景融为一体，不产生脏边） */}
-        <circle cx={p.x} cy={p.y} r={DOT_R + DOT_RIM} fill={RIM_COLOR} />
-        {/* 底圆：整颗亮 = 角色色不透明；未整颗亮 = 同角色色 alpha 0.22 的轨道（部分填充在其上叠加） */}
-        <circle
-          cx={p.x}
-          cy={p.y}
-          r={DOT_R}
-          fill={dotColor}
-          fillOpacity={on ? 1 : BATTERY_INACTIVE_ALPHA}
-        />
+        {/* 衬边圆：实色暗边（替代旧 alpha 0.22 的半透明灰），1x 下圆点边缘是清晰轮廓而非毛边 */}
+        <circle cx={p.x} cy={p.y} r={DOT_R + DOT_RIM} fill={TRACK_OUTLINE} />
+        {/* 底圆：点亮 = 角色色实色；未点亮 = 轨道灰实色（空槽）。
+            旧实现用「角色色 alpha 0.22」表达灭，叠上实色暗边后在浅壁纸上变成脏墨绿 —— 
+            改为轨道灰本体，与灰色空槽轨道同语言，边缘同样清晰不发虚。 */}
+        <circle cx={p.x} cy={p.y} r={DOT_R} fill={lit ? dotColor : TRACK_COLOR} />
         {!on && lit && (
           /* 部分填充：局部 +x = 逆时针前进方向，rotate(角度-180) 对齐后从先进入侧推进；
              弦路径与整颗填充同半径（落在衬边圆之内），纯填充区分亮灭 */
@@ -1047,7 +1050,10 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
           center?.kind === 'netinfo' ||
           center?.kind === 'bluetooth' ||
           center?.kind === 'network' ||
-          center?.kind === 'internet'
+          center?.kind === 'internet' ||
+          // 历史 wifi 单场景也画 METRIC_SIZE(40) 的 WifiCenterBadge：容器漏算会按 18 定位，
+          // 内容 zoom 后右移 14px 并溢出玻璃圆（用户截图「图标文字偏右/不协调」的根因）
+          center?.kind === 'wifi'
         ? METRIC_SIZE
         : CENTER_ICON;
 
@@ -1082,8 +1088,8 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
             transformOrigin: 'top left',
           }}
         >
-          {/* 收起态放大：以画布中心为基点做矢量缩放（弧线/圆点/数字按新尺寸重绘，锐利且不产生合成层） */}
-          <g transform={`translate(${CX} ${CY}) scale(${RING_SCALE}) translate(${-CX} ${-CY})`}>
+          {/* 状态环本体：206 画布原始设计尺寸，缩放由主进程窗口 zoomFactor 统一承载 */}
+          <g>
             {renderRing('cpu', R_RING, CPU_A, CPU_SWEEP, hw && cpuS !== null ? cpuS : null)}
             {renderRing('mem', R_RING, MEM_A, MEM_SWEEP, hw && memS !== null ? memS : null)}
             {/* 电量圆点：不参与任何悬停态，收起态光标移动不改变它们的透明度 */}
@@ -1139,18 +1145,15 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
             尺寸与插头同 10px，双层描边保证浅色壁纸可读 */}
         {topSlot?.kind === 'zap' && (
           <div className="absolute flex items-center justify-center" style={topGapBox(PLUG_SIZE)}>
-            <span
-              className="relative"
-              style={{ width: PLUG_SIZE * RING_SCALE, height: PLUG_SIZE * RING_SCALE }}
-            >
+            <span className="relative" style={{ width: PLUG_SIZE, height: PLUG_SIZE }}>
               <Zap
-                size={PLUG_SIZE * RING_SCALE}
+                size={PLUG_SIZE}
                 strokeWidth={4}
                 style={{ color: RIM_INK, position: 'absolute', left: 0, top: 0 }}
                 aria-hidden
               />
               <Zap
-                size={PLUG_SIZE * RING_SCALE}
+                size={PLUG_SIZE}
                 strokeWidth={2}
                 style={{ color: topSlot.color, position: 'absolute', left: 0, top: 0 }}
                 aria-hidden
@@ -1164,18 +1167,15 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
             颜色同 batteryRole；无电量数据的 battery-unknown / unknown 不渲染任何顶部内容 */}
         {topSlot?.kind === 'plug' && (
           <div className="absolute flex items-center justify-center" style={topGapBox(PLUG_SIZE)}>
-            <span
-              className="relative"
-              style={{ width: PLUG_SIZE * RING_SCALE, height: PLUG_SIZE * RING_SCALE }}
-            >
+            <span className="relative" style={{ width: PLUG_SIZE, height: PLUG_SIZE }}>
               <Plug
-                size={PLUG_SIZE * RING_SCALE}
+                size={PLUG_SIZE}
                 strokeWidth={4}
                 style={{ color: RIM_INK, position: 'absolute', left: 0, top: 0 }}
                 aria-hidden
               />
               <Plug
-                size={PLUG_SIZE * RING_SCALE}
+                size={PLUG_SIZE}
                 strokeWidth={2}
                 style={{ color: topSlot.color, position: 'absolute', left: 0, top: 0 }}
                 aria-hidden
@@ -1195,22 +1195,20 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
         <div
           className="absolute"
           // 容器按「渲染尺寸」定位（放大后的盒仍以画布中心居中）
-          style={centerBox(centerDesignSize * RING_SCALE)}
+          style={centerBox(centerDesignSize)}
         >
           <AnimatePresence initial={false}>
             {center && (
               <motion.div
                 key={centerKey}
                 className="absolute flex items-center justify-center"
-                // 徽标本体用「设计尺寸的盒 + 局部 zoom」放大：盒左上角贴容器左上角，
-                // zoom 以左上角为基点渲染成放大后的尺寸 → 正好铺满容器、保持同心居中。
-                // 用 zoom 而不是 CSS transform：SVG/文字按新尺寸重新栅格化，放大后不发虚。
+                // 徽标按 206 画布原始设计尺寸渲染；放大由主进程窗口 zoomFactor 统一承载，
+                // 不再需要局部 zoom（去掉后 SVG/文字仍按原始尺寸清晰栅格化）
                 style={{
                   left: 0,
                   top: 0,
                   width: centerDesignSize,
                   height: centerDesignSize,
-                  zoom: RING_SCALE,
                 }}
                 // 轮播切换动效：从「缩小 + 轻微下沉」淡入、到「放大 + 轻微上浮」淡出，
                 // 比纯淡入淡出更有呼吸质感，也让 3.2s 轮播的切换一眼可辨（用户此前反馈「没轮播」）。
@@ -1250,13 +1248,15 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
                 ) : center.kind === 'bluetooth' ? (
                   <BluetoothDots count={center.count} size={METRIC_SIZE} />
                 ) : center.kind === 'network' ? (
-                  /* 已连接普通 Wi-Fi（有 SSID、非热点、非斜杠）→ 信号弧 + SSID 小字；
-                     以太网 / 热点 / 未关联 / 关闭 → 统一网络图标（信号弧 / 端口 / 链环 / 斜杠） */
-                  center.medium === 'wifi' && !center.off && !center.hotspot && center.ssid ? (
-                    <WifiSsidBadge
+                  /* 无线（已连接 / 未关联 / 关闭 / 首帧加载）→ 统一的「信号弧 + 名称行」徽标：
+                     三态共用一套几何，弧的位置恒定；名称行 = SSID / N/A / 加载三点。
+                     以太网 / 热点仍走 NetworkIcon（端口 / 链环语义不同，且没有「网络名」可写） */
+                  center.medium === 'wifi' && !center.hotspot ? (
+                    <WifiCenterBadge
                       bars={center.bars}
                       ssid={center.ssid}
                       online={center.online}
+                      loading={center.loading === true}
                       size={METRIC_SIZE}
                     />
                   ) : (
@@ -1274,17 +1274,18 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
                 ) : center.kind === 'ethernet' ? (
                   /* 有线：lucide EthernetPort，尺寸 / 描边与 Wi-Fi、蓝牙同规格（同一套图标语言） */
                   <OutlineIcon Icon={EthernetPort} size={CENTER_ICON} color={WIFI_COLOR} />
-                ) : center.off ? (
-                  /* 关闭 / 不可用：完整四段灰弧（与轮播的网络图标同一枚，同笔画、同盒） */
-                  <WifiIdle size={WIFI_ARC_BOX} />
                 ) : center.hotspot ? (
                   /* 手机热点：链环图标替代信号弧（热点不是「信号强弱」，是「共用一条链路」） */
                   <OutlineIcon Icon={Link} size={CENTER_ICON} color={WIFI_COLOR} />
-                ) : center.bars === 0 ? (
-                  /* 已开启未关联：完整四段灰弧（此前画四段空槽色弧，几乎看不见） */
-                  <WifiIdle size={WIFI_ARC_BOX} />
                 ) : (
-                  <WifiSignal bars={center.bars} size={CENTER_ICON} />
+                  /* 历史单场景（MOCK 静态验证）：仍用同一枚徽标，名称 / 连通态直接取自 hw ——
+                     保证 MOCK 出图与真实轮播态的几何、名称行完全一致 */
+                  <WifiCenterBadge
+                    bars={center.bars}
+                    ssid={hw?.wifi?.ssid ?? null}
+                    online={hw?.internet ?? hw?.wifi?.hasInternet ?? null}
+                    size={METRIC_SIZE}
+                  />
                 )}
                 {/* G1：已连 Wi-Fi 但没有互联网 → 中心叠加琥珀色感叹号（hasInternet 为 null / true 不叠加） */}
                 {center.kind === 'wifi' && center.noInternet && (
@@ -1301,9 +1302,9 @@ export function HardwareStatusRing({ expanded }: { expanded: boolean }): ReactNo
 
 /** 顶隙方框定位（中心对齐到顶部 0°、半径 R_RING 的圆周点 → 两弧末端之间、电量圆点正上方） */
 function topGapBox(designSize: number): CSSProperties {
-  // 收起态放大：槽位按 RING_SCALE 放大（与环形 SVG 的 <g transform> 同系数、同圆心基点）
-  const size = designSize * RING_SCALE;
-  const top = CY - R_RING * RING_SCALE - size / 2; // 上沿距圆心 = (29.65+5)×S = 45.05
+  // 206 画布原始设计尺寸；缩放由主进程窗口 zoomFactor 统一承载（不再在此手工放大）
+  const size = designSize;
+  const top = CY - R_RING - size / 2; // 上沿距圆心 = R_RING + size/2
   return {
     left: CX - size / 2,
     top,
@@ -1342,7 +1343,9 @@ function NoInternetBadge({ size }: { size: number }): ReactNode {
       viewBox="0 0 24 24"
       fill="none"
       className="absolute"
-      style={{ left: 0, top: 0 }}
+      // wifi 场景容器已修到 METRIC_SIZE(40)：旧 left:0/top:0 会把感叹号钉在盒左上角；
+      // 改为按容器中心定位（该子树不含玻璃，局部 transform 不影响 backdrop-filter）。
+      style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
       aria-hidden
     >
       <path d="M12 7.8 V12.6" stroke={RIM_INK} strokeWidth={4.6} strokeLinecap="round" />
@@ -1559,153 +1562,158 @@ function NetworkIcon({
 }
 
 /**
- * 已连接 Wi-Fi 徽标：信号弧在上 + SSID 小字在下（用户选定「图标下加小字」方案）。
+ * 中部「Wi-Fi 图标 + 名称」徽标 —— 已连接 / 未连接 / 加载中三态共用**同一套几何**。
  *
- * 只在「真实连着普通 Wi-Fi」（medium='wifi'、已连接、有 SSID、非热点 / 非斜杠）时替换纯图标，
- * 让悬浮窗一眼可见连的是哪个网络；以太网 / 热点 / 未关联 / 关闭等态仍走原 NetworkIcon。
+ * 为什么合并（用户反馈：① 未连接与已连接的图标位置要一致；② 名称行三态都要在）：
+ * - 旧实现只有「已连接且有 SSID」才用徽标（弧在上、字在下），其余态走纯图标且**垂直居中**，
+ *   于是「连上」时弧被抬高约 7px、「断开」时又落回圆心 —— 同一枚图标在两态之间上下跳。
+ * - 名称行本质上不是「已连接的附加信息」，而是网络状态的一部分：没连上应当明确说
+ *   「没有」（N/A），还没取到就该说「正在取」（…）。三态都画同一副骨架，图标位置自然恒定。
  *
- * 布局：40px 盒（METRIC_SIZE）内上半信号弧、下半一行小字。信号弧用 viewBox 24 的
- * WifiSignal 缩到 ICON_BOX=26 并整体上移；文字盒 40×12 贴底，双层描边（RIM_INK 打底 +
- * 蓝白渐变实心，与信号弧同色系）保证浅色壁纸可读、全程无阴影（透明窗规范）。
+ * 布局（40px 设计盒）：24px 信号弧盒（弧墨高约 10.8）、9px 名称行（字墨高约 9），
+ * 顶 / 中 / 底三段留白各约 6.7 —— 等分分布，见 WifiCenterBadge 内常量注释（用户先要求等分，
+ * 后又要求与蓝牙协调故整体放大，两次调整都保持等分不被破坏）。
+ *   - 弧：连上（bars > 0）画本色 WifiSignal（在线蓝白渐变 / 离线灰）；未连接 / 加载中画
+ *     完整灰弧 WifiIdle —— 两者同盒同位置，切换时只有颜色与格数变化，不位移。
+ *   - 字：双层描边（RIM_INK 打底 + 实心渐变）保证浅壁纸可读；无阴影（透明窗规范）。
+ *     ssid 有值 → 网络名；ssid 为空且非加载 → 固定 'N/A'；加载中 → 三点呼吸（.hw-dots）。
+ *   - 弧与名称三态共用同一组 y 常量，切换只换颜色 / 内容，位置恒定不跳动。
  *
- * 长名称（显示宽度 > 8 单位，CJK 算 2 / 英文数字算 1）改为 marquee 滚动而非截断：
- * 同一段文字渲染两份首尾相接，用 getComputedTextLength 精确量出单份宽度作为循环位移，
- * 确保第二份无缝顶上第一份；两端用渐变遮罩渐隐、避免硬切。滚动走 CSS transform 动画
- * （不碰 SVG text 的 x 属性，绕开文字抗锯齿降级），prefers-reduced-motion 下自动停为静态。
- * title 始终保留完整名称。
+ * 长名称**静态截断 + 省略号**（CJK 算 2 / 英文数字算 1，最多 8 单位），title 保留完整名称。
+ * 这里刻意不再用 marquee：旧实现把 mask 放在 translate(0 28) 的父组里，maskUnits=userSpaceOnUse
+ * 的 y=0..12 在 Chromium 中按根坐标系取值，文字实际位于 y=28..40 → 整块被遮掉，
+ * 长 SSID 从来就没显示过（N/A 不走 mask 才可见）。少一层遮罩也少一处透明窗合成风险。
  */
-function WifiSsidBadge({
+function WifiCenterBadge({
   bars,
   ssid,
   online,
+  loading = false,
   size,
 }: {
   bars: 0 | 1 | 2 | 3 | 4 | 5;
-  ssid: string;
+  /** 已连接的网络名；null = 未关联 / 关闭 / 隐藏 SSID（显示 N/A） */
+  ssid: string | null;
   online: boolean | null;
+  /** 硬件数据首帧尚未到达（hw === null）：名称行画加载三点 */
+  loading?: boolean;
   size: number;
 }): ReactNode {
-  const isOnline = online === true;
-  const color = isOnline ? WIFI_COLOR : NET_OFFLINE_COLOR;
-  // 文字实心层跟随信号弧的蓝白渐变（同一线性渐变，保持图标与名称同色系）；
-  // 离线 / 检测中时渐变两端都退化为灰，与信号弧置灰语义一致。
-  const gradId = `hwSsidGrad-${isOnline ? 'on' : 'off'}`;
-  const ICON_BOX = WIFI_ARC_BOX; // 信号弧渲染盒：与未连接态共用，弧视觉宽 ≈18px
-  const TEXT_BOX_H = 12; // 底部文字行盒高
-  const fontSize = 8.5; // 中心圆内小字，与 NetInfoStack 的 9.5 同级但更收敛
-  const GAP = 14; // 两份滚动文字之间的间隔（px）
+  // 弧的形态：只有「真的连上且有信号格数」才画本色信号弧，其余一律完整灰弧
+  const connected = !loading && bars > 0;
+  const isOnline = connected && online === true;
+  const color = connected ? (isOnline ? WIFI_COLOR : NET_OFFLINE_COLOR) : IDLE_COLOR;
+  // ── 弧与名称的垂直布局（40px 设计盒；收起态整盒由窗口 zoomFactor 放大 1.3×）──
+  // 等分分布（用户要求「Wi-Fi 图标和文字间距要等分分布」）：三段留白相等 ≈6.7 / 6.7 / 6.7。
+  // 放大（用户反馈「图标和文字比蓝牙小一号」）：弧盒 20→24、字号 7→9，仍严格等分。
+  // 墨迹计算：弧墨（viewBox 24 → ×24/24=1）顶 = 18.39−11.2−0.6 = 6.59、底 ≈17.42（高 10.83）；
+  //   字墨（字号 9、central 基线）高 9。三段留白 = (40−10.83−9)/3 ≈ 6.72：
+  //   ICON_TOP ≈ 6.72−6.59 ≈ 0.15 → 弧墨落在 6.7~17.5；
+  //   TEXT_CY ≈ 6.72+10.83+6.72+4.5 ≈ 28.8 → 字墨落在 24.3~33.3；底隙 40−33.3 ≈ 6.7。
+  // 放大后裁切实测口径：字墨底 33.3 设计单位 = 圆心下 13.3×1.3 ≈17.3px ≪ 玻璃半径 31.2px；
+  //   最长名（7 单位 × 9px 字）半宽 ≈17.3 设计单位 < 该高度的圆内半弦 ≈20.2 → 完整落在圆内。
+  const ICON_BOX = WIFI_ARC_BOX - 2; // 弧盒 26→24（徽标内比纯图标态的 20 放大一档，与蓝牙符文视觉重量对齐）
+  const ICON_TOP = 0.15; // 等分：弧墨顶 = 0.15 + 6.59 ≈ 6.7（顶隙 6.7）
+  const TEXT_CY = 28.8; // 等分：字墨顶 ≈24.3、底 ≈33.3（中隙 6.7 / 底隙 6.7）
+  const fontSize = 9; // 原 7：比蓝牙符文/顶部图标小一号，放大到 9 才与外环读数同量级
+  const strokeW = 1.0; // 淡墨描边（原 1.2）：过粗的描边会让小字笔画粘连成灰块
 
-  // 显示宽度：CJK / 全角算 2，英文数字算 1；> 8 单位（≈ 8 英文字母 / 4 汉字）才滚动
-  const units = Array.from(ssid).reduce((sum, ch) => sum + (/[\u2E80-\uFFFF]/.test(ch) ? 2 : 1), 0);
-  const scroll = units > 8;
-
-  // 精确测量单份文字宽度 → 循环位移；用 layout effect 在绘制前同步完成，避免首帧跳变
-  const measureRef = useRef<SVGTextElement | null>(null);
-  const [shift, setShift] = useState(0);
-  useLayoutEffect(() => {
-    if (!scroll) {
-      setShift(0);
-      return;
+  // 40px 盒里 9px 粗体最多约 7 个英文单位（半宽 ≈17.3 < 圆内半弦 ≈20.2）；超出保留 6 个加省略号
+  const MAX_UNITS = 7;
+  const widthOf = (ch: string): number => (/[\u2E80-\uFFFF]/.test(ch) ? 2 : 1);
+  let label = ssid ?? 'N/A';
+  if (!loading) {
+    const total = Array.from(label).reduce((sum, ch) => sum + widthOf(ch), 0);
+    if (total > MAX_UNITS) {
+      const kept: string[] = [];
+      let used = 0;
+      for (const ch of label) {
+        const w = widthOf(ch);
+        if (used + w > MAX_UNITS - 1) break;
+        kept.push(ch);
+        used += w;
+      }
+      label = `${kept.join('')}…`;
     }
-    const w = measureRef.current?.getComputedTextLength() ?? 0;
-    if (w > 0) setShift(w + GAP);
-  }, [scroll, ssid, fontSize]);
+  }
 
-  // 双层描边文字：描边层打底（浅壁纸可读）+ 实心层走信号弧同款蓝白渐变，两层同位置同内容。
-  // anchor：静态短名用 middle（x=size/2 水平居中）；滚动用 start（两份首尾拼接、量单份宽度）。
-  const renderText = (measure: boolean, anchor: 'start' | 'middle'): ReactNode => {
-    const tx = anchor === 'middle' ? size / 2 : 0;
-    return (
-      <>
-        <text
-          ref={measure ? measureRef : undefined}
-          x={tx}
-          y={TEXT_BOX_H / 2}
-          textAnchor={anchor}
-          dominantBaseline="central"
-          fontSize={fontSize}
-          fontWeight={700}
-          fill="none"
-          stroke={RIM_INK}
-          // 描边只做「淡墨轮廓」提示，不能糊住字形：8.5px 小字上 2.4px 描边（=字号 28%）
-          // 会让相邻笔画粘连成一团灰块（浅色壁纸上尤其明显），收到 1.2 保留可读性轮廓
-          strokeWidth={1.2}
-          strokeLinejoin="round"
-          aria-hidden
-        >
-          {ssid}
-        </text>
-        <text
-          x={tx}
-          y={TEXT_BOX_H / 2}
-          textAnchor={anchor}
-          dominantBaseline="central"
-          fontSize={fontSize}
-          fontWeight={700}
-          fill={`url(#${gradId})`}
-          aria-hidden
-        >
-          {ssid}
-        </text>
-      </>
-    );
-  };
+  // 文字渐变 id 按在线 / 离线两档区分：轮播切换期可能同时存在新旧两个实例，各用自己的 def
+  const gradId = `hwSsidGrad-${isOnline ? 'on' : 'off'}`;
+  // 长名宽度硬上限：字号放大到 9 后，7 个英文单位实测宽 ≈42 设计单位 > 该高度圆内弦宽 ≈40，
+  // 会横向溢出玻璃圆、压到底部圆点。用 SVG textLength 压到 34 单位（留 3 单位安全边），
+  // 短名（N/A / WUX 等）不设，保持原字形比例不被拉伸。
+  const estimatedTextW = Array.from(label).reduce(
+    (sum, ch) => sum + (widthOf(ch) === 2 ? fontSize * 0.95 : fontSize * 0.58),
+    0,
+  );
+  const cappedTextLength = estimatedTextW > 34 ? 34 : undefined;
+  const title = loading ? 'Wi-Fi 正在获取网络名称' : ssid ? `Wi-Fi ${ssid}` : 'Wi-Fi 未连接';
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0">
-      <title>{`Wi-Fi ${ssid}`}</title>
+      <title>{title}</title>
       <defs>
         {/* 文字实心渐变：与 WifiSignal 的弧线渐变同方向（左下深蓝→右上浅蓝）、同色值，
-            图标与名称视觉统一；离线时两端同为灰，保持置灰语义。 */}
+            图标与名称视觉统一；离线 / 未连接时两端同为灰，保持置灰语义。 */}
         <linearGradient id={gradId} x1="0" y1="1" x2="1" y2="0">
           <stop offset="0%" stopColor={isOnline ? WIFI_GRAD_DEEP : color} />
           <stop offset="100%" stopColor={isOnline ? WIFI_GRAD_LIGHT : color} />
         </linearGradient>
-        <linearGradient id="hwSsidFade" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#000" stopOpacity="0" />
-          <stop offset="14%" stopColor="#000" stopOpacity="1" />
-          <stop offset="86%" stopColor="#000" stopOpacity="1" />
-          <stop offset="100%" stopColor="#000" stopOpacity="0" />
-        </linearGradient>
-        <mask
-          id="hwSsidMask"
-          maskUnits="userSpaceOnUse"
-          x={0}
-          y={0}
-          width={size}
-          height={TEXT_BOX_H}
-        >
-          <rect x={0} y={0} width={size} height={TEXT_BOX_H} fill="url(#hwSsidFade)" />
-        </mask>
       </defs>
-      {/* 信号弧：viewBox 24 缩到 ICON_BOX，水平居中、垂直靠上，给底部文字让出空间 */}
-      <g transform={`translate(${(size - ICON_BOX) / 2} 0)`}>
-        <WifiSignal bars={bars} size={ICON_BOX} color={color} />
-      </g>
-      {/* 底部 SSID 小字：短名居中静态；长名两份首尾相接无缝滚动，两端渐隐 */}
-      <g
-        transform={`translate(0 ${size - TEXT_BOX_H})`}
-        mask={scroll ? 'url(#hwSsidMask)' : undefined}
-      >
-        {scroll ? (
-          <g
-            className={shift > 0 ? 'hw-ssid-scroll' : undefined}
-            style={
-              {
-                '--hw-ssid-shift': `-${shift}px`,
-                '--hw-ssid-duration': `${Math.max(5, units * 0.5)}s`,
-              } as CSSProperties
-            }
-          >
-            <g>{renderText(true, 'start')}</g>
-            <g transform={`translate(${shift} 0)`} aria-hidden>
-              {renderText(false, 'start')}
-            </g>
-          </g>
+      {/* 信号弧：viewBox 24 缩到 ICON_BOX，水平居中、垂直靠上，给底部名称行让出空间。
+          三态共用这一个位置 —— 未连接 / 加载中不换盒、不位移，只换笔画颜色。 */}
+      <g transform={`translate(${(size - ICON_BOX) / 2} ${ICON_TOP})`}>
+        {connected ? (
+          <WifiSignal bars={bars} size={ICON_BOX} color={color} />
         ) : (
-          <g>{renderText(true, 'middle')}</g>
+          <WifiIdle size={ICON_BOX} color={color} />
         )}
       </g>
+      {/* 名称行：加载中 = 三点呼吸；其余 = 静态居中（长名截断），与上面弧的 x 中心严格对齐。
+          两态共用 TEXT_CY 绝对中心，弧/字的垂直净空恒定，切换无位移（仅换内容）。 */}
+      {loading ? (
+        <g className="hw-dots" fill={IDLE_COLOR} aria-hidden>
+          {[-3.4, 0, 3.4].map((dx) => (
+            <circle key={dx} cx={size / 2 + dx} cy={TEXT_CY} r={1.15} />
+          ))}
+        </g>
+      ) : (
+        <>
+          <text
+            x={size / 2}
+            y={TEXT_CY}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={fontSize}
+            fontWeight={700}
+            textLength={cappedTextLength}
+            lengthAdjust={cappedTextLength ? 'spacingAndGlyphs' : undefined}
+            fill="none"
+            stroke={RIM_INK}
+            // 描边只做「淡墨轮廓」提示：小字号上过粗的描边会让相邻笔画粘连成灰块，
+            // 收到 1.0 保留可读性轮廓（原 1.2 在 7px 字上偏重）
+            strokeWidth={strokeW}
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            {label}
+          </text>
+          <text
+            x={size / 2}
+            y={TEXT_CY}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={fontSize}
+            fontWeight={700}
+            textLength={cappedTextLength}
+            lengthAdjust={cappedTextLength ? 'spacingAndGlyphs' : undefined}
+            fill={`url(#${gradId})`}
+            aria-hidden
+          >
+            {label}
+          </text>
+        </>
+      )}
     </svg>
   );
 }
@@ -2174,11 +2182,12 @@ function WifiSignal({
  * 「关闭 / 不可用」与「未连接」最终用同一枚图标：26px 中心槽里两者的差别（关硬件 vs 没关联）
  * 不值得牺牲可读性；语义差异仍在数据层保留 —— 关闭会让轮播锁定（一直显示这枚图标），
  * 展开态的菜单 / 主窗口仍有明确文案。
+ * `color` 可覆盖本色（徽标里让弧与名称行同色时传入）。
  */
-function WifiIdle({ size }: { size: number }): ReactNode {
+function WifiIdle({ size, color = IDLE_COLOR }: { size: number; color?: string }): ReactNode {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <g stroke={IDLE_COLOR} strokeWidth={WIFI_ARC_STROKE} strokeLinecap="round" fill="none">
+      <g stroke={color} strokeWidth={WIFI_ARC_STROKE} strokeLinecap="round" fill="none">
         {WIFI_ARCS.map(([r, d]) => (
           <path key={r} d={d} />
         ))}

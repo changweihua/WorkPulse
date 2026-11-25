@@ -6,6 +6,10 @@
 
 ### 新增
 
+- ✨ feat: 悬浮窗支持滑动条自由调整收起态大小（70%~160%）— 设置页「悬浮窗」区块新增尺寸滑块，改动即保存到 `floating_scale` 并经 `settings:set` 广播 `WIDGET_SCALE_CHANGED`，径向悬浮窗即时生效。有效收起缩放 = `COLLAPSED_BASE_SCALE(1.3) × 用户系数`；**收起态把窗口 bounds 与页面 `zoomFactor` 同系数放大**（bounds = 206×Z DIP、zoomFactor = Z ⇒ CSS 视口恒 206，渲染层几何一行不改），窗口物理边界与画面同步变大，彻底消除「画面放大但窗口停在 206 → 右下角被裁」的缺陷（用户指出「是悬浮窗收起状态的窗口大小、不是整体文字大小」后重做的最终方案）。展开态恒 bounds=206 / zoomFactor=1，菜单文字与 Touch Bar 完全不受影响；`setShape` 命中区半径按 Z 换算成 DIP、光标坐标 ÷Z 换回 CSS 设计单位，缩放/收展均以中心锚定不跳位；修复模块顶层读 `getSetting` 早于 `initDatabase` 的隐患；页面级 zoom 经棋盘格 A/B 实测不破坏玻璃 `backdrop-filter`，真实屏幕截图确认 100%/160% 两档彩虹边整圈连续、无裁切
+- ✨ style: Wi-Fi 徽标图标与名称等分分布并放大到与蓝牙协调 — 40 设计盒内三段留白严格相等（首轮顶/中/底各 8，按用户反馈放大后为各 ≈6.7）：弧盒 20→24、字号 7→9，按墨迹重算 `ICON_TOP=0.15`、`TEXT_CY=28.8`，弧墨落在 6.7~17.5、字墨落在 24.3~33.3，整组在玻璃圆内垂直居中；修复 `centerDesignSize` 判定漏掉 `wifi` 场景导致容器按 18 而内容按 40 渲染、徽标整体右移 14px 并溢出玻璃圆的 bug（连带修正无互联网感叹号的居中定位）；长名用 `textLength` 压到 34 设计单位避免横向压到底部圆点；三态共用同一组 y 常量、切换只换颜色/内容不位移
+- 🐛 fix: 收起态悬浮球两圈边框「发虚、不完整」（真实 1x 下）— 之前改的单色描边 token 修错了对象：用户指的「边框」是**玻璃圆盘的彩虹色散边**（`.lg-glass::after` 的 conic-gradient）+ **外圈进度弧/轨道**。关键教训：此前验证一直用 zoom=3 抓图（1.5px 线放大到 4.5px 假性清晰），真实 1x 下青蓝段有效 alpha 仅 0.36 被浅蓝壁纸冲淡到整段消失。修法：①彩虹边 padding 1.5→2.5px、色标 alpha 0.4~0.68→0.86~0.94、dispersion 0.9→1.0（暗色 0.72→0.9），整圈清晰连续；②外圈轨道的半透明衬边（alpha 0.22 双层叠加降采样不对齐→毛边）改为实色暗边 `--color-ring-track-outline`（宽 +1.4），轨道本体 alpha 0.58→0.9 使空槽整圈可见；③电量圆点衬边同步改实色、未点亮态由「角色色 alpha 0.22」（叠暗边发脏墨绿）改为轨道灰实色空槽。用 zoom=1 抓图对比确认两圈均清晰连续、无回归（typecheck/lint/audit:glass/format 全过）
+
 - ✨ feat: 全程序图标按主程序风格统一定制 — 重绘主图标（iMac 显示器 + 脉搏波形 + 四色任务点，沿用原灰紫/深蓝紫/青/红配色），同步重建 icon.png/ico/icns 与托盘青/灰紫/红三色柱状 @Nx 变体，启动屏与路由加载态品牌图标一并换新；新增 `BrandIcons.tsx` 品牌多色图标集（Logo + 19 个导航功能图标）接入侧栏/顶部导航/命令面板单一数据源，深色主题自动提亮；操作类小图标沿用 lucide 品牌色线性，形成「品牌位多色 vs 操作位线性」两套统一语言
 
 - ✨ feat: 悬浮窗 / Touch Bar / 径向菜单的应用快捷入口图标接入品牌多色图标 — 日志/任务/会议/AI/截图/设置 6 项从散乱 lucide + 杂色 tint 改为与侧栏导航同源的品牌图标（新增 `BrandScreenshot`），统一灰紫底座；8 个系统状态项保留单色 lucide 以维持动态状态表达，但 tint 收敛到品牌色系；补充 Touch Bar / 径向独立窗口 `.hw-dark .brand-icon` 提亮规则
@@ -17,7 +21,14 @@
 - ✨ feat: 日志输入新增表情选择器 — 主输入框与快捷创建的日志模式接入应用内 EmojiPicker（常用 / 表情 / 手势 / 工作 / 符号分类 + 最近使用记忆），选中后在光标处插入并回填光标位置；表情与附件按钮一起始终相对输入框垂直居中
 - ✨ feat: 悬浮窗网络 / 蓝牙采集升级为 C# WinRT 官方 API 优先、koffi 兜底 — Wi-Fi 强度改用真实 RSSI 线性换算（不再依赖 `SignalBars` 粗档，实测 RSSI=-79dBm 由虚高的 100% 修正为 42%），并按当前连接 SSID 精确匹配扫描结果避免误取邻居 AP；联网状态走 `NetworkInformation.GetInternetConnectionProfile` 的 NLM 官方口径；蓝牙设备改为 WinRT `BluetoothConnectionStatus.Connected` 的**真实已连接**态（替换原 SetupAPI「在场/已配对」口径）。`Bridge.dll` 新增 `getWifiStatus`/`getInternetStatus`/`getConnectedBluetooth` 三个 JSExport，抽 `dotnet-bridge.ts` 让网络采集与节假日 IPC 共用 .NET 单例；任一环节失败透明回退原有 koffi/Win32 路径，UI 无感知。Bridge 目标框架升到 `net10.0-windows10.0.26100.0` 并随包携带 WinRT 运行时程序集；移除无意义的 `PackAsTool` 避免引入多余的 WindowsDesktop 框架依赖
 
+### 修复
+
+- 🐞 fix: 修正设置页「悬浮窗大小（收起态）」刻度与滑块不对齐 — 原刻度用 `flex justify-between` 把 70/100/160% 三个标签均匀摆在 0/50/100% 位置，但滑块范围是 70~160%，100% 的真实位置是 (100-70)/(160-70)=33.3%，中间的「100%」标签偏到轨道正中、与滑块拇指差约 17%。改为刻度容器左右各内缩半个拇指宽（8px，使容器宽度等于拇指中心可达范围 [left+8,right-8]），中间标签按真实比例 (default-min)/(max-min) 绝对定位 + translateX(-50%) 居中；自包含 HTML 实测中间标签中心 155.99px vs 拇指中心 156px，偏差 0.01px（修复前 2.67px、旧布局约 68px）。typecheck/lint/format 全过
+- 🐞 fix: 修复「调悬浮窗尺寸却把主窗口字体一起放大」+ 撤销误加的边框 — 根因：Electron 的 `webContents.setZoomFactor` 按 session+origin 持久化并共享，径向悬浮窗与主窗口此前共用 defaultSession 且同源（dev 同 localhost、生产同 file://），悬浮窗收起态缩放经 zoom 放大的同时把主窗口字体一起放大且被永久持久化（用户实测「改悬浮窗尺寸 → 主窗口字体变大，纯粹糊弄人」）。此前所有验证只开悬浮窗单窗口，永远复现不出该污染。修法：①径向悬浮窗改用独立 `partition: 'radial-isolated'`（悬浮窗全走 IPC、不依赖 localStorage/IndexedDB，隔离无副作用），双窗口实测确认 A 共享 session 时 setZoomFactor(1.6) 把 B 同步变 1.6（污染）、独立 partition 后 C=1.6 而 D 保持 1（隔离成功）；②主窗口加载完成后主动把 zoom 复位为 1，清掉历史版本遗留的持久化污染（用户字号走 `--app-font-size` CSS 注入，与此无关不受影响）。同时撤销上一版误加的边框：用户指出收起态中心圆「之前没有、也没要求过」那圈明显彩边——此前把全局色散边 padding 1.5→2.5px + alpha 大幅提高 + dispersion 0.9→1.0，使中心圆冒出一圈浓艳彩边；现全部回退到 HEAD 原值，并删掉展开盘 `lg-glass--expanded` 加粗色散边、rim token 0.08→0.32 / 1→1.5px、中心圆展开态 1px/55%→1.5px/75% 等未经验证的改动。typecheck/lint/audit:glass(18 处 0 违规)/format 全过
+
 ### 变更
+
+- ✨ feat: 悬浮窗 Wi-Fi 图标位置在连接/未连接间恒定，名称行统一显示「加载 → 名称 / N/A」 — 原先只有「已连接且有 SSID」才显示「弧 + 名称」徽标，未关联 / 关闭 / 首帧加载走纯图标且垂直居中，同一枚弧在切换时上下跳约 7px。现三态共用 `WifiCenterBadge` 一套几何（弧盒、名称行位置完全相同，几何探针实测五态图标偏移均为 x=14.96 / y=10.12）：首帧 `hw === null` 显示完整灰弧 + 三点呼吸；拿到 SSID 显示本色弧 + 网络名；未关联 / 关闭 / 隐藏 SSID 显示灰弧 + `N/A`。同时修掉一个既有 bug：长 SSID 的 marquee 遮罩 `maskUnits=userSpaceOnUse` 在 Chromium 中按根坐标系取值，文字实际位于 y=28~40 而遮罩只覆盖 y=0~12，导致**所有长名称从来都没显示过**（短名 N/A 不走遮罩才可见）；改为静态居中 + 8 单位截断省略号，字号 7.5 并把名称行上移，避免压住环上五颗电源圆点。加载场景进入场景构建器单一出口，`?hwmock=1&hwload=1` 可静态核对加载态；移除已无用的 marquee CSS 与 setState-in-effect 测量逻辑，lint 警告归零
 
 - 🐞 fix: 修正悬浮窗「Wi-Fi 未连接」图标残缺 / 糊成一团 — 初始加载（网卡还没连上的那几秒）与「未关联」原先复用 `WifiSignal bars={0}`，画的是空槽色（浅壁纸 0.42 透明度灰），几乎看不见，观感就是「图标没画完」；「关闭 / 无网卡」则用 lucide `WifiOff`（线宽 2 单位 + 4 单位淡墨衬边、路径撑满 viewBox），与四段细弧不是一套笔画，26px 槽里糊成一团墨线。现统一改为 `WifiIdle`：**完整四段圆头弧 + 与已连接态同一套几何 / 线宽 / 渲染盒**，只把颜色换成「断网灰」。斜杠方案实测否决（细斜杠 / 粗斜杠留断口 / 只切外三段弧三版，1x 渲染均变成「一根线 + 几根碎弧」，像只虫子），故关闭与未连接共用一枚图标，语义差异保留在数据层（关闭仍锁定轮播）。同时修正置灰色的**主题盲区**：原 `NET_OFFLINE_COLOR` 是硬编码深灰，深色壁纸上整枚图标等于隐形，改为跟主题走的新 token `--color-ring-idle` / `--color-ring-offline`（浅壁纸深灰、深壁纸浅灰），由 `syncRingTheme` 首帧同步
 

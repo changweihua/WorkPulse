@@ -41,26 +41,32 @@
   transition: stroke 0.28s ease;
 }
 
-/* ── 悬浮窗 SSID 长名称 marquee ──
-   WifiSsidBadge 把同一段文字渲染两份首尾相接，--hw-ssid-shift = 单份精确宽度 + 间隔；
-   group 平移一个 shift 后第二份正好回到第一份起点 → 循环无缝。
-   用 transform 而非改 SVG text 的 x，避开逐帧重排导致的文字抗锯齿降级。 */
-@keyframes hw-ssid-scroll {
-  from {
-    transform: translateX(0);
+/* ── 硬件状态环：中部名称行的「加载中」三点 ──
+   首帧还没拿到硬件数据 / 网络名时，名称行画三点错峰呼吸，表示「正在取」而不是「没有」。
+   只用 opacity（paint-only）：不碰 transform / filter，不创建合成层，符合透明窗规范。
+   prefers-reduced-motion 下退化为静态三点（仍可读出「占位」语义）。 */
+@keyframes hw-dots-breathe {
+  0%,
+  100% {
+    opacity: 0.22;
   }
-  to {
-    transform: translateX(var(--hw-ssid-shift, 0px));
+  35% {
+    opacity: 1;
   }
 }
-.hw-ssid-scroll {
-  animation: hw-ssid-scroll var(--hw-ssid-duration, 8s) linear infinite;
-  will-change: transform;
+.hw-dots circle {
+  animation: hw-dots-breathe 1.2s ease-in-out infinite;
+}
+.hw-dots circle:nth-of-type(2) {
+  animation-delay: 0.16s;
+}
+.hw-dots circle:nth-of-type(3) {
+  animation-delay: 0.32s;
 }
 @media (prefers-reduced-motion: reduce) {
-  .hw-ssid-scroll {
+  .hw-dots circle {
     animation: none;
-    will-change: auto;
+    opacity: 0.72;
   }
 }
 

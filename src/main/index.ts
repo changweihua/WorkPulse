@@ -297,11 +297,20 @@ function createWindow(): void {
   });
 
   log.info('[Main] 📋 Loading URL...');
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
-  }
+  const whenLoaded =
+    is.dev && process.env['ELECTRON_RENDERER_URL']
+      ? mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+      : mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+
+  // 复位主窗口 zoom 到 1：旧版本悬浮窗与主窗口共用 session+origin，
+  // 悬浮窗缩放经 setZoomFactor 把主窗口 zoom 一起持久化放大了（用户遇到「改悬浮窗尺寸 → 主窗口字体变大」）。
+  // 悬浮窗已改用独立 partition，不会再污染；这里把历史遗留的持久化 zoom 清掉。
+  // 注意：用户在设置里调的基础字号走 app_font_size（CSS 注入），与此 zoom 无关，不受影响。
+  void whenLoaded.then(() => {
+    if (!mainWindow.isDestroyed() && mainWindow.webContents.getZoomFactor() !== 1) {
+      mainWindow.webContents.setZoomFactor(1);
+    }
+  });
 }
 
 // ── .NET Bridge（单例加载逻辑在 dotnet-bridge.ts，与网络采集共用实例）──

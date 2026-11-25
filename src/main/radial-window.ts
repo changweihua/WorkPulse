@@ -8,7 +8,15 @@ import {
   SHOW_RADIAL,
   RADIAL_SCREENSHOT,
   WIDGET_VISIBILITY_CHANGED,
+  WIDGET_SCALE_CHANGED,
 } from './event-bus';
+import {
+  COLLAPSED_BASE_SCALE,
+  FLOATING_SCALE_KEY,
+  FLOATING_SCALE_RANGE,
+  floatingScaleFactor,
+  normalizeFloatingScale,
+} from '../shared/floating-scale';
 import { setMoveCursor, restoreCursor } from './cursor';
 import { startHwStats, stopHwStats } from './hw-stats';
 import { launchProgramPath, getFileIconBase64 } from './program-utils';
@@ -24,19 +32,42 @@ const INNER_R = 38;
 const OUTER_R = 94;
 const CENTER_R = 24;
 const EXPANDED_R = 103; // 展开态可点击半径（= INNER_R + gap + (OUTER_R - INNER_R)/2）
-/** 收起态视觉放大系数 —— 必须与 renderer 的 RadialMenu.tsx `COLLAPSED_SCALE` 严格一致。
- *  收起态的视觉整体按此系数放大，而 `setShape` 定义的是 Windows 的窗口区域（命中区）。
- *  实测校正（2026-11-23）：`setShape` 在本应用里**只裁命中、不裁绘制** —— 收集区半径 38 时，
- *  放大后位于 39.8dip 的弧线外缘在真实屏幕上仍完整可见。所以这里放大 COLLAPSED_R 的目的
- *  不是「避免被切」，而是让**命中区跟上视觉尺寸**：中心玻璃放大到 31.2dip 后，若命中圆
- *  仍是 38、中心判定仍是 24，就会出现「看得见的圆点不中 / 悬停无反应」的视觉-交互错位。 */
-const COLLAPSED_SCALE = 1.3;
-/** 收起态可见内容最外缘（未放大的收缩半径）：顶部插头盒上沿 = R_RING + PLUG_SIZE/2 = 34.65，
- *  大于电量圆点衬边外缘 32.3 与弧线外沿 30.85，是整层最外的一个元素 */
+/** 收起态可见内容最外缘（CSS 设计单位）：顶部插头盒上沿 = R_RING + PLUG_SIZE/2 = 34.65，
+ *  大于电量圆点衬边外缘 32.3 与弧线外沿 30.85，是整层最外的一个元素。
+ *  v3：渲染层不再手工放大，此值就是 206 画布里的真实半径。 */
 const COLLAPSED_CONTENT_R = 34.65;
-const COLLAPSED_R = Math.ceil(COLLAPSED_CONTENT_R * COLLAPSED_SCALE) + 3; // ≈49：覆盖放大后的整层内容（≈45）+ 3px 余量
 const SEG_ANGLE = 72;
 const POLL_INTERVAL_MS = 30;
+
+/* ── 收起态窗口真实缩放（v3：用户反馈「是悬浮窗收起状态的窗口大小，不是整体文字大小」）──
+ * 关键：收起态把窗口 bounds 与页面 zoomFactor **同系数**放大：
+ *   bounds = 206 × Z（DIP），zoomFactor = Z ⇒ CSS 视口恒 206 → 渲染层几何零改动。
+ *   窗口物理边界与画面同步变大，画面永远不会被 206 的旧边界裁切（这才是「边框不完整」真因）。
+ * 展开态恒 bounds=206 / zoomFactor=1 → 菜单文字保持设计尺寸，不受用户缩放影响。
+ * Z（收起态）= COLLAPSED_BASE_SCALE(1.3) × userScale，100% 档视觉与旧版完全一致。
+ * 页面级 setZoomFactor 不破坏 backdrop-filter（棋盘格 A/B 实测 zoom 1→3 玻璃恒定）。
+ * 注意：模块加载早于 initDatabase()，不可在顶层 getSetting。 */
+let userScale = floatingScaleFactor(FLOATING_SCALE_RANGE.default);
+/** 收起态有效缩放系数（基础 1.3 × 用户滑动条） */
+function collapsedScale(): number {
+  return COLLAPSED_BASE_SCALE * userScale;
+}
+/** 当前页面/窗口缩放：仅收起态放大，展开态恒 1 */
+function currentZoom(): number {
+  return expanded ? 1 : collapsedScale();
+}
+/** 当前窗口 DIP 边长（收起态放大、展开态 206） */
+function windowSize(): number {
+  return Math.round(WIDGET_SIZE * currentZoom());
+}
+/** CSS 设计单位 → DIP（setShape 命中区用；窗口 DIP = 206 × zoom） */
+function toDip(cssValue: number): number {
+  return cssValue * currentZoom();
+}
+/** 收起态命中区半径（CSS 设计单位）：覆盖可见内容外缘 + 3px 余量（缩放由 toDip 承担） */
+function collapsedHitR(): number {
+  return Math.ceil(COLLAPSED_CONTENT_R) + 3;
+}
 
 // 径向菜单扇区定义（角度与 renderer 严格保持一致）
 const RADIAL_ITEMS = [
@@ -72,17 +103,19 @@ function startCursorPolling(win: BrowserWindow): void {
     }
     const cursor = screen.getCursorScreenPoint();
     const [wx, wy] = win.getPosition();
-    const localX = cursor.x - wx;
-    const localY = cursor.y - wy;
+    // 收起态 zoomFactor = currentZoom()：光标是 DIP、渲染层按 206 CSS 设计单位判定，
+    // 故先除 zoom 换回 CSS 坐标（展开态 zoom=1 无需换算）。
+    const zoom = currentZoom();
+    const localX = (cursor.x - wx) / zoom;
+    const localY = (cursor.y - wy) / zoom;
     const dx = localX - CX;
     const dy = localY - CY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    // 中心判定半径要跟着视觉尺寸走：收起态中心玻璃圆已按 COLLAPSED_SCALE 放大，
-    // 命中区若仍用 24 会导致「看得见的玻璃边缘点不中 / 悬停无反应」（视觉与交互错位）
-    const centerHitR = expanded ? CENTER_R : CENTER_R * COLLAPSED_SCALE;
+    // 中心判定半径用 CSS 设计单位：渲染层不再手工放大，中心玻璃恒 CENTER_R
+    const centerHitR = CENTER_R;
     const isOverCenter = dist <= centerHitR;
     // 收起态不再按悬停带改 shape：状态环收起态是纯展示层（读数条与悬停变暗均已移除），
-    // 可见区域恒为半径 COLLAPSED_R 的圆；轮询只负责把光标坐标发给渲染层（展开态扇区 hover / 中心判定用）。
+    // 可见区域恒为半径 collapsedHitR() 的圆；轮询只负责把光标坐标发给渲染层（展开态扇区 hover / 中心判定用）。
     // Skip IPC send when window is hidden and not expanded (no cursor tracking needed)
     if (!win.isVisible() && !expanded) return;
     win.webContents.send('radial:cursor', { x: localX, y: localY, dist, isOverCenter });
@@ -101,31 +134,53 @@ function stopCursorPolling(): void {
 // 用多行矩形条带（每行 1px 高、宽=弦长）平铺逼近圆形（而非单个方形 rect）：
 // Windows 透明窗上 OS 会对 setShape 区域边界合成一圈暗边/阴影，方形 shape 会呈现
 // 「正方形阴影」；条带圆形轮廓与内容形状一致 → 无方形感。仅展开/收起时调用，开销可忽略。
-function buildCircleRects(radius: number): Electron.Rectangle[] {
-  const y0 = Math.round(CY - radius);
+// radius 为 CSS 设计单位（相对 206px 画布），内部 ×currentZoom 换成 DIP（相对放大后的窗口）。
+function buildCircleRects(cssRadius: number): Electron.Rectangle[] {
+  const radius = toDip(cssRadius);
+  const center = windowSize() / 2; // DIP 圆心（= 103 × zoom）
+  const y0 = Math.round(center - radius);
   const size = Math.round(radius * 2);
   const rects: Electron.Rectangle[] = [];
   for (let i = 0; i < size; i++) {
     const dy = i - radius + 0.5; // 行中心相对圆心
     const half = Math.sqrt(Math.max(radius * radius - dy * dy, 0));
     if (half < 0.5) continue;
-    rects.push({ x: Math.round(CX - half), y: y0 + i, width: Math.round(half * 2), height: 1 });
+    rects.push({ x: Math.round(center - half), y: y0 + i, width: Math.round(half * 2), height: 1 });
   }
   return rects;
 }
 
-// 收起 / 展开分别以半径 COLLAPSED_R / EXPANDED_R 的圆条带定义可点击区域；
+// 收起 / 展开分别以半径 collapsedHitR() / EXPANDED_R 的圆条带定义可点击区域；
 // 状态环收起态纯展示，无需为任何悬浮元素额外并入矩形。
-function applyShape(win: BrowserWindow, radius: number): void {
-  const x0 = Math.round(CX - radius);
-  const y0 = Math.round(CY - radius);
+function applyShape(win: BrowserWindow, cssRadius: number): void {
+  const radius = toDip(cssRadius);
+  const center = windowSize() / 2;
+  const x0 = Math.round(center - radius);
+  const y0 = Math.round(center - radius);
   const size = Math.round(radius * 2);
-  const rects = buildCircleRects(radius);
+  const rects = buildCircleRects(cssRadius);
   if (rects.length === 0) {
     win.setShape([{ x: x0, y: y0, width: size, height: size }]);
     return;
   }
   win.setShape(rects);
+}
+
+/** 把当前缩放应用到窗口：收起态改 bounds+zoomFactor（同步放大，画面不被裁），锚定中心不跳位。
+ *  展开态不调用（展开恒 206/zoom 1）；用户尺寸变更只在收起态生效。 */
+function applyCollapsedScaleToWindow(win: BrowserWindow): void {
+  const newSize = windowSize();
+  const b = win.getBounds();
+  const centerX = b.x + b.width / 2;
+  const centerY = b.y + b.height / 2;
+  const wa = screen.getDisplayMatching(b).workArea;
+  const x = Math.max(wa.x, Math.min(Math.round(centerX - newSize / 2), wa.x + wa.width - newSize));
+  const y = Math.max(wa.y, Math.min(Math.round(centerY - newSize / 2), wa.y + wa.height - newSize));
+  // 先 zoom 后 bounds：CSS 视口恒 206，避免中间态几何错位
+  win.webContents.setZoomFactor(currentZoom());
+  win.setBounds({ x, y, width: newSize, height: newSize });
+  applyShape(win, collapsedHitR());
+  debouncedSavePosition();
 }
 
 // ─── 展开 / 收起 ───
@@ -134,6 +189,16 @@ function expandRadial(): void {
   const win = radialWindow;
   if (!win || win.isDestroyed()) return;
   expanded = true;
+  // 展开态：窗口缩回 206、zoom 1（菜单保持设计尺寸），锚定中心
+  const b = win.getBounds();
+  const centerX = b.x + b.width / 2;
+  const centerY = b.y + b.height / 2;
+  const wa = screen.getDisplayMatching(b).workArea;
+  const size = WIDGET_SIZE;
+  const x = Math.max(wa.x, Math.min(Math.round(centerX - size / 2), wa.x + wa.width - size));
+  const y = Math.max(wa.y, Math.min(Math.round(centerY - size / 2), wa.y + wa.height - size));
+  win.webContents.setZoomFactor(1);
+  win.setBounds({ x, y, width: size, height: size });
   applyShape(win, EXPANDED_R);
   win.webContents.send('radial:state', { expanded: true });
 }
@@ -142,7 +207,8 @@ function collapseRadial(): void {
   const win = radialWindow;
   if (!win || win.isDestroyed()) return;
   expanded = false;
-  applyShape(win, COLLAPSED_R); // 收起态：中心圆+状态环带可点击
+  // 收起态：窗口与 zoom 同步放大到当前尺寸设置
+  applyCollapsedScaleToWindow(win);
   win.webContents.send('radial:state', { expanded: false });
 }
 
@@ -181,6 +247,13 @@ function savePosition(): void {
   setSetting('radial_position', JSON.stringify({ x, y }));
 }
 
+/** 位置写入防抖：拖拽 move 与尺寸变更都会触发，合并成一次磁盘写 */
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+function debouncedSavePosition(): void {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(savePosition, 500);
+}
+
 function getSavedPosition(): { x: number; y: number } | null {
   const raw = getSetting('radial_position');
   if (!raw) return null;
@@ -194,23 +267,27 @@ function getSavedPosition(): { x: number; y: number } | null {
 }
 
 export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
+  // DB 此时已初始化，读取持久化收起态尺寸（模块顶层读会在 initDatabase 之前拿到空/抛错）
+  userScale = floatingScaleFactor(normalizeFloatingScale(getSetting(FLOATING_SCALE_KEY)));
   const display = screen.getPrimaryDisplay();
   const b = display.workArea;
+  // 收起态初始即按当前尺寸设置放大窗口（expanded 初始为 false → currentZoom=collapsedScale）
+  const size = windowSize();
   // 优先恢复上次位置，否则居中
-  const saved = getSavedPosition();
-  let x = b.x + Math.floor((b.width - WIDGET_SIZE) / 2);
-  let y = b.y + Math.floor((b.height - WIDGET_SIZE) / 2);
-  if (saved) {
+  const savedPosition = getSavedPosition();
+  let x = b.x + Math.floor((b.width - size) / 2);
+  let y = b.y + Math.floor((b.height - size) / 2);
+  if (savedPosition) {
     // 确保仍在屏幕内
-    x = Math.max(b.x, Math.min(saved.x, b.x + b.width - WIDGET_SIZE));
-    y = Math.max(b.y, Math.min(saved.y, b.y + b.height - WIDGET_SIZE));
+    x = Math.max(b.x, Math.min(savedPosition.x, b.x + b.width - size));
+    y = Math.max(b.y, Math.min(savedPosition.y, b.y + b.height - size));
   }
 
   radialWindow = new BrowserWindow({
     x,
     y,
-    width: WIDGET_SIZE,
-    height: WIDGET_SIZE,
+    width: size,
+    height: size,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -224,6 +301,11 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     backgroundColor: '#00000000',
     show: true, // 默认显示（与 Meel 的区别）
     webPreferences: {
+      // ⚠️ 必须用独立 partition：Electron 的 setZoomFactor 按 session+origin 持久化并共享。
+      // 悬浮窗用 zoom 放大收起态，若与主窗口共用 defaultSession + 同源，
+      // 调悬浮窗 zoom 会把主窗口字体一起放大（用户实测「改悬浮窗尺寸却改了主窗口字体」）。
+      // 独立 session 后 zoom 互不干扰；悬浮窗不依赖 localStorage/IndexedDB（全走 IPC），隔离无副作用。
+      partition: 'radial-isolated',
       preload: join(__dirname, '../preload/radial.js'),
       contextIsolation: true,
       nodeIntegration: false,
@@ -234,6 +316,10 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
       // v8CacheOptions: 'none', // 已启用全局 V8 编译缓存，不再禁用
     },
   });
+
+  // 页面级缩放：收起态 zoomFactor = currentZoom()，CSS 视口恒 206；创建时即设，保证首帧几何正确。
+  // 独立 partition 下 zoom 按该 session 存储，只影响悬浮窗自身，不碰主窗口。
+  radialWindow.webContents.setZoomFactor(currentZoom());
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     radialWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/radial.html`);
@@ -285,18 +371,15 @@ export function createRadialWindow(_parent: BrowserWindow): BrowserWindow {
     isDragging = false;
   });
 
-  // 位置记忆：拖拽结束后保存
-  let saveTimer: ReturnType<typeof setTimeout> | null = null;
-  const debouncedSave = (): void => {
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(savePosition, 500);
-  };
-  radialWindow.on('move', debouncedSave);
+  // 位置记忆：拖拽结束后保存（复用模块级防抖，尺寸变更也走这里）
+  radialWindow.on('move', debouncedSavePosition);
 
   // 内容加载完成后，应用收起态 setShape 并通知 renderer
   radialWindow.webContents.on('did-finish-load', () => {
     if (radialWindow && !radialWindow.isDestroyed()) {
-      applyShape(radialWindow, COLLAPSED_R); // 收起态：中心圆+状态环带可点击
+      // 导航可能重置 zoomFactor，这里兜底重设（幂等）
+      radialWindow.webContents.setZoomFactor(currentZoom());
+      applyShape(radialWindow, collapsedHitR()); // 收起态：命中区跟上窗口尺寸
       radialWindow.webContents.send('radial:state', { expanded: false });
     }
   });
@@ -363,7 +446,7 @@ ipcMain.on('radial:drag-start', () => {
   if (radialWindow && !radialWindow.isDestroyed()) {
     const [wx, wy] = radialWindow.getPosition();
     dragStartWindow = { x: wx, y: wy };
-    applyShape(radialWindow, WIDGET_SIZE / 2);
+    applyShape(radialWindow, WIDGET_SIZE / 2); // 拖拽时整窗可点击（CSS 103 → applyShape 内部 ×zoom 得 DIP 半径）
     setMoveCursor();
   }
 });
@@ -392,8 +475,9 @@ ipcMain.on('radial:drag-move', () => {
   // 绝对定位：起点窗口位置 + 光标位移（拖拽期间窗口移动不影响光标屏幕坐标）
   const targetX = dragStartWindow.x + (cursor.x - dragStartCursor.x);
   const targetY = dragStartWindow.y + (cursor.y - dragStartCursor.y);
-  const clampedX = Math.max(minX, Math.min(targetX, maxX - WIDGET_SIZE));
-  const clampedY = Math.max(minY, Math.min(targetY, maxY - WIDGET_SIZE));
+  const size = windowSize();
+  const clampedX = Math.max(minX, Math.min(targetX, maxX - size));
+  const clampedY = Math.max(minY, Math.min(targetY, maxY - size));
   radialWindow.setPosition(clampedX, clampedY);
 });
 
@@ -401,7 +485,7 @@ ipcMain.on('radial:drag-end', () => {
   isDragging = false;
   // 恢复 setShape 并重新启用 mouse events
   if (radialWindow && !radialWindow.isDestroyed()) {
-    applyShape(radialWindow, expanded ? EXPANDED_R : COLLAPSED_R); // 收起态：中心圆+状态环带可点击
+    applyShape(radialWindow, expanded ? EXPANDED_R : collapsedHitR()); // 收起态：命中区跟上视觉尺寸
     restoreCursor();
   }
 });
@@ -496,4 +580,13 @@ guardedHandle('radial:get-file-icon', RadialGetFileIconSchema, async (data) => {
 guardedHandle('radial:launch-program', RadialLaunchProgramSchema, async (data) => {
   await launchProgramPath(data.programPath);
   return ok(true);
+});
+
+// ─── 收起态尺寸变更：即时生效，不重建窗口（收起态改 bounds+zoom，展开态暂存的收起时生效） ───
+appBus.on(WIDGET_SCALE_CHANGED, (raw: string) => {
+  userScale = floatingScaleFactor(normalizeFloatingScale(raw));
+  const win = radialWindow;
+  if (!win || win.isDestroyed()) return; // 窗口未创建时只更新 userScale，下次创建读取
+  if (expanded) return; // 展开态恒 206/zoom 1，尺寸设置等收起后再应用
+  applyCollapsedScaleToWindow(win);
 });
