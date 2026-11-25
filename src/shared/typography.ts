@@ -5,7 +5,7 @@
  * - settings 里存的是**预设 id**，不是 CSS 字符串。主进程把 id 映射到这里的白名单
  *   font-family 链后再注入 insertCSS，避免渲染层通过 settings:set 传入任意 CSS 造成注入。
  * - 字体链一律带中文回退（'Microsoft YaHei UI'），保证中英混排不会出现豆腐块。
- * - 默认「JetBrains Maple Mono / 12px」，与项目 @theme 的 --font-sans 口径一致。
+ * - 默认「MiSans / 12px」；MiSans 由小米提供、免费商用，软件内已按协议注明使用情况。
  */
 export interface FontPreset {
   id: string;
@@ -15,6 +15,11 @@ export interface FontPreset {
 }
 
 export const FONT_PRESETS: readonly FontPreset[] = [
+  {
+    id: 'misans',
+    label: 'MiSans',
+    stack: "'MiSans', 'Microsoft YaHei UI', 'Segoe UI', sans-serif",
+  },
   {
     id: 'jetbrains-maple-mono',
     label: 'JetBrains Maple Mono',
@@ -52,7 +57,7 @@ export const FONT_PRESETS: readonly FontPreset[] = [
   },
 ] as const;
 
-export const DEFAULT_FONT_ID = 'jetbrains-maple-mono';
+export const DEFAULT_FONT_ID = 'misans';
 
 /** 允许的基础字号（px）；12 为默认 */
 export const FONT_SIZES = [11, 12, 13, 14, 16] as const;

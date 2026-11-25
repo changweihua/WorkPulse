@@ -1426,6 +1426,32 @@ function SettingsPage(): ReactNode {
                     {t('settings.fontPreview')}
                   </span>
                 </div>
+                <div className="mt-3 p-3 rounded-md bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/50">
+                  <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                    {t('settings.fontLicenseNotice')}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        window.open(
+                          'https://hyperos.mi.com/font-download/MiSans%E5%AD%97%E4%BD%93%E7%9F%A5%E8%AF%86%E4%BA%A7%E6%9D%83%E8%AE%B8%E5%8F%AF%E5%8D%8F%E8%AE%AE.pdf',
+                          '_blank',
+                        )
+                      }
+                      className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {t('settings.fontLicenseAgreement')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.open('https://hyperos.mi.com/font', '_blank')}
+                      className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {t('settings.fontLicenseDownload')}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-4">

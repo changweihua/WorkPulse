@@ -11,14 +11,14 @@ body {
 }
 
 @theme {
-  /* 字体族：全程序默认 JetBrains Maple Mono（本机已安装；未安装时按链回退） */
-  --font-sans: 'JetBrains Maple Mono', 'Maple Mono NF CN', 'Microsoft YaHei UI', sans-serif;
-  --font-serif: 'JetBrains Maple Mono', 'Maple Mono NF CN', 'Microsoft YaHei UI', sans-serif;
-  --font-mono: 'JetBrains Maple Mono', 'Maple Mono NF CN', monospace;
+  /* 字体族：全程序默认 MiSans（本机已安装；未安装时按链回退）；运行时由主进程注入覆盖 */
+  --font-sans: 'MiSans', 'Microsoft YaHei UI', 'Segoe UI', sans-serif;
+  --font-serif: 'MiSans', 'Microsoft YaHei UI', 'Segoe UI', sans-serif;
+  --font-mono: 'MiSans', 'Microsoft YaHei UI', monospace;
 
   /* Tailwind v4 preflight 里 html 的 font-family 取自 --default-font-family。
      指向 --font-sans 后，设置页切换字体只需覆盖 --font-sans 就能联动生效，
-     不再出现「@theme 写了 Maple Mono、实际渲染却是系统 UI」的错配。 */
+     不再出现「@theme 写了 MiSans、实际渲染却是系统 UI」的错配。 */
   --default-font-family: var(--font-sans);
   --default-mono-font-family: var(--font-mono);
 

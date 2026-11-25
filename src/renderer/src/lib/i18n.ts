@@ -322,7 +322,11 @@ export const translations = {
     'settings.materialCancel': '取消',
     'settings.fontFamily': '界面字体',
     'settings.fontFamilyHelp':
-      '默认 JetBrains Maple Mono（等宽，数字不跳动）。切换后立即应用到所有窗口；若本机未安装该字体，会按回退链使用系统中文字体。',
+      '默认 MiSans（小米出品，免费商用）。切换后立即应用到所有窗口；若本机未安装该字体，会按回退链使用系统中文字体。',
+    'settings.fontLicenseNotice':
+      '本软件使用 MiSans 字体。MiSans 由小米科技有限责任公司开发并拥有知识产权，依据《MiSans 字体知识产权许可协议》免费授权商用。本软件仅引用本机已安装字体，不随软件分发字体文件，也未对字体进行改编或二次开发。',
+    'settings.fontLicenseAgreement': '查看许可协议',
+    'settings.fontLicenseDownload': '下载 MiSans',
     'settings.fontSize': '基础字号',
     'settings.fontSizeHelp':
       '主窗口正文字号（px）。悬浮工具栏保持 12px 紧凑排版，标题层级保留相对比例。',
@@ -705,7 +709,11 @@ export const translations = {
     'settings.materialCancel': 'Cancel',
     'settings.fontFamily': 'Interface Font',
     'settings.fontFamilyHelp':
-      'Defaults to JetBrains Maple Mono (monospaced, no digit jitter). Applies to all windows instantly; falls back to a system CJK font if not installed.',
+      'Defaults to MiSans (by Xiaomi, free for commercial use). Applies to all windows instantly; falls back to a system CJK font if not installed.',
+    'settings.fontLicenseNotice':
+      'This software uses the MiSans font. MiSans is developed and owned by Xiaomi Technology Co., Ltd. and licensed for free commercial use under the MiSans Font Intellectual Property License Agreement. This software only references the locally installed font; it does not bundle or redistribute font files, nor modify or adapt the font.',
+    'settings.fontLicenseAgreement': 'View License Agreement',
+    'settings.fontLicenseDownload': 'Download MiSans',
     'settings.fontSize': 'Base Font Size',
     'settings.fontSizeHelp':
       'Body text size in px for the main window. The floating toolbar stays at a compact 12px; heading levels keep their relative scale.',
