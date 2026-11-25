@@ -15,3 +15,5 @@ export const WIDGET_SCALE_CHANGED = 'app:widget-scale-changed';
 export const WINDOW_MATERIAL_CHANGED = 'app:window-material-changed';
 /** 全局排版偏好变更（字体族 / 基础字号），通知所有窗口重新注入字体 CSS */
 export const FONT_CHANGED = 'app:font-changed';
+/** 强调色变更（设置页即时预览），悬浮窗据此立刻换 CSS 变量 */
+export const ACCENT_CHANGED = 'app:accent-changed';

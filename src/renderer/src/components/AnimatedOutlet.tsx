@@ -8,7 +8,7 @@ import { SPRING_SPRING } from './Motion';
  *
  * 设计纪律（DeepSeek 风格）：
  * - 入场：弹簧驱动位移（y:8→0），opacity 独立淡入
- * - 退场：快速淡出（0.18s），不用弹簧（退场要快）
+ * - 退场：快速淡出（0.12s），不用弹簧（退场要快，缩短空窗期）
  * - 异步时机：入场慢（弹簧自然节奏），退场快（不拖泥带水）
  */
 export default function AnimatedOutlet(): ReactNode {
@@ -22,7 +22,7 @@ export default function AnimatedOutlet(): ReactNode {
         className="h-full"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0 }}
+        exit={{ opacity: 0, transition: { duration: 0.12, ease: 'easeOut' } }}
         transition={{
           // 入场：弹簧驱动 y 位移，opacity 独立过渡
           y: SPRING_SPRING,

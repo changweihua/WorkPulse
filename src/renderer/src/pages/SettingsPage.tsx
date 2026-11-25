@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import WidgetIcon from '../components/WidgetIcon';
-import { useThemeStore, ACCENTS, type Theme } from '../stores/themeStore';
+import { useThemeStore, ACCENTS, type Theme, type ThemeSwitchOrigin } from '../stores/themeStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useI18n, useLanguageStore } from '../stores/languageStore';
 import type { AppLanguage, ResolvedLanguage } from '../lib/i18n';
@@ -594,8 +594,8 @@ function SettingsPage(): ReactNode {
     await setAppLanguage(value);
   };
 
-  const handleThemeChange = async (value: Theme): Promise<void> => {
-    await setTheme(value);
+  const handleThemeChange = async (value: Theme, origin?: ThemeSwitchOrigin): Promise<void> => {
+    await setTheme(value, origin);
     toast.success(t('settings.themeChanged'));
   };
 
@@ -1252,7 +1252,13 @@ function SettingsPage(): ReactNode {
                   ).map(({ value, label, Icon, color }) => (
                     <button
                       key={value}
-                      onClick={() => handleThemeChange(value)}
+                      data-testid={`theme-${value}`}
+                      onClick={(e) =>
+                        void handleThemeChange(
+                          value,
+                          e.detail > 0 ? { x: e.clientX, y: e.clientY } : undefined,
+                        )
+                      }
                       className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors ${
                         theme === value
                           ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'

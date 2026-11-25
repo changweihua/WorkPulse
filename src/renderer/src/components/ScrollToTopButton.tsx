@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowUp } from 'lucide-react';
+import { SPRING_FAB } from './Motion';
 
 const SCROLL_THRESHOLD = 300;
 
@@ -35,7 +36,7 @@ export function ScrollToTopButton({
           initial={{ opacity: 0, scale: 0.6, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.6, y: 20 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+          transition={SPRING_FAB}
           whileHover={{ scale: 1.08 }}
           whileTap={{ scale: 0.92 }}
           className="fixed bottom-[88px] right-6 z-[35] w-14 h-14 rounded-full

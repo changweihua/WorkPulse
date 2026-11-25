@@ -17,6 +17,27 @@ export const MOTION_EASE = [0.16, 1, 0.3, 1] as const;
 /** 全局弹簧参数：stiffness=180, damping=28 */
 export const SPRING_SPRING = { type: 'spring' as const, stiffness: 180, damping: 28 };
 
+/** 侧栏宽度折叠：行程长，用更硬的弹簧收住尾振 */
+export const SPRING_SIDEBAR = { type: 'spring' as const, stiffness: 300, damping: 30 };
+/** 悬浮操作按钮（返回顶部 / AI FAB）：小尺寸快速弹出，允许轻微回弹 */
+export const SPRING_FAB = { type: 'spring' as const, stiffness: 400, damping: 22 };
+/** 侧滑 AI 面板：大面积位移，阻尼更高以避免甩过头 */
+export const SPRING_PANEL = { type: 'spring' as const, stiffness: 400, damping: 35 };
+/** 截图工具栏首次弹出：短促有力，附带较小质量 */
+export const SPRING_TOOLBAR_POP = {
+  type: 'spring' as const,
+  stiffness: 520,
+  damping: 34,
+  mass: 0.6,
+};
+/** 截图工具栏跟随选区移动：更软的弹簧，避免拖拽时抖动 */
+export const SPRING_TOOLBAR_FOLLOW = {
+  type: 'spring' as const,
+  stiffness: 480,
+  damping: 30,
+  mass: 0.7,
+};
+
 interface FadeInProps {
   children: ReactNode;
   /** 延迟秒数，用于卡片错峰 */
@@ -42,79 +63,6 @@ export function FadeIn({
       initial={{ opacity: 0, y: rise ? 12 : 0 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: MOTION_EASE, delay }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-interface SpringInProps {
-  children: ReactNode;
-  /** 延迟秒数，用于卡片错峰 */
-  delay?: number;
-  className?: string;
-  style?: CSSProperties;
-  /** 弹簧驱动的位移距离（px） */
-  y?: number;
-  /** 自定义弹簧参数（默认 stiffness=180, damping=28） */
-  spring?: { stiffness?: number; damping?: number };
-}
-
-/**
- * 弹簧入场：位移由弹簧物理驱动，opacity 用独立过渡。
- * 适合需要「自然弹性」感的入场，如列表项、面板展开。
- * spring @ spring 原则：弹簧只做位移，不同时改 opacity。
- */
-export function SpringIn({
-  children,
-  delay = 0,
-  className,
-  style,
-  y = 16,
-  spring,
-}: SpringInProps): ReactNode {
-  const s = { ...SPRING_SPRING, ...spring };
-  return (
-    <motion.div
-      className={className}
-      style={style}
-      initial={{ opacity: 0, y }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        y: { ...s, delay },
-        opacity: { duration: 0.24, ease: 'easeOut', delay },
-      }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-interface SpringScaleProps {
-  children: ReactNode;
-  className?: string;
-  style?: CSSProperties;
-  /** 悬停时的缩放值 */
-  scale?: number;
-}
-
-/**
- * 弹簧缩放：用于悬停效果。
- * scale 由弹簧驱动，hover 时弹性放大，离开时弹性回弹。
- */
-export function SpringScale({
-  children,
-  className,
-  style,
-  scale = 1.04,
-}: SpringScaleProps): ReactNode {
-  return (
-    <motion.div
-      className={className}
-      style={style}
-      whileHover={{ scale }}
-      whileTap={{ scale: 0.97 }}
-      transition={SPRING_SPRING}
     >
       {children}
     </motion.div>

@@ -6,6 +6,7 @@
  */
 import { contextBridge, ipcRenderer } from 'electron';
 import type { DeviceDetails, WindowMaterial } from '../shared/touchbar';
+import { ACCENT_CHANGED_CHANNEL } from '../shared/hw-stats';
 
 const HW_STATS_CHANNEL = 'hw-stats';
 
@@ -39,6 +40,12 @@ const touchbarApi = {
     const listener = (_e: Electron.IpcRendererEvent, stats: unknown): void => callback(stats);
     ipcRenderer.on(HW_STATS_CHANNEL, listener);
     return () => ipcRenderer.removeListener(HW_STATS_CHANNEL, listener);
+  },
+  onAccentChanged: (callback: (accent: string) => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, accent: unknown): void =>
+      callback(accent as string);
+    ipcRenderer.on(ACCENT_CHANGED_CHANNEL, listener);
+    return () => ipcRenderer.removeListener(ACCENT_CHANGED_CHANNEL, listener);
   },
   onConfigChanged: (callback: (items: unknown[]) => void) => {
     const listener = (_e: Electron.IpcRendererEvent, items: unknown[]): void => callback(items);

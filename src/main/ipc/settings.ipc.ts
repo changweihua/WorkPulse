@@ -5,7 +5,13 @@
 import { BrowserWindow, dialog } from 'electron';
 import { readFileSync, writeFileSync } from 'fs';
 import log from 'electron-log/main';
-import { appBus, FONT_CHANGED, WIDGET_MODE_CHANGED, WIDGET_SCALE_CHANGED } from '../event-bus';
+import {
+  appBus,
+  ACCENT_CHANGED,
+  FONT_CHANGED,
+  WIDGET_MODE_CHANGED,
+  WIDGET_SCALE_CHANGED,
+} from '../event-bus';
 import { FONT_FAMILY_SETTING_KEY, FONT_SIZE_SETTING_KEY } from '../../shared/typography';
 import { FLOATING_SCALE_KEY } from '../../shared/floating-scale';
 import {
@@ -110,11 +116,14 @@ export function registerSettingsIpc(): void {
       };
     }
     setSetting(data.key, data.value);
-    // 强调色变更即时同步到主窗口（DWM 边框色 + 原生 setAccentColor）
-    if (data.key === 'ui_accent' && process.platform === 'win32') {
-      const win = BrowserWindow.fromWebContents(event.sender);
-      if (win && !win.isDestroyed()) {
-        applyAccentColor(win);
+    // 强调色变更：立即广播给悬浮窗，并同步主窗口原生材质（DWM 边框色 + setAccentColor）
+    if (data.key === 'ui_accent') {
+      appBus.emit(ACCENT_CHANGED, data.value);
+      if (process.platform === 'win32') {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (win && !win.isDestroyed()) {
+          applyAccentColor(win);
+        }
       }
     }
     // 悬浮窗形态切换（widget_mode）：即使渲染层旧 preload 没有 touchbar API，

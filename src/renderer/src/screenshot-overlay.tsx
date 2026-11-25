@@ -1,7 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, MotionConfig } from 'motion/react';
 import { Copy, Save, Pen, Eye } from 'lucide-react';
+import { MOTION_EASE, SPRING_TOOLBAR_FOLLOW, SPRING_TOOLBAR_POP } from './components/Motion';
 
 // 每屏一窗：ready 载荷为本屏信息 + 全部屏联合 bounds
 interface ReadyInfo {
@@ -31,9 +32,6 @@ interface Point {
 }
 
 type ToolAction = 'copy' | 'save' | 'both';
-
-// 统一缓动曲线（与全局动效一致：快出缓停）
-const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 // 工具栏按钮定义（左 → 右）
 interface ToolDef {
@@ -381,7 +379,7 @@ function ScreenshotOverlay(): React.ReactNode {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.15, ease: EASE }}
+        transition={{ duration: 0.15, ease: MOTION_EASE }}
         style={{
           position: 'fixed',
           inset: 0,
@@ -438,7 +436,7 @@ function ScreenshotOverlay(): React.ReactNode {
               initial={{ opacity: 0, scale: 0.985 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.985 }}
-              transition={{ type: 'spring', stiffness: 520, damping: 34, mass: 0.6 }}
+              transition={SPRING_TOOLBAR_POP}
               style={{
                 position: 'absolute',
                 left: selLocal.x,
@@ -519,7 +517,7 @@ function ScreenshotOverlay(): React.ReactNode {
             initial={{ opacity: 0, x: tbLeft, y: tbTop + (placeAbove ? 12 : -12), scale: 0.94 }}
             animate={{ opacity: 1, x: tbLeft, y: tbTop, scale: 1 }}
             exit={{ opacity: 0, scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 480, damping: 30, mass: 0.7 }}
+            transition={SPRING_TOOLBAR_FOLLOW}
             style={{
               position: 'fixed',
               left: 0,
@@ -558,7 +556,7 @@ function ScreenshotOverlay(): React.ReactNode {
             initial={{ opacity: 0, y: 16, x: '-50%' }}
             animate={{ opacity: 1, y: 0, x: '-50%' }}
             exit={{ opacity: 0, y: 16, x: '-50%' }}
-            transition={{ duration: 0.28, ease: EASE }}
+            transition={{ duration: 0.28, ease: MOTION_EASE }}
             style={{
               position: 'fixed',
               bottom: 56,
@@ -657,5 +655,9 @@ const overlayContainer = document.getElementById('overlay-root')!;
 if (!(overlayContainer as any).__reactRoot) {
   const root = ReactDOM.createRoot(overlayContainer);
   (overlayContainer as any).__reactRoot = root;
-  root.render(<ScreenshotOverlay />);
+  root.render(
+    <MotionConfig reducedMotion="user">
+      <ScreenshotOverlay />
+    </MotionConfig>,
+  );
 }

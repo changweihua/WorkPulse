@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Search, CornerDownLeft } from 'lucide-react';
 import { useI18n } from '../stores/languageStore';
 import { Highlight } from './common/Highlight';
+import { MOTION_EASE } from './Motion';
 import { pinyinIncludes } from '../utils/pinyin';
 import {
   flattenNavItems,
@@ -65,6 +66,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  /** 本次打开是否已执行过条目：堵住快速连点/连按 Enter 的重复导航 */
+  const ranRef = useRef(false);
 
   /** 原始输入（驱动动作项文案与跳转参数） */
   const [query, setQuery] = useState('');
@@ -87,6 +90,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   // ---- 打开时聚焦输入框并锁定页面滚动 ----
   useEffect(() => {
     if (!open) return;
+    // 执行锁在打开时复位；放在 effect 而非 render，避免违反 React refs 规则
+    ranRef.current = false;
     // 等待进入动画首帧后再聚焦，避免慢机上输入法被意外唤起
     const raf = requestAnimationFrame(() => inputRef.current?.focus());
     const prevOverflow = document.body.style.overflow;
@@ -149,6 +154,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   // ---- 执行选中项 ----
   const runEntry = useCallback(
     (entry: PaletteEntry) => {
+      if (ranRef.current) return;
+      ranRef.current = true;
       if (entry.kind === 'action') {
         // 动作项：把搜索词经路由参数 ?q= 交给工作日志页（Lane A 契约）
         navigate(`/worklog?q=${encodeURIComponent(trimmedQuery)}`);
@@ -192,7 +199,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           className="cp-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          exit={{ opacity: 0, pointerEvents: 'none' }}
           transition={{ duration: 0.16, ease: 'easeOut' }}
           onClick={(e) => {
             // 点击遮罩关闭（点击面板内部不冒泡到此判断）
@@ -207,7 +214,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             initial={{ opacity: 0, y: -14, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.18, ease: MOTION_EASE }}
           >
             {/* L2 液态玻璃面板（阶段三）：毛玻璃 + caustic 由 LiquidGlassSurface 提供，
                 替代原 .cp-panel 全屏级 backdrop blur（违 C3 预算且与 overlay 叠玻璃违 C2）；
@@ -218,6 +225,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                 <Search className="cp-input-icon" aria-hidden="true" />
                 <input
                   ref={inputRef}
+                  data-testid="command-palette-input"
                   type="text"
                   className="cp-input"
                   value={query}

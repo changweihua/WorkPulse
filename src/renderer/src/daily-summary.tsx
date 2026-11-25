@@ -34,12 +34,13 @@ declare global {
 
 /** 数字滚动动画 */
 function useCountUp(target: number, duration = 1200): number {
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const [value, setValue] = useState(0);
   const startTimeRef = useRef<number | null>(null);
   const frameRef = useRef<number>(0);
 
   useEffect(() => {
-    if (target === 0) return;
+    if (prefersReducedMotion || target === 0) return;
     startTimeRef.current = null;
     const animate = (time: number): void => {
       if (!startTimeRef.current) startTimeRef.current = time;
@@ -52,10 +53,10 @@ function useCountUp(target: number, duration = 1200): number {
     return () => {
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
     };
-  }, [target, duration]);
+  }, [target, duration, prefersReducedMotion]);
 
-  // target 为 0 时直接在 render 中派生结果，避免 effect 内同步 setState
-  if (target === 0) return 0;
+  // 减少动态偏好 / target 为 0 时直接在 render 中派生终值，避免 effect 内同步 setState
+  if (prefersReducedMotion || target === 0) return target;
   return value;
 }
 
@@ -301,25 +302,30 @@ function DailySummary(): React.ReactNode {
           from { opacity: 0; transform: translateY(-20px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes scaleIn {
-          from { opacity: 0; transform: scale(0.92); }
-          to { opacity: 1; transform: scale(1); }
-        }
         @keyframes growUp {
           from { transform: scaleY(0); transform-origin: bottom; }
           to { transform: scaleY(1); transform-origin: bottom; }
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
         }
         @keyframes pulse {
           0%, 100% { opacity: 0.6; }
           50% { opacity: 1; }
         }
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-6px); }
+
+        /* 减少动态偏好：入场元素直接以终态呈现，循环装饰静止 */
+        @media (prefers-reduced-motion: reduce) {
+          [style*="fadeSlideUp"],
+          [style*="fadeSlideDown"],
+          [style*="growUp"] {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+          }
+          [style*="pulse"] {
+            animation: none !important;
+          }
+          *, *::before, *::after {
+            transition-duration: 0.01ms !important;
+          }
         }
       `}</style>
 
@@ -336,6 +342,7 @@ function DailySummary(): React.ReactNode {
           background: 'linear-gradient(135deg, #0f0c29 0%, #1a1145 30%, #302b63 60%, #1a2980 100%)',
           opacity: visible ? 1 : 0,
           transition: 'opacity 0.35s ease',
+          pointerEvents: visible ? 'auto' : 'none',
           cursor: 'pointer',
         }}
       >

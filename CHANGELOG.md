@@ -4,9 +4,27 @@
 
 ## [未发布]
 
+### 新增
+
+- ✨ feat: 设置页主题切换增加从点击位置扩散的过渡动画 — 主窗口接入 View Transition API，只对 `::view-transition-new(root)` 做 420ms 圆形裁剪揭示，旧快照保持静止；动画期间临时给新快照补目标主题底色，避免透明根容器让扩散只剩文字变色；不支持 API、键盘激活、系统主题自动变化与 `prefers-reduced-motion` 时回退到原有 300ms 颜色过渡或直接切换。动画只影响主窗口 DOM，悬浮窗与 DWM 材质不参与
+
+- ✨ feat: 全程序动效统一遵循「减少动态效果」偏好 — 主窗口、径向悬浮窗、截图遮罩三个 React 根节点接入 `MotionConfig reducedMotion="user"`；`index.css` 统一关闭 skeleton/glass/spin/float/pulse 等持续循环动画与装饰性过渡；启动屏、截图遮罩、每日摘要、Touch Bar、径向菜单各自补齐 CSS 降级，每日摘要数字滚动在减少动态下直接显示终值
+
+- ✨ feat: 强调色跨窗口即时同步 — 设置页写 `ui_accent` 时主进程经 `appBus` 广播 `ACCENT_CHANGED`，径向菜单与 Touch Bar 收到后立即更新 `--color-radial-accent`，不再等下一个 1s `hw-stats` tick；DWM 边框色仍按原逻辑即时应用
+
+- ✨ feat: 建立单元测试与 Electron GUI 自动化验证体系 — 新增 Vitest（jsdom + Testing Library）单元测试 12 例，覆盖动效 token 契约、主题扩散与 reduced-motion 降级、Toast 定时器去重、命令面板执行锁、强调色事件广播；新增 Playwright Electron 冒烟脚本，真实窗口验证主渲染、View Transition 支持、主题扩散与底色补齐、减少动态偏好跳过动画、命令面板快捷键，并输出截图。`WORKPULSE_E2E` 模式用临时 `userData` 隔离并跳过单实例锁 / 全局快捷键 / 托盘 / 协议注册 / 更新检查，失败时保留现场与主进程日志
+
 ### 变更
 
 - 📦 deps: 升级 10 项依赖至最新补丁 / 次版本 — openai 7.62.0→7.64.0、electron 45.4.1→45.5.0、lucide-react 1.77.0→1.79.0、react-router-dom 7.18.6→7.18.7、streamdown 2.8.0→2.8.1、oxlint 1.94.0→1.95.0、@types/node 26.6.6→26.6.7、@types/react 19.3.0→19.3.1、@iconify-json/logos 1.2.20→1.2.21、@iconify-json/lucide 1.2.158→1.2.159；同步 package.json 版本范围与 package-lock.json。electron-context-menu / rcedit 的 latest 标签版本低于当前安装版、oxfmt 0.79→0.80 属 0.x 跨 minor 可能变动格式化规则，均保持不变。typecheck / lint / format:check / build 全过
+
+- ♻️ refactor: 动效参数收敛到 `components/Motion.tsx` 命名 token — 新增 `SPRING_SIDEBAR` / `SPRING_FAB` / `SPRING_PANEL` / `SPRING_TOOLBAR_POP` / `SPRING_TOOLBAR_FOLLOW`，替换侧栏、两枚悬浮按钮、AI 面板、截图工具栏与统计页的裸弹簧/裸缓动；路由退场 0.18→0.12s，懒加载首帧改用稳定骨架替代全屏旋转 loader；删除 `SpringIn` / `SpringScale` 等未使用组件与 radial/splash/daily-summary 中的死关键帧，同步 DESIGN.md / FEATURES.md 动效描述
+
+- 📦 deps: 新增测试依赖 vitest / jsdom / @testing-library/react / @testing-library/dom / @testing-library/user-event / playwright-core；package.json 增加 `test`、`test:watch`、`test:e2e` 脚本，README 补充开发与验证命令说明
+
+### 修复
+
+- 🐛 fix: 弹层退场期间吞点击与重复触发 — AI 面板 / 每日摘要 / 命令面板遮罩在退场开始时立即 `pointer-events: none`；命令面板加本次打开的执行锁，堵住快速连点与连按 Enter 的重复导航；Toast 自动移除与手动关闭各自去重，避免重复排定时器
 
 ## [0.3.13] - 2026-11-25
 

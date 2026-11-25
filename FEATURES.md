@@ -254,7 +254,7 @@ tasks (id, title, description, status, board_column, position, created_at, updat
 
 ### 用户交互流程
 
-1. 中心按钮（折叠状态）→ 点击展开（圆形 clip-path 展开动画）
+1. 中心按钮（折叠状态）→ 点击展开（弹簧 scale + 透明度揭示，避免逐帧 clip-path 掉帧）
 2. 悬停扇区 → 高亮 + 提示文字
 3. 点击扇区 → 跳转对应页面或触发截图
 4. 拖拽中心按钮 → 重新定位（位置跨会话保存）
@@ -263,7 +263,7 @@ tasks (id, title, description, status, board_column, position, created_at, updat
 
 - **窗口:** 独立 Electron BrowserWindow，`alwaysOnTop: true`，`transparent: true`
 - **交互:** 鼠标光标轮询（`radial:cursor` IPC）检测悬浮
-- **动画:** CSS clip-path `circle()` + CSS transition
+- **动画:** motion 弹簧 scale + opacity；`MotionConfig reducedMotion="user"` 跟随系统减少动态偏好
 - **点击穿透:** `setIgnoreMouseEvents()` 动态切换
 - **配置:** `radial_items` / `radial_position` 存储在 SQLite `settings` 表
 
@@ -634,14 +634,14 @@ PaddleOCR 运行在 Web Worker 中，支持检测（DET）和识别（REC）模�
 
 ### 功能描述
 
-透明、圆角启动画面，显示版本号，带淡入动画。AppUserModelId 设置确保 Windows 通知图标正确。
+透明、圆角启动画面，显示版本号；主进程在窗口就绪后以 30ms×10 的 opacity 阶梯淡入，主窗口就绪即销毁。AppUserModelId 设置确保 Windows 通知图标正确。
 
 ### 用户交互流程
 
 1. 应用启动时显示（1.5-5 秒）
 2. 透明/圆角/居中
 3. 版本号显示
-4. 淡入动画
+4. 主进程阶梯 opacity 淡入（30ms × 10）
 5. 主窗口就绪后销毁
 
 ---

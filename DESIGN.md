@@ -171,14 +171,17 @@ Tailwind 等价写法：主文字 `text-zinc-800 dark:text-zinc-100`，次级 `t
 
 ## 7. 动效
 
-| 名称               | 规格                                       | 用途                                     |
-| ------------------ | ------------------------------------------ | ---------------------------------------- |
-| `animate-fade-in`  | opacity 0→1                                | 表单展开、下拉出现                       |
-| `animate-slide-up` | 上移淡入 0.35s ease-out both               | 卡片入场（配合 animationDelay 阶梯延迟） |
-| 路由切换           | `routeFadeIn` 300ms opacity+translateY     | AnimatedOutlet                           |
-| 进度条             | `transition-[width] duration-700 ease-out` | 数据加载                                 |
+| 名称              | 规格                                                                                  | 用途                       |
+| ----------------- | ------------------------------------------------------------------------------------- | -------------------------- |
+| `FadeIn` / `Fade` | motion opacity 0→1；`FadeIn` 可带上浮 12px，0.35s `MOTION_EASE`                       | 卡片、面板入场             |
+| 路由切换          | `AnimatePresence mode="wait"`：退场 opacity 0.12s，入场 y 弹簧 180/28 + opacity 0.18s | `AnimatedOutlet`           |
+| 主题切换          | View Transition：新快照 `clip-path: circle()` 420ms，从点击点扩散                     | 设置页主题按钮             |
+| 持续装饰          | CSS keyframes（shimmer / glass / spin），`prefers-reduced-motion` 统一关闭            | 骨架屏、玻璃流光、加载指示 |
+| 悬浮窗揭示        | motion 弹簧 scale + opacity（不用逐帧 clip-path），跟随系统减少动态偏好               | `RadialMenu`               |
 
-**禁令**：不要给列表项加 scale/hover 位移动画（历史教训：抖动、不稳重）；不要在 useEffect 依赖里放每次渲染都变化的引用（如 `useI18n()` 返回的 `t`，需用 tRef 模式，否则无限循环闪烁）。
+参数统一放在 `components/Motion.tsx` 的命名 token（`MOTION_EASE`、`SPRING_*`），不要内联裸弹簧/裸缓动。
+
+**禁令**：不要给列表项加 scale/hover 位移动画（历史教训：抖动、不稳重）；不要用逐帧 `clip-path` 做活 DOM 揭示（按半径平方重栅格化会掉帧）；不要在 useEffect 依赖里放每次渲染都变化的引用（如 `useI18n()` 返回的 `t`，需用 tRef 模式，否则无限循环闪烁）。
 
 ---
 

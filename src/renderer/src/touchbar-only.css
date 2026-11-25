@@ -683,6 +683,13 @@ body,
   .touchbar-popover-arrow {
     transition: none;
   }
+
+  .spin,
+  .hw-alert-pulse,
+  .touchbar-toast {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
 }
 
 /* ── Toast 反馈 ── */

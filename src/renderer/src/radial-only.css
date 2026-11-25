@@ -2,24 +2,6 @@
 
 @variant dark (&:where(.dark, .dark *));
 
-/* Radial segment hover */
-.radial-segment {
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.radial-segment:hover {
-  filter: brightness(1.2);
-}
-
-/* Expand animation */
-@keyframes expand {
-  from {
-    clip-path: circle(24px at 50% 50%);
-  }
-  to {
-    clip-path: circle(103px at 50% 50%);
-  }
-}
-
 /* ── 硬件状态环：≥85% 告警脉冲（CPU/内存弧 + 低电量圆点） ── */
 @keyframes hw-alert-pulse {
   0%,
@@ -67,6 +49,12 @@
   .hw-dots circle {
     animation: none;
     opacity: 0.72;
+  }
+  .hw-alert-pulse {
+    animation: none;
+  }
+  .hw-wifi-bar {
+    transition: none;
   }
 }
 

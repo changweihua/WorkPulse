@@ -188,7 +188,7 @@ export function DailySummaryModal({ onClose }: Props): ReactNode {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+        exit={{ opacity: 0, pointerEvents: 'none' }}
         transition={{ duration: 0.2, ease: MOTION_EASE }}
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 dark:bg-black/40 backdrop-blur-sm"
         onClick={handleClose}

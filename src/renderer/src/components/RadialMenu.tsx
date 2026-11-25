@@ -118,6 +118,12 @@ export function RadialMenu(): ReactNode {
     return cleanup;
   }, []);
 
+  // 设置页改强调色时立即换色，不等下一帧 hw-stats
+  useEffect(() => {
+    const cleanup = window.radialApi.onAccentChanged((next) => setAccent(next));
+    return cleanup;
+  }, []);
+
   const gapOuterDeg = (GAP_PX / OUTER_R) * (180 / Math.PI);
   const gapInnerDeg = (GAP_PX / INNER_R) * (180 / Math.PI);
 
@@ -587,7 +593,7 @@ export function RadialMenu(): ReactNode {
               animate={{ opacity: 1, scale: 1 }}
               transition={{
                 // 弹簧做 scale 位移，opacity 独立过渡
-                scale: { type: 'spring', stiffness: 180, damping: 28, delay: idx * 0.04 },
+                scale: { ...SPRING_SPRING, delay: idx * 0.04 },
                 opacity: { duration: 0.15, ease: 'easeOut', delay: idx * 0.04 },
               }}
             >

@@ -40,6 +40,11 @@ export function setTray(tray: Tray): void {
  * 必须在 app.ready 之前调用
  */
 export function registerProtocol(): void {
+  // E2E 不写系统注册表：避免自动化验证污染用户机器的 workpulse:// 协议关联
+  if (process.env.WORKPULSE_E2E === '1') {
+    log.info('[Notification] E2E 模式跳过协议注册');
+    return;
+  }
   if (process.defaultApp && process.argv.length >= 2) {
     app.setAsDefaultProtocolClient(APP_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
   } else {

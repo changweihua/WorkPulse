@@ -105,6 +105,8 @@ if (process.platform === 'win32') {
 }
 
 const appTitle = process.env.VITE_APP_TITLE || 'WorkPulse';
+/** E2E 模式：跳过单实例锁、全局快捷键、托盘、更新检查等系统级副作用 */
+const isE2E = process.env.WORKPULSE_E2E === '1';
 log.info('[Main] 🟢 主进程已启动！');
 
 let isQuitting = false;
@@ -153,6 +155,7 @@ export function reregisterGlobalShortcuts(overrides: Partial<{ log: string; task
   log: boolean;
   task: boolean;
 } {
+  if (isE2E) return { log: false, task: false };
   globalShortcut.unregisterAll();
   const { log: logShortcut, task: taskShortcut } = getShortcuts(overrides);
 
@@ -252,8 +255,14 @@ function createWindow(): void {
     setMainWindow(mainWindow);
     mainWindow.maximize();
     mainWindow.setIcon(APP_ICON_PATH);
-    mainWindow.hide();
-    appBus.emit(SHOW_RADIAL, mainWindow);
+    if (isE2E) {
+      // GUI 自动化需要主窗口可见；不弹悬浮窗，避免遮挡与点击穿透干扰
+      mainWindow.show();
+      mainWindow.focus();
+    } else {
+      mainWindow.hide();
+      appBus.emit(SHOW_RADIAL, mainWindow);
+    }
   });
 
   if (process.platform !== 'darwin') {
@@ -383,7 +392,7 @@ function getInstallModelsDir(): string {
 initNotifications();
 
 // ── 单实例锁 ──
-const gotTheLock = app.requestSingleInstanceLock();
+const gotTheLock = isE2E || app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
   app.quit();
@@ -519,7 +528,7 @@ app.whenReady().then(async () => {
     setupContextMenu(window);
   });
 
-  configureAutoUpdater();
+  if (!isE2E) configureAutoUpdater();
   registerIpcHandlers();
   registerShortcutIpc();
   registerUpdateIpc();
@@ -547,7 +556,11 @@ app.whenReady().then(async () => {
     app.quit();
   };
   buildMenu(sendToRenderer);
-  createTray(sendToRenderer, onQuit);
+  if (isE2E) {
+    log.info('[Main] E2E 模式跳过托盘创建');
+  } else {
+    createTray(sendToRenderer, onQuit);
+  }
 
   // ── 电源管理（P1）：系统休眠/恢复时暂停/恢复调度器 ──
   powerMonitor.on('suspend', () => {
@@ -641,7 +654,11 @@ app.whenReady().then(async () => {
   // Phase 7: 窗口创建 + 启动检查
   createSplashWindow();
   createWindow();
-  startUpdateCheck();
+  if (isE2E) {
+    log.info('[Main] E2E 模式跳过更新检查');
+  } else {
+    startUpdateCheck();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

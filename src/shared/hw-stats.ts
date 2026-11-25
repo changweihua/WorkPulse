@@ -6,6 +6,9 @@
 /** 硬件状态推送 IPC 通道名（主进程 send / preload on 共用） */
 export const HW_STATS_CHANNEL = 'hw-stats';
 
+/** 强调色即时同步通道：设置页改 ui_accent 时广播，悬浮窗无需等待下个 hw-stats tick */
+export const ACCENT_CHANGED_CHANNEL = 'accent-changed';
+
 /**
  * 有线以太网状态（null = 采集失败 / 非 Windows）
  * 判定口径：存在物理网卡、链路状态为 Up、且不是无线网卡

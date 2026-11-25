@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import { Link, useLocation, useMatches, useNavigate } from 'react-router';
 import AnimatedOutlet from '../components/AnimatedOutlet';
+import { SPRING_SIDEBAR } from '../components/Motion';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AnimatePresence, motion } from 'motion/react';
 import { Icon } from '@iconify/react';
@@ -148,7 +149,7 @@ export default function NavLayout() {
             : '0 8px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.05)',
         }}
         animate={{ width: sidebarWidth }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        transition={SPRING_SIDEBAR}
       >
         {/* L2 液态玻璃 caustic 覆盖层（阶段三）：
             外层包裹负责绝对定位与 pointer-events，避免 LiquidGlassSurface 根节点

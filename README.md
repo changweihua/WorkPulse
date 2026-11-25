@@ -75,6 +75,25 @@ npm run dist:win    # Windows (NSIS installer)
 npm run dist:linux  # Linux (AppImage)
 ```
 
+## 开发与验证
+
+所有命令都可直接在本机运行，不需要额外手工点窗口确认。
+
+| 命令                   | 作用                                                          |
+| ---------------------- | ------------------------------------------------------------- |
+| `npm test`             | Vitest 单元测试（`tests/unit`，jsdom + Testing Library）      |
+| `npm run test:watch`   | 单元测试监视模式，改代码即重跑                                |
+| `npm run test:e2e`     | 先构建，再用 Playwright 启动真实 Electron 窗口做 GUI 冒烟验证 |
+| `npm run typecheck`    | 主进程 / 渲染进程两段 TypeScript 检查                         |
+| `npm run lint`         | Oxlint 静态检查                                               |
+| `npm run format:check` | 代码与文档格式检查                                            |
+| `npm run build`        | 全量构建 main / preload / renderer                            |
+| `npm run audit:glass`  | 玻璃效果 GPU 预算审计                                         |
+
+单元测试覆盖动效 token 契约、主题切换的扩散与 reduced-motion 降级、Toast 定时器去重、命令面板执行锁、强调色事件广播。`tests/setup.ts` 统一补齐 jsdom 缺少的 `matchMedia` / WAAPI / `scrollIntoView`。
+
+GUI 验证会检查主窗口渲染、原生 View Transition 支持、点击主题按钮是否触发扩散与底色补齐、减少动态偏好下是否跳过动画、命令面板快捷键开关，并把截图写到 `test-results/`。该模式通过 `WORKPULSE_E2E=1` 与临时 `userData` 完全隔离：跳过单实例锁、全局快捷键、托盘、协议注册与更新检查，不碰真实数据库和注册表。验证失败时保留临时 `userData` 并打印主进程日志末尾，便于自行排查。新增渲染层用例放 `tests/unit`，新增窗口级用例放 `tests/e2e`。
+
 ## Installation
 
 ### macOS

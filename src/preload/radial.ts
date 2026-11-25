@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { HW_STATS_CHANNEL, type HwStats } from '../shared/hw-stats';
+import { ACCENT_CHANGED_CHANNEL, HW_STATS_CHANNEL, type HwStats } from '../shared/hw-stats';
 
 contextBridge.exposeInMainWorld('radialApi', {
   // ── 状态监听（main → renderer） ──
@@ -23,6 +23,14 @@ contextBridge.exposeInMainWorld('radialApi', {
     ipcRenderer.on(HW_STATS_CHANNEL, handler);
     return () => {
       ipcRenderer.removeListener(HW_STATS_CHANNEL, handler);
+    };
+  },
+  /** 强调色即时同步（设置页保存时广播），返回取消订阅函数 */
+  onAccentChanged: (cb: (accent: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, accent: unknown) => cb(accent as string);
+    ipcRenderer.on(ACCENT_CHANGED_CHANNEL, handler);
+    return () => {
+      ipcRenderer.removeListener(ACCENT_CHANGED_CHANNEL, handler);
     };
   },
 

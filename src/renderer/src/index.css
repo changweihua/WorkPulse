@@ -1586,32 +1586,53 @@ body,
   inherits: false;
 }
 
-/* ===== Modern CSS: View Transitions API ===== */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 200ms;
-  animation-timing-function: ease-out;
+/* ===== 主题切换：从点击位置扩散新快照 =====
+   仅在 themeStore 的 reveal 路径中加 html.theme-reveal，避免影响其它视图过渡。
+   旧快照静止、新快照由 WAAPI 做 clip-path 扩散；mix-blend-mode 改 normal
+   防止默认的 plus-lighter 让重叠区域发白。 */
+html.theme-reveal::view-transition-old(root) {
+  animation: none;
 }
 
-::view-transition-old(root) {
-  animation-name: vt-fade-out;
+html.theme-reveal::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+  z-index: 2;
 }
 
-::view-transition-new(root) {
-  animation-name: vt-fade-in;
+html.theme-reveal::view-transition-image-pair(root) {
+  isolation: auto;
 }
 
-@keyframes vt-fade-out {
-  to {
-    opacity: 0;
-    transform: translateY(-4px);
+/* 减少动态偏好：关闭持续循环动效与 View Transition，保留必要的信息型过渡 */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
-}
 
-@keyframes vt-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
+  .skeleton-shimmer,
+  .animate-float,
+  .animate-pulse-soft,
+  .stat-card::before,
+  .surface-card::before,
+  .surface-sidebar::before,
+  .surface-input::before,
+  .glass-border-active::after,
+  .animated-gradient-border::after,
+  .streaming-border,
+  [style*='ai-fab-breathe'],
+  [style*='ai-icon-float'],
+  [style*='ai-icon-glow'],
+  [style*='exportProgressPulse'] {
+    animation: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
   }
 }
 

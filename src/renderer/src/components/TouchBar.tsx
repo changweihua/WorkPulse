@@ -167,6 +167,16 @@ export default function TouchBar(): React.JSX.Element {
     }
   }, [hwStats]);
 
+  // 设置页改强调色时立即换色，不等下一帧 hw-stats
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const cleanup = window.touchbarApi.onAccentChanged((accent) => {
+      root.style.setProperty('--color-radial-accent', accent || '#3b82f6');
+    });
+    return cleanup;
+  }, []);
+
   // ── 初始加载 ──
   useEffect(() => {
     const api = window.touchbarApi;

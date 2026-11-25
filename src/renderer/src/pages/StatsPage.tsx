@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { FadeIn } from '../components/Motion';
+import { FadeIn, MOTION_EASE } from '../components/Motion';
 import { SkeletonLine, SkeletonRect, SkeletonStatCard } from '../components/Skeleton';
 import {
   Tag,
@@ -120,7 +120,7 @@ const STATS_GRID_VARIANTS = {
 
 const STATS_ITEM_VARIANTS = {
   hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: MOTION_EASE } },
 };
 
 function StatCard({

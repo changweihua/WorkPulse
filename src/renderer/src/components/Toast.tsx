@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useRef, useState, ReactNode } from 'react';
 import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 
 interface Toast {
@@ -19,12 +19,23 @@ let nextId = 0;
 
 export function ToastProvider({ children }: { children: React.ReactNode }): ReactNode {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  /** 自动移除与手动关闭各自去重，避免同一条 Toast 排两次定时器 */
+  const autoTimersRef = useRef(new Map<number, number>());
+  const exitingRef = useRef(new Set<number>());
 
   const remove = useCallback((id: number) => {
+    if (exitingRef.current.has(id)) return;
+    exitingRef.current.add(id);
+    const autoTimer = autoTimersRef.current.get(id);
+    if (autoTimer !== undefined) {
+      clearTimeout(autoTimer);
+      autoTimersRef.current.delete(id);
+    }
     // Start exit animation
     setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)));
     // Remove after animation completes
-    setTimeout(() => {
+    window.setTimeout(() => {
+      exitingRef.current.delete(id);
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 250);
   }, []);
@@ -33,7 +44,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }): Reac
     (message: string, type: 'success' | 'error') => {
       const id = nextId++;
       setToasts((prev) => [...prev, { id, message, type }]);
-      setTimeout(() => remove(id), 2500);
+      const timer = window.setTimeout(() => remove(id), 2500);
+      autoTimersRef.current.set(id, timer);
     },
     [remove],
   );

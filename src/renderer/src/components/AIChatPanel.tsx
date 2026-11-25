@@ -8,6 +8,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { SPRING_PANEL } from './Motion';
 import { useInfiniteScroll } from '@reactuses/core';
 import {
   Bot,
@@ -742,10 +743,10 @@ export default function AIChatPanel() {
             key="ai-panel-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            exit={{ opacity: 0, pointerEvents: 'none' }}
             transition={{ duration: 0.25 }}
             className="fixed inset-0 z-40 bg-black/10 dark:bg-black/60 backdrop-blur-[2px] dark:backdrop-blur-[3px]"
-            style={{ top: 44 }}
+            style={{ top: 44, pointerEvents: 'auto' }}
             onClick={closePanel}
           />
 
@@ -755,7 +756,7 @@ export default function AIChatPanel() {
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+            transition={SPRING_PANEL}
             className="fixed top-[44px] right-0 bottom-0 z-40 w-[680px]
                                    flex flex-row overflow-hidden
                                    bg-white dark:bg-panel-dark

@@ -21,6 +21,8 @@ interface RadialApi {
   ) => void;
   /** 订阅硬件状态推送（通道 'hw-stats'），返回取消订阅函数 */
   onHwStats: (cb: (stats: HwStats) => void) => () => void;
+  /** 强调色即时同步（设置页保存时广播），返回取消订阅函数 */
+  onAccentChanged: (cb: (accent: string) => void) => () => void;
   // 交互动作（renderer → main）
   centerClick: () => void;
   segmentClick: (key: string, item?: unknown) => void;
@@ -47,6 +49,8 @@ interface TouchbarApi {
   // 状态监听（main → renderer）
   onState: (cb: (state: { expanded: boolean }) => void) => () => void;
   onHwStats: (cb: (stats: HwStats) => void) => () => void;
+  /** 强调色即时同步（设置页保存时广播），返回取消订阅函数 */
+  onAccentChanged: (cb: (accent: string) => void) => () => void;
   onConfigChanged: (cb: (items?: unknown) => void) => () => void;
   onMaterialChanged: (cb: (material: WindowMaterial) => void) => () => void;
   onPinnedChanged: (cb: (pinned: boolean) => void) => () => void;

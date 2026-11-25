@@ -14,6 +14,17 @@
         overflow: hidden;
         background: transparent;
       }
+
+      /* 减少动态偏好：遮罩本身仍需即时出现，但跳过所有装饰性过渡 */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
     </style>
   </head>
 

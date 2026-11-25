@@ -3,7 +3,7 @@ import { Navigate } from 'react-router';
 import { createHashRouter } from 'react-router-dom';
 import TitleBarLayout from './layout/TitleBarLayout';
 import NavLayout from './layout/NavLayout';
-import { BrandLogo } from './components/icons/BrandIcons';
+import { SkeletonLine, SkeletonStatCard } from './components/Skeleton';
 
 const WorkLogPage = lazy(() => import('./pages/WorkLogPage'));
 const ReportPage = lazy(() => import('./pages/ReportPage'));
@@ -23,22 +23,27 @@ const DotnetBridgePage = lazy(() => import('./pages/DotnetBridgePage'));
 const ModelConfigPage = lazy(() => import('./pages/ModelConfigPage'));
 const AiStatsPage = lazy(() => import('./pages/AiStatsPage'));
 
+/**
+ * 路由级占位骨架：结构稳定、不旋转不脉冲。
+ * 切换页面时只替换骨架内容，避免懒加载首帧闪出全屏 spinner。
+ */
 function PageLoader() {
   return (
-    <div className="h-full flex flex-col items-center justify-center gap-3">
-      <div className="relative w-[68px] h-[68px] flex items-center justify-center">
-        {/* 外圈：品牌青紫旋转环 */}
-        <div className="absolute inset-0 rounded-full border-[2px] border-transparent border-t-cyan-400 border-r-sky-300 animate-spin" />
-        <div
-          className="absolute -inset-[4px] rounded-full border border-transparent border-b-cyan-300/20 border-l-sky-400/10 animate-spin"
-          style={{ animationDirection: 'reverse', animationDuration: '2.4s' }}
-        />
-        {/* 内部：与主程序同源的品牌 Logo（多色显示器 + 脉搏） */}
-        <div className="w-[46px] h-[46px] rounded-[13px] bg-white dark:bg-zinc-100 flex items-center justify-center shadow-lg shadow-cyan-500/20 relative z-[1] ring-1 ring-black/5">
-          <BrandLogo className="w-8 h-8" />
-        </div>
+    <div className="h-full w-full p-6 flex flex-col gap-5" aria-busy="true" aria-label="页面加载中">
+      <div className="flex flex-col gap-2.5">
+        <SkeletonLine width="220px" height="1.5rem" rounded="0.5rem" />
+        <SkeletonLine width="360px" height="0.75rem" />
       </div>
-      <span className="text-xs text-zinc-400 animate-pulse">加载中...</span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+        <SkeletonStatCard />
+      </div>
+      <div className="flex flex-col gap-3">
+        <SkeletonLine width="100%" height="3.5rem" rounded="1rem" />
+        <SkeletonLine width="100%" height="3.5rem" rounded="1rem" />
+        <SkeletonLine width="72%" height="3.5rem" rounded="1rem" />
+      </div>
     </div>
   );
 }

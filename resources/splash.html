@@ -40,15 +40,6 @@
         overflow: hidden;
       }
 
-      @keyframes bgPulse {
-        0% {
-          opacity: 0.9;
-        }
-        100% {
-          opacity: 1;
-        }
-      }
-
       .splash-card::before,
       .splash-card::after {
         content: '';
@@ -208,6 +199,17 @@
       @keyframes spinSlow {
         to {
           transform: rotate(360deg);
+        }
+      }
+
+      /* 减少动态偏好：启动屏只保留静态视觉，避免持续动画 */
+      @media (prefers-reduced-motion: reduce) {
+        .splash-card::before,
+        .splash-card::after,
+        .brand-icon,
+        .status-text,
+        .ring-decoration {
+          animation: none !important;
         }
       }
 

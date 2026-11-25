@@ -17,6 +17,7 @@
 import { BrowserWindow, nativeTheme, powerMonitor } from 'electron';
 import { cpus } from 'os';
 import {
+  ACCENT_CHANGED_CHANNEL,
   HW_STATS_CHANNEL,
   type BluetoothStatus,
   type EthernetStatus,
@@ -32,6 +33,7 @@ import {
 } from './network-status';
 import { getWallpaperLuma } from './wallpaper-luma';
 import { currentAccentColor } from './window-material';
+import { appBus, ACCENT_CHANGED } from './event-bus';
 
 /** 采样间隔（毫秒） */
 const SAMPLE_INTERVAL_MS = 1000;
@@ -392,6 +394,15 @@ function bindPowerListeners(): void {
     if (anyAlive) startHwStats();
   });
 }
+
+// 设置页改强调色时立即推送给悬浮窗；不必等下一个 1s hw-stats tick。
+// 只走已登记的悬浮窗集合，主窗口自身的 CSS 变量由 themeStore 同步更新。
+appBus.on(ACCENT_CHANGED, (accent: string) => {
+  for (const win of targetWins) {
+    if (win.isDestroyed() || win.webContents.isDestroyed()) continue;
+    win.webContents.send(ACCENT_CHANGED_CHANNEL, accent);
+  }
+});
 
 /**
  * 启动硬件状态采样与推送。

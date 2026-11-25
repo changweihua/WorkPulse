@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Bot } from 'lucide-react';
 import { useAIPanelStore } from '../stores/aiPanelStore';
 import { useShallow } from 'zustand/react/shallow';
+import { SPRING_FAB } from './Motion';
 
 const PANEL_WIDTH = 420;
 const FAB_SIZE = 56;
@@ -366,7 +367,7 @@ export default function AIFloatingButton() {
         onMouseLeave={() => setHovered(false)}
         initial={{ scale: 0.6, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+        transition={SPRING_FAB}
         whileHover={{ scale: isDragging ? 1 : 1.08 }}
         whileTap={{ scale: isDragging ? 1 : 0.92 }}
         className={`fixed z-[35] w-[56px] h-[56px] rounded-full
