@@ -2,6 +2,12 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。每次发布（`npm run release` 或手动打 `v*` 标签）时同步更新本文件。
 
+## [未发布]
+
+### 变更
+
+- 📦 deps: 升级 10 项依赖至最新补丁 / 次版本 — openai 7.62.0→7.64.0、electron 45.4.1→45.5.0、lucide-react 1.77.0→1.79.0、react-router-dom 7.18.6→7.18.7、streamdown 2.8.0→2.8.1、oxlint 1.94.0→1.95.0、@types/node 26.6.6→26.6.7、@types/react 19.3.0→19.3.1、@iconify-json/logos 1.2.20→1.2.21、@iconify-json/lucide 1.2.158→1.2.159；同步 package.json 版本范围与 package-lock.json。electron-context-menu / rcedit 的 latest 标签版本低于当前安装版、oxfmt 0.79→0.80 属 0.x 跨 minor 可能变动格式化规则，均保持不变。typecheck / lint / format:check / build 全过
+
 ## [0.3.13] - 2026-11-25
 
 ### 新增
