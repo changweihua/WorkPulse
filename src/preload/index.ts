@@ -186,8 +186,14 @@ const api = {
       content: string,
       model?: { modelId: string; modelName: string; provider: string } | null,
     ) =>
+      // 必须传单个对象：guardedHandle 的 packArgs 按位置把多参数塞进 schema 的 key，
+      // 传 5 个参数会把整个 model 对象当成 modelId，导致 Zod 校验失败、报告静默不保存。
       invoke(
-        ipcRenderer.invoke('report:create', type, dateFrom, dateTo, content, {
+        ipcRenderer.invoke('report:create', {
+          type,
+          dateFrom,
+          dateTo,
+          content,
           modelId: model?.modelId,
           modelName: model?.modelName,
           provider: model?.provider,

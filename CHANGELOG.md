@@ -32,6 +32,8 @@
 
 ### 修复
 
+- 🐛 fix: AI 生成报告后不自动保存 — 报告记录新增模型字段后，`report:create` 的 schema 由 4 个 key 增至 7 个，但 preload 仍传 5 个位置参数，第 5 个 model 对象被 `packArgs` 塞进 `modelId`，Zod 校验失败导致保存静默失败（日志：`expected string, received object`）；改为传单个对象，不再依赖参数位置
+
 - 🐛 fix: AI 模型配置被其他页面保存时全量覆盖消失 — `setGlobalConfig` 从「DELETE 全表 + 重建」改为按 id UPSERT 合并写入，本次提交未包含的模型保留；删除改走显式 `model:delete-configs` IPC，模型配置页删除按钮调用该接口并同步清理加密 token。修复任意页面持有过期 state 保存时抹掉用户已添加模型的问题
 
 - 🐛 fix: AI 生成报告忽略报告语言/风格/模板配置且输出全英文 — 原链路把提示词在渲染进程写死成英文，且只走无 system prompt 的聊天流式接口；现在报告页只传结构化日志与任务数据，主进程统一按 `report_language` / `report_style` / `system_prompt` / `report_template` 构造中英文消息并注入 system prompt；设置页缺失的默认值首次加载即落盘，切换界面语言时同步默认值到数据库，不再出现「界面显示已设置、数据库实际为空」
