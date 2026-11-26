@@ -76,7 +76,7 @@ const activeAiListeners: Record<string, Set<(...args: any[]) => void>> = {};
 
 /** 注册流式监听：替换该通道的旧监听并返回取消函数（最小防泄漏方案） */
 function onStream(
-  type: 'chunk' | 'done' | 'error',
+  type: 'chunk' | 'done' | 'error' | 'model',
   channel: string,
   handler: (...args: any[]) => void,
 ): () => void {
@@ -179,22 +179,60 @@ const api = {
   },
   report: {
     weekly: (start: string, end: string) => invoke(ipcRenderer.invoke('report:weekly', start, end)),
-    create: (type: string, dateFrom: string, dateTo: string, content: string) =>
-      invoke(ipcRenderer.invoke('report:create', type, dateFrom, dateTo, content)),
+    create: (
+      type: string,
+      dateFrom: string,
+      dateTo: string,
+      content: string,
+      model?: { modelId: string; modelName: string; provider: string } | null,
+    ) =>
+      invoke(
+        ipcRenderer.invoke('report:create', type, dateFrom, dateTo, content, {
+          modelId: model?.modelId,
+          modelName: model?.modelName,
+          provider: model?.provider,
+        }),
+      ),
     list: (limit?: number) => invoke(ipcRenderer.invoke('report:list', limit)),
     update: (id: number, content: string) =>
       invoke(ipcRenderer.invoke('report:update', id, content)),
   },
   ai: {
-    streamChat: (prompt: string) => {
+    streamChat: (
+      prompt: string,
+      options?: {
+        reportContext?: {
+          dateFrom: string;
+          dateTo: string;
+          logs: { content: string; created_at: string }[];
+          tasks: {
+            title: string;
+            description?: string;
+            status: 'todo' | 'in_progress' | 'done' | 'draft';
+            due_date?: string | null;
+            completed_at?: string | null;
+          }[];
+        };
+        usageType?: 'chat' | 'report';
+      },
+    ) => {
       // 流式聊天：invoke 返回 void，通过事件监听接收数据
-      ipcRenderer.invoke('ai-chat-stream', { userMessage: prompt, history: [] });
+      // 报告上下文由主进程构造消息，此处不再传 userMessage 占位
+      ipcRenderer.invoke('ai-chat-stream', {
+        ...(options?.reportContext ? {} : { userMessage: prompt }),
+        history: [],
+        reportContext: options?.reportContext,
+        usageType: options?.usageType,
+      });
       return {
         onChunk: (cb: (text: string) => void) =>
           onStream('chunk', 'ai-stream-chunk', (_e: any, text: string) => cb(text)),
         onDone: (cb: () => void) => onStream('done', 'ai-stream-done', () => cb()),
         onError: (cb: (err: string) => void) =>
           onStream('error', 'ai-stream-error', (_e: any, err: string) => cb(err)),
+        onModelInfo: (
+          cb: (info: { modelId: string; modelName: string; provider: string }) => void,
+        ) => onStream('model', 'ai-stream-model', (_e: any, info: any) => cb(info)),
       };
     },
   },
@@ -255,6 +293,8 @@ const api = {
       invoke(
         ipcRenderer.invoke('model:set-global-config', 'global', JSON.stringify(config)),
       ) as Promise<{ ok: boolean }>,
+    deleteConfigs: (ids: string[]) =>
+      invoke(ipcRenderer.invoke('model:delete-configs', { ids })) as Promise<{ ok: boolean }>,
     getActiveChat: () =>
       invoke(ipcRenderer.invoke('model:get-active-chat')) as Promise<{
         id: string;

@@ -14,7 +14,11 @@
 
 - ✨ feat: 建立单元测试与 Electron GUI 自动化验证体系 — 新增 Vitest（jsdom + Testing Library）单元测试 12 例，覆盖动效 token 契约、主题扩散与 reduced-motion 降级、Toast 定时器去重、命令面板执行锁、强调色事件广播；新增 Playwright Electron 冒烟脚本，真实窗口验证主渲染、View Transition 支持、主题扩散与底色补齐、减少动态偏好跳过动画、命令面板快捷键，并输出截图。`WORKPULSE_E2E` 模式用临时 `userData` 隔离并跳过单实例锁 / 全局快捷键 / 托盘 / 协议注册 / 更新检查，失败时保留现场与主进程日志
 
+- ✨ feat: 报告记录生成时使用的 AI 模型 — `reports` 表新增 `model_id` / `model_name` / `provider` 三列并补幂等迁移；流式接口在推理开始时推送实际模型信息，报告保存时一并落库，历史列表与详情头部显示模型名称；报告调用的用量日志按 `report` 类型记录，与聊天调用区分
+
 ### 变更
+
+- 🌈 style: Wi-Fi 名称改用反色标签显示 — 去掉蓝白渐变填充与 RIM_INK 描边晕（双层文字），改为深墨圆角实底 `rgb(18 22 32 / 0.88)` + 白字，宽度按文字自适应（长名仍走 textLength 压到 34），无任何外部阴影；加载三点、N/A、离线置灰语义不变
 
 - 📦 deps: 升级 10 项依赖至最新补丁 / 次版本 — openai 7.62.0→7.64.0、electron 45.4.1→45.5.0、lucide-react 1.77.0→1.79.0、react-router-dom 7.18.6→7.18.7、streamdown 2.8.0→2.8.1、oxlint 1.94.0→1.95.0、@types/node 26.6.6→26.6.7、@types/react 19.3.0→19.3.1、@iconify-json/logos 1.2.20→1.2.21、@iconify-json/lucide 1.2.158→1.2.159；同步 package.json 版本范围与 package-lock.json。electron-context-menu / rcedit 的 latest 标签版本低于当前安装版、oxfmt 0.79→0.80 属 0.x 跨 minor 可能变动格式化规则，均保持不变。typecheck / lint / format:check / build 全过
 
@@ -27,6 +31,10 @@
 - 🌈 style: 中心圆与顶部百分比描边收敛 — 中心圆移除展开态 / 收起态的外投影阴影（保留 accent 辉光与全部 inset 内高光，符合透明悬浮窗禁阴影规范），transition 移除未生效的 `transform` 项；顶部百分比淡墨描边 strokeWidth 2.4→2.0（fontSize 10 上 24%→20%，落在小字合理描边区间，白字在浅壁纸上仍可读）
 
 ### 修复
+
+- 🐛 fix: AI 模型配置被其他页面保存时全量覆盖消失 — `setGlobalConfig` 从「DELETE 全表 + 重建」改为按 id UPSERT 合并写入，本次提交未包含的模型保留；删除改走显式 `model:delete-configs` IPC，模型配置页删除按钮调用该接口并同步清理加密 token。修复任意页面持有过期 state 保存时抹掉用户已添加模型的问题
+
+- 🐛 fix: AI 生成报告忽略报告语言/风格/模板配置且输出全英文 — 原链路把提示词在渲染进程写死成英文，且只走无 system prompt 的聊天流式接口；现在报告页只传结构化日志与任务数据，主进程统一按 `report_language` / `report_style` / `system_prompt` / `report_template` 构造中英文消息并注入 system prompt；设置页缺失的默认值首次加载即落盘，切换界面语言时同步默认值到数据库，不再出现「界面显示已设置、数据库实际为空」
 
 - 🐛 fix: 弹层退场期间吞点击与重复触发 — AI 面板 / 每日摘要 / 命令面板遮罩在退场开始时立即 `pointer-events: none`；命令面板加本次打开的执行锁，堵住快速连点与连按 Enter 的重复导航；Toast 自动移除与手动关闭各自去重，避免重复排定时器
 

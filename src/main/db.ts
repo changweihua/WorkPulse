@@ -295,6 +295,15 @@ export interface Report {
   date_to: string;
   content: string;
   generated_at: string;
+  model_id: string | null;
+  model_name: string | null;
+  provider: string | null;
+}
+
+export interface ReportModelInfo {
+  modelId: string;
+  modelName: string;
+  provider: string;
 }
 
 export function saveReport(
@@ -302,11 +311,21 @@ export function saveReport(
   dateFrom: string,
   dateTo: string,
   content: string,
+  model?: ReportModelInfo | null,
 ): Report {
   const stmt = getDatabase().prepare(
-    'INSERT INTO reports (type, date_from, date_to, content) VALUES (?, ?, ?, ?) RETURNING *',
+    `INSERT INTO reports (type, date_from, date_to, content, model_id, model_name, provider)
+     VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   );
-  return stmt.get(type, dateFrom, dateTo, content) as Report;
+  return stmt.get(
+    type,
+    dateFrom,
+    dateTo,
+    content,
+    model?.modelId || null,
+    model?.modelName || null,
+    model?.provider || null,
+  ) as Report;
 }
 
 export function getReports(limit = 50): Report[] {

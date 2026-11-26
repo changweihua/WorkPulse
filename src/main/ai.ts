@@ -16,12 +16,18 @@ interface Message {
   content: string;
 }
 
-interface ReportTaskContext {
+export interface ReportTaskContext {
   title: string;
   description?: string;
   status: 'todo' | 'in_progress' | 'done' | 'draft';
   due_date?: string | null;
   completed_at?: string | null;
+}
+
+/** 报告生成所需的工作日志上下文 */
+export interface ReportLogContext {
+  content: string;
+  created_at: string;
 }
 
 const DEFAULT_SYSTEM_PROMPT = `你是一个专业的工作报告助手。请根据用户提供的工作日志，生成一份结构化的工作总结报告。
@@ -69,7 +75,7 @@ const DEFAULT_REPORT_TEMPLATE_EN = `## Work Summary ({{dateFrom}} - {{dateTo}})
 (Reasonable next steps based on current work)`;
 
 export async function generateReport(
-  logs: { content: string; created_at: string }[],
+  logs: ReportLogContext[],
   dateFrom: string,
   dateTo: string,
   tasks: ReportTaskContext[] = [],
@@ -79,32 +85,7 @@ export async function generateReport(
     throw new Error(tMain('apiKeyMissing'));
   }
 
-  const resolvedLanguage = getResolvedLanguage();
-  const language =
-    getSetting('report_language') || (resolvedLanguage === 'zh' ? '中文' : 'English');
-  const style =
-    getSetting('report_style') || (resolvedLanguage === 'zh' ? '简洁专业' : 'Concise professional');
-  const customPrompt =
-    getSetting('system_prompt') ||
-    (resolvedLanguage === 'zh' ? DEFAULT_SYSTEM_PROMPT : DEFAULT_SYSTEM_PROMPT_EN);
-  const reportTemplate =
-    getSetting('report_template') ||
-    (resolvedLanguage === 'zh' ? DEFAULT_REPORT_TEMPLATE : DEFAULT_REPORT_TEMPLATE_EN);
-
-  const vars: Record<string, string> = { language, style, dateFrom, dateTo };
-  const systemPrompt = replaceVars(customPrompt, vars);
-  const templateHint = replaceVars(reportTemplate, vars);
-
-  const logsText = logs.map((log) => `[${log.created_at}] ${log.content}`).join('\n');
-
-  const taskContext = formatTaskContext(tasks);
-  const taskBlock = taskContext ? tMain('taskContextTitle', { tasks: taskContext }) : '';
-  const userMessage = tMain('reportUserMessage', {
-    logs: logsText,
-    tasks: taskBlock,
-    template: templateHint,
-  });
-
+  const { systemPrompt, userMessage } = buildReportMessages(logs, tasks, dateFrom, dateTo);
   const messages: Message[] = [
     { role: 'system', content: systemPrompt },
     { role: 'user', content: userMessage },
@@ -230,24 +211,63 @@ function replaceVars(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] || '');
 }
 
-function formatTaskContext(tasks: ReportTaskContext[]): string {
-  if (tasks.length === 0) return '';
-  const separator = getResolvedLanguage() === 'zh' ? '，' : ', ';
+/**
+ * 按用户设置的报告语言/风格/提示词/模板构造完整消息。
+ * 流式报告与非流式报告共用同一入口，避免设置只在其中一条链路生效。
+ */
+export function buildReportMessages(
+  logs: ReportLogContext[],
+  tasks: ReportTaskContext[],
+  dateFrom: string,
+  dateTo: string,
+): { systemPrompt: string; userMessage: string; language: string } {
+  const resolvedLanguage = getResolvedLanguage();
+  const language =
+    getSetting('report_language') || (resolvedLanguage === 'zh' ? '中文' : 'English');
+  const isZh = language === '中文';
+  const style = getSetting('report_style') || (isZh ? '简洁专业' : 'Concise professional');
+  const customPrompt =
+    getSetting('system_prompt') || (isZh ? DEFAULT_SYSTEM_PROMPT : DEFAULT_SYSTEM_PROMPT_EN);
+  const reportTemplate =
+    getSetting('report_template') || (isZh ? DEFAULT_REPORT_TEMPLATE : DEFAULT_REPORT_TEMPLATE_EN);
 
-  const statusLabel: Record<ReportTaskContext['status'], string> = {
-    todo: tMain('taskTodo'),
-    in_progress: tMain('taskInProgress'),
-    done: tMain('taskDone'),
-    draft: tMain('taskDraft'),
-  };
+  const vars: Record<string, string> = { language, style, dateFrom, dateTo };
+  const systemPrompt = replaceVars(customPrompt, vars);
+  const templateHint = replaceVars(reportTemplate, vars);
+
+  const logsText = logs.map((log) => `[${log.created_at}] ${log.content}`).join('\n');
+  const taskContext = formatTaskContext(tasks, isZh);
+  const taskBlock = taskContext
+    ? isZh
+      ? `\n\n相关任务上下文：\n${taskContext}`
+      : `\n\nRelated task context:\n${taskContext}`
+    : '';
+  const userMessage = isZh
+    ? `以下是我的工作日志，请生成工作总结报告：\n\n${logsText}${taskBlock}\n\n请参考以下格式模板输出：\n${templateHint}`
+    : `Here are my work logs. Generate a work summary report:\n\n${logsText}${taskBlock}\n\nUse this output template as the structure:\n${templateHint}`;
+
+  return { systemPrompt, userMessage, language };
+}
+
+function formatTaskContext(tasks: ReportTaskContext[], isZh: boolean): string {
+  if (tasks.length === 0) return '';
+  const separator = isZh ? '，' : ', ';
+
+  const statusLabel: Record<ReportTaskContext['status'], string> = isZh
+    ? { todo: '待办', in_progress: '进行中', done: '已完成', draft: '草稿' }
+    : { todo: 'Todo', in_progress: 'In Progress', done: 'Done', draft: 'Draft' };
 
   return tasks
     .slice(0, 100)
     .map((task) => {
       const meta = [
         statusLabel[task.status],
-        task.due_date ? tMain('taskDue', { date: task.due_date }) : '',
-        task.completed_at ? tMain('taskCompletedAt', { date: task.completed_at }) : '',
+        task.due_date ? (isZh ? `截止 ${task.due_date}` : `due ${task.due_date}`) : '',
+        task.completed_at
+          ? isZh
+            ? `完成于 ${task.completed_at}`
+            : `completed ${task.completed_at}`
+          : '',
       ]
         .filter(Boolean)
         .join(separator);

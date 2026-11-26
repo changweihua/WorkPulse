@@ -364,8 +364,10 @@ export function setGlobalConfig(config: GlobalModelConfig): void {
   }
 
   const tx = db.transaction(() => {
-    // 清空旧数据
-    db.prepare('DELETE FROM model_configs').run();
+    // 按 id 合并写入，不再全表 DELETE：任何一个持有过期 state 的页面调用
+    // setGlobalConfig，都不该抹掉不在其 state 里的模型。删除走显式 IPC。
+    db.prepare("UPDATE model_configs SET is_active = 0 WHERE config_type = 'chat'").run();
+    db.prepare("UPDATE model_configs SET is_active = 0 WHERE config_type = 'embedding'").run();
 
     const insertChat = db.prepare(`
       INSERT INTO model_configs
@@ -373,12 +375,48 @@ export function setGlobalConfig(config: GlobalModelConfig): void {
          top_p, top_k, prompt, stream, dimension, headers, is_active, sort_order,
          provider, billing_type, daily_limit, token_quota, quota_group)
       VALUES (?, 'chat', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        config_type = excluded.config_type,
+        name = excluded.name,
+        base_url = excluded.base_url,
+        model_name = excluded.model_name,
+        temperature = excluded.temperature,
+        max_tokens = excluded.max_tokens,
+        top_p = excluded.top_p,
+        top_k = excluded.top_k,
+        prompt = excluded.prompt,
+        stream = excluded.stream,
+        headers = excluded.headers,
+        is_active = excluded.is_active,
+        sort_order = excluded.sort_order,
+        provider = excluded.provider,
+        billing_type = excluded.billing_type,
+        daily_limit = excluded.daily_limit,
+        token_quota = excluded.token_quota,
+        quota_group = excluded.quota_group,
+        updated_at = datetime('now', 'localtime')
     `);
     const insertEmbed = db.prepare(`
       INSERT INTO model_configs
-        (id, config_type, name, base_url, model_name, dimension, headers, is_active, sort_order,
+        (id, config_type, name, base_url, model_name, temperature, max_tokens,
+         top_p, top_k, prompt, stream, dimension, headers, is_active, sort_order,
          provider, billing_type, daily_limit, token_quota, quota_group)
-      VALUES (?, 'embedding', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, 'embedding', ?, ?, ?, 0.7, 4096, 0.9, 50, '', 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        config_type = excluded.config_type,
+        name = excluded.name,
+        base_url = excluded.base_url,
+        model_name = excluded.model_name,
+        dimension = excluded.dimension,
+        headers = excluded.headers,
+        is_active = excluded.is_active,
+        sort_order = excluded.sort_order,
+        provider = excluded.provider,
+        billing_type = excluded.billing_type,
+        daily_limit = excluded.daily_limit,
+        token_quota = excluded.token_quota,
+        quota_group = excluded.quota_group,
+        updated_at = datetime('now', 'localtime')
     `);
 
     let sortIndex = 0;
@@ -425,6 +463,27 @@ export function setGlobalConfig(config: GlobalModelConfig): void {
   tx();
   // 先写 DB、后失效缓存（token 写入时 secureSettings 已失效过一次，这里再失效
   // 一次以覆盖 token 字段未变化、仅表数据变化的场景）
+  invalidateGlobalConfigCache();
+}
+
+/**
+ * 显式删除模型配置（含加密 token）。
+ * setGlobalConfig 改为合并写入后，只有这里才会真正移除配置。
+ */
+export function deleteModelConfigs(ids: string[]): void {
+  const validIds = [...new Set(ids.filter((id) => typeof id === 'string' && id.length > 0))];
+  if (validIds.length === 0) return;
+
+  const db = getDatabase();
+  const placeholders = validIds.map(() => '?').join(',');
+  const tx = db.transaction(() => {
+    db.prepare(`DELETE FROM model_configs WHERE id IN (${placeholders})`).run(...validIds);
+  });
+  tx();
+  for (const id of validIds) {
+    deleteToken(id);
+    deleteToken(`emb_${id}`);
+  }
   invalidateGlobalConfigCache();
 }
 

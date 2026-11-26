@@ -886,6 +886,8 @@ export default function ModelConfigPage(): ReactNode {
     setChatConfigs(next);
     setActiveChatId(active);
     await saveGlobal(next, active, embedConfigs, activeEmbedId);
+    // 合并式保存不会删除未传入的行，删除必须显式调用
+    await (window as any).api?.models?.deleteConfigs?.([id]);
     await (window as any).api?.models?.setActiveChat?.(active);
     toast.success('已删除');
   };
@@ -918,6 +920,7 @@ export default function ModelConfigPage(): ReactNode {
     setEmbedConfigs(next);
     setActiveEmbedId(active);
     await saveGlobal(chatConfigs, activeChatId, next, active);
+    await (window as any).api?.models?.deleteConfigs?.([id]);
     toast.success('已删除');
   };
 

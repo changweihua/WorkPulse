@@ -1459,7 +1459,8 @@ function NetworkIcon({
  * 后又要求与蓝牙协调故整体放大，两次调整都保持等分不被破坏）。
  *   - 弧：连上（bars > 0）画本色 WifiSignal（在线蓝白渐变 / 离线灰）；未连接 / 加载中画
  *     完整灰弧 WifiIdle —— 两者同盒同位置，切换时只有颜色与格数变化，不位移。
- *   - 字：双层描边（RIM_INK 打底 + 实心渐变）保证浅壁纸可读；无阴影（透明窗规范）。
+ *   - 字：反色标签（深墨圆角实底 `rgb(18 22 32 / 0.88)` + 白字，宽度贴合文字），无渐变 /
+ *     无描边晕 / 无外部阴影（用户要求「简单背景反色即可」）。
  *     ssid 有值 → 网络名；ssid 为空且非加载 → 固定 'N/A'；加载中 → 三点呼吸（.hw-dots）。
  *   - 弧与名称三态共用同一组 y 常量，切换只换颜色 / 内容，位置恒定不跳动。
  *
@@ -1500,7 +1501,6 @@ function WifiCenterBadge({
   const ICON_TOP = 0.15; // 等分：弧墨顶 = 0.15 + 6.59 ≈ 6.7（顶隙 6.7）
   const TEXT_CY = 28.8; // 等分：字墨顶 ≈24.3、底 ≈33.3（中隙 6.7 / 底隙 6.7）
   const fontSize = 9; // 原 7：比蓝牙符文/顶部图标小一号，放大到 9 才与外环读数同量级
-  const strokeW = 1.0; // 淡墨描边（原 1.2）：过粗的描边会让小字笔画粘连成灰块
 
   // 40px 盒里 9px 粗体最多约 7 个英文单位（半宽 ≈17.3 < 圆内半弦 ≈20.2）；超出保留 6 个加省略号
   const MAX_UNITS = 7;
@@ -1521,8 +1521,6 @@ function WifiCenterBadge({
     }
   }
 
-  // 文字渐变 id 按在线 / 离线两档区分：轮播切换期可能同时存在新旧两个实例，各用自己的 def
-  const gradId = `hwSsidGrad-${isOnline ? 'on' : 'off'}`;
   // 长名宽度硬上限：字号放大到 9 后，7 个英文单位实测宽 ≈42 设计单位 > 该高度圆内弦宽 ≈40，
   // 会横向溢出玻璃圆、压到底部圆点。用 SVG textLength 压到 34 单位（留 3 单位安全边），
   // 短名（N/A / WUX 等）不设，保持原字形比例不被拉伸。
@@ -1531,19 +1529,17 @@ function WifiCenterBadge({
     0,
   );
   const cappedTextLength = estimatedTextW > 34 ? 34 : undefined;
+
+  // 反色标签（用户要求：不要特殊颜色与外部阴影，简单背景反色即可）：
+  // 深墨实底 + 白字，宽度贴合文字（长名被 textLength 压到 34 后按 34 算），无渐变 / 无描边晕 / 无阴影。
+  const CHIP_PAD_X = 2; // 左右内边距
+  const CHIP_H = fontSize + 2; // 11：字高 9 上下各留 1
+  const chipW = (cappedTextLength ?? estimatedTextW) + CHIP_PAD_X * 2;
   const title = loading ? 'Wi-Fi 正在获取网络名称' : ssid ? `Wi-Fi ${ssid}` : 'Wi-Fi 未连接';
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0">
       <title>{title}</title>
-      <defs>
-        {/* 文字实心渐变：与 WifiSignal 的弧线渐变同方向（左下深蓝→右上浅蓝）、同色值，
-            图标与名称视觉统一；离线 / 未连接时两端同为灰，保持置灰语义。 */}
-        <linearGradient id={gradId} x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stopColor={isOnline ? WIFI_GRAD_DEEP : color} />
-          <stop offset="100%" stopColor={isOnline ? WIFI_GRAD_LIGHT : color} />
-        </linearGradient>
-      </defs>
       {/* 信号弧：viewBox 24 缩到 ICON_BOX，水平居中、垂直靠上，给底部名称行让出空间。
           三态共用这一个位置 —— 未连接 / 加载中不换盒、不位移，只换笔画颜色。 */}
       <g transform={`translate(${(size - ICON_BOX) / 2} ${ICON_TOP})`}>
@@ -1563,6 +1559,15 @@ function WifiCenterBadge({
         </g>
       ) : (
         <>
+          {/* 反色标签底：深墨实底圆角块（无阴影、无描边），文字直接压在其上 */}
+          <rect
+            x={size / 2 - chipW / 2}
+            y={TEXT_CY - CHIP_H / 2}
+            width={chipW}
+            height={CHIP_H}
+            rx={CHIP_H / 2}
+            fill="rgb(18 22 32 / 0.88)"
+          />
           <text
             x={size / 2}
             y={TEXT_CY}
@@ -1572,26 +1577,7 @@ function WifiCenterBadge({
             fontWeight={700}
             textLength={cappedTextLength}
             lengthAdjust={cappedTextLength ? 'spacingAndGlyphs' : undefined}
-            fill="none"
-            stroke={RIM_INK}
-            // 描边只做「淡墨轮廓」提示：小字号上过粗的描边会让相邻笔画粘连成灰块，
-            // 收到 1.0 保留可读性轮廓（原 1.2 在 7px 字上偏重）
-            strokeWidth={strokeW}
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            {label}
-          </text>
-          <text
-            x={size / 2}
-            y={TEXT_CY}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fontSize={fontSize}
-            fontWeight={700}
-            textLength={cappedTextLength}
-            lengthAdjust={cappedTextLength ? 'spacingAndGlyphs' : undefined}
-            fill={`url(#${gradId})`}
+            fill="#ffffff"
             aria-hidden
           >
             {label}

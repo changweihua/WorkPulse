@@ -28,6 +28,9 @@ interface Report {
   date_to: string;
   content: string;
   generated_at: string;
+  model_id: string | null;
+  model_name: string | null;
+  provider: string | null;
 }
 
 type Status = 'idle' | 'generating' | 'streaming' | 'success' | 'error' | 'no_data';
@@ -52,6 +55,7 @@ function ReportPage(): ReactNode {
     content: streamedContent,
     isStreaming,
     error: streamError,
+    modelInfo,
     startStream,
     reset: resetStream,
   } = useStreamChat();
@@ -81,13 +85,13 @@ function ReportPage(): ReactNode {
   }, [preset]);
 
   const handleSaveNewReport = useCallback(
-    async (content: string): Promise<void> => {
+    async (content: string, model: typeof modelInfo): Promise<void> => {
       if (saveLockRef.current) return;
       if (!content.trim()) return;
       saveLockRef.current = true;
       try {
         const type = getReportType();
-        const saved = await window.api.report.create(type, dateFrom, dateTo, content);
+        const saved = await window.api.report.create(type, dateFrom, dateTo, content, model);
         if (saved) {
           // 关联刚创建的记录：后续编辑可直接更新这条报告
           setActiveReport(saved);
@@ -115,9 +119,9 @@ function ReportPage(): ReactNode {
     (content: string): void => {
       setReportContent(content);
       setStatus('success');
-      void handleSaveNewReport(content);
+      void handleSaveNewReport(content, modelInfo);
     },
-    [handleSaveNewReport],
+    [handleSaveNewReport, modelInfo],
   );
 
   const applyStreamError = useCallback((msg: string): void => {
@@ -186,17 +190,27 @@ function ReportPage(): ReactNode {
       return Boolean(completedDate && completedDate >= dateFrom && completedDate <= dateTo);
     });
 
-    const logsText = logs
-      .map((log: { created_at: string; content: string }) => `[${log.created_at}] ${log.content}`)
-      .join('\n');
-    const taskText =
-      filteredTasks.length > 0
-        ? `\n\nTasks:\n${filteredTasks.map((t) => `- [${t.status}] ${t.title}${t.description ? `: ${t.description}` : ''}`).join('\n')}`
-        : '';
-    const prompt = `Generate a work summary report for ${dateFrom} to ${dateTo}.\n\nWork logs:\n${logsText}${taskText}`;
-
+    // 提示词由主进程按 report_language / report_style / system_prompt / report_template 构造，
+    // 渲染进程只传结构化数据，确保设置真正进入生成链路。
     try {
-      await startStream(prompt);
+      await startStream('', {
+        reportContext: {
+          dateFrom,
+          dateTo,
+          logs: logs.map((log: { created_at: string; content: string }) => ({
+            content: log.content,
+            created_at: log.created_at,
+          })),
+          tasks: filteredTasks.map((task) => ({
+            title: task.title,
+            description: task.description || '',
+            status: task.status,
+            due_date: task.due_date ?? null,
+            completed_at: task.completed_at ?? null,
+          })),
+        },
+        usageType: 'report',
+      });
       setStatus('streaming');
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('report.generatedFallback');
@@ -298,6 +312,11 @@ function ReportPage(): ReactNode {
               <span className="text-xs text-zinc-400">
                 {t('report.generatedAt', { time: formatReportDate(viewingReport.generated_at) })}
               </span>
+              {viewingReport.model_name && (
+                <span className="text-[11px] text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-full">
+                  {t('report.modelUsed', { model: viewingReport.model_name })}
+                </span>
+              )}
             </div>
           )}
 
@@ -585,8 +604,13 @@ function ReportPage(): ReactNode {
                           .trim()}
                         ...
                       </p>
-                      <div className="flex items-center justify-end mt-1.5">
-                        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                      <div className="flex items-center justify-between gap-2 mt-1.5">
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                          {report.model_name
+                            ? t('report.modelUsed', { model: report.model_name })
+                            : ''}
+                        </span>
+                        <span className="text-[11px] text-zinc-400 dark:text-zinc-500 shrink-0">
                           {formatReportDate(report.generated_at)}
                         </span>
                       </div>

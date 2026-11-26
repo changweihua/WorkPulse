@@ -88,30 +88,54 @@ export function StreamedMarkdown({
   );
 }
 
+export interface StreamModelInfo {
+  modelId: string;
+  modelName: string;
+  provider: string;
+}
+
 interface StreamChatState {
   content: string;
   isStreaming: boolean;
   error: string | null;
+  modelInfo: StreamModelInfo | null;
+}
+
+interface ReportStreamOptions {
+  reportContext?: {
+    dateFrom: string;
+    dateTo: string;
+    logs: { content: string; created_at: string }[];
+    tasks: {
+      title: string;
+      description?: string;
+      status: 'todo' | 'in_progress' | 'done' | 'draft';
+      due_date?: string | null;
+      completed_at?: string | null;
+    }[];
+  };
+  usageType?: 'chat' | 'report';
 }
 
 export function useStreamChat(): StreamChatState & {
-  startStream: (prompt: string) => Promise<void>;
+  startStream: (prompt: string, options?: ReportStreamOptions) => Promise<void>;
   reset: () => void;
 } {
   const [state, setState] = useState<StreamChatState>({
     content: '',
     isStreaming: false,
     error: null,
+    modelInfo: null,
   });
   const bufferRef = useRef('');
   const cleanupRef = useRef<(() => void) | null>(null);
 
-  const startStream = async (prompt: string): Promise<void> => {
+  const startStream = async (prompt: string, options?: ReportStreamOptions): Promise<void> => {
     bufferRef.current = '';
-    setState({ content: '', isStreaming: true, error: null });
+    setState({ content: '', isStreaming: true, error: null, modelInfo: null });
 
     try {
-      const api = (window.api as any).ai.streamChat(prompt);
+      const api = (window.api as any).ai.streamChat(prompt, options);
 
       const cleanupChunk = api.onChunk((text: string) => {
         bufferRef.current += text;
@@ -127,11 +151,15 @@ export function useStreamChat(): StreamChatState & {
           error: error || 'Unknown error',
         }));
       });
+      const cleanupModel = api.onModelInfo?.((info: StreamModelInfo) => {
+        setState((prev) => ({ ...prev, modelInfo: info }));
+      });
 
       cleanupRef.current = () => {
         cleanupChunk();
         cleanupDone();
         cleanupError();
+        cleanupModel?.();
       };
     } catch (err) {
       setState((prev) => ({
@@ -145,7 +173,7 @@ export function useStreamChat(): StreamChatState & {
   const reset = (): void => {
     cleanupRef.current?.();
     bufferRef.current = '';
-    setState({ content: '', isStreaming: false, error: null });
+    setState({ content: '', isStreaming: false, error: null, modelInfo: null });
   };
 
   useEffect(() => {

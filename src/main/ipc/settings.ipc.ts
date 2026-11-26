@@ -41,6 +41,7 @@ import {
   LlmTokenSaveSchema,
   LlmTokenSchema,
   ModelSetActiveChatSchema,
+  ModelDeleteConfigsSchema,
 } from '../ipc-schemas';
 import { saveLLMToken, getLLMToken, deleteLLMToken } from '../secureSettings';
 import { showNotification } from '../notification';
@@ -49,6 +50,7 @@ import { tMain } from '../i18n';
 import {
   getGlobalConfig,
   setGlobalConfig,
+  deleteModelConfigs,
   getActiveChatConfig,
   setActiveChatConfig,
 } from '../modelConfig';
@@ -190,6 +192,11 @@ export function registerSettingsIpc(): void {
     }
   });
 
+  guardedHandle('model:delete-configs', ModelDeleteConfigsSchema, (data) => {
+    deleteModelConfigs(data.ids);
+    return ok(true);
+  });
+
   guardedQuery('model:get-config', (event) => {
     // 保留向后兼容：返回 chat 配置
     const active = getActiveChatConfig();
@@ -226,7 +233,11 @@ export function registerSettingsIpc(): void {
   });
 
   guardedHandle('report:create', ReportCreateSchema, (data) => {
-    return ok(saveReport(data.type, data.dateFrom, data.dateTo, data.content));
+    const model =
+      data.modelId && data.modelName && data.provider
+        ? { modelId: data.modelId, modelName: data.modelName, provider: data.provider }
+        : null;
+    return ok(saveReport(data.type, data.dateFrom, data.dateTo, data.content, model));
   });
 
   guardedHandle('report:update', ReportUpdateSchema, (data) => {

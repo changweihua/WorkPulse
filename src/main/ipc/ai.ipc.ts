@@ -13,6 +13,7 @@ import { AiChatStreamSchema, AiChatCancelSchema, ModelEnsureSchema } from '../ip
 import { getActiveChatConfig } from '../modelConfig';
 import { logAiUsage } from '../aiUsage';
 import { countTokens } from '../tokenCounter';
+import { buildReportMessages } from '../ai';
 
 export function registerAiIpc(): void {
   // 模型下载进度广播
@@ -75,7 +76,27 @@ export function registerAiIpc(): void {
       return;
     }
 
-    let { userMessage, history, config } = validated.data;
+    let { userMessage, history, config, reportContext, usageType } = validated.data;
+    let systemPrompt: string | undefined;
+
+    // 报告生成：由主进程统一按用户设置构造 system prompt 与 user prompt，
+    // 渲染进程只传结构化数据，避免报告语言/风格/模板配置被绕过。
+    if (reportContext) {
+      const built = buildReportMessages(
+        reportContext.logs,
+        reportContext.tasks,
+        reportContext.dateFrom,
+        reportContext.dateTo,
+      );
+      userMessage = built.userMessage;
+      systemPrompt = built.systemPrompt;
+      usageType = 'report';
+    }
+
+    if (!userMessage) {
+      event.sender.send('ai-stream-error', '缺少用户消息');
+      return;
+    }
 
     // 始终从全局配置获取模型信息，config 中的值作为覆盖
     const active = getActiveChatConfig();
@@ -94,6 +115,21 @@ export function registerAiIpc(): void {
       max_tokens: config?.max_tokens ?? active.max_tokens ?? 4096,
       top_p: config?.top_p ?? active.top_p ?? 0.9,
     };
+
+    const provider = finalConfig.baseURL.includes('deepseek')
+      ? 'deepseek'
+      : finalConfig.baseURL.includes('anthropic')
+        ? 'anthropic'
+        : finalConfig.baseURL.includes('ollama')
+          ? 'ollama'
+          : 'openai';
+
+    // 把实际使用的模型信息推给渲染进程，供报告记录与展示使用
+    event.sender.send('ai-stream-model', {
+      modelId: finalConfig.id,
+      modelName: finalConfig.model,
+      provider,
+    });
 
     let apiKey = finalConfig.token || process.env.API_KEY;
 
@@ -139,7 +175,11 @@ export function registerAiIpc(): void {
         const stream = (await client.chat.completions.create(
           {
             model: finalConfig.model,
-            messages: [...history, { role: 'user', content: userMessage }],
+            messages: [
+              ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+              ...history,
+              { role: 'user', content: userMessage },
+            ],
             stream: true,
             temperature: finalConfig.temperature ?? 0.7,
             max_tokens: finalConfig.max_tokens ?? 2048,
@@ -165,14 +205,8 @@ export function registerAiIpc(): void {
           logAiUsage({
             model_id: finalConfig.id,
             model_name: finalConfig.model,
-            provider: finalConfig.baseURL.includes('deepseek')
-              ? 'deepseek'
-              : finalConfig.baseURL.includes('anthropic')
-                ? 'anthropic'
-                : finalConfig.baseURL.includes('ollama')
-                  ? 'ollama'
-                  : 'openai',
-            usage_type: 'chat',
+            provider,
+            usage_type: usageType || 'chat',
             output_tokens: streamOutputTokens,
             total_tokens: streamOutputTokens,
             latency_ms: Date.now() - streamStartTime,

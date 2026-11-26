@@ -27,8 +27,8 @@ import { useToast } from '../components/Toast';
 import WidgetIcon from '../components/WidgetIcon';
 import { useThemeStore, ACCENTS, type Theme, type ThemeSwitchOrigin } from '../stores/themeStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useI18n, useLanguageStore } from '../stores/languageStore';
-import type { AppLanguage, ResolvedLanguage } from '../lib/i18n';
+import { translate, useI18n, useLanguageStore } from '../stores/languageStore';
+import { resolveSystemLanguage, type AppLanguage, type ResolvedLanguage } from '../lib/i18n';
 import { TOUCHBAR_DEFAULT_ITEMS, type TouchbarItem } from '../../../shared/touchbar';
 import {
   FLOATING_SCALE_KEY,
@@ -200,7 +200,6 @@ function SettingsPage(): ReactNode {
   const modifierLabel = isMac ? 'Cmd' : 'Ctrl';
   const { language: appLanguage, resolvedLanguage, t } = useI18n();
   const setAppLanguage = useLanguageStore((s) => s.setLanguage);
-  const previousLanguageRef = useRef<ResolvedLanguage>(resolvedLanguage);
   const [apiKey, setApiKey] = useState('');
   const [hasKey, setHasKey] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -304,12 +303,16 @@ function SettingsPage(): ReactNode {
       setReportLanguage(l);
     } else {
       setReportLanguage(defaultReportLanguage);
+      // 默认值也要落盘：界面显示的值与生成报告时读取的值必须一致，
+      // 否则用户「看到设置了」但实际数据库为空。
+      void window.api.settings.set('report_language', defaultReportLanguage).catch(() => {});
     }
     const s = await window.api.settings.get('report_style');
     if (s) {
       setStyle(s);
     } else {
       setStyle(defaultStyle);
+      void window.api.settings.set('report_style', defaultStyle).catch(() => {});
     }
     const sp = await window.api.settings.get('system_prompt');
     if (sp) setSystemPrompt(sp);
@@ -426,38 +429,6 @@ function SettingsPage(): ReactNode {
       unsubscribeUpdateStatus();
     };
   }, [loadSettings]);
-
-  useEffect(() => {
-    const previousLanguage = previousLanguageRef.current;
-    if (previousLanguage === resolvedLanguage) return;
-
-    setReportLanguage((current) => {
-      const previousDefault = previousLanguage === 'zh' ? '中文' : 'English';
-      return current === previousDefault
-        ? resolvedLanguage === 'zh'
-          ? '中文'
-          : 'English'
-        : current;
-    });
-    setStyle((current) => {
-      const previousDefault = previousLanguage === 'zh' ? '简洁专业' : 'Concise professional';
-      return current === previousDefault ? t('settings.styleConcise') : current;
-    });
-    setSystemPrompt((current) => {
-      const previousDefault = getDefaultSystemPrompt(previousLanguage);
-      return current.trim() === previousDefault.trim()
-        ? getDefaultSystemPrompt(resolvedLanguage)
-        : current;
-    });
-    setReportTemplate((current) => {
-      const previousDefault = getDefaultReportTemplate(previousLanguage);
-      return current.trim() === previousDefault.trim()
-        ? getDefaultReportTemplate(resolvedLanguage)
-        : current;
-    });
-
-    previousLanguageRef.current = resolvedLanguage;
-  }, [resolvedLanguage, t]);
 
   const handleShortcutChange = async (
     key: 'shortcut_quick_log' | 'shortcut_quick_task',
@@ -591,6 +562,41 @@ function SettingsPage(): ReactNode {
   };
 
   const handleAppLanguageChange = async (value: AppLanguage): Promise<void> => {
+    const nextResolved: ResolvedLanguage =
+      value === 'system' ? resolveSystemLanguage(navigator.language) : value;
+
+    if (nextResolved !== resolvedLanguage) {
+      // 只同步「仍是默认值」的报告偏好，用户自定义值保持不动。
+      // 同步后立即落盘：界面显示新语言默认值、数据库却留旧值，会让用户误以为设置没生效。
+      const previousLanguageDefault = resolvedLanguage === 'zh' ? '中文' : 'English';
+      const nextLanguageDefault = nextResolved === 'zh' ? '中文' : 'English';
+      if (reportLanguage === previousLanguageDefault && reportLanguage !== nextLanguageDefault) {
+        setReportLanguage(nextLanguageDefault);
+        await window.api.settings.set('report_language', nextLanguageDefault);
+      }
+
+      const previousStyleDefault = resolvedLanguage === 'zh' ? '简洁专业' : 'Concise professional';
+      if (style === previousStyleDefault) {
+        const nextStyle = translate(nextResolved, 'settings.styleConcise');
+        setStyle(nextStyle);
+        await window.api.settings.set('report_style', nextStyle);
+      }
+
+      const previousPrompt = getDefaultSystemPrompt(resolvedLanguage);
+      if (systemPrompt.trim() === previousPrompt.trim()) {
+        const nextPrompt = getDefaultSystemPrompt(nextResolved);
+        setSystemPrompt(nextPrompt);
+        await window.api.settings.set('system_prompt', nextPrompt);
+      }
+
+      const previousTemplate = getDefaultReportTemplate(resolvedLanguage);
+      if (reportTemplate.trim() === previousTemplate.trim()) {
+        const nextTemplate = getDefaultReportTemplate(nextResolved);
+        setReportTemplate(nextTemplate);
+        await window.api.settings.set('report_template', nextTemplate);
+      }
+    }
+
     await setAppLanguage(value);
   };
 

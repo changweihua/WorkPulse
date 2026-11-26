@@ -33,8 +33,31 @@ export function extractAiErrorMessage(error: unknown): string {
 
 // ─── AI Chat Schemas ───────────────────────────────────────────────────────
 
+export const ReportTaskStreamSchema = z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  status: z.enum(['todo', 'in_progress', 'done', 'draft']),
+  due_date: z.string().nullable().optional(),
+  completed_at: z.string().nullable().optional(),
+});
+
+/** 报告生成上下文：由主进程按用户配置构造 system prompt 与 user prompt */
+export const ReportContextSchema = z.object({
+  dateFrom: z.string(),
+  dateTo: z.string(),
+  logs: z
+    .array(
+      z.object({
+        content: z.string(),
+        created_at: z.string(),
+      }),
+    )
+    .max(50000),
+  tasks: z.array(ReportTaskStreamSchema).max(1000),
+});
+
 export const AiChatStreamSchema = z.object({
-  userMessage: z.string().min(1).max(32000),
+  userMessage: z.string().min(1).max(32000).optional(),
   history: z
     .array(
       z.object({
@@ -55,6 +78,8 @@ export const AiChatStreamSchema = z.object({
       top_p: z.number().min(0).max(1).optional(),
     })
     .optional(),
+  reportContext: ReportContextSchema.optional(),
+  usageType: z.enum(['chat', 'report']).optional(),
 });
 
 export const AiStreamChatSchema = z.object({
@@ -199,6 +224,9 @@ export const ReportCreateSchema = z.object({
   dateFrom: z.string(),
   dateTo: z.string(),
   content: z.string().max(100000),
+  modelId: z.string().max(200).optional(),
+  modelName: z.string().max(200).optional(),
+  provider: z.string().max(100).optional(),
 });
 
 export const ReportUpdateSchema = z.object({
@@ -241,6 +269,11 @@ export const ModelSetActiveChatSchema = z.object({
 
 export const ModelDeleteChatConfigSchema = z.object({
   configId: z.string().min(1),
+});
+
+/** 显式删除模型配置：setGlobalConfig 改为合并写入后，删除必须走这里 */
+export const ModelDeleteConfigsSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(200),
 });
 
 // ─── AI Extended Schemas ─────────────────────────────────────────────────────

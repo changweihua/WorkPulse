@@ -69,6 +69,10 @@ export const reports = sqliteTable(
     generatedAt: text('generated_at')
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
+    // 生成该报告时实际使用的 AI 模型信息
+    modelId: text('model_id'),
+    modelName: text('model_name'),
+    provider: text('provider'),
   },
   (t) => [index('idx_reports_dates').on(t.dateFrom, t.dateTo)],
 );

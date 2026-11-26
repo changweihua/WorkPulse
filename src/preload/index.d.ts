@@ -15,6 +15,9 @@ interface Report {
   date_to: string;
   content: string;
   generated_at: string;
+  model_id: string | null;
+  model_name: string | null;
+  provider: string | null;
 }
 
 interface WeeklyReport {
@@ -208,14 +211,42 @@ interface API {
   };
   report: {
     weekly: (start: string, end: string) => Promise<WeeklyReport>;
-    create: (type: string, dateFrom: string, dateTo: string, content: string) => Promise<Report>;
+    create: (
+      type: string,
+      dateFrom: string,
+      dateTo: string,
+      content: string,
+      model?: { modelId: string; modelName: string; provider: string } | null,
+    ) => Promise<Report>;
     list: (limit?: number) => Promise<Report[]>;
     update: (id: number, content: string) => Promise<Report | null>;
   };
   ai: {
-    streamChat: (prompt: string) => Promise<{
-      onPort: (callback: (port: MessagePort) => void) => () => void;
-    }>;
+    streamChat: (
+      prompt: string,
+      options?: {
+        reportContext?: {
+          dateFrom: string;
+          dateTo: string;
+          logs: { content: string; created_at: string }[];
+          tasks: {
+            title: string;
+            description?: string;
+            status: 'todo' | 'in_progress' | 'done' | 'draft';
+            due_date?: string | null;
+            completed_at?: string | null;
+          }[];
+        };
+        usageType?: 'chat' | 'report';
+      },
+    ) => {
+      onChunk: (callback: (text: string) => void) => () => void;
+      onDone: (callback: () => void) => () => void;
+      onError: (callback: (error: string) => void) => () => void;
+      onModelInfo: (
+        callback: (info: { modelId: string; modelName: string; provider: string }) => void,
+      ) => () => void;
+    };
   };
   models: {
     ensure: (
@@ -265,6 +296,8 @@ interface API {
     }>;
     /** 保存完整全局模型配置 */
     setGlobalConfig: (config: any) => Promise<{ ok: boolean }>;
+    /** 显式删除模型配置（合并式保存不会删除未传入的配置） */
+    deleteConfigs: (ids: string[]) => Promise<{ ok: boolean }>;
     /** 获取当前活跃 Chat 配置 */
     getActiveChat: () => Promise<{
       id: string;

@@ -125,7 +125,10 @@ function createTables(): void {
       date_from TEXT NOT NULL,
       date_to TEXT NOT NULL,
       content TEXT NOT NULL,
-      generated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+      generated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+      model_id TEXT,
+      model_name TEXT,
+      provider TEXT
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -298,7 +301,23 @@ function migrateWorkLogSortKey(): void {
   sqlite.exec('CREATE INDEX IF NOT EXISTS idx_work_logs_sort_key ON work_logs(sort_key)');
 }
 
+/** 报告模型信息列迁移：老库补列，幂等；放在所有提前 return 之前执行 */
+function migrateReportModelColumns(): void {
+  const reportInfo = sqlite.prepare("PRAGMA table_info('reports')").all() as { name: string }[];
+  if (!reportInfo.some((c) => c.name === 'model_id')) {
+    sqlite.exec('ALTER TABLE reports ADD COLUMN model_id TEXT');
+  }
+  if (!reportInfo.some((c) => c.name === 'model_name')) {
+    sqlite.exec('ALTER TABLE reports ADD COLUMN model_name TEXT');
+  }
+  if (!reportInfo.some((c) => c.name === 'provider')) {
+    sqlite.exec('ALTER TABLE reports ADD COLUMN provider TEXT');
+  }
+}
+
 function runMigrations(): void {
+  migrateReportModelColumns();
+
   const colInfo = sqlite.prepare("PRAGMA table_info('tasks')").all() as { name: string }[];
   const hasDueDate = colInfo.some((c) => c.name === 'due_date');
 
