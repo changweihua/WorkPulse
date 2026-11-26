@@ -1,12 +1,12 @@
-# 拾光 (WorkPulse)
+# 记了么 (WorkPulse)
 
-[English](./README.md) | [中文](./README.zh-CN.md)
+[English](./README.en-US.md) | [中文](./README.md)
 
 > 让每一份努力被看见
 
 一款轻量桌面应用，几秒钟记录你的每日工作——写下做了什么、用看板管理任务、用 AI 生成工作报告。
 
-为每一个想轻松回顾"今天干了啥"的打工人而生。
+名字取自每天那句"今天记了么？"——一次记录，一份看得见的努力。为每一个想轻松回顾"今天干了啥"的打工人而生。
 
 ## 截图
 
@@ -44,6 +44,12 @@
 
 **Windows Mica 效果** — 原生 `backgroundMaterial`（Mica / Mica Tabbed / Acrylic 可在设置中切换），标题栏、导航栏与内容区统一涂装，毛玻璃质感与桌面环境融为一体。
 
+**品牌视觉** — 全程序图标按同一套语言定制：灰紫显示器 + 青红脉搏波形 + 四色任务点的主标识，导航、托盘、悬浮窗、Touch Bar 多色品牌图标统一，深色主题自动提亮；默认字体 MiSans。
+
+**液态玻璃悬浮窗** — 径向悬浮菜单与 Touch Bar 共用液态玻璃饰面：色散彩边、菲涅尔高光与鼠标跟随镜面反光，全程纯 paint 叠加，不增加额外材质层。系统开启"减少透明度 / 减少动态效果"时自动降级。
+
+**主题切换动画** — 切换主题时从点击位置扩散的圆形揭示过渡（View Transition），动画期间补齐底色避免只剩文字变色；不支持的浏览器、键盘激活与减少动态偏好下回退到普通过渡。强调色变更跨窗口即时同步。
+
 ## 技术栈
 
 - **Electron** + **React** + **TypeScript**
@@ -74,6 +80,25 @@ npm run dist:mac    # macOS (DMG + ZIP, x64 + arm64)
 npm run dist:win    # Windows (NSIS 安装包)
 npm run dist:linux  # Linux (AppImage)
 ```
+
+## 开发与验证
+
+所有命令都可直接在本机运行，不需要额外手工点窗口确认。
+
+| 命令                   | 作用                                                          |
+| ---------------------- | ------------------------------------------------------------- |
+| `npm test`             | Vitest 单元测试（`tests/unit`，jsdom + Testing Library）      |
+| `npm run test:watch`   | 单元测试监视模式，改代码即重跑                                |
+| `npm run test:e2e`     | 先构建，再用 Playwright 启动真实 Electron 窗口做 GUI 冒烟验证 |
+| `npm run typecheck`    | 主进程 / 渲染进程两段 TypeScript 检查                         |
+| `npm run lint`         | Oxlint 静态检查                                               |
+| `npm run format:check` | 代码与文档格式检查                                            |
+| `npm run build`        | 全量构建 main / preload / renderer                            |
+| `npm run audit:glass`  | 玻璃效果 GPU 预算审计                                         |
+
+单元测试覆盖动效 token 契约、主题切换的扩散与 reduced-motion 降级、Toast 定时器去重、命令面板执行锁、强调色事件广播。`tests/setup.ts` 统一补齐 jsdom 缺少的 `matchMedia` / WAAPI / `scrollIntoView`。
+
+GUI 验证会检查主窗口渲染、原生 View Transition 支持、点击主题按钮是否触发扩散与底色补齐、减少动态偏好下是否跳过动画、命令面板快捷键开关，并把截图写到 `test-results/`。该模式通过 `WORKPULSE_E2E=1` 与临时 `userData` 完全隔离：跳过单实例锁、全局快捷键、托盘、协议注册与更新检查，不碰真实数据库和注册表。验证失败时保留临时 `userData` 并打印主进程日志末尾，便于自行排查。新增渲染层用例放 `tests/unit`，新增窗口级用例放 `tests/e2e`。
 
 ## 安装说明
 

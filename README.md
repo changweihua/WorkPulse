@@ -1,77 +1,83 @@
-# WorkPulse
+# 记了么 (WorkPulse)
 
-[English](./README.md) | [中文](./README.zh-CN.md)
+[English](./README.en-US.md) | [中文](./README.md)
 
 > 让每一份努力被看见
 
-A lightweight desktop app that captures your daily work in seconds — log what you did, track tasks on a kanban board, and generate AI-powered reports.
+一款轻量桌面应用，几秒钟记录你的每日工作——写下做了什么、用看板管理任务、用 AI 生成工作报告。
 
-Built for individual contributors who want a frictionless way to remember what they accomplished each day.
+名字取自每天那句"今天记了么？"——一次记录，一份看得见的努力。为每一个想轻松回顾"今天干了啥"的打工人而生。
 
-## Screenshots
+## 截图
 
-| Work Log                                            | Kanban                                           |
-| --------------------------------------------------- | ------------------------------------------------ |
-| ![Work Log](docs/screenshots/workpulse-worklog.png) | ![Kanban](docs/screenshots/workpulse-kanban.png) |
+| 工作日志                                            | 看板                                           |
+| --------------------------------------------------- | ---------------------------------------------- |
+| ![工作日志](docs/screenshots/workpulse-worklog.png) | ![看板](docs/screenshots/workpulse-kanban.png) |
 
-| AI Report                                           | Statistics                                          |
-| --------------------------------------------------- | --------------------------------------------------- |
-| ![AI Report](docs/screenshots/workpulse-report.png) | ![Statistics](docs/screenshots/workpulse-stats.png) |
+| AI 报告                                           | 统计                                          |
+| ------------------------------------------------- | --------------------------------------------- |
+| ![AI 报告](docs/screenshots/workpulse-report.png) | ![统计](docs/screenshots/workpulse-stats.png) |
 
-## Features
+## 功能
 
-**Work Log** — Type what you just did, press Enter. That's it. Supports `#tag` for auto-categorization, full-text search, undo delete, and CSV/Markdown export with categories.
+**工作日志** — 输入你刚做了什么，按回车，完成。支持 `#标签` 自动分类、全文搜索、撤销删除，以及带分类信息的 CSV/Markdown 导出。
 
-**Kanban Board** — Drag tasks between Todo → In Progress → Done. Includes a draft box for "maybe later" ideas, due date tracking, and inline editing. Completing a task auto-generates a work log entry.
+**看板任务** — 在待办 → 进行中 → 已完成之间拖拽任务卡片。有草稿箱存放"以后再说"的想法，支持截止日期和内联编辑。完成任务时自动生成一条工作日志。
 
-**AI Reports** — Select a date range and generate a structured summary of your work with streaming rendering (thinking-process collapsible). Reports are auto-saved to history on completion and can be previewed, edited, copied, or exported.
+**AI 报告** — 选择时间范围，一键生成结构化工作总结。流式渲染（支持思考过程折叠），生成完成自动保存到历史，可预览、编辑、复制或导出。
 
-**AI Chat** — Built-in multi-conversation chat with provider presets for DeepSeek/OpenAI/Anthropic/Zhipu/Moonshot/Qwen/Gitee/Ollama, connection testing, config import/export, live token usage and cost estimation.
+**AI 对话** — 内置多会话聊天，支持 DeepSeek/OpenAI/Anthropic/智谱/Moonshot/通义/Gitee/Ollama 等供应商预设、连接测试、配置导入导出，实时 Token 统计与成本估算。
 
-**Calendar** — Manage todos and meetings on a perpetual calendar view with automatic Chinese holiday/substitute-workday data. Meeting reminders fire system notifications ahead of the configured lead time and can also be pushed to your iPhone via Bark.
+**日程日历** — 万年历视图管理待办事项与会议预约，自动接入法定节假日与调休数据；会议开始前按配置的提前量推送系统通知，并可同步推送到 iPhone（Bark）。
 
-**Local AI Models** — ONNX model chat, OCR text recognition, PaddleOCR, and XRay image processing. Models download via the hf-mirror.com China mirror into a local folder cache, reused across pages, with WebGPU acceleration and retry on failure.
+**本地 AI 模型** — ONNX 模型对话、OCR 图片文字识别、PaddleOCR、XRay 影像处理。模型经 hf-mirror.com 国内镜像下载并缓存到本地文件夹，跨页面复用，支持 WebGPU 加速与失败重试。
 
-**Statistics** — 3D contribution graph (React Three Fiber), stacked bar chart, donut breakdown, category distribution, streak counter, with one-click range switching from 1 month to 1 year.
+**数据统计** — 3D 贡献图（React Three Fiber）、堆叠柱状图、环形占比、分类分布、连续记录天数，支持近一月到近一年周期一键切换。
 
-**Quick Capture** — Configurable global shortcuts (`Ctrl+Shift+L` for logs, `Ctrl+Shift+T` for tasks by default) let you record without switching windows. Quick logs also support `#tag` parsing and are accessible from the menu bar tray icon.
+**快速记录** — 可配置全局快捷键（默认 `Ctrl+Shift+L` 记日志、`Ctrl+Shift+T` 加任务）让你无需切换窗口即可记录。快速日志同样支持 `#标签` 解析，也可从菜单栏托盘图标操作。
 
-**Dark Mode** — System, light, or dark theme with full UI coverage, unified through a design-token color system.
+**深色模式** — 跟随系统、浅色、深色三种主题，全界面覆盖，基于设计 Token 统一配色。
 
-**Languages** — English and Chinese UI with a system-default option. Menus, tray actions, settings, exports, and default AI report prompts follow the selected language.
+**多语言** — 支持中文和英文界面，可跟随系统语言。菜单、托盘操作、设置、导出及默认 AI 报告提示词均随语言切换。
 
-**Auto Updates** — Packaged builds check GitHub Releases for newer versions, download updates in the background, and install after restart. Settings also includes a manual update check.
+**自动更新** — 打包版本会自动检查 GitHub Releases 新版本，后台下载更新，重启后安装。设置页面也提供手动检查更新。
 
-**Windows Mica Effect** — Native `backgroundMaterial` (Mica / Mica Tabbed / Acrylic, switchable in Settings) with unified title bar, navigation, and content painting for a seamless frosted-glass desktop integration.
+**Windows Mica 效果** — 原生 `backgroundMaterial`（Mica / Mica Tabbed / Acrylic 可在设置中切换），标题栏、导航栏与内容区统一涂装，毛玻璃质感与桌面环境融为一体。
 
-## Tech Stack
+**品牌视觉** — 全程序图标按同一套语言定制：灰紫显示器 + 青红脉搏波形 + 四色任务点的主标识，导航、托盘、悬浮窗、Touch Bar 多色品牌图标统一，深色主题自动提亮；默认字体 MiSans。
+
+**液态玻璃悬浮窗** — 径向悬浮菜单与 Touch Bar 共用液态玻璃饰面：色散彩边、菲涅尔高光与鼠标跟随镜面反光，全程纯 paint 叠加，不增加额外材质层。系统开启"减少透明度 / 减少动态效果"时自动降级。
+
+**主题切换动画** — 切换主题时从点击位置扩散的圆形揭示过渡（View Transition），动画期间补齐底色避免只剩文字变色；不支持的浏览器、键盘激活与减少动态偏好下回退到普通过渡。强调色变更跨窗口即时同步。
+
+## 技术栈
 
 - **Electron** + **React** + **TypeScript**
-- **Vite** via electron-vite for fast builds
-- **SQLite** (better-sqlite3) for local-first data storage
-- **Zustand** for state management
-- **@dnd-kit** for drag-and-drop
-- **Tailwind CSS** with a design-token system
-- Native `backgroundMaterial` for Windows Mica effect
-- **React Three Fiber** + **Three.js** for the 3D contribution graph
-- **ECharts** for statistics charts
-- **Transformers.js** for local AI model inference (WebGPU)
+- **Vite** (electron-vite) 快速构建
+- **SQLite** (better-sqlite3) 本地数据存储
+- **Zustand** 状态管理
+- **@dnd-kit** 拖拽排序
+- **Tailwind CSS** 样式（设计 Token 体系）
+- 原生 `backgroundMaterial` Windows Mica 效果
+- **React Three Fiber** + **Three.js** 3D 贡献图
+- **ECharts** 统计图表
+- **Transformers.js** 本地 AI 模型推理（WebGPU）
 
-## Getting Started
+## 快速开始
 
 ```bash
-# Install dependencies
+# 安装依赖
 npm install
 
-# Run in development
+# 开发模式运行
 npm run dev
 
-# Build for production
+# 生产构建
 npm run build
 
-# Package for distribution
+# 打包分发
 npm run dist:mac    # macOS (DMG + ZIP, x64 + arm64)
-npm run dist:win    # Windows (NSIS installer)
+npm run dist:win    # Windows (NSIS 安装包)
 npm run dist:linux  # Linux (AppImage)
 ```
 
@@ -94,50 +100,50 @@ npm run dist:linux  # Linux (AppImage)
 
 GUI 验证会检查主窗口渲染、原生 View Transition 支持、点击主题按钮是否触发扩散与底色补齐、减少动态偏好下是否跳过动画、命令面板快捷键开关，并把截图写到 `test-results/`。该模式通过 `WORKPULSE_E2E=1` 与临时 `userData` 完全隔离：跳过单实例锁、全局快捷键、托盘、协议注册与更新检查，不碰真实数据库和注册表。验证失败时保留临时 `userData` 并打印主进程日志末尾，便于自行排查。新增渲染层用例放 `tests/unit`，新增窗口级用例放 `tests/e2e`。
 
-## Installation
+## 安装说明
 
 ### macOS
 
-Because the build is unsigned, macOS Gatekeeper will mark the app as "damaged" on first launch. After dragging `WorkPulse.app` to `/Applications`, run this once in Terminal to clear the quarantine attribute:
+由于安装包未签名，macOS 在首次打开时会提示"已损坏"。把 `WorkPulse.app` 拖到 `/Applications` 之后，在终端执行一次以下命令以清除隔离属性：
 
 ```bash
 xattr -cr /Applications/WorkPulse.app
 ```
 
-Then open the app normally.
+然后正常打开应用即可。
 
 ### Windows
 
-Download the NSIS installer from [Releases](../../releases). Run the installer and follow the prompts. The app will be installed to your Program Files directory.
+从 [Releases](../../releases) 下载 NSIS 安装包，运行安装程序并按照提示操作。应用将安装到 Program Files 目录。
 
-## Release Builds
+## 发布构建
 
-GitHub Actions builds release artifacts for macOS, Windows, and Linux when a `v*` tag is pushed, or when the `Release` workflow is run manually.
+当推送 `v*` 标签或手动运行 `Release` 工作流时，GitHub Actions 会为 macOS、Windows 和 Linux 构建发布产物。
 
 ```bash
-npm run release        # interactive version picker; auto commit + tag + push
+npm run release        # 交互式选择版本号，自动提交 + 打标签 + 推送
 ```
 
-Update [CHANGELOG.md](./CHANGELOG.md) before releasing. The workflow uploads DMG/ZIP, NSIS/portable EXE, AppImage, and DEB artifacts to the GitHub Release. Builds are unsigned by default; add signing secrets later if you need notarized macOS or signed Windows installers.
+发布前请同步更新 [CHANGELOG.md](./CHANGELOG.md)。工作流会将 DMG/ZIP、NSIS/便携版 EXE、AppImage 和 DEB 产物上传到 GitHub Release。默认构建未签名；如需 macOS 公证或 Windows 签名安装包，请另行配置签名密钥。
 
-Packaged apps use the same GitHub Release metadata (`latest.yml`, `latest-mac.yml`, `latest-linux.yml`) for automatic update checks.
+打包应用使用相同的 GitHub Release 元数据（`latest.yml`、`latest-mac.yml`、`latest-linux.yml`）进行自动更新检查。
 
-## Keyboard Shortcuts
+## 快捷键
 
-| Shortcut        | Action              |
-| --------------- | ------------------- |
-| `⌘1` / `Ctrl+1` | Switch to Work Log  |
-| `⌘2` / `Ctrl+2` | Switch to Kanban    |
-| `⌘3` / `Ctrl+3` | Switch to Reports   |
-| `⌘4` / `Ctrl+4` | Switch to Stats     |
-| `⌘,` / `Ctrl+,` | Settings            |
-| `Ctrl+Shift+L`  | Quick log (global)  |
-| `Ctrl+Shift+T`  | Quick task (global) |
+| 快捷键          | 功能             |
+| --------------- | ---------------- |
+| `⌘1` / `Ctrl+1` | 切换到工作日志   |
+| `⌘2` / `Ctrl+2` | 切换到看板       |
+| `⌘3` / `Ctrl+3` | 切换到报告       |
+| `⌘4` / `Ctrl+4` | 切换到统计       |
+| `⌘,` / `Ctrl+,` | 设置             |
+| `Ctrl+Shift+L`  | 全局快速记录日志 |
+| `Ctrl+Shift+T`  | 全局快速添加任务 |
 
-## Data & Security
+## 数据与安全
 
-All data is stored locally in SQLite at your system's app data directory. Automatic daily backups are created. API keys are stored through Electron secure storage when available, with migration cleanup for legacy plaintext keys. No cloud, no account, no telemetry.
+所有数据存储在本地 SQLite 数据库中（系统应用数据目录）。每日自动备份。API Key 会在系统支持时通过 Electron 安全存储加密保存，并清理旧版遗留的明文密钥。无云端、无账号、无遥测。
 
-## License
+## 许可证
 
 MIT

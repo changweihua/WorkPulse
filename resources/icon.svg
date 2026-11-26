@@ -1,59 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  WorkPulse 主图标（矢量源）
-  设计语言：扁平多色填充 + 圆角 + 轻微立体厚度，沿用 iconfont 原图的灰紫/深蓝紫/青/红配色。
-  意象：iMac 一体机显示器（呼应「工作空间」）+ 屏幕内脉搏波形（呼应「WorkPulse 工作脉搏」）
-        + 顶部四个任务状态点（沿用原图标看板卡片意象）。
-  生成派生文件请运行 generate-icons.ps1（依赖 ImageMagick 7）。
+  WorkPulse「记了么」主图标（矢量源）
+  设计：深蓝紫圆角底 + 白色隶书「记」单字 + 青红脉搏波形 + 四色任务点。
+  小尺寸用单字保证 16~32px 可辨识；完整的「记了么」三字隶书字标见 resources/logo/。
+  派生文件：icon.png / icon.ico / icon.icns（勿再用 generate-icons.ps1 的显示器图标流程覆盖）。
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="256" height="256">
-  <defs>
-    <linearGradient id="wp-body" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#D0D1DC"/>
-      <stop offset="1" stop-color="#9B9CAF"/>
-    </linearGradient>
-    <linearGradient id="wp-screen" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#4C4F6E"/>
-      <stop offset="1" stop-color="#2C2F53"/>
-    </linearGradient>
-    <linearGradient id="wp-pulse" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#11CBE5"/>
-      <stop offset="0.55" stop-color="#91EDF8"/>
-      <stop offset="1" stop-color="#FA4659"/>
-    </linearGradient>
-  </defs>
-
-  <!-- 支架底座与颈 -->
-  <rect x="456" y="666" width="96" height="150" rx="18" fill="#999AAC"/>
-  <rect x="336" y="810" width="352" height="58" rx="29" fill="#7C7F95"/>
-  <rect x="336" y="800" width="352" height="58" rx="29" fill="#999AAC"/>
-
-  <!-- 显示器厚度（右下偏移，制造立体感） -->
-  <rect x="104" y="126" width="832" height="556" rx="52" fill="#7C7F95"/>
-  <!-- 显示器主体 -->
-  <rect x="88" y="110" width="832" height="556" rx="52" fill="url(#wp-body)"/>
-  <!-- 屏幕 -->
-  <rect x="140" y="162" width="728" height="452" rx="26" fill="url(#wp-screen)"/>
-
-  <!-- 顶部任务状态点（沿用原图标看板卡片意象，左上高光） -->
-  <circle cx="300" cy="252" r="20" fill="#11CBE5"/>
-  <circle cx="293" cy="245" r="9" fill="#E9FFF5" opacity="0.92"/>
-  <circle cx="392" cy="252" r="20" fill="#BCF4F5"/>
-  <circle cx="385" cy="245" r="9" fill="#E9FFF5" opacity="0.92"/>
-  <circle cx="484" cy="252" r="20" fill="#FDB8BF"/>
-  <circle cx="477" cy="245" r="9" fill="#FEDEE1" opacity="0.92"/>
-  <circle cx="576" cy="252" r="20" fill="#FA4659"/>
-  <circle cx="569" cy="245" r="9" fill="#FEDEE1" opacity="0.92"/>
-
-  <!-- 脉搏波形：光晕底层 + 渐变主线条 -->
-  <path d="M196 470 L292 470 L316 446 L340 470 L388 470 L412 502 L448 352 L484 504 L512 470 L580 470 L608 434 L640 434 L668 470 L812 470"
-        fill="none" stroke="#11CBE5" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" opacity="0.18"/>
-  <path d="M196 470 L292 470 L316 446 L340 470 L388 470 L412 502 L448 352 L484 504 L512 470 L580 470 L608 434 L640 434 L668 470 L812 470"
-        fill="none" stroke="url(#wp-pulse)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-
-  <!-- 屏幕底部信息条（沿用原图标横条意象） -->
-  <rect x="200" y="540" width="480" height="16" rx="8" fill="#EAEAEE" opacity="0.22"/>
-
-  <!-- 下巴摄像头 -->
-  <circle cx="504" cy="636" r="11" fill="#7C7F95"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4C4F6E"/><stop offset="1" stop-color="#2C2F53"/></linearGradient>
+  <linearGradient id="pulse" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#11CBE5"/><stop offset="0.55" stop-color="#91EDF8"/><stop offset="1" stop-color="#FA4659"/></linearGradient>
+</defs>
+<rect width="1024" height="1024" rx="180" fill="url(#bg)"/>
+<g transform="translate(88.5,688) scale(0.8)"><path d="M756-633Q770-638 780-642Q790-646 794-647Q795-647 786-546Q784-512 782-495Q775-423 770.50-382Q766-341 764-340Q762-337 732-336Q702-335 640-335L520-335L519-317Q519-274 524-234Q525-215 527.50-203Q530-191 533.50-186Q537-181 549-171Q568-155 581-148Q602-138 651.50-130Q701-122 762-120L814-119L833-126Q853-133 863-140Q879-150 902-166Q925-182 942-195L954-204L954-195Q957-168 933-109.50Q909-51 884-23Q874-13 863-8Q852-3 836-3Q818-3 792-8.50Q766-14 718-26L615-53Q554-69 526.50-80Q499-91 483-107Q465-125 458-150.50Q451-176 447-232Q445-276 436-346Q429-417 430-417Q442-416 455-413Q469-410 481.50-409Q494-408 517-408L580-408L634-410Q685-412 686-412Q688-413 690-415Q692-417 693-420Q695-431 698.50-453.50Q702-476 704-501L705-519L662-518Q634-515 573-515Q566-514 552-514L508-513Q493-513 488.50-514Q484-515 483-518Q481-523 474.50-558Q468-593 466-606L477-604Q488-600 510.50-597.50Q533-595 558-595Q617-595 659.50-603.50Q702-612 756-633M322-640Q344-646 344-642Q344-638 320-578Q296-518 291-510Q284-500 280-500Q276-500 261-512Q256-515 215-548Q204-559 192-568Q185-573 176-582Q155-598 166-598Q168-598 200-606Q234-616 279-628Q294-633 322-640M273-455Q336-465 336-461L333-449Q328-430 312.50-341Q297-252 292-207Q291-195 291-189Q291-183 293-182Q296-178 307-181Q318-184 362-202L404-218Q405-215 378-177Q361-151 352.50-140.50Q344-130 329-118Q293-86 262-63Q231-40 226-40Q219-40 200-68Q181-96 168-126Q166-130 162.50-140Q159-150 158.50-153.50Q158-157 159-158Q160-160 185-162Q204-164 209-165.50Q214-167 215-173Q215-181 237-329Q244-371 244-382Q244-386 239-386.50Q234-387 222-386Q158-381 144-375Q137-370 134-370L128-387Q118-414 113-423Q105-442 105-446Q105-447 168-449Q228-450 273-455" fill="#F4F6FB"/></g>
+<path d="M 120 856 L 330 856 L 380 812 L 430 900 L 512 770 L 594 900 L 644 856 L 904 856"
+  fill="none" stroke="url(#pulse)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="264" cy="856" r="14" fill="#11CBE5"/>
+<circle cx="344" cy="856" r="14" fill="#91EDF8"/>
+<circle cx="424" cy="856" r="14" fill="#FDB8BF"/>
+<circle cx="504" cy="856" r="14" fill="#FA4659"/>
 </svg>
